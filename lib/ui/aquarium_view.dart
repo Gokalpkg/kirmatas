@@ -94,6 +94,7 @@ class AquariumView extends StatelessWidget {
                       onPressed: () {
                         showModalBottomSheet(
                           context: context,
+                          isScrollControlled: true,
                           backgroundColor: const Color(0xF00D0F18),
                           shape: const RoundedRectangleBorder(
                             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -124,36 +125,36 @@ class AquariumView extends StatelessWidget {
   }
 
   Widget _buildFishSheet(BuildContext context, SaveManager save) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                I18n.tr('collected_species'),
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
-              ),
-              Text(
-                '${save.unlockedFish.length} / ${FishItem.allFish.length}',
-                style: const TextStyle(color: Color(0xFF4FC3F7), fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              childAspectRatio: 0.95,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.72,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  I18n.tr('collected_species'),
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                ),
+                Text(
+                  '${save.unlockedFish.length} / ${FishItem.allFish.length}',
+                  style: const TextStyle(color: Color(0xFF4FC3F7), fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
-            itemCount: FishItem.allFish.length,
+            const SizedBox(height: 16),
+            Expanded(
+              child: GridView.builder(
+                physics: const BouncingScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  childAspectRatio: 0.92,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                ),
+                itemCount: FishItem.allFish.length,
             itemBuilder: (context, index) {
               final fish = FishItem.allFish[index];
               final owned = save.unlockedFish.contains(fish.id);
@@ -207,8 +208,10 @@ class AquariumView extends StatelessWidget {
               );
             },
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  ),
+);
+}
 }

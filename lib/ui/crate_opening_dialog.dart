@@ -66,8 +66,15 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with SingleTick
       final fish = available.isNotEmpty ? available[rand.nextInt(available.length)] : FishItem.allFish.first;
       _reward = fish;
       _rewardTitle = fish.name;
-      _rewardSubtitle = I18n.tr('new_fish_unlocked');
-      save.addFish(fish.id);
+      if (save.unlockedFish.contains(fish.id)) {
+        _isDuplicate = true;
+        _duplicateGold = 120 + rand.nextInt(160);
+        save.addGold(_duplicateGold);
+        _rewardSubtitle = I18n.tr('duplicate_reward').replaceAll('{gold}', '$_duplicateGold');
+      } else {
+        _rewardSubtitle = I18n.tr('new_fish_unlocked');
+        save.addFish(fish.id);
+      }
     } else if (poolType == 1) {
       // Ball Skin
       final available = BallSkin.allSkins.where((s) => s.rarity == rolledRarity).toList();

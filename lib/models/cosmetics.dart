@@ -303,6 +303,7 @@ class FishItem {
   String get assetPath => 'assets/images/fishes/$id.png';
 
   static const List<FishItem> allFish = [
+    // 1. Guppy Species
     FishItem(
       id: 'guppy',
       name: 'Mercan Lepistes',
@@ -312,13 +313,49 @@ class FishItem {
       secondaryColor: Color(0xFFFF5252),
     ),
     FishItem(
+      id: 'guppy_blue',
+      name: 'Safir Lepistes',
+      rarity: Rarity.rare,
+      size: 1.0,
+      color: Color(0xFF40C4FF),
+      secondaryColor: Color(0xFF0288D1),
+    ),
+    FishItem(
+      id: 'guppy_green',
+      name: 'Zümrüt Lepistes',
+      rarity: Rarity.rare,
+      size: 1.0,
+      color: Color(0xFF69F0AE),
+      secondaryColor: Color(0xFF00E676),
+    ),
+
+    // 2. Discus Species (tetra asset)
+    FishItem(
       id: 'tetra',
-      name: 'Neon Tetra',
+      name: 'Neon Diskus',
       rarity: Rarity.common,
       size: 1.1,
       color: Color(0xFF4FC3F7),
       secondaryColor: Color(0xFF0288D1),
     ),
+    FishItem(
+      id: 'tetra_gold',
+      name: 'Alevli Diskus',
+      rarity: Rarity.rare,
+      size: 1.1,
+      color: Color(0xFFFF4081),
+      secondaryColor: Color(0xFF00E676),
+    ),
+    FishItem(
+      id: 'tetra_purple',
+      name: 'Ametist Diskus',
+      rarity: Rarity.epic,
+      size: 1.1,
+      color: Color(0xFFB388FF),
+      secondaryColor: Color(0xFF76FF03),
+    ),
+
+    // 3. Angelfish Species
     FishItem(
       id: 'angel',
       name: 'Altın Melek Balığı',
@@ -328,28 +365,98 @@ class FishItem {
       secondaryColor: Color(0xFFFBC02D),
     ),
     FishItem(
+      id: 'angel_aqua',
+      name: 'Okyanus Melek Balığı',
+      rarity: Rarity.epic,
+      size: 1.45,
+      color: Color(0xFF00E5FF),
+      secondaryColor: Color(0xFF00B0FF),
+    ),
+    FishItem(
+      id: 'angel_ruby',
+      name: 'Yakut Melek Balığı',
+      rarity: Rarity.epic,
+      size: 1.45,
+      color: Color(0xFFFF1744),
+      secondaryColor: Color(0xFFD50000),
+    ),
+
+    // 4. Glow Tetra Species (betta asset)
+    FishItem(
       id: 'betta',
-      name: 'Kral Betta',
+      name: 'Pırıltılı Tetra',
       rarity: Rarity.rare,
-      size: 1.4,
+      size: 1.25,
       color: Color(0xFFE040FB),
       secondaryColor: Color(0xFF8E24AA),
     ),
     FishItem(
-      id: 'discus',
-      name: 'Alev Diskus',
+      id: 'betta_blue',
+      name: 'Plazma Tetra',
       rarity: Rarity.epic,
-      size: 1.6,
-      color: Color(0xFFFFAB40),
-      secondaryColor: Color(0xFFFF6D00),
+      size: 1.25,
+      color: Color(0xFFFF3D00),
+      secondaryColor: Color(0xFF00E5FF),
     ),
     FishItem(
+      id: 'betta_orange',
+      name: 'Zümrüt Tetra',
+      rarity: Rarity.epic,
+      size: 1.25,
+      color: Color(0xFF00E676),
+      secondaryColor: Color(0xFFD500F9),
+    ),
+
+    // 5. Royal Betta Species (discus asset)
+    FishItem(
+      id: 'discus',
+      name: 'Kral Betta',
+      rarity: Rarity.epic,
+      size: 1.55,
+      color: Color(0xFF2979FF),
+      secondaryColor: Color(0xFFFF3D00),
+    ),
+    FishItem(
+      id: 'discus_blue',
+      name: 'Altın Kanat Betta',
+      rarity: Rarity.epic,
+      size: 1.55,
+      color: Color(0xFFFFD700),
+      secondaryColor: Color(0xFF00E5FF),
+    ),
+    FishItem(
+      id: 'discus_green',
+      name: 'Zehir Betta',
+      rarity: Rarity.legendary,
+      size: 1.55,
+      color: Color(0xFFE040FB),
+      secondaryColor: Color(0xFF76FF03),
+    ),
+
+    // 6. Dragon Arowana Species
+    FishItem(
       id: 'arowana',
-      name: 'Efsanevi Ejder Arowana',
+      name: 'Efsanevi Altın Ejder',
       rarity: Rarity.legendary,
       size: 1.9,
       color: Color(0xFFFFD700),
       secondaryColor: Color(0xFFFFAB00),
+    ),
+    FishItem(
+      id: 'arowana_red',
+      name: 'Kızıl Ejder Arowana',
+      rarity: Rarity.legendary,
+      size: 1.9,
+      color: Color(0xFFFF1744),
+      secondaryColor: Color(0xFF00B0FF),
+    ),
+    FishItem(
+      id: 'arowana_silver',
+      name: 'Platin Ejder Arowana',
+      rarity: Rarity.legendary,
+      size: 1.9,
+      color: Color(0xFFECEFF1),
+      secondaryColor: Color(0xFFB0BEC5),
     ),
   ];
 
