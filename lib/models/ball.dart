@@ -24,6 +24,7 @@ class Ball {
   double squashTimer;
   double squashAngle;
   double stuckTimer;
+  double cornerBoostTimer;
 
   Ball({
     required this.x,
@@ -41,6 +42,7 @@ class Ball {
     this.squashTimer = 0.0,
     this.squashAngle = 0.0,
     this.stuckTimer = 0.0,
+    this.cornerBoostTimer = 0.0,
   });
 
   double get speed => sqrt(vx * vx + vy * vy);
@@ -66,6 +68,10 @@ class Ball {
     if (squashTimer > 0) {
       squashTimer -= dt;
       if (squashTimer < 0) squashTimer = 0;
+    }
+    if (cornerBoostTimer > 0) {
+      cornerBoostTimer -= dt;
+      if (cornerBoostTimer < 0) cornerBoostTimer = 0.0;
     }
 
     if (!isStuck) {

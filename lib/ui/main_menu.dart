@@ -176,6 +176,31 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         );
                       }).toList(),
                     ),
+
+                    const SizedBox(height: 14),
+                    const Divider(color: Colors.white12),
+
+                    // Developer Mode
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Row(
+                        children: [
+                          const Icon(Icons.terminal, color: Color(0xFF00E5FF), size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            I18n.tr('dev_mode'),
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                      subtitle: Text(
+                        I18n.tr('dev_mode_desc'),
+                        style: const TextStyle(color: Colors.white54, fontSize: 11),
+                      ),
+                      value: _save.devModeEnabled,
+                      activeThumbColor: const Color(0xFF00E5FF),
+                      onChanged: (val) => _save.setDevMode(val),
+                    ),
                   ],
                 ),
               ),
@@ -279,7 +304,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                   // Brand Title (Clean, no subtitle)
                   Text(
-                    'KIRMATAŞ',
+                    'KIRMATAS',
                     style: TextStyle(
                       fontSize: 42,
                       fontWeight: FontWeight.w900,

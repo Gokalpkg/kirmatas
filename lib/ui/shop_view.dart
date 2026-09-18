@@ -114,7 +114,8 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
       itemCount: CrateDef.allCrates.length,
       itemBuilder: (context, index) {
         final crate = CrateDef.allCrates[index];
-        final canAfford = save.gold >= crate.cost;
+        final cost = save.devModeEnabled ? 0 : crate.cost;
+        final canAfford = save.devModeEnabled || save.gold >= cost;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
@@ -171,7 +172,7 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
               ElevatedButton(
                 onPressed: canAfford
                     ? () async {
-                        final success = await save.spendGold(crate.cost);
+                        final success = await save.spendGold(cost);
                         if (success && context.mounted) {
                           showDialog(
                             context: context,
@@ -193,7 +194,7 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
                     const Icon(Icons.monetization_on, size: 16),
                     const SizedBox(width: 4),
                     Text(
-                      '${crate.cost}',
+                      save.devModeEnabled ? '0 (${I18n.tr('free')})' : '${crate.cost}',
                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
                     ),
                   ],
@@ -268,9 +269,10 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
                 )
               else
                 ElevatedButton(
-                  onPressed: save.gold >= skin.cost
+                  onPressed: (save.devModeEnabled || save.gold >= skin.cost)
                       ? () async {
-                          final ok = await save.spendGold(skin.cost);
+                          final cost = save.devModeEnabled ? 0 : skin.cost;
+                          final ok = await save.spendGold(cost);
                           if (ok) {
                             save.unlockBall(skin.id);
                             save.equipBall(skin.id);
@@ -282,7 +284,10 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
                     foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: Text('${skin.cost} 🪙', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
+                  child: Text(
+                    save.devModeEnabled ? '0 🪙 (${I18n.tr('free')})' : '${skin.cost} 🪙',
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                  ),
                 ),
             ],
           ),
@@ -350,9 +355,10 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
                 )
               else
                 ElevatedButton(
-                  onPressed: save.gold >= skin.cost
+                  onPressed: (save.devModeEnabled || save.gold >= skin.cost)
                       ? () async {
-                          final ok = await save.spendGold(skin.cost);
+                          final cost = save.devModeEnabled ? 0 : skin.cost;
+                          final ok = await save.spendGold(cost);
                           if (ok) {
                             save.unlockPaddle(skin.id);
                             save.equipPaddle(skin.id);
@@ -363,7 +369,10 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
                     backgroundColor: const Color(0xFFFFD54F),
                     foregroundColor: Colors.black,
                   ),
-                  child: Text('${skin.cost} 🪙', style: const TextStyle(fontWeight: FontWeight.w900)),
+                  child: Text(
+                    save.devModeEnabled ? '0 🪙 (${I18n.tr('free')})' : '${skin.cost} 🪙',
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
                 ),
             ],
           ),
@@ -421,9 +430,10 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
                 )
               else
                 ElevatedButton(
-                  onPressed: save.gold >= trail.cost
+                  onPressed: (save.devModeEnabled || save.gold >= trail.cost)
                       ? () async {
-                          final ok = await save.spendGold(trail.cost);
+                          final cost = save.devModeEnabled ? 0 : trail.cost;
+                          final ok = await save.spendGold(cost);
                           if (ok) {
                             save.unlockTrail(trail.id);
                             save.equipTrail(trail.id);
@@ -434,7 +444,10 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
                     backgroundColor: const Color(0xFFFFD54F),
                     foregroundColor: Colors.black,
                   ),
-                  child: Text('${trail.cost} 🪙', style: const TextStyle(fontWeight: FontWeight.w900)),
+                  child: Text(
+                    save.devModeEnabled ? '0 🪙 (${I18n.tr('free')})' : '${trail.cost} 🪙',
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
                 ),
             ],
           ),
@@ -539,9 +552,10 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
                 )
               else
                 ElevatedButton(
-                  onPressed: save.gold >= theme.cost
+                  onPressed: (save.devModeEnabled || save.gold >= theme.cost)
                       ? () async {
-                          final ok = await save.unlockBackground(theme.id, theme.cost);
+                          final cost = save.devModeEnabled ? 0 : theme.cost;
+                          final ok = await save.unlockBackground(theme.id, cost);
                           if (ok) {
                             save.selectBackground(theme.id);
                           }
@@ -555,7 +569,7 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text(
-                    '${theme.cost} 🪙',
+                    save.devModeEnabled ? '0 🪙 (${I18n.tr('free')})' : '${theme.cost} 🪙',
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),

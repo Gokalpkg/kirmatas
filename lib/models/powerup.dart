@@ -52,8 +52,8 @@ class FallingCapsule {
   double y;
   double vy;
   final PowerUpType type;
-  double width = 28.0;
-  double height = 14.0;
+  double width = 34.0;
+  double height = 34.0;
   double animTimer = 0.0;
 
   FallingCapsule({

@@ -73,8 +73,9 @@ class UpgradesView extends StatelessWidget {
               ...UpgradeDef.allUpgrades.map((u) {
                 final currentLevel = save.upgrades[u.id] ?? 0;
                 final isMax = currentLevel >= u.maxLevel;
-                final cost = isMax ? 0 : u.costs[currentLevel];
-                final canAfford = save.gold >= cost;
+                final rawCost = isMax ? 0 : u.costs[currentLevel];
+                final cost = save.devModeEnabled ? 0 : rawCost;
+                final canAfford = isMax ? false : (save.devModeEnabled || save.gold >= cost);
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 14),
@@ -146,7 +147,10 @@ class UpgradesView extends StatelessWidget {
                             foregroundColor: Colors.black,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
-                          child: Text('$cost 🪙', style: const TextStyle(fontWeight: FontWeight.w900)),
+                          child: Text(
+                            save.devModeEnabled ? '0 🪙 (${I18n.tr('free')})' : '$cost 🪙',
+                            style: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
                         ),
                     ],
                   ),
@@ -166,7 +170,8 @@ class UpgradesView extends StatelessWidget {
               const SizedBox(height: 12),
               ...BoostItem.allBoosts.map((b) {
                 final stock = save.boostStocks[b.id] ?? 0;
-                final canAfford = save.gold >= b.cost;
+                final cost = save.devModeEnabled ? 0 : b.cost;
+                final canAfford = save.devModeEnabled || save.gold >= cost;
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 14),
@@ -214,7 +219,7 @@ class UpgradesView extends StatelessWidget {
                       ElevatedButton(
                         onPressed: canAfford
                             ? () async {
-                                final ok = await save.spendGold(b.cost);
+                                final ok = await save.spendGold(cost);
                                 if (ok) {
                                   save.addBoostStock(b.id, 1);
                                 }
@@ -225,7 +230,10 @@ class UpgradesView extends StatelessWidget {
                           foregroundColor: Colors.black,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
-                        child: Text('${b.cost} 🪙', style: const TextStyle(fontWeight: FontWeight.w900)),
+                        child: Text(
+                          save.devModeEnabled ? '0 🪙 (${I18n.tr('free')})' : '${b.cost} 🪙',
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
                       ),
                     ],
                   ),

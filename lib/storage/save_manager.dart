@@ -46,6 +46,7 @@ class SaveManager extends ChangeNotifier {
   String language = 'en';
   Set<String> unlockedBackgrounds = {'bg_default'};
   String activeBackground = 'bg_default';
+  bool devModeEnabled = false;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -103,8 +104,15 @@ class SaveManager extends ChangeNotifier {
     language = _prefs.getString('language') ?? 'en';
     unlockedBackgrounds = (_prefs.getStringList('unlockedBackgrounds') ?? ['bg_default']).toSet();
     activeBackground = _prefs.getString('activeBackground') ?? 'bg_default';
+    devModeEnabled = _prefs.getBool('devModeEnabled') ?? false;
 
     _initialized = true;
+    notifyListeners();
+  }
+
+  Future<void> setDevMode(bool val) async {
+    devModeEnabled = val;
+    await _prefs.setBool('devModeEnabled', val);
     notifyListeners();
   }
 
@@ -115,6 +123,9 @@ class SaveManager extends ChangeNotifier {
   }
 
   Future<bool> spendGold(int amount) async {
+    if (devModeEnabled) {
+      return true;
+    }
     if (gold < amount) return false;
     gold -= amount;
     await _prefs.setInt('gold', gold);
@@ -243,8 +254,9 @@ class SaveManager extends ChangeNotifier {
 
   Future<bool> unlockBackground(String id, int cost) async {
     if (unlockedBackgrounds.contains(id)) return true;
-    if (gold < cost) return false;
-    await spendGold(cost);
+    final actualCost = devModeEnabled ? 0 : cost;
+    if (actualCost > 0 && gold < actualCost) return false;
+    await spendGold(actualCost);
     unlockedBackgrounds.add(id);
     await _prefs.setStringList('unlockedBackgrounds', unlockedBackgrounds.toList());
     notifyListeners();

@@ -473,6 +473,15 @@ class GameController extends ChangeNotifier {
 
       ball.update(dt);
 
+      // Corner boost trail sparks & decay
+      if (ball.cornerBoostTimer > 0) {
+        if (_rand.nextDouble() < 0.35) {
+          particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD54F), count: 2, speed: 60.0);
+        }
+      } else if (ball.speed > getBaseBallSpeed() * 1.15 && !activePowerUps.any((p) => p.type == PowerUpType.fastball)) {
+        ball.setSpeed((ball.speed - dt * 140.0).clamp(getBaseBallSpeed(), 850.0));
+      }
+
       // Wall collisions
       if (ball.x - ball.radius <= 0) {
         ball.x = ball.radius;
@@ -546,10 +555,15 @@ class GameController extends ChangeNotifier {
       // Hit point on paddle (-1.0 left to 1.0 right)
       final hitOffset = ((ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2)).clamp(-1.0, 1.0);
       final bounceAngle = hitOffset * (pi / 2.7); // -66 deg to +66 deg
-      final currentSpeed = min(ball.speed + 6.0, 680.0);
+      final baseSpeed = min(ball.speed + 6.0, 680.0);
 
-      ball.vx = sin(bounceAngle) * currentSpeed;
-      ball.vy = -cos(bounceAngle) * currentSpeed;
+      // Corner hit detection (outer 22% of paddle)
+      final isCornerHit = hitOffset.abs() >= 0.78;
+      final speedMultiplier = isCornerHit ? 1.45 : 1.0;
+      final finalSpeed = (baseSpeed * speedMultiplier).clamp(100.0, 850.0);
+
+      ball.vx = sin(bounceAngle) * finalSpeed;
+      ball.vy = -cos(bounceAngle) * finalSpeed;
 
       // Spin transfer
       ball.vx += paddle.velocityX * 0.25;
@@ -557,8 +571,15 @@ class GameController extends ChangeNotifier {
       ball.y = pr.top - ball.radius - 1.0;
       ball.triggerSquash(-pi / 2);
 
-      particles.spawnShockwave(ball.x, pr.top, activePaddleSkin.glowColor, maxRadius: 32.0);
-      audio.playSfx(GameSfx.hitPaddle);
+      if (isCornerHit) {
+        ball.cornerBoostTimer = 3.2; // Speeds up for 3.2 seconds
+        particles.spawnBurst(ball.x, pr.top, const Color(0xFFFFD54F), count: 20);
+        particles.spawnFloatingText(ball.x, pr.top - 18, I18n.tr('corner_shot'), const Color(0xFFFFD54F), isLarge: true);
+        audio.playSfx(GameSfx.powerupBuff);
+      } else {
+        particles.spawnShockwave(ball.x, pr.top, activePaddleSkin.glowColor, maxRadius: 32.0);
+        audio.playSfx(GameSfx.hitPaddle);
+      }
       return true;
     }
     return false;

@@ -646,6 +646,16 @@ class _GameWorldPainter extends CustomPainter {
         canvas.rotate(-ball.squashAngle);
       }
 
+      // Corner speed boost aura
+      if (ball.cornerBoostTimer > 0) {
+        _fill.color = const Color(0xFFFFD54F).withValues(alpha: 0.45);
+        canvas.drawCircle(Offset.zero, ball.radius + 6.0, _fill);
+        _stroke
+          ..color = const Color(0xFFFFEA00)
+          ..strokeWidth = 1.8;
+        canvas.drawCircle(Offset.zero, ball.radius + 4.5, _stroke);
+      }
+
       // Ball Aura/Glow (fast concentric alpha)
       final glowColor = ball.isFireball ? const Color(0xFFFF6D00) : c.activeBallSkin.glowColor;
       _fill.color = glowColor.withValues(alpha: 0.28);
@@ -686,24 +696,12 @@ class _GameWorldPainter extends CustomPainter {
 
       final img = AssetCache.instance.getSkillImage(cap.type);
       if (img != null) {
-        // Glowing pill background container
-        _fill.color = cap.type.color.withValues(alpha: 0.25);
-        canvas.drawCircle(Offset.zero, 16.0, _fill);
-
-        _fill.color = const Color(0xEE0D111E);
-        canvas.drawCircle(Offset.zero, 14.5, _fill);
-
-        _stroke
-          ..color = cap.type.color.withValues(alpha: 0.85)
-          ..strokeWidth = 1.6;
-        canvas.drawCircle(Offset.zero, 14.5, _stroke);
-
-        // Draw skill pixel art
+        // Draw skill pixel art enlarged directly, NO circular backgrounds
         final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
-        final dst = Rect.fromCenter(center: Offset.zero, width: 22.0, height: 22.0);
+        final dst = Rect.fromCenter(center: Offset.zero, width: 34.0, height: 34.0);
         canvas.drawImageRect(img, src, dst, Paint()..filterQuality = FilterQuality.medium);
       } else {
-        PixelArt.draw(canvas, cap.type, Offset.zero, 24.0);
+        PixelArt.draw(canvas, cap.type, Offset.zero, 34.0);
       }
 
       canvas.restore();
