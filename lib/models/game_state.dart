@@ -61,3 +61,13 @@ class MatchStats {
     ultiActiveLeft = 0.0;
   }
 }
+
+enum HapticIntensity {
+  off,
+  light,
+  medium,
+  strong;
+
+  String get label => I18n.tr('haptic_$name');
+}
+

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../engine/audio_manager.dart';
 import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
 import '../models/game_state.dart';
@@ -117,25 +118,49 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                     const SizedBox(height: 16),
 
-                    // Sound Effects
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(I18n.tr('sfx'), style: const TextStyle(color: Colors.white)),
-                      value: _save.sfxEnabled,
-                      activeThumbColor: const Color(0xFFFFD54F),
-                      onChanged: (val) => _save.setSfx(val),
+                    // Vibration Intensity
+                    Text(
+                      I18n.tr('vibration_intensity'),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: HapticIntensity.values.map((h) {
+                        final isSelected = _save.hapticIntensity == h;
+                        return Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 3),
+                            child: OutlinedButton(
+                              onPressed: () {
+                                _save.setHapticIntensity(h);
+                                AudioManager.instance.triggerTestHaptic(h);
+                              },
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                                backgroundColor: isSelected ? const Color(0x33FFD54F) : Colors.transparent,
+                                side: BorderSide(
+                                  color: isSelected ? const Color(0xFFFFD54F) : Colors.white12,
+                                ),
+                                foregroundColor: isSelected ? const Color(0xFFFFD54F) : Colors.white60,
+                              ),
+                              child: Text(
+                                h.label,
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
 
-                    // Haptics
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(I18n.tr('haptics'), style: const TextStyle(color: Colors.white)),
-                      value: _save.hapticsEnabled,
-                      activeThumbColor: const Color(0xFFFFD54F),
-                      onChanged: (val) => _save.setHaptics(val),
-                    ),
-
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
 
                     // Game Speed
                     Text(
@@ -175,31 +200,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           ),
                         );
                       }).toList(),
-                    ),
-
-                    const SizedBox(height: 14),
-                    const Divider(color: Colors.white12),
-
-                    // Developer Mode
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Row(
-                        children: [
-                          const Icon(Icons.terminal, color: Color(0xFF00E5FF), size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            I18n.tr('dev_mode'),
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                        ],
-                      ),
-                      subtitle: Text(
-                        I18n.tr('dev_mode_desc'),
-                        style: const TextStyle(color: Colors.white54, fontSize: 11),
-                      ),
-                      value: _save.devModeEnabled,
-                      activeThumbColor: const Color(0xFF00E5FF),
-                      onChanged: (val) => _save.setDevMode(val),
                     ),
                   ],
                 ),

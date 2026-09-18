@@ -40,13 +40,13 @@ class SaveManager extends ChangeNotifier {
   int dailyStreak = 1;
 
   SpeedSetting speed = SpeedSetting.medium;
-  bool sfxEnabled = true;
+  bool sfxEnabled = false;
   bool hapticsEnabled = true;
+  HapticIntensity hapticIntensity = HapticIntensity.strong;
 
   String language = 'en';
   Set<String> unlockedBackgrounds = {'bg_default'};
   String activeBackground = 'bg_default';
-  bool devModeEnabled = false;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -98,21 +98,16 @@ class SaveManager extends ChangeNotifier {
     final speedIndex = _prefs.getInt('speedSetting') ?? 1;
     speed = SpeedSetting.values[speedIndex.clamp(0, SpeedSetting.values.length - 1)];
 
-    sfxEnabled = _prefs.getBool('sfxEnabled') ?? true;
-    hapticsEnabled = _prefs.getBool('hapticsEnabled') ?? true;
+    sfxEnabled = false;
+    final hIndex = _prefs.getInt('hapticIntensity') ?? HapticIntensity.strong.index;
+    hapticIntensity = HapticIntensity.values[hIndex.clamp(0, HapticIntensity.values.length - 1)];
+    hapticsEnabled = hapticIntensity != HapticIntensity.off;
 
     language = _prefs.getString('language') ?? 'en';
     unlockedBackgrounds = (_prefs.getStringList('unlockedBackgrounds') ?? ['bg_default']).toSet();
     activeBackground = _prefs.getString('activeBackground') ?? 'bg_default';
-    devModeEnabled = _prefs.getBool('devModeEnabled') ?? false;
 
     _initialized = true;
-    notifyListeners();
-  }
-
-  Future<void> setDevMode(bool val) async {
-    devModeEnabled = val;
-    await _prefs.setBool('devModeEnabled', val);
     notifyListeners();
   }
 
@@ -123,9 +118,6 @@ class SaveManager extends ChangeNotifier {
   }
 
   Future<bool> spendGold(int amount) async {
-    if (devModeEnabled) {
-      return true;
-    }
     if (gold < amount) return false;
     gold -= amount;
     await _prefs.setInt('gold', gold);
@@ -240,9 +232,19 @@ class SaveManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setHapticIntensity(HapticIntensity val) async {
+    hapticIntensity = val;
+    hapticsEnabled = val != HapticIntensity.off;
+    await _prefs.setInt('hapticIntensity', val.index);
+    await _prefs.setBool('hapticsEnabled', hapticsEnabled);
+    notifyListeners();
+  }
+
   Future<void> setHaptics(bool val) async {
     hapticsEnabled = val;
+    hapticIntensity = val ? HapticIntensity.strong : HapticIntensity.off;
     await _prefs.setBool('hapticsEnabled', val);
+    await _prefs.setInt('hapticIntensity', hapticIntensity.index);
     notifyListeners();
   }
 
@@ -254,9 +256,8 @@ class SaveManager extends ChangeNotifier {
 
   Future<bool> unlockBackground(String id, int cost) async {
     if (unlockedBackgrounds.contains(id)) return true;
-    final actualCost = devModeEnabled ? 0 : cost;
-    if (actualCost > 0 && gold < actualCost) return false;
-    await spendGold(actualCost);
+    if (cost > 0 && gold < cost) return false;
+    await spendGold(cost);
     unlockedBackgrounds.add(id);
     await _prefs.setStringList('unlockedBackgrounds', unlockedBackgrounds.toList());
     notifyListeners();

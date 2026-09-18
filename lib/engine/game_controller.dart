@@ -420,9 +420,13 @@ class GameController extends ChangeNotifier {
       }
     }
 
+    // Global dead brick pruning to eliminate memory accumulation and CPU lag
+    if (currentMode != GameMode.tuft) {
+      bricks.removeWhere((b) => !b.isAlive && b.jelly <= 0);
+    }
+
     // Descend mode marching with smooth sliding animation
     if (currentMode == GameMode.descend) {
-      bricks.removeWhere((b) => !b.isAlive && b.jelly <= 0);
       descendTimer -= dt;
       if (descendTimer <= 0) {
         descendTimer = 11.0;
@@ -449,7 +453,6 @@ class GameController extends ChangeNotifier {
 
     // Zen mode replenishment
     if (currentMode == GameMode.zen) {
-      bricks.removeWhere((b) => !b.isAlive && b.jelly <= 0);
       final aliveCount = bricks.where((b) => b.isAlive).length;
       if (aliveCount < 8) {
         final newBricks = LevelDesign.buildZenLevel(screenWidth, screenHeight);
@@ -575,7 +578,7 @@ class GameController extends ChangeNotifier {
         ball.cornerBoostTimer = 3.2; // Speeds up for 3.2 seconds
         particles.spawnBurst(ball.x, pr.top, const Color(0xFFFFD54F), count: 20);
         particles.spawnFloatingText(ball.x, pr.top - 18, I18n.tr('corner_shot'), const Color(0xFFFFD54F), isLarge: true);
-        audio.playSfx(GameSfx.powerupBuff);
+        audio.playSfx(GameSfx.ulti);
       } else {
         particles.spawnShockwave(ball.x, pr.top, activePaddleSkin.glowColor, maxRadius: 32.0);
         audio.playSfx(GameSfx.hitPaddle);

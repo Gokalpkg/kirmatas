@@ -30,6 +30,12 @@ class I18n {
 
   static const Map<String, Map<String, String>> _translations = {
     'en': {
+      'vibration_intensity': 'Vibration Intensity',
+      'haptic_off': 'Off',
+      'haptic_light': 'Light',
+      'haptic_medium': 'Medium',
+      'haptic_strong': 'Strong',
+
       'app_title': 'KIRMATAS',
       'play': 'PLAY',
       'classic': 'Classic',
@@ -230,6 +236,12 @@ class I18n {
       'pup_invis': 'Ghost Paddle',
     },
     'tr': {
+      'vibration_intensity': 'Titreşim Şiddeti',
+      'haptic_off': 'Kapalı',
+      'haptic_light': 'Hafif',
+      'haptic_medium': 'Orta',
+      'haptic_strong': 'Güçlü',
+
       'app_title': 'KIRMATAS',
       'play': 'OYNA',
       'classic': 'Klasik',
@@ -430,6 +442,12 @@ class I18n {
       'pup_invis': 'Hayalet Raket',
     },
     'fr': {
+      'vibration_intensity': 'Intensité des vibrations',
+      'haptic_off': 'Désactivé',
+      'haptic_light': 'Léger',
+      'haptic_medium': 'Moyen',
+      'haptic_strong': 'Fort',
+
       'app_title': 'KIRMATAS',
       'play': 'JOUER',
       'classic': 'Classique',
@@ -630,6 +648,12 @@ class I18n {
       'pup_invis': 'Raquette Fantôme',
     },
     'de': {
+      'vibration_intensity': 'Vibrationsstärke',
+      'haptic_off': 'Aus',
+      'haptic_light': 'Leicht',
+      'haptic_medium': 'Mittel',
+      'haptic_strong': 'Stark',
+
       'app_title': 'KIRMATAS',
       'play': 'SPIELEN',
       'classic': 'Klassisch',
@@ -830,6 +854,12 @@ class I18n {
       'pup_invis': 'Geisterpad',
     },
     'es': {
+      'vibration_intensity': 'Intensidad de vibración',
+      'haptic_off': 'Desactivado',
+      'haptic_light': 'Ligero',
+      'haptic_medium': 'Medio',
+      'haptic_strong': 'Fuerte',
+
       'app_title': 'KIRMATAS',
       'play': 'JUGAR',
       'classic': 'Clásico',
@@ -1030,6 +1060,12 @@ class I18n {
       'pup_invis': 'Pala Fantasma',
     },
     'it': {
+      'vibration_intensity': 'Intensità vibrazione',
+      'haptic_off': 'Disattivato',
+      'haptic_light': 'Leggero',
+      'haptic_medium': 'Medio',
+      'haptic_strong': 'Forte',
+
       'app_title': 'KIRMATAS',
       'play': 'GIOCA',
       'classic': 'Classico',
@@ -1230,6 +1266,12 @@ class I18n {
       'pup_invis': 'Barra Fantasma',
     },
     'ru': {
+      'vibration_intensity': 'Сила вибрации',
+      'haptic_off': 'Выкл',
+      'haptic_light': 'Слабая',
+      'haptic_medium': 'Средняя',
+      'haptic_strong': 'Сильная',
+
       'app_title': 'KIRMATAS',
       'play': 'ИГРАТЬ',
       'classic': 'Классика',
@@ -1430,6 +1472,12 @@ class I18n {
       'pup_invis': 'Ракетка-Призрак',
     },
     'ko': {
+      'vibration_intensity': '진동 세기',
+      'haptic_off': '끄기',
+      'haptic_light': '약하게',
+      'haptic_medium': '보통',
+      'haptic_strong': '강하게',
+
       'app_title': 'KIRMATAS',
       'play': '플레이',
       'classic': '클래식',
@@ -1630,6 +1678,12 @@ class I18n {
       'pup_invis': '고스트 패들',
     },
     'ja': {
+      'vibration_intensity': '振動の強さ',
+      'haptic_off': 'オフ',
+      'haptic_light': '弱',
+      'haptic_medium': '中',
+      'haptic_strong': '強',
+
       'app_title': 'KIRMATAS',
       'play': 'プレイ',
       'classic': 'クラシック',

@@ -73,9 +73,8 @@ class UpgradesView extends StatelessWidget {
               ...UpgradeDef.allUpgrades.map((u) {
                 final currentLevel = save.upgrades[u.id] ?? 0;
                 final isMax = currentLevel >= u.maxLevel;
-                final rawCost = isMax ? 0 : u.costs[currentLevel];
-                final cost = save.devModeEnabled ? 0 : rawCost;
-                final canAfford = isMax ? false : (save.devModeEnabled || save.gold >= cost);
+                final cost = isMax ? 0 : u.costs[currentLevel];
+                final canAfford = isMax ? false : save.gold >= cost;
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 14),
@@ -148,7 +147,7 @@ class UpgradesView extends StatelessWidget {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
                           child: Text(
-                            save.devModeEnabled ? '0 🪙 (${I18n.tr('free')})' : '$cost 🪙',
+                            '$cost 🪙',
                             style: const TextStyle(fontWeight: FontWeight.w900),
                           ),
                         ),
@@ -170,8 +169,8 @@ class UpgradesView extends StatelessWidget {
               const SizedBox(height: 12),
               ...BoostItem.allBoosts.map((b) {
                 final stock = save.boostStocks[b.id] ?? 0;
-                final cost = save.devModeEnabled ? 0 : b.cost;
-                final canAfford = save.devModeEnabled || save.gold >= cost;
+                final cost = b.cost;
+                final canAfford = save.gold >= cost;
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 14),
@@ -231,7 +230,7 @@ class UpgradesView extends StatelessWidget {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
                         child: Text(
-                          save.devModeEnabled ? '0 🪙 (${I18n.tr('free')})' : '${b.cost} 🪙',
+                          '${b.cost} 🪙',
                           style: const TextStyle(fontWeight: FontWeight.w900),
                         ),
                       ),

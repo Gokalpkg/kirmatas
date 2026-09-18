@@ -77,7 +77,17 @@ class _GameWorldPainter extends CustomPainter {
   static final Paint _stroke = Paint()
     ..isAntiAlias = true
     ..style = PaintingStyle.stroke;
+  static final Paint _bgPaint = Paint()..style = PaintingStyle.fill;
+  static final Paint _paddlePaint = Paint()..style = PaintingStyle.fill;
+  static final Paint _imgPaint = Paint()..filterQuality = FilterQuality.medium;
+  static final Path _crackPath = Path();
   static final TextPainter _tp = TextPainter(textDirection: TextDirection.ltr);
+
+  static String? _cachedBgTheme;
+  static Size? _cachedBgSize;
+  static Shader? _cachedBgShader;
+  static Shader? _cachedSunGlowShader;
+  static Shader? _cachedSunPaintShader;
 
   _GameWorldPainter(this.c) : super(repaint: c);
 
@@ -129,14 +139,17 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawDefaultBackground(Canvas canvas, Size size) {
-    final pulse = sin(time * 0.8) * 0.03;
-    final bgPaint = Paint()
-      ..shader = RadialGradient(
-        center: const Alignment(0, -0.3),
-        radius: 1.25 + pulse,
-        colors: const [Color(0xFF161B30), Color(0xFF090B14), Color(0xFF040508)],
+    if (_cachedBgShader == null || _cachedBgTheme != 'bg_default' || _cachedBgSize != size) {
+      _cachedBgTheme = 'bg_default';
+      _cachedBgSize = size;
+      _cachedBgShader = const RadialGradient(
+        center: Alignment(0, -0.3),
+        radius: 1.25,
+        colors: [Color(0xFF161B30), Color(0xFF090B14), Color(0xFF040508)],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+    }
+    _bgPaint.shader = _cachedBgShader;
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _bgPaint);
 
     for (int i = 0; i < 36; i++) {
       final speed = 10.0 + (i % 4) * 4.0;
@@ -146,20 +159,23 @@ class _GameWorldPainter extends CustomPainter {
       final alpha = (0.25 + (i % 4) * 0.15 + twinkle).clamp(0.1, 0.85);
       final isLarge = (i % 5 == 0);
 
-      final starPaint = Paint()..color = (i % 3 == 0 ? const Color(0xFF80D8FF) : Colors.white).withValues(alpha: alpha);
-      canvas.drawCircle(Offset(x, y), isLarge ? 1.8 : 1.0, starPaint);
+      _fill.color = (i % 3 == 0 ? const Color(0xFF80D8FF) : Colors.white).withValues(alpha: alpha);
+      canvas.drawCircle(Offset(x, y), isLarge ? 1.8 : 1.0, _fill);
     }
   }
 
   void _drawNebulaBackground(Canvas canvas, Size size) {
-    final pulse = sin(time * 0.6) * 0.04;
-    final bgPaint = Paint()
-      ..shader = RadialGradient(
-        center: Alignment(sin(time * 0.2) * 0.3, -0.2),
-        radius: 1.3 + pulse,
-        colors: const [Color(0xFF3B0764), Color(0xFF1E0B38), Color(0xFF0D031A)],
+    if (_cachedBgShader == null || _cachedBgTheme != 'bg_nebula' || _cachedBgSize != size) {
+      _cachedBgTheme = 'bg_nebula';
+      _cachedBgSize = size;
+      _cachedBgShader = const RadialGradient(
+        center: Alignment(0, -0.2),
+        radius: 1.3,
+        colors: [Color(0xFF3B0764), Color(0xFF1E0B38), Color(0xFF0D031A)],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+    }
+    _bgPaint.shader = _cachedBgShader;
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _bgPaint);
 
     for (int i = 0; i < 3; i++) {
       final cloudX = size.width * (0.25 + 0.5 * sin(time * 0.15 + i * 1.5));
@@ -175,28 +191,33 @@ class _GameWorldPainter extends CustomPainter {
       final twinkle = 0.2 * sin(time * 3.0 + i);
       final alpha = (0.3 + (i % 4) * 0.15 + twinkle).clamp(0.1, 0.9);
       final color = i % 3 == 0 ? const Color(0xFFE879F9) : (i % 3 == 1 ? const Color(0xFFA855F7) : Colors.white);
-      canvas.drawCircle(Offset(x, y), (i % 6 == 0) ? 2.0 : 1.1, Paint()..color = color.withValues(alpha: alpha));
+      _fill.color = color.withValues(alpha: alpha);
+      canvas.drawCircle(Offset(x, y), (i % 6 == 0) ? 2.0 : 1.1, _fill);
     }
   }
 
   void _drawMatrixBackground(Canvas canvas, Size size) {
-    final bgPaint = Paint()
-      ..shader = const LinearGradient(
+    if (_cachedBgShader == null || _cachedBgTheme != 'bg_matrix' || _cachedBgSize != size) {
+      _cachedBgTheme = 'bg_matrix';
+      _cachedBgSize = size;
+      _cachedBgShader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [Color(0xFF02130C), Color(0xFF010A06), Color(0xFF000503)],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+    }
+    _bgPaint.shader = _cachedBgShader;
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _bgPaint);
 
     final vpX = size.width / 2;
     final vpY = size.height * 0.45;
-    final gridLinePaint = Paint()
+    _stroke
       ..color = const Color(0xFF10B981).withValues(alpha: 0.18)
       ..strokeWidth = 1.0;
 
     for (int col = -6; col <= 6; col++) {
       final targetX = vpX + col * (size.width / 5);
-      canvas.drawLine(Offset(vpX + col * 12, vpY), Offset(targetX, size.height), gridLinePaint);
+      canvas.drawLine(Offset(vpX + col * 12, vpY), Offset(targetX, size.height), _stroke);
     }
 
     const scrollSpeed = 24.0;
@@ -205,10 +226,11 @@ class _GameWorldPainter extends CustomPainter {
       final progress = (y - vpY) / (size.height - vpY);
       final animatedY = vpY + pow(progress, 1.6) * (size.height - vpY) + cycle * progress * 0.5;
       if (animatedY <= size.height) {
+        _stroke.color = const Color(0xFF10B981).withValues(alpha: (0.05 + progress * 0.2).clamp(0.0, 0.3));
         canvas.drawLine(
           Offset(0, animatedY),
           Offset(size.width, animatedY),
-          Paint()..color = const Color(0xFF10B981).withValues(alpha: (0.05 + progress * 0.2).clamp(0.0, 0.3)),
+          _stroke,
         );
       }
     }
@@ -218,21 +240,26 @@ class _GameWorldPainter extends CustomPainter {
       final x = ((i * 73 + 11) % size.width.toInt()).toDouble();
       final y = size.height - ((i * 127 + time * speed) % size.height);
       final alpha = (0.2 + (i % 3) * 0.2 + 0.1 * sin(time * 2 + i)).clamp(0.1, 0.8);
+      _fill.color = const Color(0xFF34D399).withValues(alpha: alpha);
       canvas.drawRect(
         Rect.fromCenter(center: Offset(x, y), width: 2.0, height: 4.0),
-        Paint()..color = const Color(0xFF34D399).withValues(alpha: alpha),
+        _fill,
       );
     }
   }
 
   void _drawAbyssBackground(Canvas canvas, Size size) {
-    final bgPaint = Paint()
-      ..shader = const LinearGradient(
+    if (_cachedBgShader == null || _cachedBgTheme != 'bg_abyss' || _cachedBgSize != size) {
+      _cachedBgTheme = 'bg_abyss';
+      _cachedBgSize = size;
+      _cachedBgShader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [Color(0xFF03162C), Color(0xFF020D1A), Color(0xFF01060E)],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+    }
+    _bgPaint.shader = _cachedBgShader;
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _bgPaint);
 
     final wavePath = Path();
     wavePath.moveTo(0, size.height * 0.3);
@@ -252,40 +279,49 @@ class _GameWorldPainter extends CustomPainter {
       final alpha = (0.25 + (i % 3) * 0.2 + 0.15 * sin(time * 2.0 + i)).clamp(0.1, 0.85);
       final isBubble = (i % 4 == 0);
       final pColor = i % 2 == 0 ? const Color(0xFF38BDF8) : const Color(0xFF2DD4BF);
-      canvas.drawCircle(Offset(x, y), isBubble ? 2.2 : 1.2, Paint()..color = pColor.withValues(alpha: alpha));
+      _fill.color = pColor.withValues(alpha: alpha);
+      canvas.drawCircle(Offset(x, y), isBubble ? 2.2 : 1.2, _fill);
     }
   }
 
   void _drawSunsetBackground(Canvas canvas, Size size) {
-    final bgPaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFF1E072B), Color(0xFF3B0B47), Color(0xFF5B1647), Color(0xFF2B092B)],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
-
     final sunY = size.height * 0.65;
     final sunRadius = size.width * 0.28;
     final sunCenter = Offset(size.width / 2, sunY);
 
-    final sunGlow = Paint()
-      ..shader = RadialGradient(
+    if (_cachedBgShader == null || _cachedBgTheme != 'bg_sunset' || _cachedBgSize != size) {
+      _cachedBgTheme = 'bg_sunset';
+      _cachedBgSize = size;
+      _cachedBgShader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF1E072B), Color(0xFF3B0B47), Color(0xFF5B1647), Color(0xFF2B092B)],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+      _cachedSunGlowShader = RadialGradient(
         colors: [
           const Color(0xFFFF5376).withValues(alpha: 0.35),
           const Color(0xFFFFB74D).withValues(alpha: 0.1),
           Colors.transparent,
         ],
       ).createShader(Rect.fromCircle(center: sunCenter, radius: sunRadius * 1.8));
-    canvas.drawCircle(sunCenter, sunRadius * 1.8, sunGlow);
 
-    final sunPaint = Paint()
-      ..shader = const LinearGradient(
+      _cachedSunPaintShader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [Color(0xFFFFEE58), Color(0xFFFF7043), Color(0xFFE91E63)],
       ).createShader(Rect.fromCircle(center: sunCenter, radius: sunRadius));
-    canvas.drawCircle(sunCenter, sunRadius, sunPaint);
+    }
+    _bgPaint.shader = _cachedBgShader;
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _bgPaint);
+
+    _fill.shader = _cachedSunGlowShader;
+    canvas.drawCircle(sunCenter, sunRadius * 1.8, _fill);
+    _fill.shader = null;
+
+    _fill.shader = _cachedSunPaintShader;
+    canvas.drawCircle(sunCenter, sunRadius, _fill);
+    _fill.shader = null;
 
     for (int i = 0; i < 30; i++) {
       final speed = 15.0 + (i % 3) * 6.0;
@@ -294,19 +330,23 @@ class _GameWorldPainter extends CustomPainter {
       final y = size.height - ((i * 137 + time * speed) % size.height);
       final alpha = (0.2 + (i % 4) * 0.18 + 0.12 * sin(time * 3 + i)).clamp(0.1, 0.85);
       final color = i % 2 == 0 ? const Color(0xFFFFD54F) : const Color(0xFFFF7043);
-      canvas.drawCircle(Offset(x, y), (i % 5 == 0) ? 2.0 : 1.2, Paint()..color = color.withValues(alpha: alpha));
+      _fill.color = color.withValues(alpha: alpha);
+      canvas.drawCircle(Offset(x, y), (i % 5 == 0) ? 2.0 : 1.2, _fill);
     }
   }
 
   void _drawInfernoBackground(Canvas canvas, Size size) {
-    final pulse = sin(time * 1.2) * 0.04;
-    final bgPaint = Paint()
-      ..shader = RadialGradient(
-        center: const Alignment(0, 0.4),
-        radius: 1.1 + pulse,
-        colors: const [Color(0xFF330900), Color(0xFF1E0400), Color(0xFF0A0200)],
+    if (_cachedBgShader == null || _cachedBgTheme != 'bg_inferno' || _cachedBgSize != size) {
+      _cachedBgTheme = 'bg_inferno';
+      _cachedBgSize = size;
+      _cachedBgShader = const RadialGradient(
+        center: Alignment(0, 0.4),
+        radius: 1.15,
+        colors: [Color(0xFF330900), Color(0xFF1E0400), Color(0xFF0A0200)],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+    }
+    _bgPaint.shader = _cachedBgShader;
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _bgPaint);
 
     _fill.color = const Color(0xFFFF5722).withValues(alpha: 0.1);
     canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.8), size.width * 0.55 + sin(time * 1.5) * 15, _fill);
@@ -320,7 +360,8 @@ class _GameWorldPainter extends CustomPainter {
       final alpha = (0.3 + (i % 4) * 0.15 + twinkle).clamp(0.1, 0.95);
       final isSpark = (i % 5 == 0);
       final color = i % 3 == 0 ? const Color(0xFFFFC107) : (i % 3 == 1 ? const Color(0xFFFF6D00) : const Color(0xFFFF3D00));
-      canvas.drawCircle(Offset(x, y), isSpark ? 2.2 : 1.3, Paint()..color = color.withValues(alpha: alpha));
+      _fill.color = color.withValues(alpha: alpha);
+      canvas.drawCircle(Offset(x, y), isSpark ? 2.2 : 1.3, _fill);
     }
   }
 
@@ -346,84 +387,92 @@ class _GameWorldPainter extends CustomPainter {
 
       if (b.isTuft) {
         // Tufting yarn cell: textured canvas with cross-stitches
-        final bgPaint = Paint()..color = b.tuftFilled ? b.tuftColor : b.tuftColor.withValues(alpha: 0.25);
-        canvas.drawRRect(rrect, bgPaint);
+        _fill.color = b.tuftFilled ? b.tuftColor : b.tuftColor.withValues(alpha: 0.25);
+        canvas.drawRRect(rrect, _fill);
 
         // Yarn thread stitches
-        final threadPaint = Paint()
+        _stroke
           ..color = b.tuftFilled ? Colors.white70 : b.tuftColor.withValues(alpha: 0.6)
           ..strokeWidth = 1.5;
-        canvas.drawLine(Offset(-halfW + 4, -halfH + 4), Offset(halfW - 4, halfH - 4), threadPaint);
-        canvas.drawLine(Offset(-halfW + 4, halfH - 4), Offset(halfW - 4, -halfH + 4), threadPaint);
+        canvas.drawLine(Offset(-halfW + 4, -halfH + 4), Offset(halfW - 4, halfH - 4), _stroke);
+        canvas.drawLine(Offset(-halfW + 4, halfH - 4), Offset(halfW - 4, -halfH + 4), _stroke);
 
-        final borderPaint = Paint()
+        _stroke
           ..color = b.tuftColor
-          ..style = PaintingStyle.stroke
           ..strokeWidth = 1.8;
-        canvas.drawRRect(rrect, borderPaint);
+        canvas.drawRRect(rrect, _stroke);
 
       } else if (b.isSteel) {
         // Heavy Industrial Titanium Plate
-        final platePaint = Paint()..color = const Color(0xFF37474F);
-        canvas.drawRRect(rrect, platePaint);
+        _fill.color = const Color(0xFF37474F);
+        canvas.drawRRect(rrect, _fill);
 
         // 3D Bevel highlight and shadow
-        final topLight = Paint()..color = const Color(0xFF78909C)..strokeWidth = 2.0;
-        canvas.drawLine(Offset(-halfW + 2, -halfH + 1), Offset(halfW - 2, -halfH + 1), topLight);
-        final bottomDark = Paint()..color = const Color(0xFF1C2833)..strokeWidth = 2.0;
-        canvas.drawLine(Offset(-halfW + 2, halfH - 1), Offset(halfW - 2, halfH - 1), bottomDark);
+        _stroke
+          ..color = const Color(0xFF78909C)
+          ..strokeWidth = 2.0;
+        canvas.drawLine(Offset(-halfW + 2, -halfH + 1), Offset(halfW - 2, -halfH + 1), _stroke);
+        _stroke.color = const Color(0xFF1C2833);
+        canvas.drawLine(Offset(-halfW + 2, halfH - 1), Offset(halfW - 2, halfH - 1), _stroke);
 
         // Heavy steel diagonal hazard pattern
-        final stripePaint = Paint()..color = const Color(0x33CFD8DC)..strokeWidth = 3.0;
+        _stroke
+          ..color = const Color(0x33CFD8DC)
+          ..strokeWidth = 3.0;
         for (double sx = -halfW + 4; sx < halfW; sx += 12) {
-          canvas.drawLine(Offset(sx, halfH - 3), Offset(sx + 8, -halfH + 3), stripePaint);
+          canvas.drawLine(Offset(sx, halfH - 3), Offset(sx + 8, -halfH + 3), _stroke);
         }
 
         // Heavy corner rivets
-        final rivetPaint = Paint()..color = Colors.white70;
-        canvas.drawCircle(Offset(-halfW + 4, -halfH + 4), 1.5, rivetPaint);
-        canvas.drawCircle(Offset(halfW - 4, -halfH + 4), 1.5, rivetPaint);
-        canvas.drawCircle(Offset(-halfW + 4, halfH - 4), 1.5, rivetPaint);
-        canvas.drawCircle(Offset(halfW - 4, halfH - 4), 1.5, rivetPaint);
+        _fill.color = Colors.white70;
+        canvas.drawCircle(Offset(-halfW + 4, -halfH + 4), 1.5, _fill);
+        canvas.drawCircle(Offset(halfW - 4, -halfH + 4), 1.5, _fill);
+        canvas.drawCircle(Offset(-halfW + 4, halfH - 4), 1.5, _fill);
+        canvas.drawCircle(Offset(halfW - 4, halfH - 4), 1.5, _fill);
 
       } else if (b.isBoss) {
         _drawBoss(canvas, b, time, halfW, halfH);
       } else {
         // MODERN ARCADE CRYSTAL TILE
         // Base Gem Body
-        final basePaint = Paint()..color = b.color;
-        canvas.drawRRect(rrect, basePaint);
+        _fill.color = b.color;
+        canvas.drawRRect(rrect, _fill);
 
         // Chamfered 3D edge lines (light top-left, dark bottom-right)
-        final lightEdge = Paint()..color = Colors.white.withValues(alpha: 0.45)..strokeWidth = 1.5;
-        canvas.drawLine(Offset(-halfW + 3, -halfH + 1.5), Offset(halfW - 3, -halfH + 1.5), lightEdge);
-        canvas.drawLine(Offset(-halfW + 1.5, -halfH + 3), Offset(-halfW + 1.5, halfH - 3), lightEdge);
+        _stroke
+          ..color = Colors.white.withValues(alpha: 0.45)
+          ..strokeWidth = 1.5;
+        canvas.drawLine(Offset(-halfW + 3, -halfH + 1.5), Offset(halfW - 3, -halfH + 1.5), _stroke);
+        canvas.drawLine(Offset(-halfW + 1.5, -halfH + 3), Offset(-halfW + 1.5, halfH - 3), _stroke);
 
-        final shadowEdge = Paint()..color = Colors.black.withValues(alpha: 0.45)..strokeWidth = 1.5;
-        canvas.drawLine(Offset(-halfW + 3, halfH - 1.5), Offset(halfW - 3, halfH - 1.5), shadowEdge);
-        canvas.drawLine(Offset(halfW - 1.5, -halfH + 3), Offset(halfW - 1.5, halfH - 3), shadowEdge);
+        _stroke.color = Colors.black.withValues(alpha: 0.45);
+        canvas.drawLine(Offset(-halfW + 3, halfH - 1.5), Offset(halfW - 3, halfH - 1.5), _stroke);
+        canvas.drawLine(Offset(halfW - 1.5, -halfH + 3), Offset(halfW - 1.5, halfH - 3), _stroke);
 
         // Inner crystal core
         final innerRect = Rect.fromCenter(center: Offset.zero, width: b.width - 4, height: b.height - 4);
         final innerRRect = RRect.fromRectAndRadius(innerRect, const Radius.circular(4.0));
-        canvas.drawRRect(innerRRect, Paint()..color = b.color.withValues(alpha: 0.85));
+        _fill.color = b.color.withValues(alpha: 0.85);
+        canvas.drawRRect(innerRRect, _fill);
 
         // MULTI-HIT INDICATOR & DAMAGE CRACKS
         if (b.maxHp >= 2) {
           // Cyber Armored Corner Brackets
-          final bracketPaint = Paint()..color = Colors.white.withValues(alpha: 0.75)..strokeWidth = 1.5..style = PaintingStyle.stroke;
+          _stroke
+            ..color = Colors.white.withValues(alpha: 0.75)
+            ..strokeWidth = 1.5;
           // Top-Left bracket
-          canvas.drawLine(Offset(-halfW + 2, -halfH + 5), Offset(-halfW + 2, -halfH + 2), bracketPaint);
-          canvas.drawLine(Offset(-halfW + 2, -halfH + 2), Offset(-halfW + 5, -halfH + 2), bracketPaint);
+          canvas.drawLine(Offset(-halfW + 2, -halfH + 5), Offset(-halfW + 2, -halfH + 2), _stroke);
+          canvas.drawLine(Offset(-halfW + 2, -halfH + 2), Offset(-halfW + 5, -halfH + 2), _stroke);
           // Top-Right bracket
-          canvas.drawLine(Offset(halfW - 5, -halfH + 2), Offset(halfW - 2, -halfH + 2), bracketPaint);
-          canvas.drawLine(Offset(halfW - 2, -halfH + 2), Offset(halfW - 2, -halfH + 5), bracketPaint);
+          canvas.drawLine(Offset(halfW - 5, -halfH + 2), Offset(halfW - 2, -halfH + 2), _stroke);
+          canvas.drawLine(Offset(halfW - 2, -halfH + 2), Offset(halfW - 2, -halfH + 5), _stroke);
           // Bottom-Left bracket
-          canvas.drawLine(Offset(-halfW + 2, halfH - 5), Offset(-halfW + 2, halfH - 2), bracketPaint);
-          canvas.drawLine(Offset(-halfW + 2, halfH - 2), Offset(-halfW + 5, halfH - 2), bracketPaint);
+          canvas.drawLine(Offset(-halfW + 2, halfH - 5), Offset(-halfW + 2, halfH - 2), _stroke);
+          canvas.drawLine(Offset(-halfW + 2, halfH - 2), Offset(-halfW + 5, halfH - 2), _stroke);
           // Bottom-Right bracket
-          canvas.drawLine(Offset(halfW - 5, halfH - 2), Offset(halfW - 2, halfH - 2), bracketPaint);
-          canvas.drawLine(Offset(halfW - 2, halfH - 2), Offset(halfW - 2, halfH - 5), bracketPaint);
+          canvas.drawLine(Offset(halfW - 5, halfH - 2), Offset(halfW - 2, halfH - 2), _stroke);
+          canvas.drawLine(Offset(halfW - 2, halfH - 2), Offset(halfW - 2, halfH - 5), _stroke);
 
           // Center Health Pips (dots indicating remaining HP)
           const pipSpacing = 10.0;
@@ -433,28 +482,31 @@ class _GameWorldPainter extends CustomPainter {
           for (int p = 0; p < b.maxHp; p++) {
             final pipX = startPipX + p * pipSpacing;
             final isFull = p < b.hp;
-            final pipPaint = Paint()..color = isFull ? Colors.white : Colors.black45;
-            canvas.drawCircle(Offset(pipX, 0), isFull ? 2.5 : 2.0, pipPaint);
+            _fill.color = isFull ? Colors.white : Colors.black45;
+            canvas.drawCircle(Offset(pipX, 0), isFull ? 2.5 : 2.0, _fill);
             if (isFull) {
-              canvas.drawCircle(Offset(pipX, 0), 1.2, Paint()..color = const Color(0xFFFFD54F));
+              _fill.color = const Color(0xFFFFD54F);
+              canvas.drawCircle(Offset(pipX, 0), 1.2, _fill);
             }
           }
 
           // Dynamic Damage Crack Lines if damaged
           if (b.hp < b.maxHp) {
-            final crackPaint = Paint()
+            _crackPath.reset();
+            _crackPath.moveTo(-halfW * 0.45, -halfH * 0.6);
+            _crackPath.lineTo(-halfW * 0.15, -halfH * 0.1);
+            _crackPath.lineTo(-halfW * 0.35, halfH * 0.2);
+            _crackPath.lineTo(-halfW * 0.1, halfH * 0.65);
+            _crackPath.moveTo(-halfW * 0.15, -halfH * 0.1);
+            _crackPath.lineTo(halfW * 0.25, -halfH * 0.3);
+            _crackPath.lineTo(halfW * 0.45, -halfH * 0.65);
+
+            _stroke
               ..color = Colors.white.withValues(alpha: 0.9)
               ..strokeWidth = 1.6
               ..strokeCap = StrokeCap.round;
-            final crackPath = Path()
-              ..moveTo(-halfW * 0.45, -halfH * 0.6)
-              ..lineTo(-halfW * 0.15, -halfH * 0.1)
-              ..lineTo(-halfW * 0.35, halfH * 0.2)
-              ..lineTo(-halfW * 0.1, halfH * 0.65)
-              ..moveTo(-halfW * 0.15, -halfH * 0.1)
-              ..lineTo(halfW * 0.25, -halfH * 0.3)
-              ..lineTo(halfW * 0.45, -halfH * 0.65);
-            canvas.drawPath(crackPath, crackPaint);
+            canvas.drawPath(_crackPath, _stroke);
+            _stroke.strokeCap = StrokeCap.butt;
           }
         }
       }
@@ -477,47 +529,57 @@ class _GameWorldPainter extends CustomPainter {
       Rect.fromCenter(center: Offset.zero, width: b.width, height: b.height),
       const Radius.circular(8.0),
     );
-    canvas.drawRRect(hullRRect, Paint()..color = const Color(0xFF141724));
+    _fill.color = const Color(0xFF141724);
+    canvas.drawRRect(hullRRect, _fill);
 
     // 3. Wing Armor Plates & Hazard Stripes
     final wingW = halfW * 0.35;
+    _fill.color = const Color(0xFF1F2538);
     // Left Wing
     final leftWingRect = Rect.fromLTWH(-halfW, -halfH, wingW, b.height);
-    canvas.drawRRect(RRect.fromRectAndRadius(leftWingRect, const Radius.circular(6.0)), Paint()..color = const Color(0xFF1F2538));
+    canvas.drawRRect(RRect.fromRectAndRadius(leftWingRect, const Radius.circular(6.0)), _fill);
     // Right Wing
     final rightWingRect = Rect.fromLTWH(halfW - wingW, -halfH, wingW, b.height);
-    canvas.drawRRect(RRect.fromRectAndRadius(rightWingRect, const Radius.circular(6.0)), Paint()..color = const Color(0xFF1F2538));
+    canvas.drawRRect(RRect.fromRectAndRadius(rightWingRect, const Radius.circular(6.0)), _fill);
 
     // Hazard Stripes on wing panels (black and yellow arcade stripes)
-    final stripePaintY = Paint()..color = const Color(0xFFFFC107)..strokeWidth = 2.0;
+    _stroke
+      ..color = const Color(0xFFFFC107)
+      ..strokeWidth = 2.0;
     for (int s = -1; s <= 1; s++) {
-      canvas.drawLine(Offset(-halfW + 10 + s * 6, -halfH + 4), Offset(-halfW + 16 + s * 6, halfH - 4), stripePaintY);
-      canvas.drawLine(Offset(halfW - wingW + 10 + s * 6, -halfH + 4), Offset(halfW - wingW + 16 + s * 6, halfH - 4), stripePaintY);
+      canvas.drawLine(Offset(-halfW + 10 + s * 6, -halfH + 4), Offset(-halfW + 16 + s * 6, halfH - 4), _stroke);
+      canvas.drawLine(Offset(halfW - wingW + 10 + s * 6, -halfH + 4), Offset(halfW - wingW + 16 + s * 6, halfH - 4), _stroke);
     }
 
     // 4. Dual Plasma Cannons on Gun Mounts
-    final cannonPaint = Paint()..color = const Color(0xFF37474F);
+    _fill.color = const Color(0xFF37474F);
     // Left Cannon
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(-halfW * 0.5, halfH + 4), width: 10, height: 12), const Radius.circular(2)), cannonPaint);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(-halfW * 0.5, halfH + 4), width: 10, height: 12), const Radius.circular(2)), _fill);
     _fill.color = const Color(0xFFFF1744).withValues(alpha: 0.75 + sin(time * 8.0) * 0.25);
     canvas.drawCircle(Offset(-halfW * 0.5, halfH + 9), 3.0, _fill);
     // Right Cannon
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(halfW * 0.5, halfH + 4), width: 10, height: 12), const Radius.circular(2)), cannonPaint);
+    _fill.color = const Color(0xFF37474F);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(halfW * 0.5, halfH + 4), width: 10, height: 12), const Radius.circular(2)), _fill);
+    _fill.color = const Color(0xFFFF1744).withValues(alpha: 0.75 + sin(time * 8.0) * 0.25);
     canvas.drawCircle(Offset(halfW * 0.5, halfH + 9), 3.0, _fill);
 
     // 5. Central Reactor Chassis
     final centerW = halfW * 0.65;
     final centerRect = Rect.fromCenter(center: Offset.zero, width: centerW * 2, height: b.height - 4);
-    canvas.drawRRect(RRect.fromRectAndRadius(centerRect, const Radius.circular(5.0)), Paint()..color = const Color(0xFF262D42));
+    _fill.color = const Color(0xFF262D42);
+    canvas.drawRRect(RRect.fromRectAndRadius(centerRect, const Radius.circular(5.0)), _fill);
 
     // Beveled armor highlight
-    final armorEdge = Paint()..color = const Color(0xFF5C6B8A)..strokeWidth = 1.2;
-    canvas.drawLine(Offset(-centerW + 2, -halfH + 3), Offset(centerW - 2, -halfH + 3), armorEdge);
+    _stroke
+      ..color = const Color(0xFF5C6B8A)
+      ..strokeWidth = 1.2;
+    canvas.drawLine(Offset(-centerW + 2, -halfH + 3), Offset(centerW - 2, -halfH + 3), _stroke);
 
     // 6. Central Cyber Robotic Visor / Laser Eye
     final eyeW = centerW * 0.7;
     final eyeRect = Rect.fromCenter(center: const Offset(0, 1), width: eyeW * 2, height: 13.0);
-    canvas.drawRRect(RRect.fromRectAndRadius(eyeRect, const Radius.circular(3.0)), Paint()..color = const Color(0xFF0A0D14));
+    _fill.color = const Color(0xFF0A0D14);
+    canvas.drawRRect(RRect.fromRectAndRadius(eyeRect, const Radius.circular(3.0)), _fill);
 
     // Scanning red laser beam across visor
     final scanX = sin(time * 5.0) * (eyeW - 6.0);
@@ -527,44 +589,46 @@ class _GameWorldPainter extends CustomPainter {
     canvas.drawCircle(Offset(scanX, 1), 2.0, _fill);
 
     // Neon Circuit Energy Conduits
-    final conduitPaint = Paint()
+    _stroke
       ..color = const Color(0xFF00E5FF).withValues(alpha: 0.6)
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-    canvas.drawLine(Offset(-eyeW, -halfH + 7), Offset(-centerW + 5, -halfH + 7), conduitPaint);
-    canvas.drawLine(Offset(eyeW, -halfH + 7), Offset(centerW - 5, -halfH + 7), conduitPaint);
+      ..strokeWidth = 1.2;
+    canvas.drawLine(Offset(-eyeW, -halfH + 7), Offset(-centerW + 5, -halfH + 7), _stroke);
+    canvas.drawLine(Offset(eyeW, -halfH + 7), Offset(centerW - 5, -halfH + 7), _stroke);
 
     // Rivets / Bolts
-    final boltPaint = Paint()..color = const Color(0xFF90A4AE);
-    canvas.drawCircle(Offset(-halfW + 5, -halfH + 5), 1.2, boltPaint);
-    canvas.drawCircle(Offset(halfW - 5, -halfH + 5), 1.2, boltPaint);
-    canvas.drawCircle(Offset(-halfW + 5, halfH - 5), 1.2, boltPaint);
-    canvas.drawCircle(Offset(halfW - 5, halfH - 5), 1.2, boltPaint);
+    _fill.color = const Color(0xFF90A4AE);
+    canvas.drawCircle(Offset(-halfW + 5, -halfH + 5), 1.2, _fill);
+    canvas.drawCircle(Offset(halfW - 5, -halfH + 5), 1.2, _fill);
+    canvas.drawCircle(Offset(-halfW + 5, halfH - 5), 1.2, _fill);
+    canvas.drawCircle(Offset(halfW - 5, halfH - 5), 1.2, _fill);
 
     // 7. Outer Pulsing Shield / Forcefield
     final shieldPulse = sin(time * 4.0) * 0.2 + 0.8;
-    final shieldBorder = Paint()
+    _stroke
       ..color = const Color(0xFFFF1744).withValues(alpha: 0.35 * shieldPulse)
-      ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
-    canvas.drawRRect(hullRRect, shieldBorder);
+    canvas.drawRRect(hullRRect, _stroke);
 
     // 8. Armored Floating Boss Health Bar
     final barW = b.width;
     const barH = 5.5;
     final barY = -halfH - 12.0;
     // Bar frame container
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(-halfW, barY, barW, barH), const Radius.circular(2.5)), Paint()..color = const Color(0xDD000000));
+    _fill.color = const Color(0xDD000000);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(-halfW, barY, barW, barH), const Radius.circular(2.5)), _fill);
     // Bar gradient fill (Green to Yellow to Red depending on HP)
     final hpColor = hpPct > 0.5
         ? Color.lerp(const Color(0xFFFFEB3B), const Color(0xFF00E676), (hpPct - 0.5) * 2)!
         : Color.lerp(const Color(0xFFFF1744), const Color(0xFFFFEB3B), hpPct * 2)!;
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(-halfW, barY, barW * hpPct, barH), const Radius.circular(2.5)), Paint()..color = hpColor);
+    _fill.color = hpColor;
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(-halfW, barY, barW * hpPct, barH), const Radius.circular(2.5)), _fill);
     // Segment dividers
-    final dividerPaint = Paint()..color = const Color(0x66000000)..strokeWidth = 1.0;
+    _stroke
+      ..color = const Color(0x66000000)
+      ..strokeWidth = 1.0;
     for (int d = 1; d < 5; d++) {
       final divX = -halfW + (barW * d / 5);
-      canvas.drawLine(Offset(divX, barY), Offset(divX, barY + barH), dividerPaint);
+      canvas.drawLine(Offset(divX, barY), Offset(divX, barY + barH), _stroke);
     }
   }
 
@@ -597,16 +661,15 @@ class _GameWorldPainter extends CustomPainter {
     canvas.drawRRect(rrect.inflate(2.0), _stroke);
 
     // Paddle body gradient
-    final bodyPaint = Paint()
-      ..shader = LinearGradient(
-        colors: [
-          c.activePaddleSkin.color1.withValues(alpha: alphaMul),
-          c.activePaddleSkin.color2.withValues(alpha: alphaMul),
-        ],
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-      ).createShader(rect);
-    canvas.drawRRect(rrect, bodyPaint);
+    _paddlePaint.shader = LinearGradient(
+      colors: [
+        c.activePaddleSkin.color1.withValues(alpha: alphaMul),
+        c.activePaddleSkin.color2.withValues(alpha: alphaMul),
+      ],
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+    ).createShader(rect);
+    canvas.drawRRect(rrect, _paddlePaint);
 
     // Specular highlight
     final gloss = Rect.fromLTWH(rect.left + 4, rect.top + 2, rect.width - 8, rect.height * 0.38);
@@ -665,12 +728,12 @@ class _GameWorldPainter extends CustomPainter {
       final coreColor = ball.isFireball
           ? const Color(0xFFFFD54F)
           : (ball.isBomb ? const Color(0xFFFF5252) : c.activeBallSkin.mainColor);
-      final corePaint = Paint()..color = coreColor;
-      canvas.drawCircle(Offset.zero, ball.radius, corePaint);
+      _fill.color = coreColor;
+      canvas.drawCircle(Offset.zero, ball.radius, _fill);
 
       // Specular dot
-      final specPaint = Paint()..color = Colors.white.withValues(alpha: 0.85);
-      canvas.drawCircle(Offset(-ball.radius * 0.35, -ball.radius * 0.35), ball.radius * 0.35, specPaint);
+      _fill.color = Colors.white.withValues(alpha: 0.85);
+      canvas.drawCircle(Offset(-ball.radius * 0.35, -ball.radius * 0.35), ball.radius * 0.35, _fill);
 
       canvas.restore();
     }
@@ -682,9 +745,10 @@ class _GameWorldPainter extends CustomPainter {
     final dx = p.x + p.width / 2 + cos(p.droneAngle) * 44.0;
     final dy = p.y - 20.0 + sin(p.droneAngle) * 16.0;
 
-    final dronePaint = Paint()..color = const Color(0xFF00E676);
-    canvas.drawCircle(Offset(dx, dy), 6.0, dronePaint);
-    canvas.drawCircle(Offset(dx, dy), 2.5, Paint()..color = Colors.white);
+    _fill.color = const Color(0xFF00E676);
+    canvas.drawCircle(Offset(dx, dy), 6.0, _fill);
+    _fill.color = Colors.white;
+    canvas.drawCircle(Offset(dx, dy), 2.5, _fill);
   }
 
   void _drawCapsules(Canvas canvas) {
@@ -699,7 +763,7 @@ class _GameWorldPainter extends CustomPainter {
         // Draw skill pixel art enlarged directly, NO circular backgrounds
         final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
         final dst = Rect.fromCenter(center: Offset.zero, width: 34.0, height: 34.0);
-        canvas.drawImageRect(img, src, dst, Paint()..filterQuality = FilterQuality.medium);
+        canvas.drawImageRect(img, src, dst, _imgPaint);
       } else {
         PixelArt.draw(canvas, cap.type, Offset.zero, 34.0);
       }
