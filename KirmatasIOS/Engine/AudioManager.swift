@@ -45,8 +45,19 @@ final class AudioManager {
 
     private var players: [String: [AVAudioPlayer]] = [:]
 
+    private var lightHaptic: UIImpactFeedbackGenerator?
+    private var mediumHaptic: UIImpactFeedbackGenerator?
+    private var heavyHaptic: UIImpactFeedbackGenerator?
+    private var rigidHaptic: UIImpactFeedbackGenerator?
+
     private init() {
         configureAudioSession()
+        #if canImport(UIKit)
+        lightHaptic = UIImpactFeedbackGenerator(style: .light)
+        mediumHaptic = UIImpactFeedbackGenerator(style: .medium)
+        heavyHaptic = UIImpactFeedbackGenerator(style: .heavy)
+        rigidHaptic = UIImpactFeedbackGenerator(style: .rigid)
+        #endif
     }
 
     private func configureAudioSession() {
@@ -98,20 +109,20 @@ final class AudioManager {
         #if canImport(UIKit)
         switch sfx {
         case .hitPaddle, .hitWall, .hitBrick:
-            let style: UIImpactFeedbackGenerator.FeedbackStyle =
-                intensity == .light ? .light : (intensity == .medium ? .medium : .heavy)
-            UIImpactFeedbackGenerator(style: style).impactOccurred()
+            if intensity == .light { lightHaptic?.impactOccurred() }
+            else if intensity == .medium { mediumHaptic?.impactOccurred() }
+            else { heavyHaptic?.impactOccurred() }
 
         case .breakBrick, .steel, .powerupBuff, .powerupDebuff, .laser:
-            let style: UIImpactFeedbackGenerator.FeedbackStyle =
-                intensity == .light ? .light : (intensity == .medium ? .medium : .rigid)
-            UIImpactFeedbackGenerator(style: style).impactOccurred()
+            if intensity == .light { lightHaptic?.impactOccurred() }
+            else if intensity == .medium { mediumHaptic?.impactOccurred() }
+            else { rigidHaptic?.impactOccurred() }
 
         case .explosion, .ulti, .gameOver, .victory:
             if intensity == .strong {
                 UINotificationFeedbackGenerator().notificationOccurred(sfx == .victory ? .success : .warning)
             } else {
-                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                heavyHaptic?.impactOccurred()
             }
 
         case .click:
@@ -130,11 +141,11 @@ final class AudioManager {
         case .off:
             break
         case .light:
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            lightHaptic?.impactOccurred()
         case .medium:
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            mediumHaptic?.impactOccurred()
         case .strong:
-            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+            heavyHaptic?.impactOccurred()
         }
         #endif
     }

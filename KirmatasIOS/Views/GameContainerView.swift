@@ -6,7 +6,18 @@ struct GameContainerView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            // Deep space cosmic background
+            RadialGradient(
+                colors: [
+                    Color(hex: 0xFF141624),
+                    Color(hex: 0xFF0A0C16),
+                    Color(hex: 0xFF020308)
+                ],
+                center: .bottom,
+                startRadius: 50,
+                endRadius: 800
+            )
+            .ignoresSafeArea()
 
             GameCanvasView(controller: controller)
                 .ignoresSafeArea()

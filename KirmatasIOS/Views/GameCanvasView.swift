@@ -173,22 +173,33 @@ struct GameCanvasView: View {
             } else if b.isBoss {
                 drawBoss(context: &bCtx, brick: b, time: time, halfW: halfW, halfH: halfH)
             } else {
-                // Modern Arcade Crystal Tile
-                bCtx.fill(rrect, with: .color(b.color))
+                // High-Quality Glassy Neon Gem
+                let gradient = Gradient(colors: [b.color.opacity(0.65), b.color])
+                bCtx.fill(rrect, with: .linearGradient(gradient, startPoint: CGPoint(x: 0, y: -halfH), endPoint: CGPoint(x: 0, y: halfH)))
+                
+                // Outer neon glow
+                bCtx.stroke(rrect, with: .color(b.color.opacity(0.4)), lineWidth: 3.5)
 
+                // Glossy top reflection (glass effect)
+                let glossRect = CGRect(x: -halfW + 1.5, y: -halfH + 1.5, width: max(0, b.width - 3.0), height: b.height * 0.45)
+                var glossPath = Path(roundedRect: glossRect, cornerRadius: 4.0)
+                bCtx.fill(glossPath, with: .color(.white.opacity(0.4)))
+                
+                // Sharp inner white highlight edge
                 var hiPath = Path()
                 hiPath.move(to: CGPoint(x: -halfW + 3, y: -halfH + 1.5))
                 hiPath.addLine(to: CGPoint(x: halfW - 3, y: -halfH + 1.5))
                 hiPath.move(to: CGPoint(x: -halfW + 1.5, y: -halfH + 3))
                 hiPath.addLine(to: CGPoint(x: -halfW + 1.5, y: halfH - 3))
-                bCtx.stroke(hiPath, with: .color(.white.opacity(0.45)), lineWidth: 1.5)
+                bCtx.stroke(hiPath, with: .color(.white.opacity(0.55)), lineWidth: 1.5)
 
+                // Deep inner shadow edge
                 var shPath = Path()
                 shPath.move(to: CGPoint(x: -halfW + 3, y: halfH - 1.5))
                 shPath.addLine(to: CGPoint(x: halfW - 3, y: halfH - 1.5))
                 shPath.move(to: CGPoint(x: halfW - 1.5, y: -halfH + 3))
                 shPath.addLine(to: CGPoint(x: halfW - 1.5, y: halfH - 3))
-                bCtx.stroke(shPath, with: .color(.black.opacity(0.45)), lineWidth: 1.5)
+                bCtx.stroke(shPath, with: .color(.black.opacity(0.6)), lineWidth: 1.5)
 
                 if b.maxHp >= 2 {
                     // Health Pips
@@ -309,28 +320,43 @@ struct GameCanvasView: View {
         let rrect = Path(roundedRect: rect, cornerRadius: rect.height / 2.0)
         let alphaMul = p.isGhost ? 0.35 : 1.0
 
+        // Define beautiful skin themes
+        let skins: [(c1: Color, c2: Color, glow: Color, inner: Color)] = [
+            (Color(hex: 0xFF40C4FF), Color(hex: 0xFF7C4DFF), Color(hex: 0xFF40C4FF), Color(hex: 0xFFB3E5FC)), // 0: Cyberpunk Blue/Purple
+            (Color(hex: 0xFFFF5252), Color(hex: 0xFFC51162), Color(hex: 0xFFFF5252), Color(hex: 0xFFFF8A80)), // 1: Crimson Red
+            (Color(hex: 0xFF00E676), Color(hex: 0xFF1DE9B6), Color(hex: 0xFF00E676), Color(hex: 0xFFB9F6CA)), // 2: Emerald Green
+            (Color(hex: 0xFFFFD740), Color(hex: 0xFFFF6D00), Color(hex: 0xFFFFD740), Color(hex: 0xFFFFE57F)), // 3: Golden Orange
+            (Color(hex: 0xFF263238), Color(hex: 0xFFECEFF1), Color(hex: 0xFF90A4AE), Color(hex: 0xFFCFD8DC))  // 4: Obsidian Silver
+        ]
+        let skin = skins[p.skinIndex % skins.count]
+
         let glowRect = rect.insetBy(dx: -2.0, dy: -2.0)
         let glowPath = Path(roundedRect: glowRect, cornerRadius: glowRect.height / 2.0)
-        context.stroke(glowPath, with: .color(Color(hex: 0xFF40C4FF).opacity(0.35 * alphaMul)), lineWidth: 3.5)
+        context.stroke(glowPath, with: .color(skin.glow.opacity(0.4 * alphaMul)), lineWidth: 3.5)
 
         context.fill(
             rrect,
             with: .linearGradient(
-                Gradient(colors: [
-                    Color(hex: 0xFF40C4FF).opacity(alphaMul),
-                    Color(hex: 0xFF7C4DFF).opacity(alphaMul)
-                ]),
-                startPoint: CGPoint(x: rect.minX, y: rect.midY),
-                endPoint: CGPoint(x: rect.maxX, y: rect.midY)
+                Gradient(colors: [skin.c1.opacity(alphaMul), skin.c2.opacity(alphaMul)]),
+                startPoint: CGPoint(x: rect.minX, y: rect.minY),
+                endPoint: CGPoint(x: rect.maxX, y: rect.maxY)
             )
         )
 
-        let glossRect = CGRect(x: rect.minX + 4, y: rect.minY + 2, width: max(rect.width - 8, 2), height: rect.height * 0.38)
-        context.fill(Path(roundedRect: glossRect, cornerRadius: 4.0), with: .color(.white.opacity(0.35 * alphaMul)))
+        // Inner neon band
+        let innerRect = rect.insetBy(dx: 3.0, dy: 3.0)
+        context.stroke(Path(roundedRect: innerRect, cornerRadius: innerRect.height / 2.0), with: .color(skin.inner.opacity(0.6 * alphaMul)), lineWidth: 1.5)
+
+        // Glassy gloss reflection
+        let glossRect = CGRect(x: rect.minX + 4, y: rect.minY + 1.5, width: max(rect.width - 8, 2), height: rect.height * 0.4)
+        context.fill(Path(roundedRect: glossRect, cornerRadius: glossRect.height / 2.0), with: .color(.white.opacity(0.45 * alphaMul)))
 
         if p.hasLaser {
-            context.fill(Path(CGRect(x: rect.minX + 2, y: rect.minY - 5, width: 5, height: 5)), with: .color(Color(hex: 0xFFFFD740)))
-            context.fill(Path(CGRect(x: rect.maxX - 7, y: rect.minY - 5, width: 5, height: 5)), with: .color(Color(hex: 0xFFFFD740)))
+            let cx1 = rect.minX + 8
+            let cx2 = rect.maxX - 8
+            let r = 3.5
+            context.fill(Path(ellipseIn: CGRect(x: cx1 - r, y: rect.minY - r, width: r*2, height: r*2)), with: .color(Color(hex: 0xFFFFD740)))
+            context.fill(Path(ellipseIn: CGRect(x: cx2 - r, y: rect.minY - r, width: r*2, height: r*2)), with: .color(Color(hex: 0xFFFFD740)))
         }
     }
 
