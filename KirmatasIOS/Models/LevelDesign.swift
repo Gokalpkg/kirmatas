@@ -295,34 +295,38 @@ enum LevelDesign {
         return bricks
     }
 
-    static func buildTuftLevel(screenWidth: Double, screenHeight: Double) -> [Brick] {
+    static func buildShapesLevel(level: Int, screenWidth: Double, screenHeight: Double) -> [Brick] {
         var bricks: [Brick] = []
-        let rows = 5
-        let cols = 5
-        let gap = 8.0
+        let shapes = [shapeHeart, shapeSword, shapeSmiley, shapeDiamond]
+        let matrix = shapes[(level - 1) % shapes.count]
+        
+        let rows = matrix.count
+        let cols = matrix[0].count
+        let gap = 6.0
         let bw = (screenWidth - 40.0 - gap * Double(cols - 1)) / Double(cols)
         let totalW = Double(cols) * bw + gap * Double(cols - 1)
         let startX = (screenWidth - totalW) / 2.0
-        let bh = 30.0
+        let bh = 22.0
 
         for r in 0..<rows {
             for c in 0..<cols {
-                let color = tuftPalette[(r + c) % tuftPalette.count]
-                bricks.append(
-                    Brick(
-                        x: startX + Double(c) * (bw + gap),
-                        y: baseTopMargin + Double(r) * (bh + gap),
-                        width: bw,
-                        height: bh,
-                        hp: 1,
-                        maxHp: 1,
-                        isTuft: true,
-                        tuftFilled: false,
-                        tuftColor: color,
-                        color: color.opacity(0.25),
-                        points: 15
+                if matrix[r][c] == 1 {
+                    let color = candyPalette[(r + c) % candyPalette.count]
+                    bricks.append(
+                        Brick(
+                            x: startX + Double(c) * (bw + gap),
+                            y: baseTopMargin + Double(r) * (bh + gap),
+                            width: bw,
+                            height: bh,
+                            hp: 1,
+                            maxHp: 1,
+                            minX: 16.0,
+                            maxX: screenWidth - 16.0,
+                            color: color,
+                            points: 20
+                        )
                     )
-                )
+                }
             }
         }
         return bricks

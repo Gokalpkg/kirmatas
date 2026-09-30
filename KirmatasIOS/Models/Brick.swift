@@ -18,11 +18,9 @@ final class Brick {
     var isBoss: Bool
     var bossVx: Double
     var shootTimer: Double
-    var isTuft: Bool
-    var tuftFilled: Bool
-    var tuftColor: Color
     var jelly: Double // wobble deformation amount (0.0 to 1.0)
     var color: Color
+    var gradient: Gradient
     var points: Int
     var isAlive: Bool
 
@@ -43,9 +41,6 @@ final class Brick {
         isBoss: Bool = false,
         bossVx: Double = 70.0,
         shootTimer: Double = 2.0,
-        isTuft: Bool = false,
-        tuftFilled: Bool = false,
-        tuftColor: Color = Color(hex: 0xFFFF7043),
         jelly: Double = 0.0,
         color: Color,
         points: Int = 10,
@@ -67,11 +62,9 @@ final class Brick {
         self.isBoss = isBoss
         self.bossVx = bossVx
         self.shootTimer = shootTimer
-        self.isTuft = isTuft
-        self.tuftFilled = tuftFilled
-        self.tuftColor = tuftColor
         self.jelly = jelly
         self.color = color
+        self.gradient = Gradient(colors: [color.opacity(0.65), color])
         self.points = points
         self.isAlive = isAlive
     }

@@ -116,14 +116,14 @@ struct MainMenuView: View {
                                 dailyMiniCard
 
                                 arcadeMiniCard(
-                                    mode: .tuft,
-                                    title: I18n.tr("tuft"),
-                                    desc: I18n.tr("tuft_desc"),
+                                    mode: .shapes,
+                                    title: I18n.tr("shapes"),
+                                    desc: I18n.tr("shapes_desc"),
                                     systemIcon: "paintbrush.pointed.fill",
                                     color1: Color(hex: 0xFFD4A373),
                                     color2: Color(hex: 0xFFA98467)
                                 ) {
-                                    launchGame(.tuft)
+                                    launchGame(.shapes)
                                 }
                             }
                         }

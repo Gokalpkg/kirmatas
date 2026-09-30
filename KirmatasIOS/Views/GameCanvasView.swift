@@ -119,23 +119,7 @@ struct GameCanvasView: View {
             let rect = CGRect(x: -halfW, y: -halfH, width: b.width, height: b.height)
             let rrect = Path(roundedRect: rect, cornerRadius: 6.0)
 
-            if b.isTuft {
-                let fillCol = b.tuftFilled ? b.tuftColor : b.tuftColor.opacity(0.25)
-                bCtx.fill(rrect, with: .color(fillCol))
-
-                var stitchPath = Path()
-                stitchPath.move(to: CGPoint(x: -halfW + 4, y: -halfH + 4))
-                stitchPath.addLine(to: CGPoint(x: halfW - 4, y: halfH - 4))
-                stitchPath.move(to: CGPoint(x: -halfW + 4, y: halfH - 4))
-                stitchPath.addLine(to: CGPoint(x: halfW - 4, y: -halfH + 4))
-                bCtx.stroke(
-                    stitchPath,
-                    with: .color(b.tuftFilled ? Color.white.opacity(0.75) : b.tuftColor.opacity(0.6)),
-                    lineWidth: 1.5
-                )
-                bCtx.stroke(rrect, with: .color(b.tuftColor), lineWidth: 1.8)
-
-            } else if b.isSteel {
+            if b.isSteel {
                 bCtx.fill(rrect, with: .color(Color(hex: 0xFF37474F)))
 
                 var topLine = Path()
@@ -174,8 +158,8 @@ struct GameCanvasView: View {
                 drawBoss(context: &bCtx, brick: b, time: time, halfW: halfW, halfH: halfH)
             } else {
                 // High-Quality Glassy Neon Gem
-                let gradient = Gradient(colors: [b.color.opacity(0.65), b.color])
-                bCtx.fill(rrect, with: .linearGradient(gradient, startPoint: CGPoint(x: 0, y: -halfH), endPoint: CGPoint(x: 0, y: halfH)))
+                
+                bCtx.fill(rrect, with: .linearGradient(b.gradient, startPoint: CGPoint(x: 0, y: -halfH), endPoint: CGPoint(x: 0, y: halfH)))
                 
                 // Outer neon glow
                 bCtx.stroke(rrect, with: .color(b.color.opacity(0.4)), lineWidth: 3.5)

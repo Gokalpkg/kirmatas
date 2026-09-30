@@ -97,8 +97,8 @@ final class GameController: ObservableObject {
             descendTimer = 13.0
         case .daily:
             bricks = LevelDesign.buildDailyLevel(date: Date(), screenWidth: screenWidth, screenHeight: screenHeight)
-        case .tuft:
-            bricks = LevelDesign.buildTuftLevel(screenWidth: screenWidth, screenHeight: screenHeight)
+        case .shapes:
+            bricks = LevelDesign.buildShapesLevel(level: stats.level, screenWidth: screenWidth, screenHeight: screenHeight)
         }
     }
 
@@ -427,7 +427,7 @@ final class GameController: ObservableObject {
             }
         }
 
-        if currentMode != .tuft {
+        if currentMode != .shapes {
             bricks.removeAll(where: { !$0.isAlive && $0.jelly <= 0 })
         }
 
@@ -606,7 +606,7 @@ final class GameController: ObservableObject {
             if distSq <= rSq {
                 hitBrick(b, ball: ball)
 
-                if !ball.isFireball && !ball.isPierce && !b.isTuft {
+                if !ball.isFireball && !ball.isPierce {
                     let overlapX = r - abs(distX)
                     let overlapY = r - abs(distY)
 
@@ -623,8 +623,6 @@ final class GameController: ObservableObject {
 
                 if ball.isBomb {
                     explodeArea(cx: b.x + b.width / 2.0, cy: b.y + b.height / 2.0, radius: 55.0)
-                }
-                if !b.isTuft {
                     break
                 }
             }
@@ -632,16 +630,6 @@ final class GameController: ObservableObject {
     }
 
     private func hitBrick(_ b: Brick, ball: Ball?) {
-        if b.isTuft {
-            if !b.tuftFilled {
-                b.tuftFilled = true
-                b.color = b.tuftColor
-                particles.spawnBurst(x: b.x + b.width / 2.0, y: b.y + b.height / 2.0, color: b.tuftColor, count: 8)
-                audio.playSfx(.hitBrick)
-                registerCombo(basePoints: b.points)
-            }
-            return
-        }
 
         if b.isSteel {
             if let ball = ball, ball.isFireball {
@@ -976,13 +964,6 @@ final class GameController: ObservableObject {
     private func checkGameProgress() {
         if currentMode == .zen { return }
 
-        if currentMode == .tuft {
-            let allFilled = bricks.allSatisfy { $0.tuftFilled }
-            if allFilled {
-                onVictory()
-            }
-            return
-        }
 
         let remainingBreakable = bricks.filter { $0.isAlive && !$0.isSteel }.count
         if remainingBreakable == 0 {
