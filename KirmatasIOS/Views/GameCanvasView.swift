@@ -353,11 +353,22 @@ struct GameCanvasView: View {
                 for i in 0..<count {
                     let pt = ball.trail[i]
                     let progress = 1.0 - (Double(i) / Double(count))
-                    let trailRadius = ball.radius * progress * 0.75
-                    let trailColor = (ball.isFireball ? Color(hex: 0xFFFF6D00) : Color(hex: 0xFF40C4FF)).opacity(progress * 0.45)
+                    let isBlueFlame = ball.isFireball && ball.fireballCombo >= 8
+                    let baseRadius = isBlueFlame ? ball.radius * 1.2 : ball.radius
+                    let trailRadius = baseRadius * progress * 0.85
+                    
+                    let trailColor: Color
+                    if isBlueFlame {
+                        trailColor = Color(hex: 0xFF00E5FF)
+                    } else if ball.isFireball {
+                        trailColor = Color(hex: 0xFFFF6D00)
+                    } else {
+                        trailColor = Color(hex: 0xFF40C4FF)
+                    }
+                    
                     context.fill(
                         Path(ellipseIn: CGRect(x: pt.position.x - trailRadius, y: pt.position.y - trailRadius, width: trailRadius * 2, height: trailRadius * 2)),
-                        with: .color(trailColor)
+                        with: .color(trailColor.opacity(progress * (isBlueFlame ? 0.65 : 0.45)))
                     )
                 }
             }
@@ -377,13 +388,31 @@ struct GameCanvasView: View {
                 bCtx.fill(Path(ellipseIn: CGRect(x: -r, y: -r, width: r * 2, height: r * 2)), with: .color(Color(hex: 0xFFFFD54F).opacity(0.45)))
             }
 
-            let glowR = ball.radius + 3.0
-            let glowColor = ball.isFireball ? Color(hex: 0xFFFF6D00) : Color.white
-            bCtx.fill(Path(ellipseIn: CGRect(x: -glowR, y: -glowR, width: glowR * 2, height: glowR * 2)), with: .color(glowColor.opacity(0.28)))
+            let isBlueFlame = ball.isFireball && ball.fireballCombo >= 8
+            let glowR = ball.radius + (isBlueFlame ? 5.0 : 3.0)
+            
+            let glowColor: Color
+            if isBlueFlame {
+                glowColor = Color(hex: 0xFF00B0FF)
+            } else if ball.isFireball {
+                glowColor = Color(hex: 0xFFFF6D00)
+            } else {
+                glowColor = .white
+            }
+            
+            bCtx.fill(Path(ellipseIn: CGRect(x: -glowR, y: -glowR, width: glowR * 2, height: glowR * 2)), with: .color(glowColor.opacity(isBlueFlame ? 0.4 : 0.28)))
 
-            let coreColor: Color = ball.isFireball
-                ? Color(hex: 0xFFFFD54F)
-                : (ball.isBomb ? Color(hex: 0xFFFF5252) : Color.white)
+            let coreColor: Color
+            if isBlueFlame {
+                coreColor = .white
+            } else if ball.isFireball {
+                coreColor = Color(hex: 0xFFFFD54F)
+            } else if ball.isBomb {
+                coreColor = Color(hex: 0xFFFF5252)
+            } else {
+                coreColor = .white
+            }
+            
             let r = ball.radius
             bCtx.fill(Path(ellipseIn: CGRect(x: -r, y: -r, width: r * 2, height: r * 2)), with: .color(coreColor))
 

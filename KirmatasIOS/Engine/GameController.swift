@@ -541,11 +541,15 @@ final class GameController: ObservableObject {
 
     private func checkBallPaddleCollision(_ ball: Ball) -> Bool {
         let pr = paddle.rect
+        // Prevent tunnelling by expanding the hitbox based on the ball's speed per frame
+        let vyPadding = max(ball.vy * 0.025, 0.0) 
+        let vxPadding = max(abs(ball.vx) * 0.025, 5.0)
+        
         guard ball.vy > 0,
-              ball.y + ball.radius >= pr.minY,
+              ball.y + ball.radius >= pr.minY - vyPadding,
               ball.y - ball.radius <= pr.maxY,
-              ball.x + ball.radius >= pr.minX,
-              ball.x - ball.radius <= pr.maxX else {
+              ball.x + ball.radius >= pr.minX - vxPadding,
+              ball.x - ball.radius <= pr.maxX + vxPadding else {
             return false
         }
 
@@ -560,19 +564,24 @@ final class GameController: ObservableObject {
         }
 
         let hitOffset = min(max((ball.x - (paddle.x + paddle.width / 2.0)) / (paddle.width / 2.0), -1.0), 1.0)
-        let bounceAngle = hitOffset * (.pi / 2.7)
+        let bounceAngle = hitOffset * (.pi / 2.8) // Reduced angle slightly to prevent extreme horizontals
         let baseSpeed = min(ball.speed + 6.0, 680.0)
 
         let isCornerHit = abs(hitOffset) >= 0.78
-        let speedMultiplier = isCornerHit ? 1.45 : 1.0
-        let finalSpeed = min(max(baseSpeed * speedMultiplier, 100.0), 850.0)
+        let speedMultiplier = isCornerHit ? 1.35 : 1.0
+        let finalSpeed = min(max(baseSpeed * speedMultiplier, 100.0), 800.0)
 
         ball.vx = sin(bounceAngle) * finalSpeed
-        ball.vy = -cos(bounceAngle) * finalSpeed
-        ball.vx += paddle.velocityX * 0.25
+        // Cap the paddle velocity transfer to prevent insane horizontal speeds
+        let paddleV = max(min(paddle.velocityX * 0.20, 200.0), -200.0)
+        ball.vx += paddleV
+        
+        // Ensure a minimum vertical velocity so the ball doesn't get stuck bouncing side-to-side
+        ball.vy = -max(abs(cos(bounceAngle) * finalSpeed), 150.0)
 
         ball.y = pr.minY - ball.radius - 1.0
         ball.triggerSquash(-.pi / 2.0)
+        ball.fireballCombo = 0 // Reset combo when hitting paddle
 
         if isCornerHit {
             ball.cornerBoostTimer = 3.2
@@ -633,6 +642,7 @@ final class GameController: ObservableObject {
 
         if b.isSteel {
             if let ball = ball, ball.isFireball {
+                ball.fireballCombo += 1
                 destroyBrick(b)
             } else {
                 b.jelly = 1.0
@@ -643,6 +653,10 @@ final class GameController: ObservableObject {
         }
 
         b.hp -= 1
+        if let ball = ball, ball.isFireball {
+            ball.fireballCombo += 1
+        }
+
         b.jelly = 0.8
 
         if b.hp <= 0 {

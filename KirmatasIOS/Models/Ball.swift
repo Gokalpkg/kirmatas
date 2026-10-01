@@ -24,6 +24,8 @@ final class Ball {
     var squashAngle: Double
     var stuckTimer: Double
     var cornerBoostTimer: Double
+    var fireballCombo: Int = 0
+
 
     init(
         x: Double,
