@@ -44,6 +44,8 @@ final class AudioManager {
     static let shared = AudioManager()
 
     private var players: [String: [AVAudioPlayer]] = [:]
+    private var lastPlayedTimes: [GameSfx: Double] = [:]
+
 
     private var lightHaptic: UIImpactFeedbackGenerator?
     private var mediumHaptic: UIImpactFeedbackGenerator?
@@ -72,6 +74,13 @@ final class AudioManager {
     }
 
     func playSfx(_ sfx: GameSfx) {
+        // Prevent massive lag spikes when breaking 20+ bricks in one frame (e.g. Bomb/Ulti)
+        let now = CACurrentMediaTime()
+        if let last = lastPlayedTimes[sfx], now - last < 0.04 {
+            return // Throttle to max 1 sound per 40ms of the same type
+        }
+        lastPlayedTimes[sfx] = now
+
         triggerHapticForSfx(sfx)
 
         guard SaveManager.shared.sfxEnabled else { return }
@@ -93,7 +102,7 @@ final class AudioManager {
             player.prepareToPlay()
             player.play()
             var pool = players[fileName] ?? []
-            if pool.count < 4 {
+            if pool.count < 6 {
                 pool.append(player)
                 players[fileName] = pool
             }

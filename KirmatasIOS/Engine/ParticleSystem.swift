@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-final class Particle {
+struct Particle {
     var x: Double
     var y: Double
     var vx: Double
@@ -32,14 +32,14 @@ final class Particle {
 
     var isDead: Bool { life <= 0 }
 
-    func update(dt: Double) {
+    mutating func update(dt: Double) {
         x += vx * dt
         y += vy * dt
         life -= dt
     }
 }
 
-final class Shockwave {
+struct Shockwave {
     let x: Double
     let y: Double
     let color: Color
@@ -64,7 +64,7 @@ final class Shockwave {
 
     var isDead: Bool { progress >= 1.0 }
 
-    func update(dt: Double) {
+    mutating func update(dt: Double) {
         progress += dt / duration
         let t = min(max(progress, 0.0), 1.0)
         // easeOutCubic: 1 - (1 - t)^3
@@ -74,7 +74,7 @@ final class Shockwave {
     }
 }
 
-final class FloatingText {
+struct FloatingText {
     var x: Double
     var y: Double
     let text: String
@@ -102,7 +102,7 @@ final class FloatingText {
 
     var isDead: Bool { life <= 0 }
 
-    func update(dt: Double) {
+    mutating func update(dt: Double) {
         y -= 35.0 * dt
         life -= dt
     }
