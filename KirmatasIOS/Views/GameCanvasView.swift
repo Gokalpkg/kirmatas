@@ -36,15 +36,13 @@ struct GameCanvasView: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-                        if let prevX = lastDragX {
-                            let delta = Double(value.location.x - prevX)
-                            controller.movePaddleBy(deltaX: delta)
-                        } else {
+                        if lastDragX == nil {
                             // Tap down: if ready or ball is stuck, launch it
                             if controller.status == .ready || controller.hasStuckBall {
                                 controller.launchBall()
                             }
                         }
+                        controller.movePaddleTo(targetX: value.location.x)
                         lastDragX = value.location.x
                     }
                     .onEnded { _ in
@@ -69,20 +67,8 @@ struct GameCanvasView: View {
 
     // MARK: - Background
     private func drawBackground(context: inout GraphicsContext, size: CGSize, time: Double) {
-        let rect = CGRect(origin: .zero, size: size)
-        context.fill(
-            Path(rect),
-            with: .radialGradient(
-                Gradient(colors: [
-                    Color(hex: 0xFF161B30),
-                    Color(hex: 0xFF090B14),
-                    Color(hex: 0xFF040508)
-                ]),
-                center: CGPoint(x: size.width * 0.5, y: size.height * 0.35),
-                startRadius: 10,
-                endRadius: max(size.width, size.height) * 0.85
-            )
-        )
+        // We removed the full-screen RadialGradient fill here because it causes massive GPU fill-rate lag.
+        // It is now strictly handled by GameContainerView's static background behind this Canvas!
 
         let safeW = max(Int(size.width), 1)
         let safeH = max(size.height, 1.0)
