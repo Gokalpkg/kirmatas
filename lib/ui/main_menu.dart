@@ -373,13 +373,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildArcadeMiniCard(
-                                  mode: GameMode.tuft,
-                                  title: I18n.tr('tuft'),
-                                  desc: I18n.tr('tuft_desc'),
+                                  mode: GameMode.shapes,
+                                  title: I18n.tr('shapes'),
+                                  desc: I18n.tr('shapes_desc'),
                                   icon: Icons.palette,
                                   color1: const Color(0xFFD4A373),
                                   color2: const Color(0xFFA98467),
-                                  onTap: () => _launchGame(GameMode.tuft),
+                                  onTap: () => _launchGame(GameMode.shapes),
                                 ),
                               ),
                             ],

@@ -25,6 +25,8 @@ class Ball {
   double squashAngle;
   double stuckTimer;
   double cornerBoostTimer;
+  int cornerHitCount = 0;
+  bool isPurple = false;
 
   Ball({
     required this.x,

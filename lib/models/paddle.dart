@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class Paddle {
   double x;
@@ -10,6 +10,7 @@ class Paddle {
   bool hasLaser;
   double laserCooldown;
   bool hasRockets;
+  int rocketAmmo = 0;
   double rocketCooldown;
   bool hasDrone;
   double droneAngle;

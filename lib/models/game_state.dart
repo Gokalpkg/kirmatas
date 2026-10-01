@@ -2,10 +2,10 @@ import '../engine/i18n.dart';
 
 enum GameMode {
   classic,
+  shapes,
   zen,
   descend,
-  daily,
-  tuft;
+  daily;
 
   String get displayName => I18n.tr(name);
   String get description => I18n.tr('${name}_desc');

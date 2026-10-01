@@ -34,6 +34,8 @@ class GameController extends ChangeNotifier {
 
   double descendTimer = 0.0;
   double droneShootTimer = 0.0;
+  double? laserTimer;
+  double? rocketTimer;
   double comboTimer = 0.0;
   double gameTime = 0.0;
 
@@ -103,6 +105,11 @@ class GameController extends ChangeNotifier {
     paddle.isGhost = false;
     paddle.isReversed = false;
     paddle.isClumsy = false;
+    paddle.rocketAmmo = 0;
+
+    activePowerUps.clear();
+    capsules.clear();
+    projectiles.clear();
 
     balls.clear();
     balls.add(
@@ -130,8 +137,8 @@ class GameController extends ChangeNotifier {
       case GameMode.daily:
         bricks = LevelDesign.buildDailyLevel(DateTime.now(), screenWidth, screenHeight);
         break;
-      case GameMode.tuft:
-        bricks = LevelDesign.buildTuftLevel(screenWidth, screenHeight);
+      case GameMode.shapes:
+        bricks = LevelDesign.buildShapesLevel(stats.level, screenWidth, screenHeight);
         break;
     }
   }
@@ -267,16 +274,43 @@ class GameController extends ChangeNotifier {
           paddle.x + paddle.width / 2 + cos(paddle.droneAngle) * 40.0,
           paddle.y - 20.0 + sin(paddle.droneAngle) * 15.0,
         );
-        projectiles.add(
-          Projectile(
-            x: droneOffset.dx,
-            y: droneOffset.dy,
-            vy: -480.0,
-            radius: 3.5,
-            isLaser: true,
-          ),
-        );
+        projectiles.add(Projectile(x: droneOffset.dx, y: droneOffset.dy, vy: -480.0, radius: 3.5, isLaser: true));
         audio.playSfx(GameSfx.laser);
+      }
+    }
+
+    // GÜÇLENDİRİCİ KOMBİNASYONU: Lazer + Alev Topu (Fire Laser) veya sadece Lazer
+    if (paddle.hasLaser) {
+      laserTimer = (laserTimer ?? 0.0) + dt;
+      if (laserTimer! >= 0.65) {
+        laserTimer = 0.0;
+        final hasFireball = balls.any((b) => b.isFireball);
+        if (hasFireball) {
+          // Kombinasyon: Alev Lazerleri! Üçlü geniş atış
+          projectiles.add(Projectile(x: paddle.x + 10, y: paddle.y - 12, vx: -80, vy: -500.0, radius: 6.0, isLaser: true));
+          projectiles.add(Projectile(x: paddle.x + paddle.width - 10, y: paddle.y - 12, vx: 80, vy: -500.0, radius: 6.0, isLaser: true));
+          audio.playSfx(GameSfx.explosion);
+        } else {
+          // Normal Lazer
+          projectiles.add(Projectile(x: paddle.x + 10, y: paddle.y - 12, vy: -450.0, radius: 4.0, isLaser: true));
+          projectiles.add(Projectile(x: paddle.x + paddle.width - 10, y: paddle.y - 12, vy: -450.0, radius: 4.0, isLaser: true));
+          audio.playSfx(GameSfx.laser);
+        }
+      }
+    }
+
+    // Rocket auto firing
+    if (paddle.hasRockets) {
+      rocketTimer = (rocketTimer ?? 0.0) + dt;
+      if (rocketTimer! >= 1.2) {
+        rocketTimer = 0.0;
+        projectiles.add(Projectile(x: paddle.x + paddle.width / 2, y: paddle.y - 10, vy: -350.0, radius: 6.0, isRocket: true));
+        audio.playSfx(GameSfx.ulti);
+        
+        paddle.rocketAmmo--;
+        if (paddle.rocketAmmo <= 0) {
+          paddle.hasRockets = false;
+        }
       }
     }
 
@@ -395,35 +429,25 @@ class GameController extends ChangeNotifier {
     for (final b in bricks) {
       b.update(dt);
 
-      // Boss shooting
+      // Boss shooting (Spread Attack)
       if (b.isAlive && b.isBoss && b.shootTimer <= 0) {
-        b.shootTimer = 2.2 + _rand.nextDouble() * 1.2;
-        projectiles.add(
-          Projectile(
-            x: b.x + b.width * 0.25,
-            y: b.y + b.height + 6.0,
-            vy: 200.0,
-            radius: 5.5,
-            isBossBullet: true,
-          ),
-        );
-        projectiles.add(
-          Projectile(
-            x: b.x + b.width * 0.75,
-            y: b.y + b.height + 6.0,
-            vy: 200.0,
-            radius: 5.5,
-            isBossBullet: true,
-          ),
-        );
-        audio.playSfx(GameSfx.laser);
+        b.shootTimer = 2.0 + _rand.nextDouble() * 1.0;
+        
+        // Shoot 3 bullets in a spread pattern
+        final centerX = b.x + b.width / 2;
+        final bottomY = b.y + b.height + 6.0;
+        
+        projectiles.add(Projectile(x: centerX - 20, y: bottomY, vx: -120.0, vy: 250.0, radius: 6.0, isBossBullet: true));
+        projectiles.add(Projectile(x: centerX, y: bottomY, vy: 250.0, radius: 7.0, isBossBullet: true));
+        projectiles.add(Projectile(x: centerX + 20, y: bottomY, vx: 120.0, vy: 250.0, radius: 6.0, isBossBullet: true));
+        
+        audio.playSfx(GameSfx.explosion);
+        particles.spawnBurst(centerX, bottomY, const Color(0xFFFF1744), count: 12);
       }
     }
 
     // Global dead brick pruning to eliminate memory accumulation and CPU lag
-    if (currentMode != GameMode.tuft) {
-      bricks.removeWhere((b) => !b.isAlive && b.jelly <= 0);
-    }
+    bricks.removeWhere((b) => !b.isAlive && b.jelly <= 0);
 
     // Descend mode marching with smooth sliding animation
     if (currentMode == GameMode.descend) {
@@ -575,11 +599,22 @@ class GameController extends ChangeNotifier {
       ball.triggerSquash(-pi / 2);
 
       if (isCornerHit) {
+        ball.cornerHitCount++;
         ball.cornerBoostTimer = 3.2; // Speeds up for 3.2 seconds
-        particles.spawnBurst(ball.x, pr.top, const Color(0xFFFFD54F), count: 20);
-        particles.spawnFloatingText(ball.x, pr.top - 18, I18n.tr('corner_shot'), const Color(0xFFFFD54F), isLarge: true);
-        audio.playSfx(GameSfx.ulti);
+        if (ball.cornerHitCount >= 8) {
+          ball.isPurple = true;
+          ball.cornerHitCount = 0; // reset after triggering
+          particles.spawnBurst(ball.x, pr.top, const Color(0xFFD500F9), count: 50, speed: 150.0);
+          particles.spawnFloatingText(ball.x, pr.top - 24, I18n.tr('purple_fever') ?? 'MOR GÜÇ!', const Color(0xFFD500F9), isLarge: true);
+          audio.playSfx(GameSfx.ulti);
+        } else {
+          applyPowerUp(PowerUpType.fireball); 
+          particles.spawnBurst(ball.x, pr.top, const Color(0xFFFF6D00), count: 30, speed: 120.0);
+          particles.spawnFloatingText(ball.x, pr.top - 18, I18n.tr('corner_shot') ?? 'KÖŞE VURUŞU! (${ball.cornerHitCount})', const Color(0xFFFF6D00), isLarge: true);
+          audio.playSfx(GameSfx.ulti);
+        }
       } else {
+        ball.cornerHitCount = 0; // Reset consecutive hits
         particles.spawnShockwave(ball.x, pr.top, activePaddleSkin.glowColor, maxRadius: 32.0);
         audio.playSfx(GameSfx.hitPaddle);
       }
@@ -755,6 +790,7 @@ class GameController extends ChangeNotifier {
   }
 
   void _rollCapsuleDrop(double x, double y) {
+    if (activePowerUps.length >= 3) return; // Limit to 3 active power-ups
     final luckLevel = save.upgrades['luck'] ?? 0;
     final dropChance = 0.14 + luckLevel * 0.04;
     if (_rand.nextDouble() > dropChance) return;
@@ -765,6 +801,11 @@ class GameController extends ChangeNotifier {
     if (_rand.nextDouble() < 0.78 + luckLevel * 0.05) {
       final buffs = allTypes.where((t) => t.kind == PowerUpKind.buff).toList();
       chosen = buffs[_rand.nextInt(buffs.length)];
+      
+      // KURAL: Ateş topu ve Roket çok daha nadir çıkmalı (2/3 oranında tekrar kura çekilir)
+      if ((chosen == PowerUpType.fireball || chosen == PowerUpType.rocket) && _rand.nextDouble() < 0.66) {
+        chosen = buffs[_rand.nextInt(buffs.length)];
+      }
     } else {
       final debuffs = allTypes.where((t) => t.kind == PowerUpKind.debuff).toList();
       chosen = debuffs[_rand.nextInt(debuffs.length)];
@@ -787,7 +828,7 @@ class GameController extends ChangeNotifier {
           break;
         case PowerUpType.shield:
           paddle.hasNet = true;
-          paddle.netHitsRemaining = 2;
+          paddle.netHitsRemaining = 1;
           break;
         case PowerUpType.mirror:
           if (balls.isNotEmpty) {
@@ -811,8 +852,18 @@ class GameController extends ChangeNotifier {
             particles.spawnFloatingText(target.x + target.width / 2, target.y, I18n.tr('target_locked'), const Color(0xFFFFAB00));
           }
           break;
+        case PowerUpType.rocket:
+          paddle.hasRockets = true;
+          paddle.rocketAmmo = _rand.nextInt(11) + 1; // 1 to 11 random shots
+          particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 15, '${paddle.rocketAmmo}x ROKET!', const Color(0xFFFF5722), isLarge: true);
+          break;
         default:
           break;
+      }
+      
+      // KURAL: Eğer aktif güçlendirici 3 ise inen diğer güçlendiricileri sil!
+      if (activePowerUps.length >= 3) {
+        capsules.clear();
       }
       return;
     }
@@ -820,6 +871,11 @@ class GameController extends ChangeNotifier {
     // Remove existing if already present
     activePowerUps.removeWhere((p) => p.type == type);
     activePowerUps.add(ActivePowerUp(type));
+    
+    // KURAL: Eğer aktif güçlendirici 3 ise inen diğer güçlendiricileri sil!
+    if (activePowerUps.length >= 3) {
+      capsules.clear();
+    }
 
     switch (type) {
       case PowerUpType.wide:
@@ -864,7 +920,7 @@ class GameController extends ChangeNotifier {
         break;
       case PowerUpType.net:
         paddle.hasNet = true;
-        paddle.netHitsRemaining = 4;
+        paddle.netHitsRemaining = 1;
         break;
       case PowerUpType.drone:
         paddle.hasDrone = true;
@@ -1013,14 +1069,7 @@ class GameController extends ChangeNotifier {
   void _checkGameProgress() {
     if (currentMode == GameMode.zen) return;
 
-    // Check tufting pattern completed
-    if (currentMode == GameMode.tuft) {
-      final allFilled = bricks.every((b) => b.tuftFilled);
-      if (allFilled) {
-        _onVictory();
-      }
-      return;
-    }
+
 
     // Check normal bricks completed
     final remainingBreakable = bricks.where((b) => b.isAlive && !b.isSteel).length;

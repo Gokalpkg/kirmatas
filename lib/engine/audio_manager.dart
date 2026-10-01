@@ -37,6 +37,7 @@ class AudioManager {
       case GameSfx.hitPaddle:
       case GameSfx.hitWall:
       case GameSfx.hitBrick:
+        SystemSound.play(SystemSoundType.click);
         if (intensity == HapticIntensity.light) {
           HapticFeedback.lightImpact();
         } else if (intensity == HapticIntensity.medium) {
@@ -51,6 +52,7 @@ class AudioManager {
       case GameSfx.powerupBuff:
       case GameSfx.powerupDebuff:
       case GameSfx.laser:
+        SystemSound.play(SystemSoundType.alert);
         if (intensity == HapticIntensity.light) {
           HapticFeedback.lightImpact();
         } else if (intensity == HapticIntensity.medium) {

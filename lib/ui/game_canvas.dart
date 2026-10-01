@@ -720,20 +720,42 @@ class _GameWorldPainter extends CustomPainter {
       }
 
       // Ball Aura/Glow (fast concentric alpha)
-      final glowColor = ball.isFireball ? const Color(0xFFFF6D00) : c.activeBallSkin.glowColor;
-      _fill.color = glowColor.withValues(alpha: 0.28);
-      canvas.drawCircle(Offset.zero, ball.radius + 3.0, _fill);
+      final glowColor = ball.isPurple ? const Color(0xFFE040FB) : (ball.isFireball ? const Color(0xFFFF3D00) : c.activeBallSkin.glowColor);
+      _fill.color = glowColor.withValues(alpha: 0.35);
+      canvas.drawCircle(Offset.zero, ball.radius + 4.0, _fill);
+      _fill.color = glowColor.withValues(alpha: 0.15);
+      canvas.drawCircle(Offset.zero, ball.radius + 8.0, _fill);
 
       // Ball Core
-      final coreColor = ball.isFireball
-          ? const Color(0xFFFFD54F)
-          : (ball.isBomb ? const Color(0xFFFF5252) : c.activeBallSkin.mainColor);
-      _fill.color = coreColor;
+      final coreColor = ball.isPurple ? const Color(0xFFAA00FF) : (ball.isFireball
+          ? const Color(0xFFFFC107)
+          : (ball.isBomb ? const Color(0xFFFF5252) : c.activeBallSkin.mainColor));
+      
+      // Gradient for beautiful 3D core
+      final gradient = RadialGradient(
+        colors: [Colors.white, coreColor, coreColor.withAlpha(200)],
+        stops: const [0.0, 0.6, 1.0],
+        center: const Alignment(-0.3, -0.3),
+        radius: 0.8,
+      );
+      
+      _fill.shader = gradient.createShader(Rect.fromCircle(center: Offset.zero, radius: ball.radius));
       canvas.drawCircle(Offset.zero, ball.radius, _fill);
+      _fill.shader = null; // reset
 
-      // Specular dot
-      _fill.color = Colors.white.withValues(alpha: 0.85);
-      canvas.drawCircle(Offset(-ball.radius * 0.35, -ball.radius * 0.35), ball.radius * 0.35, _fill);
+      // Specular dot (crisp)
+      _fill.color = Colors.white.withValues(alpha: 0.9);
+      canvas.drawCircle(Offset(-ball.radius * 0.35, -ball.radius * 0.35), ball.radius * 0.25, _fill);
+      
+      if (ball.isPurple) {
+        // Inner energy core for purple ball
+        _fill.color = Colors.white;
+        canvas.drawCircle(Offset.zero, ball.radius * 0.4, _fill);
+      } else if (ball.isFireball) {
+        // Inner intense core for fireball
+        _fill.color = const Color(0xFFFFF8E1);
+        canvas.drawCircle(Offset.zero, ball.radius * 0.4, _fill);
+      }
 
       canvas.restore();
     }

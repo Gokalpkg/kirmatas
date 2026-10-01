@@ -1,4 +1,4 @@
-﻿import 'dart:math';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'brick.dart';
 
@@ -132,72 +132,41 @@ class LevelDesign {
       return bricks;
     }
 
-    // Pick shape or grid based on level
-    final shapes = [shapeHeart, shapeSword, shapeSmiley, shapeDiamond];
-    final shapeIndex = (level - 1) % (shapes.length + 1);
+    // Classic Mode: Only standard grid layout (Retro style)
+    final rows = min(8, 4 + (level ~/ 2));
+    final cols = 6 + (level % 3);
+    const gap = 5.0;
+    final padding = 18.0;
+    final bw = (screenWidth - (padding * 2) - gap * (cols - 1)) / cols;
+    final bh = 22.0;
 
-    if (shapeIndex < shapes.length) {
-      final matrix = shapes[shapeIndex];
-      final rows = matrix.length;
-      final cols = matrix[0].length;
-      const gap = 6.0;
-      final bw = (screenWidth - 40 - gap * (cols - 1)) / cols;
-      final totalW = cols * bw + gap * (cols - 1);
-      final startX = (screenWidth - totalW) / 2;
-      final bh = 22.0;
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < cols; c++) {
+        // Create gaps to form classic arcade patterns
+        if (level > 2 && r % 2 == 0 && c % 2 != 0) continue;
+        if (level > 5 && r == 3 && c > 1 && c < cols - 2) continue;
+        
+        final color = magmaPalette[(r + level) % magmaPalette.length];
+        final isSteel = (level > 4 && r == 0 && (c == 0 || c == cols - 1));
+        final isMover = (level > 7 && r == rows - 1 && c % 3 == 1);
+        final hp = isSteel ? 999 : (level > 3 ? (r % 2 + 1) : 1);
 
-      for (int r = 0; r < rows; r++) {
-        for (int c = 0; c < cols; c++) {
-          if (matrix[r][c] == 1) {
-            final color = magmaPalette[(r + c) % magmaPalette.length];
-            final isSteel = (level > 3 && r == 0 && (c == 0 || c == cols - 1));
-            final isMover = (level > 6 && r == rows - 1 && c == 2);
-
-            bricks.add(
-              Brick(
-                x: startX + c * (bw + gap),
-                y: baseTopMargin + r * (bh + gap),
-                width: bw,
-                height: bh,
-                hp: isSteel ? 999 : (level > 2 ? (r % 2 + 1) : 1),
-                maxHp: isSteel ? 999 : (level > 2 ? (r % 2 + 1) : 1),
-                isSteel: isSteel,
-                isMover: isMover,
-                minX: 16.0,
-                maxX: screenWidth - 16.0,
-                color: isSteel ? const Color(0xFFCFD8DC) : color,
-                points: isSteel ? 0 : 20,
-              ),
-            );
-          }
-        }
-      }
-    } else {
-      // Standard grid layout
-      final rows = min(6, 4 + (level ~/ 3));
-      const cols = 7;
-      const gap = 6.0;
-      final bw = (screenWidth - 36 - gap * (cols - 1)) / cols;
-      final totalW = cols * bw + gap * (cols - 1);
-      final startX = (screenWidth - totalW) / 2;
-      final bh = 22.0;
-
-      for (int r = 0; r < rows; r++) {
-        for (int c = 0; c < cols; c++) {
-          final color = icePalette[(r + c) % icePalette.length];
-          bricks.add(
-            Brick(
-              x: startX + c * (bw + gap),
-              y: baseTopMargin + r * (bh + gap),
-              width: bw,
-              height: bh,
-              hp: (r < 2 && level > 2) ? 2 : 1,
-              maxHp: (r < 2 && level > 2) ? 2 : 1,
-              color: color,
-              points: 15,
-            ),
-          );
-        }
+        bricks.add(
+          Brick(
+            x: padding + c * (bw + gap),
+            y: baseTopMargin + r * (bh + gap),
+            width: bw,
+            height: bh,
+            hp: hp,
+            maxHp: hp,
+            isSteel: isSteel,
+            isMover: isMover,
+            minX: padding,
+            maxX: screenWidth - padding,
+            color: isSteel ? const Color(0xFF90A4AE) : color,
+            points: isSteel ? 0 : 25,
+          ),
+        );
       }
     }
 
@@ -307,34 +276,36 @@ class LevelDesign {
     return bricks;
   }
 
-  static List<Brick> buildTuftLevel(double screenWidth, double screenHeight) {
+  static List<Brick> buildShapesLevel(int level, double screenWidth, double screenHeight) {
     final List<Brick> bricks = [];
-    const rows = 5;
-    const cols = 5;
-    const gap = 8.0;
+    final shapes = [shapeHeart, shapeSword, shapeSmiley, shapeDiamond];
+    final shapeIndex = (level - 1) % shapes.length;
+    final matrix = shapes[shapeIndex];
+    final rows = matrix.length;
+    final cols = matrix[0].length;
+    const gap = 6.0;
     final bw = (screenWidth - 40 - gap * (cols - 1)) / cols;
     final totalW = cols * bw + gap * (cols - 1);
     final startX = (screenWidth - totalW) / 2;
-    final bh = 30.0;
+    final bh = 22.0;
 
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
-        final color = tuftPalette[(r + c) % tuftPalette.length];
-        bricks.add(
-          Brick(
-            x: startX + c * (bw + gap),
-            y: baseTopMargin + r * (bh + gap),
-            width: bw,
-            height: bh,
-            hp: 1,
-            maxHp: 1,
-            isTuft: true,
-            tuftFilled: false,
-            tuftColor: color,
-            color: color.withValues(alpha: 0.25),
-            points: 15,
-          ),
-        );
+        if (matrix[r][c] == 1) {
+          final color = magmaPalette[(r + c) % magmaPalette.length];
+          bricks.add(
+            Brick(
+              x: startX + c * (bw + gap),
+              y: baseTopMargin + r * (bh + gap),
+              width: bw,
+              height: bh,
+              hp: 1,
+              maxHp: 1,
+              color: color,
+              points: 20,
+            ),
+          );
+        }
       }
     }
     return bricks;

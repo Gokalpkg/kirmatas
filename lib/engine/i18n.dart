@@ -38,6 +38,8 @@ class I18n {
 
       'app_title': 'KIRMATAS',
       'play': 'PLAY',
+      'shapes': 'Visual',
+      'shapes_desc': 'Shapes, Hearts & Stars',
       'classic': 'Classic',
       'mode_classic': 'Classic',
       'classic_desc': '15 Levels & Epic Mecha Bosses',
@@ -256,6 +258,8 @@ class I18n {
 
       'app_title': 'KIRMATAS',
       'play': 'OYNA',
+      'shapes': 'Görsel',
+      'shapes_desc': 'Kalpli, Yıldızlı Görsel Mod',
       'classic': 'Klasik',
       'mode_classic': 'Klasik',
       'classic_desc': '15 Bölüm & Mecha Boss Savaşı',
