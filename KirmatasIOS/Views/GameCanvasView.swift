@@ -22,6 +22,8 @@ struct GameCanvasView: View {
                     drawProjectiles(context: &ctx)
                     drawBalls(context: &ctx)
                     drawDrone(context: &ctx)
+                    drawVortex(context: &ctx, time: controller.gameTime)
+
                     drawParticles(context: &ctx)
                 }
                 .onChange(of: timeline.date) { newDate in
@@ -422,6 +424,31 @@ struct GameCanvasView: View {
     }
 
     // MARK: - Capsules
+    // MARK: - Vortex (Blackhole)
+    private func drawVortex(context: inout GraphicsContext, time: Double) {
+        guard controller.activePowerUps.contains(where: { $0.type == .vortex }) else { return }
+        let p = controller.paddle
+        let cx = p.x + p.width / 2.0
+        let cy = p.y - 40.0 // Appears slightly above the paddle
+        var vCtx = context
+        vCtx.translateBy(x: cx, y: cy)
+        vCtx.rotate(by: .radians(time * -4.0)) // spinning fast
+        let r = 25.0 + sin(time * 5.0) * 3.0
+        // Dark outer rim
+        vCtx.fill(Path(ellipseIn: CGRect(x: -r, y: -r, width: r * 2, height: r * 2)), with: .color(Color(hex: 0xFF10002B).opacity(0.8)))
+        // Swirl lines
+        for i in 0..<4 {
+            var swirl = Path()
+            swirl.move(to: .zero)
+            swirl.addQuadCurve(to: CGPoint(x: cos(Double(i)*.pi/2) * r, y: sin(Double(i)*.pi/2) * r),
+                               control: CGPoint(x: cos(Double(i)*.pi/2 + 0.5) * r * 0.5, y: sin(Double(i)*.pi/2 + 0.5) * r * 0.5))
+            vCtx.stroke(swirl, with: .color(Color(hex: 0xFFE040FB).opacity(0.6)), lineWidth: 2.0)
+        }
+        // Core
+        vCtx.fill(Path(ellipseIn: CGRect(x: -6, y: -6, width: 12, height: 12)), with: .color(.black))
+        vCtx.stroke(Path(ellipseIn: CGRect(x: -6, y: -6, width: 12, height: 12)), with: .color(Color(hex: 0xFFE040FB)), lineWidth: 1.5)
+    }
+
     private func drawCapsules(context: inout GraphicsContext) {
         for cap in controller.capsules {
             let bob = sin(cap.animTimer * 6.0) * 2.5

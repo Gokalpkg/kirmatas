@@ -616,17 +616,22 @@ final class GameController: ObservableObject {
                 hitBrick(b, ball: ball)
 
                 if !ball.isFireball && !ball.isPierce {
-                    let overlapX = r - abs(distX)
-                    let overlapY = r - abs(distY)
+                    // Use Minkowski difference for accurate deep-penetration resolution
+                    let bcx = b.x + b.width / 2.0
+                    let bcy = b.y + b.height / 2.0
+                    let dx = bx - bcx
+                    let dy = by - bcy
+                    let overlapX = (b.width / 2.0 + r) - abs(dx)
+                    let overlapY = (b.height / 2.0 + r) - abs(dy)
 
                     if overlapX < overlapY {
-                        ball.vx = distX > 0 ? abs(ball.vx) : -abs(ball.vx)
-                        ball.x = distX > 0 ? b.x + b.width + r : b.x - r
-                        ball.triggerSquash(distX > 0 ? 0 : .pi)
+                        ball.vx = dx > 0 ? abs(ball.vx) : -abs(ball.vx)
+                        ball.x = dx > 0 ? b.x + b.width + r : b.x - r
+                        ball.triggerSquash(dx > 0 ? 0 : .pi)
                     } else {
-                        ball.vy = distY > 0 ? abs(ball.vy) : -abs(ball.vy)
-                        ball.y = distY > 0 ? b.y + b.height + r : b.y - r
-                        ball.triggerSquash(distY > 0 ? .pi / 2.0 : -.pi / 2.0)
+                        ball.vy = dy > 0 ? abs(ball.vy) : -abs(ball.vy)
+                        ball.y = dy > 0 ? b.y + b.height + r : b.y - r
+                        ball.triggerSquash(dy > 0 ? .pi / 2.0 : -.pi / 2.0)
                     }
                 }
 
