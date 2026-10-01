@@ -440,8 +440,8 @@ struct GameCanvasView: View {
         for i in 0..<4 {
             var swirl = Path()
             swirl.move(to: .zero)
-            swirl.addQuadCurve(to: CGPoint(x: cos(Double(i)*.pi/2) * r, y: sin(Double(i)*.pi/2) * r),
-                               control: CGPoint(x: cos(Double(i)*.pi/2 + 0.5) * r * 0.5, y: sin(Double(i)*.pi/2 + 0.5) * r * 0.5))
+            swirl.addQuadCurve(to: CGPoint(x: cos(Double(i) * .pi/2) * r, y: sin(Double(i) * .pi/2) * r),
+                               control: CGPoint(x: cos(Double(i) * .pi/2 + 0.5) * r * 0.5, y: sin(Double(i) * .pi/2 + 0.5) * r * 0.5))
             vCtx.stroke(swirl, with: .color(Color(hex: 0xFFE040FB).opacity(0.6)), lineWidth: 2.0)
         }
         // Core
