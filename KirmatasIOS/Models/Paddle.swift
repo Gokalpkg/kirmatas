@@ -21,7 +21,7 @@ final class Paddle {
     var isClumsy: Bool
     var prevX: Double
     var velocityX: Double
-    var skinIndex: Int = Int.random(in: 0...4)
+    var skinIndex: Int = SaveManager.shared.equippedPaddleIndex
 
     init(
         x: Double,

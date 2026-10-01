@@ -4,6 +4,8 @@ struct MainMenuView: View {
     @ObservedObject private var save = SaveManager.shared
     @State private var activeGame: GameController?
     @State private var showSettings = false
+    @State private var showShop = false
+
     @State private var rewardToastText: String?
 
     var body: some View {
@@ -29,6 +31,22 @@ struct MainMenuView: View {
                             AudioManager.shared.playSfx(.click)
                             showSettings = true
                         } label: {
+                        Button {
+                            AudioManager.shared.playSfx(.click)
+                            showShop = true
+                        } label: {
+                            Image(systemName: "cart.fill")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.85))
+                                .frame(width: 44, height: 44)
+                                .background(Color.black.opacity(0.35))
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                                )
+                        }
+
                             Image(systemName: "gearshape.fill")
                                 .font(.system(size: 18, weight: .bold))
                                 .foregroundStyle(.white.opacity(0.85))
@@ -149,9 +167,14 @@ struct MainMenuView: View {
                 }
             }
             .sheet(isPresented: $showSettings) {
+
                 SettingsSheetView()
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
+            }
+            .fullScreenCover(isPresented: $showShop) {
+                ShopView()
+
             }
         }
     }
@@ -532,5 +555,176 @@ struct CosmicMenuBackground: View {
                 }
             }
         }
+    }
+}
+import SwiftUI
+
+struct ShopItem {
+    let name: String
+    let price: Int
+    let skinIndex: Int
+    let color: Color
+}
+
+struct ShopView: View {
+    @ObservedObject var save = SaveManager.shared
+    @Environment(\.presentationMode) var presentationMode
+    
+    let items: [ShopItem] = [
+        ShopItem(name: I18n.tr("classic"), price: 0, skinIndex: 0, color: Color(hex: 0xFF40C4FF)),
+        ShopItem(name: "Cyberpunk", price: 500, skinIndex: 1, color: Color(hex: 0xFF00E5FF)),
+        ShopItem(name: "Crimson", price: 1000, skinIndex: 2, color: Color(hex: 0xFFFF5252)),
+        ShopItem(name: "Emerald", price: 2000, skinIndex: 3, color: Color(hex: 0xFF69F0AE)),
+        ShopItem(name: "Golden", price: 5000, skinIndex: 4, color: Color(hex: 0xFFFFD54F)),
+        ShopItem(name: "Obsidian", price: 10000, skinIndex: 5, color: Color(hex: 0xFF9C27B0))
+    ]
+    
+    let columns = [GridItem(.flexible()), GridItem(.flexible())]
+    
+    var body: some View {
+        ZStack {
+            RadialGradient(
+                gradient: Gradient(colors: [Color(hex: 0xFF121212), Color.black]),
+                center: .center,
+                startRadius: 50,
+                endRadius: 500
+            )
+            .ignoresSafeArea()
+            
+            VStack {
+                // Header
+                HStack {
+                    Button(action: {
+                        AudioManager.shared.playSfx(.click)
+                        presentationMode.wrappedValue.dismiss()
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(Circle())
+                    }
+                    Spacer()
+                    Text("MARKET")
+                        .font(.system(size: 28, weight: .heavy, design: .rounded))
+                        .foregroundColor(.white)
+                    Spacer()
+                    HStack {
+                        Text("\(save.gold)")
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .foregroundColor(Color(hex: 0xFFFFD54F))
+                        Text("🪙")
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(20)
+                }
+                .padding()
+                
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: 20) {
+                        ForEach(items, id: \.skinIndex) { item in
+                            ShopItemCard(item: item)
+                        }
+                    }
+                    .padding()
+                }
+            }
+        }
+    }
+}
+
+struct ShopItemCard: View {
+    let item: ShopItem
+    @ObservedObject var save = SaveManager.shared
+    @State private var showingNoMoney = false
+    
+    var isUnlocked: Bool {
+        save.unlockedPaddles.contains(item.skinIndex)
+    }
+    
+    var isEquipped: Bool {
+        save.equippedPaddleIndex == item.skinIndex
+    }
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            Text(item.name)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+            
+            // Preview Paddle Graphic
+            RoundedRectangle(cornerRadius: 6)
+                .fill(LinearGradient(
+                    gradient: Gradient(colors: [item.color.opacity(0.6), item.color]),
+                    startPoint: .top,
+                    endPoint: .bottom
+                ))
+                .frame(width: 80, height: 16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                )
+                .shadow(color: item.color.opacity(0.5), radius: 8, x: 0, y: 0)
+                .padding(.vertical, 10)
+            
+            if isEquipped {
+                Text("KUŞANILDI")
+                    .font(.caption.bold())
+                    .foregroundColor(.green)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .background(Color.green.opacity(0.2))
+                    .cornerRadius(12)
+            } else if isUnlocked {
+                Button(action: {
+                    AudioManager.shared.playSfx(.click)
+                    save.equipPaddle(index: item.skinIndex)
+                }) {
+                    Text("KUŞAN")
+                        .font(.caption.bold())
+                        .foregroundColor(.white)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 16)
+                        .background(Color.blue)
+                        .cornerRadius(12)
+                }
+            } else {
+                Button(action: {
+                    AudioManager.shared.playSfx(.click)
+                    if save.gold >= item.price {
+                        save.addGold(-item.price)
+                        save.unlockPaddle(index: item.skinIndex)
+                        save.equipPaddle(index: item.skinIndex)
+                        AudioManager.shared.playSfx(.powerupBuff)
+                    } else {
+                        showingNoMoney = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            showingNoMoney = false
+                        }
+                    }
+                }) {
+                    HStack {
+                        Text("\(item.price)")
+                            .font(.caption.bold())
+                        Text("🪙")
+                    }
+                    .foregroundColor(showingNoMoney ? .red : Color(hex: 0xFFFFD54F))
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(12)
+                }
+            }
+        }
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(isEquipped ? Color.green : Color.white.opacity(0.1), lineWidth: 2)
+        )
     }
 }

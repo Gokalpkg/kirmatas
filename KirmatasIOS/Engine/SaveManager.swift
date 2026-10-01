@@ -20,6 +20,9 @@ final class SaveManager: ObservableObject {
     @Published var sfxEnabled: Bool = true
     @Published var hapticIntensity: HapticIntensity = .strong
     @Published var language: String = "tr"
+    @Published var unlockedPaddles: [Int] = [0]
+    @Published var equippedPaddleIndex: Int = 0
+
 
     var hapticsEnabled: Bool {
         hapticIntensity != .off
@@ -64,7 +67,32 @@ final class SaveManager: ObservableObject {
         }
 
         language = defaults.string(forKey: "language") ?? "tr"
+
+        if let unl = defaults.array(forKey: "unlockedPaddles") as? [Int] {
+            unlockedPaddles = unl
+        } else {
+            unlockedPaddles = [0]
+        }
+        if defaults.object(forKey: "equippedPaddleIndex") != nil {
+            equippedPaddleIndex = defaults.integer(forKey: "equippedPaddleIndex")
+        }
+
     }
+
+    func unlockPaddle(index: Int) {
+        if !unlockedPaddles.contains(index) {
+            unlockedPaddles.append(index)
+            defaults.set(unlockedPaddles, forKey: "unlockedPaddles")
+        }
+    }
+
+    func equipPaddle(index: Int) {
+        if unlockedPaddles.contains(index) {
+            equippedPaddleIndex = index
+            defaults.set(index, forKey: "equippedPaddleIndex")
+        }
+    }
+
 
     func addGold(_ amount: Int) {
         gold += amount
