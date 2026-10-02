@@ -1031,5 +1031,18 @@ void main() {
         await tester.pump(const Duration(milliseconds: 16));
       }
     });
+
+    test('Zen and Descend modes generate dynamite and ice blocks', () {
+      final zenBricks = LevelDesign.buildZenLevel(360, 640);
+      expect(zenBricks.any((b) => b.isDynamite), true);
+      expect(zenBricks.any((b) => b.isIce), true);
+
+      final descendBricks = LevelDesign.buildDescendInitial(360, 640);
+      expect(descendBricks.length, 28);
+      // Generate multiple rows to verify both types are created
+      final rows = List.generate(10, (i) => LevelDesign.buildDescendRow(i, 360, 640)).expand((r) => r).toList();
+      expect(rows.any((b) => b.isDynamite), true);
+      expect(rows.any((b) => b.isIce), true);
+    });
   });
 }

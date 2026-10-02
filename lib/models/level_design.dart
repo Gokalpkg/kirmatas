@@ -223,7 +223,10 @@ class LevelDesign {
     return bricks;
   }
 
-  static List<Brick> buildZenLevel(double screenWidth, double screenHeight) {
+  static final Random _descendRand = Random();
+
+  static List<Brick> buildZenLevel(double screenWidth, double screenHeight, [Random? optionalRand]) {
+    final rand = optionalRand ?? Random();
     final List<Brick> bricks = [];
     const rows = 4;
     const cols = 6;
@@ -231,11 +234,22 @@ class LevelDesign {
     final bw = (screenWidth - 36 - gap * (cols - 1)) / cols;
     final totalW = cols * bw + gap * (cols - 1);
     final startX = (screenWidth - totalW) / 2;
-    final bh = 24.0;
+    const bh = 24.0;
+
+    // Pick 2 dynamite and 2 ice blocks across the 24 bricks
+    final totalBricks = rows * cols;
+    final dyn1 = rand.nextInt(totalBricks);
+    final dyn2 = (dyn1 + 11) % totalBricks;
+    final ice1 = (dyn1 + 5) % totalBricks;
+    final ice2 = (dyn1 + 17) % totalBricks;
 
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
-        final color = candyPalette[(r * cols + c) % candyPalette.length];
+        final index = r * cols + c;
+        final color = candyPalette[index % candyPalette.length];
+        final isDynamite = (index == dyn1 || index == dyn2);
+        final isIce = !isDynamite && (index == ice1 || index == ice2);
+
         bricks.add(
           Brick(
             x: startX + c * (bw + gap),
@@ -244,6 +258,8 @@ class LevelDesign {
             height: bh,
             hp: 1,
             maxHp: 1,
+            isDynamite: isDynamite,
+            isIce: isIce,
             color: color,
             points: 10,
           ),
@@ -262,7 +278,8 @@ class LevelDesign {
     return bricks;
   }
 
-  static List<Brick> buildDescendRow(int rowIndex, double screenWidth, double screenHeight) {
+  static List<Brick> buildDescendRow(int rowIndex, double screenWidth, double screenHeight, [Random? optionalRand]) {
+    final rand = optionalRand ?? _descendRand;
     final List<Brick> rowBricks = [];
     const cols = 7;
     const gap = 6.0;
@@ -273,7 +290,17 @@ class LevelDesign {
     const rowStep = bh + gap; // 28.0
 
     final color = magmaPalette[rowIndex % magmaPalette.length];
+
+    // Balanced chance for dynamite and ice blocks (~28% each per row)
+    final spawnDynamite = rand.nextDouble() < 0.28;
+    final spawnIce = rand.nextDouble() < 0.28;
+    final dynCol = spawnDynamite ? rand.nextInt(cols) : -1;
+    final iceCol = spawnIce ? ((dynCol + 1 + rand.nextInt(cols - 1)) % cols) : -1;
+
     for (int c = 0; c < cols; c++) {
+      final isDynamite = c == dynCol;
+      final isIce = !isDynamite && c == iceCol;
+
       rowBricks.add(
         Brick(
           x: startX + c * (bw + gap),
@@ -282,6 +309,8 @@ class LevelDesign {
           height: bh,
           hp: 1,
           maxHp: 1,
+          isDynamite: isDynamite,
+          isIce: isIce,
           color: color,
           points: 15,
         ),
