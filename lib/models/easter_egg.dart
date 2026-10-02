@@ -15,7 +15,7 @@ class EasterEggBee {
     required this.baseY,
     required this.vx,
     required this.isFacingRight,
-    this.hitRadius = 15.0,
+    this.hitRadius = 10.0,
   }) : y = baseY;
 
   void update(double dt) {

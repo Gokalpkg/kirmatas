@@ -88,7 +88,9 @@ class Ball {
       y += vy * dt;
 
       trail.insert(0, TrailPoint(Offset(x, y), dt));
-      final cap = (isFireball || cornerBoostTimer > 0) ? (trailLength + 10) : trailLength;
+      final cap = cornerBoostTimer > 0
+          ? 56
+          : (isFireball ? (trailLength + 12) : trailLength);
       while (trail.length > cap) {
         trail.removeLast();
       }

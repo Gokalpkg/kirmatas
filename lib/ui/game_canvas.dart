@@ -102,7 +102,7 @@ class _GameWorldPainter extends CustomPainter {
   static void _ensureSplatPaths() {
     if (_splatPathsInitialized) return;
     _splatPathsInitialized = true;
-    const pixelSize = 3.2;
+    const pixelSize = 1.6;
     final matrix = PixelArt.bugSplatMatrix;
     for (int r = 0; r < matrix.length; r++) {
       for (int c = 0; c < matrix[r].length; c++) {
@@ -2788,6 +2788,7 @@ class _GameWorldPainter extends CustomPainter {
 
     canvas.save();
     canvas.translate(bee.x, bee.y);
+    canvas.scale(0.58, 0.58);
     canvas.rotate(bee.tiltAngle);
 
     // Flip horizontally if facing left
@@ -2909,7 +2910,7 @@ class _GameWorldPainter extends CustomPainter {
     _ensureSplatPaths();
 
     final alpha = splat.alpha;
-    const pixelSize = 3.2;
+    const pixelSize = 1.6;
     const cols = 26;
     const rows = 26;
     const splatWidth = cols * pixelSize;
@@ -2918,13 +2919,13 @@ class _GameWorldPainter extends CustomPainter {
     final left = splat.x - splatWidth / 2;
     final top = splat.y - splatHeight / 2;
 
-    // 1. Wet glass smudge halo on the windshield
+    // 1. Wet glass smudge halo on the windshield (subtle, smaller)
     _fill
       ..style = PaintingStyle.fill
       ..maskFilter = null
       ..shader = null
-      ..color = const Color(0x33CC1122).withValues(alpha: 0.18 * alpha);
-    canvas.drawCircle(Offset(splat.x, splat.y), splatWidth * 0.44, _fill);
+      ..color = const Color(0x22CC1122).withValues(alpha: 0.10 * alpha);
+    canvas.drawCircle(Offset(splat.x, splat.y), splatWidth * 0.32, _fill);
 
     // 2. Pixel Art Bug Splat (Matching Image 2 directly with batched paths)
     canvas.save();

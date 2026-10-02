@@ -134,6 +134,31 @@ class ParticleSystem {
     }
   }
 
+  void spawnBurnEmber(double x, double y) {
+    if (particles.length >= maxParticles) {
+      particles.removeAt(0);
+    }
+    final angle = _rand.nextDouble() * 2 * pi;
+    final spd = 4.0 + _rand.nextDouble() * 12.0;
+    const colors = [
+      Color(0xFFFFD54F),
+      Color(0xFFFFB300),
+      Color(0xFFFF8F00),
+      Color(0xFFFFF9C4),
+    ];
+    particles.add(
+      Particle(
+        x: x + (_rand.nextDouble() * 4 - 2),
+        y: y + (_rand.nextDouble() * 4 - 2),
+        vx: cos(angle) * spd,
+        vy: sin(angle) * spd - 6.0,
+        size: 3.0 + _rand.nextDouble() * 2.2,
+        color: colors[_rand.nextInt(colors.length)],
+        maxLife: 0.65 + _rand.nextDouble() * 0.35,
+      ),
+    );
+  }
+
   void spawnShockwave(double x, double y, Color color, {double maxRadius = 45.0}) {
     if (shockwaves.length >= maxShockwaves) {
       shockwaves.removeAt(0);

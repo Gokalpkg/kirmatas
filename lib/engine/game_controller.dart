@@ -719,8 +719,9 @@ class GameController extends ChangeNotifier {
         }
       }
       if (ball.cornerBoostTimer > 0) {
-        // Corner Shot (Köşe Vuruşu): Supersonic afterburner exhaust sparks (streamlined for smooth 60/120 FPS)
-        if (_rand.nextDouble() < 0.20) {
+        // Corner Shot (Köşe Vuruşu): Supersonic afterburner exhaust sparks and lingering heat burn trail
+        particles.spawnBurnEmber(ball.x, ball.y);
+        if (_rand.nextDouble() < 0.30) {
           final sparkColor = _rand.nextBool() ? const Color(0xFFFFD54F) : const Color(0xFFFFF9C4);
           particles.spawnBurst(ball.x, ball.y, sparkColor, count: 1, speed: 65.0);
         }
