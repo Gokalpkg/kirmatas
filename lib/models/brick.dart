@@ -18,11 +18,16 @@ class Brick {
   bool isBoss;
   double bossVx;
   double shootTimer;
+  bool isDynamite;
+  bool isIce;
+  bool isFrozen;
+  double frozenTimer;
   bool isTuft;
   bool tuftFilled;
   Color tuftColor;
   double jelly; // wobble deformation amount (0.0 to 1.0)
   Color color;
+  Color? originalColor;
   int points;
   bool isAlive;
 
@@ -37,6 +42,10 @@ class Brick {
     this.isSteel = false,
     this.isHeavySteel = false,
     this.isMover = false,
+    this.isDynamite = false,
+    this.isIce = false,
+    this.isFrozen = false,
+    this.frozenTimer = 0.0,
     this.moverVx = 60.0,
     this.minX = 10.0,
     this.maxX = 380.0,
@@ -96,3 +105,4 @@ class Brick {
     }
   }
 }
+

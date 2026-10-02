@@ -24,12 +24,18 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   GameController? _activeGame;
 
   void _launchGame(GameMode mode) {
+    AudioManager.instance.isBgmAllowed = false;
+    AudioManager.instance.pauseBgm();
     setState(() {
       _activeGame = GameController()..startNewGame(mode);
     });
   }
 
   void _exitGameToMenu() {
+    AudioManager.instance.isBgmAllowed = true;
+    if (AudioManager.instance.appInForeground) {
+      AudioManager.instance.resumeBgm();
+    }
     setState(() {
       _activeGame = null;
     });
@@ -118,88 +124,88 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                     const SizedBox(height: 16),
 
-                    // Vibration Intensity
-                    Text(
-                      I18n.tr('vibration_intensity'),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: HapticIntensity.values.map((h) {
-                        final isSelected = _save.hapticIntensity == h;
-                        return Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 3),
-                            child: OutlinedButton(
-                              onPressed: () {
-                                _save.setHapticIntensity(h);
-                                AudioManager.instance.triggerTestHaptic(h);
-                              },
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                                backgroundColor: isSelected ? const Color(0x33FFD54F) : Colors.transparent,
-                                side: BorderSide(
-                                  color: isSelected ? const Color(0xFFFFD54F) : Colors.white12,
-                                ),
-                                foregroundColor: isSelected ? const Color(0xFFFFD54F) : Colors.white60,
-                              ),
-                              child: Text(
-                                h.label,
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-
                     const SizedBox(height: 16),
 
-                    // Game Speed
                     Text(
-                      I18n.tr('speed'),
+                      '${I18n.tr('sfx')}: ${_save.sfxVolume}',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: SpeedSetting.values.map((s) {
-                        final isSelected = _save.speed == s;
-                        String label = s.label;
-                        if (s == SpeedSetting.slow) label = I18n.tr('slow');
-                        if (s == SpeedSetting.medium) label = I18n.tr('normal');
-                        if (s == SpeedSetting.fast) label = I18n.tr('fast');
+                    Slider(
+                      value: _save.sfxVolume.toDouble(),
+                      min: 0,
+                      max: 8,
+                      divisions: 8,
+                      activeColor: const Color(0xFFFFD54F),
+                      onChanged: (val) {
+                        _save.setSfxVolume(val.toInt());
+                        AudioManager.instance.playSfx(GameSfx.hitBrick);
+                      },
+                    ),
 
-                        return Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: OutlinedButton(
-                              onPressed: () => _save.setSpeed(s),
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: isSelected ? const Color(0x33FFD54F) : Colors.transparent,
-                                side: BorderSide(
-                                  color: isSelected ? const Color(0xFFFFD54F) : Colors.white12,
-                                ),
-                                foregroundColor: isSelected ? const Color(0xFFFFD54F) : Colors.white60,
-                              ),
-                              child: Text(
-                                label,
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                    const SizedBox(height: 8),
+
+                    Text(
+                      'Müzik (BGM): ${_save.bgmVolume}',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Slider(
+                      value: _save.bgmVolume.toDouble(),
+                      min: 0,
+                      max: 8,
+                      divisions: 8,
+                      activeColor: const Color(0xFFFFD54F),
+                      onChanged: (val) {
+                        _save.setBgmVolume(val.toInt());
+                        AudioManager.instance.updateBgmVolume();
+                      },
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    Text(
+                      '${I18n.tr('haptics')}: ${_save.vibrationLevel}',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Slider(
+                      value: _save.vibrationLevel.toDouble(),
+                      min: 0,
+                      max: 8,
+                      divisions: 8,
+                      activeColor: const Color(0xFFFFD54F),
+                      onChanged: (val) {
+                        _save.setVibrationLevel(val.toInt());
+                        AudioManager.instance.playSfx(GameSfx.hitBrick);
+                      },
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    SwitchListTile(
+                      title: const Text('Geliştirici Modu (Sınırsız Altın)', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 13)),
+                      value: _save.devMode,
+                      activeThumbColor: const Color(0xFFFFD54F),
+                      contentPadding: EdgeInsets.zero,
+                      onChanged: (val) {
+                        if (val) {
+                          _save.gold = 9999999;
+                          _save.setDevMode(true);
+                        } else {
+                          _save.setDevMode(false);
+                        }
+                        setState(() {});
+                      },
                     ),
                   ],
                 ),
@@ -383,6 +389,61 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 ),
                               ),
                             ],
+                          ),
+                          const SizedBox(height: 12),
+                          // Game Speed Options moved under modes
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0x33FFFFFF),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  I18n.tr('speed'),
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: SpeedSetting.values.map((s) {
+                                    final isSelected = _save.speed == s;
+                                    String label = s.label;
+                                    if (s == SpeedSetting.slow) label = I18n.tr('slow');
+                                    if (s == SpeedSetting.medium) label = I18n.tr('normal');
+                                    if (s == SpeedSetting.fast) label = I18n.tr('fast');
+
+                                    return Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                                        child: OutlinedButton(
+                                          onPressed: () => _save.setSpeed(s),
+                                          style: OutlinedButton.styleFrom(
+                                            backgroundColor: isSelected ? const Color(0x33FFD54F) : Colors.transparent,
+                                            side: BorderSide(
+                                              color: isSelected ? const Color(0xFFFFD54F) : Colors.white12,
+                                            ),
+                                            foregroundColor: isSelected ? const Color(0xFFFFD54F) : Colors.white60,
+                                            padding: const EdgeInsets.symmetric(vertical: 0),
+                                            minimumSize: const Size(0, 36),
+                                          ),
+                                          child: Text(
+                                            label,
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 8),
                         ],
@@ -744,3 +805,4 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     );
   }
 }
+

@@ -3,6 +3,7 @@ import '../engine/audio_manager.dart';
 import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
 import '../models/game_state.dart';
+import 'pixel_art.dart';
 
 class HudOverlay extends StatelessWidget {
   final GameController controller;
@@ -56,7 +57,7 @@ class HudOverlay extends StatelessWidget {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.favorite, color: Color(0xFFFF5252), size: 16),
+                            const PixelHeart(size: 16),
                             const SizedBox(width: 4),
                             Text(
                               controller.currentMode == GameMode.zen ? '∞' : '${stats.lives}',
@@ -205,17 +206,32 @@ class HudOverlay extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(color: p.type.color.withValues(alpha: 0.6)),
                               ),
-                              child: Row(
+                              child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Image.asset(p.type.assetPath, width: 14, height: 14, fit: BoxFit.contain),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${p.timeLeft.toStringAsFixed(1)}s',
-                                    style: TextStyle(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Image.asset(p.type.assetPath, width: 14, height: 14, fit: BoxFit.contain),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${p.timeLeft.toStringAsFixed(2)}s',
+                                        style: TextStyle(
+                                          color: p.type.color,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  SizedBox(
+                                    width: 40,
+                                    child: LinearProgressIndicator(
+                                      value: p.progress,
                                       color: p.type.color,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
+                                      backgroundColor: Colors.black26,
+                                      minHeight: 2.5,
                                     ),
                                   ),
                                 ],
@@ -250,13 +266,17 @@ class HudOverlay extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.bolt,
+                              Icons.casino,
                               color: stats.ultiCharge >= 100.0 ? Colors.white : const Color(0xFF00E5FF),
                               size: 18,
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              stats.ultiCharge >= 100.0 ? I18n.tr('power_mode') : '${stats.ultiCharge.toInt()}%',
+                              controller.isDiceRolling
+                                  ? 'DÖNÜYOR...'
+                                  : (controller.isDiceActive
+                                      ? '🎲 X'
+                                      : (stats.ultiCharge >= 100.0 ? '🎲 ZAR AT!' : '%')),
                               style: TextStyle(
                                 color: stats.ultiCharge >= 100.0 ? Colors.white : Colors.white70,
                                 fontWeight: FontWeight.w900,

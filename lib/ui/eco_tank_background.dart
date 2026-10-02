@@ -26,6 +26,7 @@ class _EcoTankBackgroundState extends State<EcoTankBackground> with SingleTicker
   final List<_EatParticle> _eatParticles = [];
   final Random _rand = Random();
   double _animTime = 0.0;
+  final _TankFrame _frame = _TankFrame();
 
   @override
   void initState() {
@@ -42,10 +43,9 @@ class _EcoTankBackgroundState extends State<EcoTankBackground> with SingleTicker
       _lastElapsed = elapsed;
       final clampedDt = dt.clamp(0.001, 0.05);
 
+      _animTime += clampedDt;
       _updateSimulation(clampedDt);
-      setState(() {
-        _animTime += clampedDt;
-      });
+      _frame.ping();
     })..start();
   }
 
@@ -84,6 +84,7 @@ class _EcoTankBackgroundState extends State<EcoTankBackground> with SingleTicker
   @override
   void dispose() {
     _ticker.dispose();
+    _frame.dispose();
     super.dispose();
   }
 
@@ -263,13 +264,7 @@ class _EcoTankBackgroundState extends State<EcoTankBackground> with SingleTicker
         children: [
           Positioned.fill(
             child: CustomPaint(
-              painter: _TankPainter(
-                simFish: _simFish,
-                bubbles: _bubbles,
-                foodPellets: _foodPellets,
-                eatParticles: _eatParticles,
-                time: _animTime,
-              ),
+              painter: _TankPainter(this),
             ),
           ),
           if (widget.child != null) widget.child!,
@@ -337,81 +332,99 @@ class _EatParticle {
   _EatParticle({required this.x, required this.y, required this.maxLife, required this.color}) : life = maxLife;
 }
 
-class _TankPainter extends CustomPainter {
-  final List<_SimFish> simFish;
-  final List<_Bubble> bubbles;
-  final List<_FoodPellet> foodPellets;
-  final List<_EatParticle> eatParticles;
-  final double time;
+class _TankFrame extends ChangeNotifier {
+  void ping() => notifyListeners();
+}
 
-  _TankPainter({
-    required this.simFish,
-    required this.bubbles,
-    required this.foodPellets,
-    required this.eatParticles,
-    required this.time,
-  });
+class _TankPainter extends CustomPainter {
+  final _EcoTankBackgroundState host;
+  Size? _shaderSize;
+  Shader? _waterShader;
+  final Paint _waterPaint = Paint();
+  final Paint _sandPaint = Paint();
+  final Paint _plantPaint = Paint()
+    ..color = const Color(0x5543A047)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 4.5
+    ..strokeCap = StrokeCap.round;
+  final Paint _bubblePaint = Paint()..color = const Color(0x2881D4FA);
+  final Paint _foodPaint = Paint()..color = const Color(0xFFFFD54F);
+  final Paint _foodGlow = Paint()..color = const Color(0x44FFD54F);
+  final Paint _sparkPaint = Paint();
+  final Paint _imgPaint = Paint()..filterQuality = FilterQuality.medium;
+  final Paint _bodyPaint = Paint();
+  final Paint _tailPaint = Paint();
+  final Paint _eyeWhite = Paint()..color = const Color(0xFFFFFFFF);
+  final Paint _eyeBlack = Paint()..color = const Color(0xFF000000);
+  final Path _tailPath = Path();
+  final Path _plantPath = Path();
+  Path? _sandPath;
+
+  _TankPainter(this.host) : super(repaint: host._frame);
+
+  List<_SimFish> get simFish => host._simFish;
+  List<_Bubble> get bubbles => host._bubbles;
+  List<_FoodPellet> get foodPellets => host._foodPellets;
+  List<_EatParticle> get eatParticles => host._eatParticles;
+  double get time => host._animTime;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Water gradient
-    final waterShader = const LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [Color(0xFF0C1726), Color(0xFF09131F), Color(0xFF040A10)],
-    ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..shader = waterShader);
+    if (_waterShader == null || _shaderSize != size) {
+      _shaderSize = size;
+      _sandPath = null;
+      _sandPaint.shader = null;
+      _waterShader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF0C1726), Color(0xFF09131F), Color(0xFF040A10)],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    }
+    _waterPaint.shader = _waterShader;
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _waterPaint);
 
     // 2. Sand layer at bottom
-    final sandPath = Path()
+    _sandPath ??= Path()
       ..moveTo(0, size.height - 48)
       ..quadraticBezierTo(size.width * 0.5, size.height - 62, size.width, size.height - 44)
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
-    final sandPaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0x38C2A86E), Color(0x665C4628)],
-      ).createShader(Rect.fromLTWH(0, size.height - 62, size.width, 62));
-    canvas.drawPath(sandPath, sandPaint);
+    _sandPaint.shader ??= const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0x38C2A86E), Color(0x665C4628)],
+    ).createShader(Rect.fromLTWH(0, size.height - 62, size.width, 62));
+    canvas.drawPath(_sandPath!, _sandPaint);
 
     // 3. Kelp & Moss plants swaying gently
-    final plantPaint = Paint()
-      ..color = const Color(0x5543A047)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.5
-      ..strokeCap = StrokeCap.round;
 
     for (int i = 0; i < 5; i++) {
       final bx = 25.0 + i * (size.width - 50) / 4;
       final sway = sin(time * 1.5 + i) * 11.0;
-      final plantPath = Path()
+      _plantPath
+        ..reset()
         ..moveTo(bx, size.height - 44)
         ..quadraticBezierTo(bx + sway * 0.5, size.height - 95, bx + sway, size.height - 145);
-      canvas.drawPath(plantPath, plantPaint);
+      canvas.drawPath(_plantPath, _plantPaint);
     }
 
     // 4. Rising bubbles
-    final bubblePaint = Paint()..color = const Color(0x2881D4FA);
     for (final b in bubbles) {
-      canvas.drawCircle(Offset(b.x + sin(time + b.radius) * 3, b.y), b.radius, bubblePaint);
+      canvas.drawCircle(Offset(b.x + sin(time + b.radius) * 3, b.y), b.radius, _bubblePaint);
     }
 
     // 5. Food Pellets
-    final foodPaint = Paint()..color = const Color(0xFFFFD54F);
-    final foodGlow = Paint()..color = const Color(0x44FFD54F);
     for (final p in foodPellets) {
-      canvas.drawCircle(Offset(p.x, p.y), 4.0, foodGlow);
-      canvas.drawCircle(Offset(p.x, p.y), 2.5, foodPaint);
+      canvas.drawCircle(Offset(p.x, p.y), 4.0, _foodGlow);
+      canvas.drawCircle(Offset(p.x, p.y), 2.5, _foodPaint);
     }
 
     // 6. Eat particles (sparkles and bubbles)
     for (final ep in eatParticles) {
       final alpha = (ep.life / ep.maxLife).clamp(0.0, 1.0);
-      final pPaint = Paint()..color = ep.color.withValues(alpha: alpha);
-      canvas.drawCircle(Offset(ep.x, ep.y), 2.0 * alpha, pPaint);
+      _sparkPaint.color = ep.color.withValues(alpha: alpha);
+      canvas.drawCircle(Offset(ep.x, ep.y), 2.0 * alpha, _sparkPaint);
     }
 
     // 7. Fish drawing (Scaled down to realistic proportion)
@@ -436,25 +449,28 @@ class _TankPainter extends CustomPainter {
           width: img.width.toDouble(),
           height: img.height.toDouble(),
         );
-        canvas.drawImageRect(img, src, dst, Paint()..filterQuality = FilterQuality.medium);
+        canvas.drawImageRect(img, src, dst, _imgPaint);
       } else {
         // Fallback procedural fish
         final fishScale = f.item.size * 0.7;
         canvas.scale(fishScale, fishScale);
         final bodyRect = Rect.fromCenter(center: Offset.zero, width: 26, height: 13);
-        canvas.drawOval(bodyRect, Paint()..color = f.item.color);
+        _bodyPaint.color = f.item.color;
+        canvas.drawOval(bodyRect, _bodyPaint);
 
         final tailWag = sin(time * 5 + f.tailPhase) * 4.0;
-        final tailPath = Path()
+        _tailPath
+          ..reset()
           ..moveTo(-11, 0)
           ..lineTo(-22, -7 + tailWag)
           ..lineTo(-18, 0)
           ..lineTo(-22, 7 + tailWag)
           ..close();
-        canvas.drawPath(tailPath, Paint()..color = f.item.secondaryColor);
+        _tailPaint.color = f.item.secondaryColor;
+        canvas.drawPath(_tailPath, _tailPaint);
 
-        canvas.drawCircle(const Offset(7, -2), 2.0, Paint()..color = Colors.white);
-        canvas.drawCircle(const Offset(8, -2), 0.9, Paint()..color = Colors.black);
+        canvas.drawCircle(const Offset(7, -2), 2.0, _eyeWhite);
+        canvas.drawCircle(const Offset(8, -2), 0.9, _eyeBlack);
       }
 
       canvas.restore();
@@ -462,5 +478,5 @@ class _TankPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _TankPainter oldDelegate) => false;
 }

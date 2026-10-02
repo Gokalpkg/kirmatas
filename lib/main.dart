@@ -21,8 +21,38 @@ void main() async {
   runApp(const KirmatasApp());
 }
 
-class KirmatasApp extends StatelessWidget {
+class KirmatasApp extends StatefulWidget {
   const KirmatasApp({super.key});
+
+  @override
+  State<KirmatasApp> createState() => _KirmatasAppState();
+}
+
+class _KirmatasAppState extends State<KirmatasApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final buried = state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached;
+    AudioManager.instance.appInForeground = !buried;
+    if (buried) {
+      AudioManager.instance.stopAll();
+    } else if (state == AppLifecycleState.resumed) {
+      AudioManager.instance.resumeBgm();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

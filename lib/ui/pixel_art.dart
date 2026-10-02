@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/powerup.dart';
 
@@ -226,7 +227,82 @@ class PixelArt {
     ],
   };
 
+  static const List<List<int>> heartMatrix = [
+    [0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 4, 5, 4, 1, 1, 3, 3, 3, 1, 0],
+    [1, 4, 5, 5, 4, 3, 3, 3, 3, 3, 3, 1],
+    [1, 4, 4, 3, 3, 3, 3, 3, 3, 3, 2, 1],
+    [1, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 1],
+    [0, 1, 3, 3, 3, 3, 3, 3, 2, 2, 1, 0],
+    [0, 0, 1, 3, 3, 3, 3, 2, 2, 1, 0, 0],
+    [0, 0, 0, 1, 3, 3, 2, 2, 1, 0, 0, 0],
+    [0, 0, 0, 0, 1, 3, 2, 1, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0],
+  ];
+
+  static final Paint _heartGlowPaint = Paint()..style = PaintingStyle.fill..isAntiAlias = true;
+  static final Paint _heartPxPaint = Paint()..style = PaintingStyle.fill..isAntiAlias = false;
+
+  static void drawPixelHeart(Canvas canvas, Offset center, double size, {double pulse = 1.0}) {
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    if (pulse != 1.0) {
+      canvas.scale(pulse, pulse);
+    }
+
+    final rows = heartMatrix.length;
+    final cols = heartMatrix[0].length;
+    final pixelSize = size / max(rows, cols);
+
+    final left = - (cols * pixelSize) / 2;
+    final top = - (rows * pixelSize) / 2;
+
+    // Glowing aura behind heart (2-pass concentric alpha layering, ZERO blur overhead)
+    _heartGlowPaint.color = const Color(0xFFFF1744).withValues(alpha: 0.18);
+    canvas.drawCircle(Offset.zero, size * 0.55, _heartGlowPaint);
+    _heartGlowPaint.color = const Color(0xFFFF1744).withValues(alpha: 0.38);
+    canvas.drawCircle(Offset.zero, size * 0.42, _heartGlowPaint);
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < cols; c++) {
+        final val = heartMatrix[r][c];
+        if (val == 0) continue;
+
+        Color col;
+        switch (val) {
+          case 1:
+            col = const Color(0xFF2B0007);
+            break;
+          case 2:
+            col = const Color(0xFF8E001A);
+            break;
+          case 3:
+            col = const Color(0xFFFF1744);
+            break;
+          case 4:
+            col = const Color(0xFFFF6188);
+            break;
+          case 5:
+            col = Colors.white;
+            break;
+          default:
+            col = const Color(0xFFFF1744);
+        }
+
+        _heartPxPaint.color = col;
+        final px = left + c * pixelSize;
+        final py = top + r * pixelSize;
+        canvas.drawRect(Rect.fromLTWH(px, py, pixelSize + 0.2, pixelSize + 0.2), _heartPxPaint);
+      }
+    }
+    canvas.restore();
+  }
+
   static void draw(Canvas canvas, PowerUpType type, Offset center, double size) {
+    if (type == PowerUpType.life) {
+      drawPixelHeart(canvas, center, size);
+      return;
+    }
+
     final matrix = bitmaps[type] ?? bitmaps[PowerUpType.life]!;
     final rows = matrix.length;
     final cols = matrix[0].length;
@@ -272,4 +348,61 @@ class PixelArt {
       }
     }
   }
+
+  // 26x26 Pixel Art Splat Matrix directly matching Image 2 bug splat reference:
+  // 0: transparent, 1: primary red, 2: dark clot red, 3: bright droplet red
+  static const List<List<int>> bugSplatMatrix = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 3, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 3, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 3, 0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 0, 3, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 0, 0, 3, 0, 0],
+    [0, 0, 0, 0, 0, 3, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 3, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0, 0, 3, 0, 0],
+    [0, 0, 0, 0, 0, 3, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 3, 3, 1, 0, 1, 2, 2, 2, 2, 2, 2, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0, 3, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 3, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 3, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 3, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 3, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 1, 1, 0, 3, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 3, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ];
+}
+
+class PixelHeart extends StatelessWidget {
+  final double size;
+  const PixelHeart({super.key, this.size = 16.0});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _PixelHeartWidgetPainter(),
+      ),
+    );
+  }
+}
+
+class _PixelHeartWidgetPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    PixelArt.drawPixelHeart(canvas, Offset(size.width / 2, size.height / 2), size.width);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -111,10 +111,13 @@ class ParticleSystem {
     final toAdd = min(count, maxParticles - particles.length + 8);
     if (toAdd <= 0) return;
 
+    final overflow = (particles.length + toAdd) - maxParticles;
+    if (overflow > 0) {
+      final removeCount = min(overflow, particles.length);
+      particles.removeRange(0, removeCount);
+    }
+
     for (int i = 0; i < toAdd; i++) {
-      if (particles.length >= maxParticles) {
-        particles.removeAt(0);
-      }
       final angle = _rand.nextDouble() * 2 * pi;
       final spd = speed * (0.4 + _rand.nextDouble() * 0.8);
       particles.add(
@@ -155,20 +158,20 @@ class ParticleSystem {
       if (shakeTimeLeft < 0) shakeTimeLeft = 0;
     }
 
-    for (int i = particles.length - 1; i >= 0; i--) {
+    for (int i = 0; i < particles.length; i++) {
       particles[i].update(dt);
-      if (particles[i].isDead) particles.removeAt(i);
     }
+    particles.removeWhere((p) => p.isDead);
 
-    for (int i = shockwaves.length - 1; i >= 0; i--) {
+    for (int i = 0; i < shockwaves.length; i++) {
       shockwaves[i].update(dt);
-      if (shockwaves[i].isDead) shockwaves.removeAt(i);
     }
+    shockwaves.removeWhere((s) => s.isDead);
 
-    for (int i = floatingTexts.length - 1; i >= 0; i--) {
+    for (int i = 0; i < floatingTexts.length; i++) {
       floatingTexts[i].update(dt);
-      if (floatingTexts[i].isDead) floatingTexts.removeAt(i);
     }
+    floatingTexts.removeWhere((f) => f.isDead);
   }
 
   void clear() {

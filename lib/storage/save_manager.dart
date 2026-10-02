@@ -7,10 +7,13 @@ class SaveManager extends ChangeNotifier {
   static final SaveManager instance = SaveManager._internal();
   SaveManager._internal();
 
-  late SharedPreferences _prefs;
+  SharedPreferences? _prefs;
   bool _initialized = false;
 
   int gold = 300;
+  int sfxVolume = 8;
+  int bgmVolume = 3;
+  int vibrationLevel = 8;
   Map<String, int> highScores = {
     'classic': 0,
     'zen': 0,
@@ -29,6 +32,7 @@ class SaveManager extends ChangeNotifier {
 
   Map<String, int> upgrades = {'battery': 0, 'magnet': 0, 'luck': 0};
   Map<String, int> boostStocks = {'life': 0, 'wide': 0, 'multi': 0};
+  Map<String, int> categoryShards = {'balls': 0, 'paddles': 0, 'trails': 0, 'bricks': 0};
 
   List<String> unlockedFish = ['guppy', 'tetra'];
   int aquariumSand = 1;
@@ -47,14 +51,21 @@ class SaveManager extends ChangeNotifier {
   String language = 'en';
   Set<String> unlockedBackgrounds = {'bg_default'};
   String activeBackground = 'bg_default';
+  Set<String> unlockedBrickStyles = {'brick_neon'};
+  String activeBrickStyle = 'brick_neon';
+  bool devMode = false;
 
   Future<void> init() async {
     if (_initialized) return;
     _prefs = await SharedPreferences.getInstance();
 
-    gold = _prefs.getInt('gold') ?? 300;
+    gold = _prefs?.getInt('gold') ?? 300;
+    sfxVolume = _prefs?.getInt('sfxVolume') ?? 8;
+    bgmVolume = _prefs?.getInt('bgmVolume') ?? 3;
+    vibrationLevel = _prefs?.getInt('vibrationLevel') ?? 8;
+    devMode = _prefs?.getBool('devMode') ?? false;
 
-    final hsStr = _prefs.getString('highScores');
+    final hsStr = _prefs?.getString('highScores');
     if (hsStr != null) {
       try {
         final Map<String, dynamic> decoded = jsonDecode(hsStr);
@@ -62,15 +73,15 @@ class SaveManager extends ChangeNotifier {
       } catch (_) {}
     }
 
-    unlockedBalls = (_prefs.getStringList('unlockedBalls') ?? ['classic']).toSet();
-    unlockedPaddles = (_prefs.getStringList('unlockedPaddles') ?? ['pclassic']).toSet();
-    unlockedTrails = (_prefs.getStringList('unlockedTrails') ?? ['t1']).toSet();
+    unlockedBalls = (_prefs?.getStringList('unlockedBalls') ?? ['classic']).toSet();
+    unlockedPaddles = (_prefs?.getStringList('unlockedPaddles') ?? ['pclassic']).toSet();
+    unlockedTrails = (_prefs?.getStringList('unlockedTrails') ?? ['t1']).toSet();
 
-    activeBall = _prefs.getString('activeBall') ?? 'classic';
-    activePaddle = _prefs.getString('activePaddle') ?? 'pclassic';
-    activeTrail = _prefs.getString('activeTrail') ?? 't1';
+    activeBall = _prefs?.getString('activeBall') ?? 'classic';
+    activePaddle = _prefs?.getString('activePaddle') ?? 'pclassic';
+    activeTrail = _prefs?.getString('activeTrail') ?? 't1';
 
-    final upStr = _prefs.getString('upgrades');
+    final upStr = _prefs?.getString('upgrades');
     if (upStr != null) {
       try {
         final Map<String, dynamic> decoded = jsonDecode(upStr);
@@ -78,7 +89,7 @@ class SaveManager extends ChangeNotifier {
       } catch (_) {}
     }
 
-    final boostStr = _prefs.getString('boostStocks');
+    final boostStr = _prefs?.getString('boostStocks');
     if (boostStr != null) {
       try {
         final Map<String, dynamic> decoded = jsonDecode(boostStr);
@@ -86,26 +97,36 @@ class SaveManager extends ChangeNotifier {
       } catch (_) {}
     }
 
-    unlockedFish = _prefs.getStringList('unlockedFish') ?? ['guppy', 'tetra'];
-    aquariumSand = _prefs.getInt('aquariumSand') ?? 1;
-    aquariumMoss = _prefs.getInt('aquariumMoss') ?? 2;
-    aquariumKelp = _prefs.getInt('aquariumKelp') ?? 1;
-    aquariumAnubias = _prefs.getInt('aquariumAnubias') ?? 1;
+    final shardsStr = _prefs?.getString('categoryShards');
+    if (shardsStr != null) {
+      try {
+        final Map<String, dynamic> decoded = jsonDecode(shardsStr);
+        categoryShards = decoded.map((k, v) => MapEntry(k, v as int));
+      } catch (_) {}
+    }
 
-    lastDailyClaimDate = _prefs.getString('lastDailyClaimDate');
-    dailyStreak = _prefs.getInt('dailyStreak') ?? 1;
+    unlockedFish = _prefs?.getStringList('unlockedFish') ?? ['guppy', 'tetra'];
+    aquariumSand = _prefs?.getInt('aquariumSand') ?? 1;
+    aquariumMoss = _prefs?.getInt('aquariumMoss') ?? 2;
+    aquariumKelp = _prefs?.getInt('aquariumKelp') ?? 1;
+    aquariumAnubias = _prefs?.getInt('aquariumAnubias') ?? 1;
 
-    final speedIndex = _prefs.getInt('speedSetting') ?? 1;
+    lastDailyClaimDate = _prefs?.getString('lastDailyClaimDate');
+    dailyStreak = _prefs?.getInt('dailyStreak') ?? 1;
+
+    final speedIndex = _prefs?.getInt('speedSetting') ?? 1;
     speed = SpeedSetting.values[speedIndex.clamp(0, SpeedSetting.values.length - 1)];
 
     sfxEnabled = false;
-    final hIndex = _prefs.getInt('hapticIntensity') ?? HapticIntensity.strong.index;
+    final hIndex = _prefs?.getInt('hapticIntensity') ?? HapticIntensity.strong.index;
     hapticIntensity = HapticIntensity.values[hIndex.clamp(0, HapticIntensity.values.length - 1)];
     hapticsEnabled = hapticIntensity != HapticIntensity.off;
 
-    language = _prefs.getString('language') ?? 'en';
-    unlockedBackgrounds = (_prefs.getStringList('unlockedBackgrounds') ?? ['bg_default']).toSet();
-    activeBackground = _prefs.getString('activeBackground') ?? 'bg_default';
+    language = _prefs?.getString('language') ?? 'en';
+    unlockedBackgrounds = (_prefs?.getStringList('unlockedBackgrounds') ?? ['bg_default']).toSet();
+    activeBackground = _prefs?.getString('activeBackground') ?? 'bg_default';
+    unlockedBrickStyles = (_prefs?.getStringList('unlockedBrickStyles') ?? ['brick_neon']).toSet();
+    activeBrickStyle = _prefs?.getString('activeBrickStyle') ?? 'brick_neon';
 
     _initialized = true;
     notifyListeners();
@@ -113,14 +134,14 @@ class SaveManager extends ChangeNotifier {
 
   Future<void> addGold(int amount) async {
     gold += amount;
-    await _prefs.setInt('gold', gold);
+    await _prefs?.setInt('gold', gold);
     notifyListeners();
   }
 
   Future<bool> spendGold(int amount) async {
     if (gold < amount) return false;
     gold -= amount;
-    await _prefs.setInt('gold', gold);
+    await _prefs?.setInt('gold', gold);
     notifyListeners();
     return true;
   }
@@ -130,7 +151,7 @@ class SaveManager extends ChangeNotifier {
     final current = highScores[key] ?? 0;
     if (score > current) {
       highScores[key] = score;
-      await _prefs.setString('highScores', jsonEncode(highScores));
+      await _prefs?.setString('highScores', jsonEncode(highScores));
       notifyListeners();
     }
   }
@@ -139,51 +160,51 @@ class SaveManager extends ChangeNotifier {
 
   Future<void> unlockBall(String id) async {
     unlockedBalls.add(id);
-    await _prefs.setStringList('unlockedBalls', unlockedBalls.toList());
+    await _prefs?.setStringList('unlockedBalls', unlockedBalls.toList());
     notifyListeners();
   }
 
   Future<void> equipBall(String id) async {
     activeBall = id;
-    await _prefs.setString('activeBall', id);
+    await _prefs?.setString('activeBall', id);
     notifyListeners();
   }
 
   Future<void> unlockPaddle(String id) async {
     unlockedPaddles.add(id);
-    await _prefs.setStringList('unlockedPaddles', unlockedPaddles.toList());
+    await _prefs?.setStringList('unlockedPaddles', unlockedPaddles.toList());
     notifyListeners();
   }
 
   Future<void> equipPaddle(String id) async {
     activePaddle = id;
-    await _prefs.setString('activePaddle', id);
+    await _prefs?.setString('activePaddle', id);
     notifyListeners();
   }
 
   Future<void> unlockTrail(String id) async {
     unlockedTrails.add(id);
-    await _prefs.setStringList('unlockedTrails', unlockedTrails.toList());
+    await _prefs?.setStringList('unlockedTrails', unlockedTrails.toList());
     notifyListeners();
   }
 
   Future<void> equipTrail(String id) async {
     activeTrail = id;
-    await _prefs.setString('activeTrail', id);
+    await _prefs?.setString('activeTrail', id);
     notifyListeners();
   }
 
   Future<void> upgradeSkill(String id) async {
     final cur = upgrades[id] ?? 0;
     upgrades[id] = cur + 1;
-    await _prefs.setString('upgrades', jsonEncode(upgrades));
+    await _prefs?.setString('upgrades', jsonEncode(upgrades));
     notifyListeners();
   }
 
   Future<void> addBoostStock(String id, int count) async {
     final cur = boostStocks[id] ?? 0;
     boostStocks[id] = cur + count;
-    await _prefs.setString('boostStocks', jsonEncode(boostStocks));
+    await _prefs?.setString('boostStocks', jsonEncode(boostStocks));
     notifyListeners();
   }
 
@@ -191,14 +212,32 @@ class SaveManager extends ChangeNotifier {
     final cur = boostStocks[id] ?? 0;
     if (cur <= 0) return false;
     boostStocks[id] = cur - 1;
-    await _prefs.setString('boostStocks', jsonEncode(boostStocks));
+    await _prefs?.setString('boostStocks', jsonEncode(boostStocks));
+    notifyListeners();
+    return true;
+  }
+
+  int getShards(String category) => categoryShards[category] ?? 0;
+
+  Future<void> addShard(String category, [int count = 1]) async {
+    final cur = categoryShards[category] ?? 0;
+    categoryShards[category] = cur + count;
+    await _prefs?.setString('categoryShards', jsonEncode(categoryShards));
+    notifyListeners();
+  }
+
+  Future<bool> consumeShards(String category, [int count = 3]) async {
+    final cur = categoryShards[category] ?? 0;
+    if (cur < count) return false;
+    categoryShards[category] = cur - count;
+    await _prefs?.setString('categoryShards', jsonEncode(categoryShards));
     notifyListeners();
     return true;
   }
 
   Future<void> addFish(String fishId) async {
     unlockedFish.add(fishId);
-    await _prefs.setStringList('unlockedFish', unlockedFish);
+    await _prefs?.setStringList('unlockedFish', unlockedFish);
     notifyListeners();
   }
 
@@ -211,9 +250,9 @@ class SaveManager extends ChangeNotifier {
     if (!canClaimDaily()) return 0;
     final today = DateTime.now().toIso8601String().substring(0, 10);
     lastDailyClaimDate = today;
-    await _prefs.setString('lastDailyClaimDate', today);
+    await _prefs?.setString('lastDailyClaimDate', today);
     dailyStreak++;
-    await _prefs.setInt('dailyStreak', dailyStreak);
+    await _prefs?.setInt('dailyStreak', dailyStreak);
 
     final reward = 50 + (dailyStreak % 7) * 15;
     await addGold(reward);
@@ -222,35 +261,35 @@ class SaveManager extends ChangeNotifier {
 
   Future<void> setSpeed(SpeedSetting s) async {
     speed = s;
-    await _prefs.setInt('speedSetting', s.index);
+    await _prefs?.setInt('speedSetting', s.index);
     notifyListeners();
   }
 
   Future<void> setSfx(bool val) async {
     sfxEnabled = val;
-    await _prefs.setBool('sfxEnabled', val);
+    await _prefs?.setBool('sfxEnabled', val);
     notifyListeners();
   }
 
   Future<void> setHapticIntensity(HapticIntensity val) async {
     hapticIntensity = val;
     hapticsEnabled = val != HapticIntensity.off;
-    await _prefs.setInt('hapticIntensity', val.index);
-    await _prefs.setBool('hapticsEnabled', hapticsEnabled);
+    await _prefs?.setInt('hapticIntensity', val.index);
+    await _prefs?.setBool('hapticsEnabled', hapticsEnabled);
     notifyListeners();
   }
 
   Future<void> setHaptics(bool val) async {
     hapticsEnabled = val;
     hapticIntensity = val ? HapticIntensity.strong : HapticIntensity.off;
-    await _prefs.setBool('hapticsEnabled', val);
-    await _prefs.setInt('hapticIntensity', hapticIntensity.index);
+    await _prefs?.setBool('hapticsEnabled', val);
+    await _prefs?.setInt('hapticIntensity', hapticIntensity.index);
     notifyListeners();
   }
 
   Future<void> setLanguage(String lang) async {
     language = lang;
-    await _prefs.setString('language', lang);
+    await _prefs?.setString('language', lang);
     notifyListeners();
   }
 
@@ -259,7 +298,7 @@ class SaveManager extends ChangeNotifier {
     if (cost > 0 && gold < cost) return false;
     await spendGold(cost);
     unlockedBackgrounds.add(id);
-    await _prefs.setStringList('unlockedBackgrounds', unlockedBackgrounds.toList());
+    await _prefs?.setStringList('unlockedBackgrounds', unlockedBackgrounds.toList());
     notifyListeners();
     return true;
   }
@@ -267,8 +306,44 @@ class SaveManager extends ChangeNotifier {
   Future<void> selectBackground(String id) async {
     if (unlockedBackgrounds.contains(id)) {
       activeBackground = id;
-      await _prefs.setString('activeBackground', id);
+      await _prefs?.setString('activeBackground', id);
       notifyListeners();
     }
+  }
+
+  Future<void> unlockBrickStyle(String id) async {
+    unlockedBrickStyles.add(id);
+    await _prefs?.setStringList('unlockedBrickStyles', unlockedBrickStyles.toList());
+    notifyListeners();
+  }
+
+  Future<void> equipBrickStyle(String id) async {
+    activeBrickStyle = id;
+    await _prefs?.setString('activeBrickStyle', id);
+    notifyListeners();
+  }
+
+  Future<void> setDevMode(bool enabled) async {
+    devMode = enabled;
+    await _prefs?.setBool('devMode', enabled);
+    notifyListeners();
+  }
+
+  Future<void> setBgmVolume(int level) async {
+    bgmVolume = level.clamp(0, 8);
+    await _prefs?.setInt('bgmVolume', bgmVolume);
+    notifyListeners();
+  }
+
+  Future<void> setSfxVolume(int level) async {
+    sfxVolume = level.clamp(0, 8);
+    await _prefs?.setInt('sfxVolume', sfxVolume);
+    notifyListeners();
+  }
+
+  Future<void> setVibrationLevel(int level) async {
+    vibrationLevel = level.clamp(0, 8);
+    await _prefs?.setInt('vibrationLevel', vibrationLevel);
+    notifyListeners();
   }
 }

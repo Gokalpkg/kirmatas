@@ -17,7 +17,7 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
   }
 
   @override
@@ -89,6 +89,7 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
                 Tab(text: I18n.tr('balls')),
                 Tab(text: I18n.tr('paddles')),
                 Tab(text: I18n.tr('trails')),
+                Tab(text: I18n.tr('bricks')),
                 Tab(text: I18n.tr('backgrounds')),
               ],
             ),
@@ -100,6 +101,7 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
               _buildBallsTab(context, save),
               _buildPaddlesTab(context, save),
               _buildTrailsTab(context, save),
+              _buildBricksTab(context, save),
               _buildBackgroundsTab(context, save),
             ],
           ),
@@ -108,62 +110,80 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildCratesTab(BuildContext context, SaveManager save) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: CrateDef.allCrates.length,
-      itemBuilder: (context, index) {
-        final crate = CrateDef.allCrates[index];
-        final cost = crate.cost;
-        final canAfford = save.gold >= cost;
+  Widget _buildCategoryCrateHeader(BuildContext context, SaveManager save, String category) {
+    final crateInfo = CategoryCrateInfo.categoryCrates[category]!;
+    final cost = crateInfo.cost;
+    final canAfford = save.gold >= cost;
+    final shards = save.getShards(category);
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                crate.primaryColor.withValues(alpha: 0.15),
-                const Color(0xFF141724),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: crate.primaryColor.withValues(alpha: 0.4)),
+    bool allOwned = false;
+    if (category == 'balls') {
+      allOwned = save.unlockedBalls.length >= BallSkin.allSkins.length;
+    } else if (category == 'paddles') {
+      allOwned = save.unlockedPaddles.length >= PaddleSkin.allSkins.length;
+    } else if (category == 'trails') {
+      allOwned = save.unlockedTrails.length >= TrailSkin.allTrails.length;
+    } else if (category == 'bricks') {
+      allOwned = save.unlockedBrickStyles.length >= BrickStyle.all.length;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            crateInfo.primaryColor.withValues(alpha: 0.18),
+            const Color(0xFF141724),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: crateInfo.primaryColor.withValues(alpha: 0.45), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: crateInfo.primaryColor.withValues(alpha: 0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
-          child: Row(
+        ],
+      ),
+      child: Column(
+        children: [
+          // 1. Crate Opening Row
+          Row(
             children: [
               Container(
-                width: 68,
-                height: 68,
+                width: 58,
+                height: 58,
                 decoration: BoxDecoration(
-                  color: crate.primaryColor.withValues(alpha: 0.2),
+                  color: crateInfo.primaryColor.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
-                  border: Border.all(color: crate.primaryColor, width: 2),
+                  border: Border.all(color: crateInfo.primaryColor, width: 2),
                 ),
-                child: Icon(Icons.inventory_2, color: crate.primaryColor, size: 36),
+                child: Icon(crateInfo.icon, color: crateInfo.primaryColor, size: 30),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      crate.name,
+                      crateInfo.name,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
-                      '${crate.tier.label} ${I18n.tr('crate_tier_suffix')}',
-                      style: TextStyle(
-                        color: crate.primaryColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                      I18n.tr('crate_desc_$category'),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -172,29 +192,30 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
               ElevatedButton(
                 onPressed: canAfford
                     ? () async {
-                        final success = await save.spendGold(cost);
-                        if (success && context.mounted) {
+                        final ok = await save.spendGold(cost);
+                        if (ok && context.mounted) {
                           showDialog(
                             context: context,
                             barrierDismissible: false,
-                            builder: (_) => CrateOpeningDialog(crate: crate),
+                            builder: (_) => CrateOpeningDialog(categoryCrate: crateInfo),
                           );
                         }
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: crate.primaryColor,
+                  backgroundColor: crateInfo.primaryColor,
                   foregroundColor: Colors.black,
                   disabledBackgroundColor: Colors.white12,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.monetization_on, size: 16),
+                    const Icon(Icons.monetization_on, size: 15),
                     const SizedBox(width: 4),
                     Text(
-                      '${crate.cost}',
+                      '$cost',
                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
                     ),
                   ],
@@ -202,254 +223,605 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
               ),
             ],
           ),
-        );
-      },
-    );
-  }
 
-  Widget _buildBallsTab(BuildContext context, SaveManager save) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.85,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 14,
-      ),
-      itemCount: BallSkin.allSkins.length,
-      itemBuilder: (context, index) {
-        final skin = BallSkin.allSkins[index];
-        final owned = save.unlockedBalls.contains(skin.id);
-        final equipped = save.activeBall == skin.id;
+          const SizedBox(height: 12),
+          const Divider(color: Colors.white12, height: 1),
+          const SizedBox(height: 10),
 
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFF141724),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: equipped
-                  ? const Color(0xFF00E5FF)
-                  : (owned ? Colors.white24 : Colors.white10),
-              width: equipped ? 2 : 1,
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          // 2. Shards Progress & Guaranteed Redemption
+          Row(
             children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: skin.mainColor,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(color: skin.glowColor, blurRadius: 14),
+              // Shard Progress Pips
+              Row(
+                children: [
+                  const Icon(Icons.diamond, color: Color(0xFF00E5FF), size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${I18n.tr('shards')}: $shards / 3',
+                    style: const TextStyle(
+                      color: Color(0xFF00E5FF),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  for (int i = 0; i < 3; i++) ...[
+                    Container(
+                      width: 10,
+                      height: 10,
+                      margin: const EdgeInsets.only(right: 3),
+                      decoration: BoxDecoration(
+                        color: i < shards ? const Color(0xFF00E5FF) : Colors.white12,
+                        shape: BoxShape.circle,
+                        boxShadow: i < shards
+                            ? [const BoxShadow(color: Color(0xFF00E5FF), blurRadius: 4)]
+                            : null,
+                      ),
+                    ),
                   ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                skin.name,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                skin.rarity.label,
-                style: TextStyle(color: skin.rarity.primaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                ],
               ),
               const Spacer(),
-              if (equipped)
-                Text(I18n.tr('equipped'), style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.w900, fontSize: 11))
-              else if (owned)
-                TextButton(
-                  onPressed: () => save.equipBall(skin.id),
-                  child: Text(I18n.tr('use'), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w800)),
-                )
-              else
+              if (shards >= 3)
                 ElevatedButton(
-                  onPressed: (save.gold >= skin.cost)
-                      ? () async {
-                          final ok = await save.spendGold(skin.cost);
-                          if (ok) {
-                            save.unlockBall(skin.id);
-                            save.equipBall(skin.id);
-                          }
+                  onPressed: () async {
+                    if (allOwned) {
+                      final ok = await save.consumeShards(category, 3);
+                      if (ok) {
+                        save.addGold(1000);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('${I18n.tr('all_items_unlocked')} (+1000 🪙)')),
+                          );
                         }
-                      : null,
+                      }
+                      return;
+                    }
+                    final ok = await save.consumeShards(category, 3);
+                    if (ok && context.mounted) {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (_) => CrateOpeningDialog(
+                          isGuaranteedRedemption: true,
+                          category: category,
+                          categoryCrate: crateInfo,
+                        ),
+                      );
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFD54F),
+                    backgroundColor: const Color(0xFF00E5FF),
                     foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   ),
                   child: Text(
-                    '${skin.cost} 🪙',
+                    allOwned ? I18n.tr('all_items_unlocked') : I18n.tr('use_shards_guaranteed'),
                     style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
                   ),
                 ),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
-  Widget _buildPaddlesTab(BuildContext context, SaveManager save) {
-    return ListView.builder(
+  Widget _buildCratesTab(BuildContext context, SaveManager save) {
+    return ListView(
       padding: const EdgeInsets.all(16),
-      itemCount: PaddleSkin.allSkins.length,
-      itemBuilder: (context, index) {
-        final skin = PaddleSkin.allSkins[index];
-        final owned = save.unlockedPaddles.contains(skin.id);
-        final equipped = save.activePaddle == skin.id;
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 14),
+      children: [
+        // Aquarium Crates Header Banner
+        Container(
+          margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF141724),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: equipped ? const Color(0xFF00E5FF) : Colors.white12,
-              width: equipped ? 2 : 1,
+            gradient: const LinearGradient(
+              colors: [Color(0x3300E5FF), Color(0xFF141724)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0x4D00E5FF)),
           ),
           child: Row(
             children: [
-              Container(
-                width: 72,
-                height: 18,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [skin.color1, skin.color2]),
-                  borderRadius: BorderRadius.circular(9),
-                  boxShadow: [
-                    BoxShadow(color: skin.glowColor, blurRadius: 10),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
+              const Icon(Icons.water, color: Color(0xFF00E5FF), size: 32),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      skin.name,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                      I18n.tr('eco_crates_title'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                      ),
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      I18n.tr('eco_crates_desc'),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        for (final crate in CrateDef.allCrates) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  crate.primaryColor.withValues(alpha: 0.15),
+                  const Color(0xFF141724),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: crate.primaryColor.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 68,
+                  height: 68,
+                  decoration: BoxDecoration(
+                    color: crate.primaryColor.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: crate.primaryColor, width: 2),
+                  ),
+                  child: Icon(Icons.inventory_2, color: crate.primaryColor, size: 36),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        crate.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${crate.tier.label} ${I18n.tr('crate_tier_suffix')}',
+                        style: TextStyle(
+                          color: crate.primaryColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: (save.gold >= crate.cost)
+                      ? () async {
+                          final success = await save.spendGold(crate.cost);
+                          if (success && context.mounted) {
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (_) => CrateOpeningDialog(crate: crate),
+                            );
+                          }
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: crate.primaryColor,
+                    foregroundColor: Colors.black,
+                    disabledBackgroundColor: Colors.white12,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.monetization_on, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${crate.cost}',
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildBricksTab(BuildContext context, SaveManager save) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: CustomScrollView(
+        slivers: [
+        SliverToBoxAdapter(
+          child: _buildCategoryCrateHeader(context, save, 'bricks'),
+        ),
+        SliverGrid(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.82,
+            crossAxisSpacing: 14,
+            mainAxisSpacing: 14,
+          ),
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final style = BrickStyle.all[index];
+              final owned = save.unlockedBrickStyles.contains(style.id);
+              final equipped = save.activeBrickStyle == style.id;
+
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF141724),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: equipped ? const Color(0xFF00E5FF) : (owned ? Colors.white24 : Colors.white10),
+                    width: equipped ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: style.accent.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
+                        boxShadow: [BoxShadow(color: style.accent.withValues(alpha: 0.45), blurRadius: 8)],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      style.name,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      style.rarity.label,
+                      style: TextStyle(color: style.rarity.primaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                    const Spacer(),
+                    if (equipped)
+                      Text(I18n.tr('equipped'), style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.w900, fontSize: 11))
+                    else if (owned)
+                      TextButton(
+                        onPressed: () => save.equipBrickStyle(style.id),
+                        child: Text(I18n.tr('use'), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w800)),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: style.rarity.primaryColor.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.lock_outline, size: 13, color: style.rarity.primaryColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              I18n.tr('from_crate'),
+                              style: TextStyle(
+                                color: style.rarity.primaryColor,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+            childCount: BrickStyle.all.length,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+  Widget _buildBallsTab(BuildContext context, SaveManager save) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: CustomScrollView(
+        slivers: [
+        SliverToBoxAdapter(
+          child: _buildCategoryCrateHeader(context, save, 'balls'),
+        ),
+        SliverGrid(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.85,
+            crossAxisSpacing: 14,
+            mainAxisSpacing: 14,
+          ),
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final skin = BallSkin.allSkins[index];
+              final owned = save.unlockedBalls.contains(skin.id);
+              final equipped = save.activeBall == skin.id;
+
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF141724),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: equipped
+                        ? const Color(0xFF00E5FF)
+                        : (owned ? Colors.white24 : Colors.white10),
+                    width: equipped ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: skin.mainColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: skin.glowColor, blurRadius: 14),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      skin.name,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
                     Text(
                       skin.rarity.label,
                       style: TextStyle(color: skin.rarity.primaryColor, fontSize: 11, fontWeight: FontWeight.bold),
                     ),
+                    const Spacer(),
+                    if (equipped)
+                      Text(I18n.tr('equipped'), style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.w900, fontSize: 11))
+                    else if (owned)
+                      TextButton(
+                        onPressed: () => save.equipBall(skin.id),
+                        child: Text(I18n.tr('use'), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w800)),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: skin.rarity.primaryColor.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.lock_outline, size: 13, color: skin.rarity.primaryColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              I18n.tr('from_crate'),
+                              style: TextStyle(
+                                color: skin.rarity.primaryColor,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
-              ),
-              if (equipped)
-                Text(I18n.tr('equipped'), style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.w900))
-              else if (owned)
-                OutlinedButton(
-                  onPressed: () => save.equipPaddle(skin.id),
-                  style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
-                  child: Text(I18n.tr('use')),
-                )
-              else
-                ElevatedButton(
-                  onPressed: (save.gold >= skin.cost)
-                      ? () async {
-                          final ok = await save.spendGold(skin.cost);
-                          if (ok) {
-                            save.unlockPaddle(skin.id);
-                            save.equipPaddle(skin.id);
-                          }
-                        }
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFD54F),
-                    foregroundColor: Colors.black,
-                  ),
-                  child: Text(
-                    '${skin.cost} 🪙',
-                    style: const TextStyle(fontWeight: FontWeight.w900),
+              );
+            },
+            childCount: BallSkin.allSkins.length,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+  Widget _buildPaddlesTab(BuildContext context, SaveManager save) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildCategoryCrateHeader(context, save, 'paddles'),
+        for (final skin in PaddleSkin.allSkins) ...[
+          Builder(
+            builder: (context) {
+              final owned = save.unlockedPaddles.contains(skin.id);
+              final equipped = save.activePaddle == skin.id;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF141724),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: equipped ? const Color(0xFF00E5FF) : Colors.white12,
+                    width: equipped ? 2 : 1,
                   ),
                 ),
-            ],
+                child: Row(
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: [skin.color1, skin.color2]),
+                        borderRadius: BorderRadius.circular(9),
+                        boxShadow: [
+                          BoxShadow(color: skin.glowColor, blurRadius: 10),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            skin.name,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                          ),
+                          Text(
+                            skin.rarity.label,
+                            style: TextStyle(color: skin.rarity.primaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (equipped)
+                      Text(I18n.tr('equipped'), style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.w900))
+                    else if (owned)
+                      OutlinedButton(
+                        onPressed: () => save.equipPaddle(skin.id),
+                        style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
+                        child: Text(I18n.tr('use')),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: skin.rarity.primaryColor.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.lock_outline, size: 13, color: skin.rarity.primaryColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              I18n.tr('from_crate'),
+                              style: TextStyle(
+                                color: skin.rarity.primaryColor,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
-        );
-      },
+        ],
+      ],
     );
   }
 
   Widget _buildTrailsTab(BuildContext context, SaveManager save) {
-    return ListView.builder(
+    return ListView(
       padding: const EdgeInsets.all(16),
-      itemCount: TrailSkin.allTrails.length,
-      itemBuilder: (context, index) {
-        final trail = TrailSkin.allTrails[index];
-        final owned = save.unlockedTrails.contains(trail.id);
-        final equipped = save.activeTrail == trail.id;
+      children: [
+        _buildCategoryCrateHeader(context, save, 'trails'),
+        for (final trail in TrailSkin.allTrails) ...[
+          Builder(
+            builder: (context) {
+              final owned = save.unlockedTrails.contains(trail.id);
+              final equipped = save.activeTrail == trail.id;
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 14),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF141724),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: equipped ? const Color(0xFF00E5FF) : Colors.white12,
-              width: equipped ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.auto_awesome, color: Color(0xFFFFD54F), size: 28),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              return Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF141724),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: equipped ? const Color(0xFF00E5FF) : Colors.white12,
+                    width: equipped ? 2 : 1,
+                  ),
+                ),
+                child: Row(
                   children: [
-                    Text(
-                      trail.name,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                    const Icon(Icons.auto_awesome, color: Color(0xFFFFD54F), size: 28),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            trail.name,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                          ),
+                          Text(
+                            trail.rarity.label,
+                            style: TextStyle(color: trail.rarity.primaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
                     ),
-                    Text(
-                      trail.rarity.label,
-                      style: TextStyle(color: trail.rarity.primaryColor, fontSize: 11, fontWeight: FontWeight.bold),
-                    ),
+                    if (equipped)
+                      Text(I18n.tr('equipped'), style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.w900))
+                    else if (owned)
+                      OutlinedButton(
+                        onPressed: () => save.equipTrail(trail.id),
+                        style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
+                        child: Text(I18n.tr('use')),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: trail.rarity.primaryColor.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.lock_outline, size: 13, color: trail.rarity.primaryColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              I18n.tr('from_crate'),
+                              style: TextStyle(
+                                color: trail.rarity.primaryColor,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
-              ),
-              if (equipped)
-                Text(I18n.tr('equipped'), style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.w900))
-              else if (owned)
-                OutlinedButton(
-                  onPressed: () => save.equipTrail(trail.id),
-                  style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
-                  child: Text(I18n.tr('use')),
-                )
-              else
-                ElevatedButton(
-                  onPressed: (save.gold >= trail.cost)
-                      ? () async {
-                          final ok = await save.spendGold(trail.cost);
-                          if (ok) {
-                            save.unlockTrail(trail.id);
-                            save.equipTrail(trail.id);
-                          }
-                        }
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFD54F),
-                    foregroundColor: Colors.black,
-                  ),
-                  child: Text(
-                    '${trail.cost} 🪙',
-                    style: const TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ),
-            ],
+              );
+            },
           ),
-        );
-      },
+        ],
+      ],
     );
   }
 

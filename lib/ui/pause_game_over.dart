@@ -3,6 +3,7 @@ import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
 import '../models/game_state.dart';
 import '../storage/save_manager.dart';
+import '../engine/audio_manager.dart';
 
 class PauseGameOverOverlay extends StatelessWidget {
   final GameController controller;
@@ -165,6 +166,62 @@ class PauseGameOverOverlay extends StatelessWidget {
                 const SizedBox(height: 20),
               ],
 
+              if (isPaused)
+                ListenableBuilder(
+                  listenable: save,
+                  builder: (context, _) {
+                    return Column(
+                      children: [
+                        Text(
+                          '${I18n.tr('sfx')}: ${save.sfxVolume}',
+                          style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+                        ),
+                        Slider(
+                          value: save.sfxVolume.toDouble(),
+                          min: 0,
+                          max: 8,
+                          divisions: 8,
+                          activeColor: const Color(0xFFFFD54F),
+                          onChanged: (v) {
+                            save.setSfxVolume(v.toInt());
+                            AudioManager.instance.playSfx(GameSfx.hitBrick);
+                          },
+                        ),
+                        Text(
+                          'Müzik (BGM): ${save.bgmVolume}',
+                          style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+                        ),
+                        Slider(
+                          value: save.bgmVolume.toDouble(),
+                          min: 0,
+                          max: 8,
+                          divisions: 8,
+                          activeColor: const Color(0xFFFFD54F),
+                          onChanged: (v) {
+                            save.setBgmVolume(v.toInt());
+                            AudioManager.instance.updateBgmVolume();
+                          },
+                        ),
+                        Text(
+                          '${I18n.tr('haptics')}: ${save.vibrationLevel}',
+                          style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+                        ),
+                        Slider(
+                          value: save.vibrationLevel.toDouble(),
+                          min: 0,
+                          max: 8,
+                          divisions: 8,
+                          activeColor: const Color(0xFFFFD54F),
+                          onChanged: (v) {
+                            save.setVibrationLevel(v.toInt());
+                            AudioManager.instance.playSfx(GameSfx.hitBrick);
+                          },
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              if (isPaused) const SizedBox(height: 16),
               // Actions
               if (isPaused)
                 ElevatedButton.icon(
@@ -211,3 +268,4 @@ class PauseGameOverOverlay extends StatelessWidget {
     );
   }
 }
+

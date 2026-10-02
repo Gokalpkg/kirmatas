@@ -17,6 +17,8 @@ class Ball {
   double stuckOffsetX;
   final List<TrailPoint> trail = [];
   bool isFireball;
+  int fireballPierceCount = 0;
+  int fireballPaddleBounces = 0;
   bool isBomb;
   bool isPierce;
   bool isMirror;
@@ -27,6 +29,7 @@ class Ball {
   double cornerBoostTimer;
   int cornerHitCount = 0;
   bool isPurple = false;
+  double anomalyCooldown = 0.0;
 
   Ball({
     required this.x,
@@ -66,7 +69,7 @@ class Ball {
     squashAngle = angle;
   }
 
-  void update(double dt) {
+  void update(double dt, {int trailLength = 24}) {
     if (squashTimer > 0) {
       squashTimer -= dt;
       if (squashTimer < 0) squashTimer = 0;
@@ -75,13 +78,18 @@ class Ball {
       cornerBoostTimer -= dt;
       if (cornerBoostTimer < 0) cornerBoostTimer = 0.0;
     }
+    if (anomalyCooldown > 0) {
+      anomalyCooldown -= dt;
+      if (anomalyCooldown < 0) anomalyCooldown = 0.0;
+    }
 
     if (!isStuck) {
       x += vx * dt;
       y += vy * dt;
 
       trail.insert(0, TrailPoint(Offset(x, y), dt));
-      if (trail.length > 16) {
+      final cap = (isFireball || cornerBoostTimer > 0) ? (trailLength + 10) : trailLength;
+      while (trail.length > cap) {
         trail.removeLast();
       }
     }

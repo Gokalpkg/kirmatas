@@ -35,7 +35,10 @@ class BallSkin {
     this.hasAura = false,
   }) : _name = name;
 
-  String get name => _name != null ? I18n.tr(id) : I18n.tr(id);
+  String get name {
+    final tr = I18n.tr(id);
+    return (tr.isNotEmpty && tr != id) ? tr : (_name ?? id);
+  }
 
   static const List<BallSkin> allSkins = [
     BallSkin(
@@ -115,6 +118,26 @@ class BallSkin {
       darkColor: Color(0xFFFF8F00),
       hasAura: true,
     ),
+    BallSkin(
+      id: 'kara_delik_top',
+      name: 'Void Küresi',
+      cost: 5500,
+      rarity: Rarity.epic,
+      mainColor: Color(0xFF212121),
+      glowColor: Color(0xFFD500F9),
+      darkColor: Color(0xFF000000),
+      hasAura: true,
+    ),
+    BallSkin(
+      id: 'elmas_top',
+      name: 'Prizmatik Elmas',
+      cost: 9500,
+      rarity: Rarity.legendary,
+      mainColor: Color(0xFFE0F7FA),
+      glowColor: Color(0xFF18FFFF),
+      darkColor: Color(0xFF00B8D4),
+      hasAura: true,
+    ),
   ];
 
   static BallSkin getById(String id) {
@@ -141,7 +164,10 @@ class PaddleSkin {
     required this.glowColor,
   }) : _name = name;
 
-  String get name => _name != null ? I18n.tr(id) : I18n.tr(id);
+  String get name {
+    final tr = I18n.tr(id);
+    return (tr.isNotEmpty && tr != id) ? tr : (_name ?? id);
+  }
 
   static const List<PaddleSkin> allSkins = [
     PaddleSkin(
@@ -198,6 +224,24 @@ class PaddleSkin {
       color2: Color(0xFFFF8F00),
       glowColor: Color(0x99FFD54F),
     ),
+    PaddleSkin(
+      id: 'pdark',
+      name: 'Zehirli Sarmaşık',
+      cost: 5000,
+      rarity: Rarity.epic,
+      color1: Color(0xFF00E676),
+      color2: Color(0xFF1B5E20),
+      glowColor: Color(0x6600E676),
+    ),
+    PaddleSkin(
+      id: 'pnebula',
+      name: 'Derin Nebula',
+      cost: 9500,
+      rarity: Rarity.legendary,
+      color1: Color(0xFF651FFF),
+      color2: Color(0xFF1A237E),
+      glowColor: Color(0x99651FFF),
+    ),
   ];
 
   static PaddleSkin getById(String id) {
@@ -224,7 +268,10 @@ class TrailSkin {
     required this.length,
   }) : _name = name;
 
-  String get name => _name != null ? I18n.tr(id) : I18n.tr(id);
+  String get name {
+    final tr = I18n.tr(id);
+    return (tr.isNotEmpty && tr != id) ? tr : (_name ?? id);
+  }
 
   static const List<TrailSkin> allTrails = [
     TrailSkin(
@@ -274,6 +321,14 @@ class TrailSkin {
       rarity: Rarity.legendary,
       style: TrailStyle.plasma,
       length: 32,
+    ),
+    TrailSkin(
+      id: 'ghost',
+      name: 'Hayalet İz',
+      cost: 4800,
+      rarity: Rarity.epic,
+      style: TrailStyle.ghost,
+      length: 24,
     ),
   ];
 
@@ -707,4 +762,99 @@ class BackgroundTheme {
     ),
   ];
 }
+
+class BrickStyle {
+  final String id;
+  final int cost;
+  final Rarity rarity;
+  final Color accent;
+
+  const BrickStyle({
+    required this.id,
+    required this.cost,
+    required this.rarity,
+    required this.accent,
+  });
+
+  String get name => I18n.tr(id);
+
+  static const List<BrickStyle> all = [
+    BrickStyle(id: 'brick_neon', cost: 0, rarity: Rarity.common, accent: Color(0xFF00E5FF)),
+    BrickStyle(id: 'brick_pixel', cost: 1600, rarity: Rarity.rare, accent: Color(0xFFFFD54F)),
+    BrickStyle(id: 'brick_gloss', cost: 2800, rarity: Rarity.rare, accent: Color(0xFFFF7EB3)),
+    BrickStyle(id: 'brick_neu', cost: 3200, rarity: Rarity.epic, accent: Color(0xFF90A4AE)),
+    BrickStyle(id: 'brick_cyber', cost: 4500, rarity: Rarity.epic, accent: Color(0xFF00E5FF)),
+    BrickStyle(id: 'brick_cosmic', cost: 9500, rarity: Rarity.legendary, accent: Color(0xFFE040FB)),
+  ];
+
+  static BrickStyle getById(String id) {
+    return all.firstWhere((s) => s.id == id, orElse: () => all.first);
+  }
+}
+
+class CategoryCrateInfo {
+  final String category;
+  final String titleKey;
+  final String defaultName;
+  final int cost;
+  final Color primaryColor;
+  final IconData icon;
+
+  const CategoryCrateInfo({
+    required this.category,
+    required this.titleKey,
+    required this.defaultName,
+    required this.cost,
+    required this.primaryColor,
+    required this.icon,
+  });
+
+  String get name {
+    final tr = I18n.tr(titleKey);
+    return (tr.isNotEmpty && tr != titleKey) ? tr : defaultName;
+  }
+
+  static const Map<Rarity, double> rarityWeights = {
+    Rarity.common: 55.0,
+    Rarity.rare: 30.0,
+    Rarity.epic: 12.0,
+    Rarity.legendary: 3.0,
+  };
+
+  static const Map<String, CategoryCrateInfo> categoryCrates = {
+    'balls': CategoryCrateInfo(
+      category: 'balls',
+      titleKey: 'crate_balls',
+      defaultName: 'Top Sandığı',
+      cost: 1200,
+      primaryColor: Color(0xFFFFD54F),
+      icon: Icons.sports_volleyball,
+    ),
+    'paddles': CategoryCrateInfo(
+      category: 'paddles',
+      titleKey: 'crate_paddles',
+      defaultName: 'Paddle Sandığı',
+      cost: 1500,
+      primaryColor: Color(0xFF00E5FF),
+      icon: Icons.view_stream,
+    ),
+    'trails': CategoryCrateInfo(
+      category: 'trails',
+      titleKey: 'crate_trails',
+      defaultName: 'İz Sandığı',
+      cost: 1400,
+      primaryColor: Color(0xFFE040FB),
+      icon: Icons.grain,
+    ),
+    'bricks': CategoryCrateInfo(
+      category: 'bricks',
+      titleKey: 'crate_bricks',
+      defaultName: 'Blok Sandığı',
+      cost: 1300,
+      primaryColor: Color(0xFFFF7EB3),
+      icon: Icons.view_module,
+    ),
+  };
+}
+
 

@@ -1,8 +1,11 @@
 import 'dart:math';
+import '../models/black_hole.dart';
+import '../models/portal.dart';
 import 'package:flutter/material.dart';
 import '../models/ball.dart';
 import '../models/brick.dart';
 import '../models/cosmetics.dart';
+import '../models/easter_egg.dart';
 import '../models/game_state.dart';
 import '../models/level_design.dart';
 import '../models/paddle.dart';
@@ -12,7 +15,18 @@ import 'audio_manager.dart';
 import 'i18n.dart';
 import 'particle_system.dart';
 
+class TickNotifier extends ChangeNotifier { void ping() => notifyListeners(); }
+
 class GameController extends ChangeNotifier {
+  static final Set<int> portalLevels = () {
+    final rand = Random(2026);
+    final all = List.generate(238, (i) => i + 1);
+    all.shuffle(rand);
+    return all.take(83).toSet();
+  }();
+  final TickNotifier frameTick = TickNotifier();
+  final List<BlackHole> blackHoles = [];
+  final List<Portal> portals = [];
   final SaveManager save = SaveManager.instance;
   final AudioManager audio = AudioManager.instance;
   final ParticleSystem particles = ParticleSystem();
@@ -32,16 +46,36 @@ class GameController extends ChangeNotifier {
   final List<Projectile> projectiles = [];
   final List<ActivePowerUp> activePowerUps = [];
 
+  EasterEggBee? activeBee;
+  WindshieldSplat? activeSplat;
+  double beeSpawnCooldown = 35.0;
+
   double descendTimer = 0.0;
   double droneShootTimer = 0.0;
   double? laserTimer;
   double? rocketTimer;
+  double? _blackHoleTimer;
   double comboTimer = 0.0;
-  double gameTime = 0.0;
+    double gameTime = 0.0;
 
-  BallSkin activeBallSkin = BallSkin.allSkins.first;
-  PaddleSkin activePaddleSkin = PaddleSkin.allSkins.first;
-  TrailSkin activeTrailSkin = TrailSkin.allTrails.first;
+  bool isDiceRolling = false;
+  double diceRollTimer = 0.0;
+  bool isDoubleDice = false;
+  int dice1Value = 1;
+  int dice2Value = 1;
+  int diceDisplay1 = 1;
+  int diceDisplay2 = 1;
+  int diceSalvoRemaining = 0;
+  double diceSalvoCooldown = 0.0;
+  double diceDisplayTimer = 0.0;
+  double _diceShuffleTimer = 0.0;
+
+  bool get isDiceActive => isDiceRolling || diceDisplayTimer > 0;
+  int get diceTotal => isDoubleDice ? (diceDisplay1 + diceDisplay2) : diceDisplay1;
+
+  BallSkin get activeBallSkin => BallSkin.getById(save.activeBall);
+  PaddleSkin get activePaddleSkin => PaddleSkin.getById(save.activePaddle);
+  TrailSkin get activeTrailSkin => TrailSkin.getById(save.activeTrail);
 
   GameController() {
     paddle = Paddle(x: 140, y: 560);
@@ -62,9 +96,6 @@ class GameController extends ChangeNotifier {
     currentMode = mode;
     status = GameStatus.ready;
 
-    activeBallSkin = BallSkin.getById(save.activeBall);
-    activePaddleSkin = PaddleSkin.getById(save.activePaddle);
-    activeTrailSkin = TrailSkin.getById(save.activeTrail);
 
     int startLives = mode == GameMode.zen ? 999 : 3;
     if (save.boostStocks['life'] != null && save.boostStocks['life']! > 0) {
@@ -77,6 +108,9 @@ class GameController extends ChangeNotifier {
     capsules.clear();
     projectiles.clear();
     activePowerUps.clear();
+    activeBee = null;
+    activeSplat = null;
+    beeSpawnCooldown = 25.0 + _rand.nextDouble() * 25.0;
 
     resetPaddleAndBall();
     loadLevelBricks();
@@ -123,9 +157,35 @@ class GameController extends ChangeNotifier {
   }
 
   void loadLevelBricks() {
+    portals.clear();
+    blackHoles.clear();
+    activeBee = null;
+    beeSpawnCooldown = 25.0 + _rand.nextDouble() * 25.0;
+    _blackHoleTimer = 0.0;
     switch (currentMode) {
       case GameMode.classic:
         bricks = LevelDesign.buildClassicLevel(stats.level, screenWidth, screenHeight);
+        if (portalLevels.contains(stats.level)) {
+          final levelRand = Random(stats.level * 1337);
+          final p1 = Portal(
+            x: screenWidth * (0.18 + levelRand.nextDouble() * 0.16),
+            y: screenHeight * (0.45 + levelRand.nextDouble() * 0.12),
+            radius: 22.0,
+            isBlue: true,
+            color: const Color(0xFF00B0FF),
+          );
+          final p2 = Portal(
+            x: screenWidth * (0.66 + levelRand.nextDouble() * 0.16),
+            y: screenHeight * (0.45 + levelRand.nextDouble() * 0.12),
+            radius: 22.0,
+            isBlue: false,
+            color: const Color(0xFFFF9100),
+          );
+          p1.linkedPortal = p2;
+          p2.linkedPortal = p1;
+          portals.add(p1);
+          portals.add(p2);
+        }
         break;
       case GameMode.zen:
         bricks = LevelDesign.buildZenLevel(screenWidth, screenHeight);
@@ -155,10 +215,9 @@ class GameController extends ChangeNotifier {
       if (ball.isStuck) {
         ball.isStuck = false;
         ball.stuckTimer = 0.0;
-        final speed = getBaseBallSpeed();
-        final angle = -pi / 2 + (_rand.nextDouble() * 0.4 - 0.2);
-        ball.vx = cos(angle) * speed;
-        ball.vy = sin(angle) * speed;
+                final speed = getBaseBallSpeed();
+        ball.vx = 0.0;
+        ball.vy = -speed;
         anyLaunched = true;
       }
     }
@@ -228,6 +287,14 @@ class GameController extends ChangeNotifier {
   void update(double dt) {
     gameTime += dt;
 
+    // Windshield Splat update: persists on screen glass for 2 seconds even when game state changes
+    if (activeSplat != null) {
+      activeSplat!.update(dt);
+      if (activeSplat!.isDead) {
+        activeSplat = null;
+      }
+    }
+
     if (status != GameStatus.playing) {
       particles.update(dt);
       notifyListeners();
@@ -244,15 +311,49 @@ class GameController extends ChangeNotifier {
     particles.update(effectiveDt);
     paddle.update(effectiveDt);
 
+    _updateEasterEgg(effectiveDt);
     _updatePowerUpTimers(effectiveDt);
     _updateCombo(effectiveDt);
     _updateProjectiles(effectiveDt);
     _updateCapsules(effectiveDt);
     _updateBricks(effectiveDt);
+    _updateAnomalies(effectiveDt);
     _updateBalls(effectiveDt);
+    _updateDice(effectiveDt);
     _checkGameProgress();
-
+    frameTick.ping();
     notifyListeners();
+  }
+
+  void spawnEasterEggBee({double? customY, bool? facingRight}) {
+    final right = facingRight ?? _rand.nextBool();
+    final startX = right ? -35.0 : screenWidth + 35.0;
+    final speed = 48.0 + _rand.nextDouble() * 16.0;
+    final vx = right ? speed : -speed;
+    double laneY = customY ?? (screenHeight * 0.48 + (_rand.nextDouble() * 120.0 - 60.0));
+    laneY = laneY.clamp(180.0, paddle.y - 70.0);
+
+    activeBee = EasterEggBee(
+      x: startX,
+      baseY: laneY,
+      vx: vx,
+      isFacingRight: right,
+    );
+  }
+
+  void _updateEasterEgg(double dt) {
+    if (activeBee == null) {
+      beeSpawnCooldown -= dt;
+      if (beeSpawnCooldown <= 0) {
+        spawnEasterEggBee();
+        beeSpawnCooldown = 35.0 + _rand.nextDouble() * 30.0;
+      }
+    } else {
+      activeBee!.update(dt);
+      if (activeBee!.isOffScreen(screenWidth)) {
+        activeBee = null;
+      }
+    }
   }
 
   void _updatePowerUpTimers(double dt) {
@@ -314,19 +415,98 @@ class GameController extends ChangeNotifier {
       }
     }
 
-    // Ulti active timer
-    if (stats.ultiActiveLeft > 0) {
-      stats.ultiActiveLeft -= dt;
-      if (_rand.nextDouble() < 0.25) {
+    
+  }
+
+  void _updateDice(double dt) {
+    if (isDiceRolling) {
+      diceRollTimer -= dt;
+      _diceShuffleTimer += dt;
+      if (_diceShuffleTimer >= 0.05) {
+        _diceShuffleTimer = 0.0;
+        diceDisplay1 = 1 + _rand.nextInt(6);
+        diceDisplay2 = 1 + _rand.nextInt(6);
+        particles.spawnBurst(
+          paddle.x + paddle.width / 2 + (_rand.nextDouble() * 40 - 20),
+          paddle.y - 65.0 + (_rand.nextDouble() * 24 - 12),
+          isDoubleDice ? const Color(0xFFFFD700) : const Color(0xFF00E5FF),
+          count: 2,
+          speed: 60.0,
+        );
+      }
+
+      if (diceRollTimer <= 0) {
+        isDiceRolling = false;
+        diceDisplay1 = dice1Value;
+        diceDisplay2 = dice2Value;
+        final totalShots = diceTotal;
+        diceSalvoRemaining = totalShots;
+        diceSalvoCooldown = 0.05;
+        diceDisplayTimer = 2.5;
+
+        if (totalShots == 12) {
+          particles.triggerShake(9.5, 0.5);
+          particles.spawnShockwave(paddle.x + paddle.width / 2, paddle.y - 50, const Color(0xFFFF1744), maxRadius: screenWidth * 0.9);
+          particles.spawnShockwave(paddle.x + paddle.width / 2, paddle.y - 50, const Color(0xFFFFD700), maxRadius: screenWidth * 0.7);
+          particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.38, '👑 EFSANEVİ 12! ÇİFT ALTI! 👑', const Color(0xFFFFD700), isLarge: true);
+          audio.playSfx(GameSfx.ulti);
+        } else if (totalShots == 11) {
+          particles.triggerShake(7.0, 0.4);
+          particles.spawnShockwave(paddle.x + paddle.width / 2, paddle.y - 50, const Color(0xFFFF6D00), maxRadius: screenWidth * 0.7);
+          particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.38, '🔥 EPİK ŞANS! (11) 🔥', const Color(0xFFFF6D00), isLarge: true);
+          audio.playSfx(GameSfx.ulti);
+        } else if (totalShots == 10) {
+          particles.triggerShake(6.0, 0.35);
+          particles.spawnShockwave(paddle.x + paddle.width / 2, paddle.y - 50, const Color(0xFF00E5FF), maxRadius: screenWidth * 0.6);
+          particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.38, '💎 BÜYÜK KAZANÇ! (10) 💎', const Color(0xFF00E5FF), isLarge: true);
+          audio.playSfx(GameSfx.ulti);
+        } else if (isDoubleDice) {
+          particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.38, '🎰  X ÇİFT ZAR! 🎰', const Color(0xFFFFD700), isLarge: true);
+          audio.playSfx(GameSfx.ulti);
+        } else {
+          particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.38, '🎲  X ZAR ATIŞI! 🎲', const Color(0xFF00E5FF), isLarge: true);
+          audio.playSfx(GameSfx.laser);
+        }
+      }
+    }
+
+    if (diceDisplayTimer > 0) {
+      diceDisplayTimer -= dt;
+    }
+
+    // Salvo firing: exactly 1 shot from left, 1 shot from right
+    if (diceSalvoRemaining > 0) {
+      diceSalvoCooldown -= dt;
+      if (diceSalvoCooldown <= 0) {
+        diceSalvoCooldown = 0.16;
+        diceSalvoRemaining--;
+
+        final leftX = paddle.x + 8.0;
+        final rightX = paddle.x + paddle.width - 8.0;
+        final spawnY = paddle.y - 6.0;
+
         projectiles.add(
           Projectile(
-            x: paddle.x + _rand.nextDouble() * paddle.width,
-            y: paddle.y - 8.0,
-            vy: -600.0,
-            radius: 5.0,
-            isLaser: true,
+            x: leftX,
+            y: spawnY,
+            vy: -550.0,
+            radius: 5.5,
+            isRocket: true,
           ),
         );
+
+        projectiles.add(
+          Projectile(
+            x: rightX,
+            y: spawnY,
+            vy: -550.0,
+            radius: 5.5,
+            isRocket: true,
+          ),
+        );
+
+        particles.spawnBurst(leftX, spawnY, const Color(0xFFFFD54F), count: 6, speed: 90.0);
+        particles.spawnBurst(rightX, spawnY, const Color(0xFFFFD54F), count: 6, speed: 90.0);
         audio.playSfx(GameSfx.laser);
       }
     }
@@ -413,8 +593,9 @@ class GameController extends ChangeNotifier {
       // Check collision with paddle
       final capRect = Rect.fromCenter(center: Offset(c.x, c.y), width: c.width, height: c.height);
       if (paddle.rect.overlaps(capRect)) {
-        applyPowerUp(c.type);
+        final type = c.type;
         capsules.removeAt(i);
+        applyPowerUp(type);
         continue;
       }
 
@@ -447,7 +628,7 @@ class GameController extends ChangeNotifier {
     }
 
     // Global dead brick pruning to eliminate memory accumulation and CPU lag
-    bricks.removeWhere((b) => !b.isAlive && b.jelly <= 0);
+    bricks.removeWhere((b) => !b.isAlive);
 
     // Descend mode marching with smooth sliding animation
     if (currentMode == GameMode.descend) {
@@ -475,12 +656,43 @@ class GameController extends ChangeNotifier {
       }
     }
 
-    // Zen mode replenishment
-    if (currentMode == GameMode.zen) {
-      final aliveCount = bricks.where((b) => b.isAlive).length;
-      if (aliveCount < 8) {
-        final newBricks = LevelDesign.buildZenLevel(screenWidth, screenHeight);
-        bricks.addAll(newBricks);
+    // Zen mode replenishment when all bricks are cleared
+    if (currentMode == GameMode.zen && bricks.every((b) => !b.isAlive)) {
+      bricks = LevelDesign.buildZenLevel(screenWidth, screenHeight);
+    }
+  }
+
+  void _updateAnomalies(double dt) {
+    for (final p in portals) {
+      p.update(dt);
+    }
+
+    for (int i = blackHoles.length - 1; i >= 0; i--) {
+      final bh = blackHoles[i];
+      bh.update(dt);
+      if (bh.timeLeft <= 0) {
+        particles.spawnBurst(bh.x, bh.y, const Color(0xFFB388FF), count: 20, speed: 120.0);
+        blackHoles.removeAt(i);
+      }
+    }
+
+    // Black Hole random dynamic appearance in playable zone
+    if (status == GameStatus.playing && blackHoles.isEmpty && currentMode != GameMode.zen) {
+      _blackHoleTimer = (_blackHoleTimer ?? 0.0) + dt;
+      if (_blackHoleTimer! >= 22.0 && _rand.nextDouble() < 0.03) {
+        _blackHoleTimer = 0.0;
+        final r = 20.0 + _rand.nextDouble() * 14.0;
+        blackHoles.add(
+          BlackHole(
+            x: screenWidth * (0.22 + _rand.nextDouble() * 0.56),
+            y: screenHeight * (0.40 + _rand.nextDouble() * 0.22),
+            radius: r,
+            mass: r * 3200.0,
+            timeLeft: 4.5 + _rand.nextDouble() * 2.0,
+          ),
+        );
+        audio.playSfx(GameSfx.laser);
+        particles.spawnShockwave(screenWidth * 0.5, screenHeight * 0.5, const Color(0xFF7C4DFF), maxRadius: 60.0);
       }
     }
   }
@@ -498,15 +710,89 @@ class GameController extends ChangeNotifier {
         continue;
       }
 
-      ball.update(dt);
+      ball.update(dt, trailLength: activeTrailSkin.length);
 
-      // Corner boost trail sparks & decay
+      // Fireball & Corner boost trail sparks & decay
+      if (ball.isFireball) {
+        if (_rand.nextDouble() < 0.25) {
+          particles.spawnBurst(ball.x, ball.y, const Color(0xFFFF1744), count: 1, speed: 70.0);
+        }
+      }
       if (ball.cornerBoostTimer > 0) {
-        if (_rand.nextDouble() < 0.35) {
-          particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD54F), count: 2, speed: 60.0);
+        // Corner Shot (Köşe Vuruşu): Supersonic afterburner exhaust sparks (streamlined for smooth 60/120 FPS)
+        if (_rand.nextDouble() < 0.20) {
+          final sparkColor = _rand.nextBool() ? const Color(0xFFFFD54F) : const Color(0xFFFFF9C4);
+          particles.spawnBurst(ball.x, ball.y, sparkColor, count: 1, speed: 65.0);
         }
       } else if (ball.speed > getBaseBallSpeed() * 1.15 && !activePowerUps.any((p) => p.type == PowerUpType.fastball)) {
         ball.setSpeed((ball.speed - dt * 140.0).clamp(getBaseBallSpeed(), 850.0));
+      }
+
+      // Collision with Easter Egg Bee
+      if (activeBee != null && activeBee!.isAlive) {
+        final bdx = ball.x - activeBee!.x;
+        final bdy = ball.y - activeBee!.y;
+        final distSq = bdx * bdx + bdy * bdy;
+        final hitDist = ball.radius + activeBee!.hitRadius;
+        if (distSq <= hitDist * hitDist) {
+          final splatX = activeBee!.x;
+          final splatY = activeBee!.y;
+          activeBee!.isAlive = false;
+          activeBee = null;
+          activeSplat = WindshieldSplat(x: splatX, y: splatY, duration: 2.0);
+          stats.score += 100;
+          particles.spawnBurst(splatX, splatY, const Color(0xFFD31018), count: 24, speed: 110.0);
+          particles.spawnFloatingText(splatX, splatY - 18.0, 'BZZZ! SPLAT! +100', const Color(0xFFFF1744), isLarge: true);
+          audio.playSfx(GameSfx.breakBrick);
+        }
+      }
+
+      // Anti-softlock: prevent ball from getting stuck horizontally forever
+      if (!ball.isStuck && ball.vy.abs() < 28.0) {
+        ball.vy = ball.vy >= 0 ? 35.0 : -35.0;
+      }
+
+      // Black Hole gravity pull: significantly increased gravitational pull for all black holes (from smallest to largest)
+      for (final bh in blackHoles) {
+        final dx = bh.x - ball.x;
+        final dy = bh.y - ball.y;
+        final dist = sqrt(dx * dx + dy * dy);
+        final maxInfluenceDist = bh.radius * 8.5; // Expanded gravitational sphere of influence
+        if (dist > 6.0 && dist < maxInfluenceDist) {
+          final normalizedDist = (dist / maxInfluenceDist).clamp(0.0, 1.0);
+          final proximity = 1.0 - normalizedDist;
+          // Substantially increased base pull + radius scaling so even small black holes strongly bend trajectory
+          final basePull = 520.0 + (bh.radius * 58.0);
+          final pull = basePull * proximity * (1.2 + proximity * 3.8);
+          final nx = dx / dist;
+          final ny = dy / dist;
+          ball.vx += nx * pull * dt;
+          ball.vy += ny * pull * dt;
+          if (ball.speed > 850.0) {
+            ball.setSpeed(850.0);
+          }
+        }
+      }
+
+      // Portal teleportation
+      if (ball.anomalyCooldown <= 0) {
+        for (final p in portals) {
+          final dx = p.x - ball.x;
+          final dy = p.y - ball.y;
+          if (dx * dx + dy * dy <= p.radius * p.radius && p.linkedPortal != null) {
+            final target = p.linkedPortal!;
+            final spd = ball.speed > 0 ? ball.speed : getBaseBallSpeed();
+            final dirX = ball.vx / spd;
+            final dirY = ball.vy / spd;
+            ball.x = target.x + dirX * (target.radius + ball.radius + 3.0);
+            ball.y = target.y + dirY * (target.radius + ball.radius + 3.0);
+            ball.anomalyCooldown = 1.0;
+            particles.spawnBurst(p.x, p.y, p.color, count: 18, speed: 100.0);
+            particles.spawnBurst(target.x, target.y, target.color, count: 22, speed: 130.0);
+            audio.playSfx(GameSfx.ulti);
+            break;
+          }
+        }
       }
 
       // Wall collisions
@@ -547,7 +833,7 @@ class GameController extends ChangeNotifier {
       }
 
       // Paddle collision
-      if (!paddle.isGhost && _checkBallPaddleCollision(ball)) {
+      if (_checkBallPaddleCollision(ball)) {
         continue;
       }
 
@@ -569,6 +855,15 @@ class GameController extends ChangeNotifier {
         ball.x + ball.radius >= pr.left &&
         ball.x - ball.radius <= pr.right) {
 
+      // Ghost paddle mechanic: Center 50% is hollow/permeable, wings (25% each) are solid
+      if (paddle.isGhost) {
+        final leftBoundary = paddle.x + paddle.width * 0.25;
+        final rightBoundary = paddle.x + paddle.width * 0.75;
+        if (ball.x >= leftBoundary && ball.x <= rightBoundary) {
+          return false; // Ball passes through the hollow center
+        }
+      }
+
       if (paddle.isSticky) {
         ball.isStuck = true;
         ball.stuckTimer = 0.0;
@@ -580,7 +875,24 @@ class GameController extends ChangeNotifier {
       }
 
       // Hit point on paddle (-1.0 left to 1.0 right)
-      final hitOffset = ((ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2)).clamp(-1.0, 1.0);
+      double hitOffset;
+      if (paddle.isGhost) {
+        final wingWidth = paddle.width * 0.25;
+        if (ball.x < paddle.x + wingWidth) {
+          // Left wing: ball.x from paddle.x to paddle.x + wingWidth
+          // Map to [-1.0, -0.2] (outer tip -> steep left, inner edge -> slight left)
+          final t = ((ball.x - paddle.x) / wingWidth).clamp(0.0, 1.0);
+          hitOffset = -1.0 + t * 0.8;
+        } else {
+          // Right wing: ball.x from paddle.x + 0.75 * paddle.width to paddle.x + paddle.width
+          // Map to [0.2, 1.0] (inner edge -> slight right, outer tip -> steep right)
+          final t = ((ball.x - (paddle.x + paddle.width * 0.75)) / wingWidth).clamp(0.0, 1.0);
+          hitOffset = 0.2 + t * 0.8;
+        }
+      } else {
+        hitOffset = ((ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2)).clamp(-1.0, 1.0);
+      }
+
       final bounceAngle = hitOffset * (pi / 2.7); // -66 deg to +66 deg
       final baseSpeed = min(ball.speed + 6.0, 680.0);
 
@@ -605,12 +917,13 @@ class GameController extends ChangeNotifier {
           ball.isPurple = true;
           ball.cornerHitCount = 0; // reset after triggering
           particles.spawnBurst(ball.x, pr.top, const Color(0xFFD500F9), count: 50, speed: 150.0);
-          particles.spawnFloatingText(ball.x, pr.top - 24, I18n.tr('purple_fever') ?? 'MOR GÜÇ!', const Color(0xFFD500F9), isLarge: true);
+          particles.spawnFloatingText(ball.x, pr.top - 24, I18n.tr('purple_fever'), const Color(0xFFD500F9), isLarge: true);
           audio.playSfx(GameSfx.ulti);
         } else {
-          applyPowerUp(PowerUpType.fireball); 
+          // Visual boost only - no fireball powerup! 
           particles.spawnBurst(ball.x, pr.top, const Color(0xFFFF6D00), count: 30, speed: 120.0);
-          particles.spawnFloatingText(ball.x, pr.top - 18, I18n.tr('corner_shot') ?? 'KÖŞE VURUŞU! (${ball.cornerHitCount})', const Color(0xFFFF6D00), isLarge: true);
+          particles.spawnShockwave(ball.x, pr.top, const Color(0xFFFFD600), maxRadius: 48.0);
+          particles.spawnFloatingText(ball.x, pr.top - 18, I18n.tr('corner_shot'), const Color(0xFFFF6D00), isLarge: true);
           audio.playSfx(GameSfx.ulti);
         }
       } else {
@@ -648,18 +961,34 @@ class GameController extends ChangeNotifier {
         _hitBrick(b, ball);
 
         if (!ball.isFireball && !ball.isPierce && !b.isTuft) {
-          // Rebound physics
-          final overlapX = r - distX.abs();
-          final overlapY = r - distY.abs();
+          // Rebound physics using normalized aspect-ratio Minkowski penetration
+          final halfW = b.width / 2;
+          final halfH = b.height / 2;
+          final relX = bx - (b.x + halfW);
+          final relY = by - (b.y + halfH);
+          final normX = relX / halfW;
+          final normY = relY / halfH;
 
-          if (overlapX < overlapY) {
-            ball.vx = distX > 0 ? ball.vx.abs() : -ball.vx.abs();
-            ball.x = distX > 0 ? b.x + b.width + r : b.x - r;
-            ball.triggerSquash(distX > 0 ? 0 : pi);
+          if (normX.abs() > normY.abs()) {
+            if (normX > 0) {
+              ball.vx = ball.vx.abs();
+              ball.x = b.x + b.width + r;
+              ball.triggerSquash(0);
+            } else {
+              ball.vx = -ball.vx.abs();
+              ball.x = b.x - r;
+              ball.triggerSquash(pi);
+            }
           } else {
-            ball.vy = distY > 0 ? ball.vy.abs() : -ball.vy.abs();
-            ball.y = distY > 0 ? b.y + b.height + r : b.y - r;
-            ball.triggerSquash(distY > 0 ? pi / 2 : -pi / 2);
+            if (normY > 0) {
+              ball.vy = ball.vy.abs();
+              ball.y = b.y + b.height + r;
+              ball.triggerSquash(pi / 2);
+            } else {
+              ball.vy = -ball.vy.abs();
+              ball.y = b.y - r;
+              ball.triggerSquash(-pi / 2);
+            }
           }
         }
 
@@ -674,6 +1003,13 @@ class GameController extends ChangeNotifier {
   }
 
   void _hitBrick(Brick b, Ball? ball) {
+    if (b.isFrozen) {
+      b.isFrozen = false;
+      particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFF80D8FF), count: 20);
+      particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFF00E5FF), maxRadius: 30.0);
+      audio.playSfx(GameSfx.breakBrick);
+      return;
+    }
     if (b.isTuft) {
       if (!b.tuftFilled) {
         b.tuftFilled = true;
@@ -717,7 +1053,13 @@ class GameController extends ChangeNotifier {
     particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, b.color, maxRadius: 40.0);
     audio.playSfx(GameSfx.breakBrick);
 
-    _registerCombo(b.points);
+        _registerCombo(b.points);
+
+    if (b.isDynamite) {
+      _explodeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 80.0);
+    } else if (b.isIce) {
+      _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 90.0);
+    }
 
     // Charge Ulti (with battery upgrade bonus)
     final batteryLevel = save.upgrades['battery'] ?? 0;
@@ -733,6 +1075,28 @@ class GameController extends ChangeNotifier {
       stats.goldCollected += coins;
       save.addGold(coins);
       particles.spawnFloatingText(b.x + b.width / 2, b.y, '+$coins 🪙', const Color(0xFFFFD54F));
+    }
+  }
+
+  void _freezeArea(double cx, double cy, {double radius = 80.0}) {
+    particles.spawnBurst(cx, cy, const Color(0xFF80D8FF), count: 28, speed: 200.0);
+    particles.spawnShockwave(cx, cy, const Color(0xFF00E5FF), maxRadius: radius);
+    audio.playSfx(GameSfx.breakBrick);
+
+    final candidates = bricks.where((b) {
+      if (!b.isAlive || b.isSteel || b.isTuft || b.isFrozen) return false;
+      final bx = b.x + b.width / 2;
+      final by = b.y + b.height / 2;
+      final dist = sqrt((bx - cx) * (bx - cx) + (by - cy) * (by - cy));
+      return dist <= radius;
+    }).toList();
+
+    candidates.shuffle(_rand);
+    final count = min(candidates.length, 2 + _rand.nextInt(3)); // 2 to 4 blocks
+    for (int i = 0; i < count; i++) {
+      final b = candidates[i];
+      b.isFrozen = true;
+      particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFE0F7FA), count: 8);
     }
   }
 
@@ -833,6 +1197,9 @@ class GameController extends ChangeNotifier {
         case PowerUpType.mirror:
           if (balls.isNotEmpty) {
             final first = balls.first;
+            final hasFireball = activePowerUps.any((p) => p.type == PowerUpType.fireball) || first.isFireball;
+            final hasBomb = activePowerUps.any((p) => p.type == PowerUpType.bomb) || first.isBomb;
+            final hasPierce = activePowerUps.any((p) => p.type == PowerUpType.pierce) || first.isPierce;
             balls.add(Ball(
               x: (screenWidth - first.x).clamp(20.0, screenWidth - 20.0),
               y: first.y,
@@ -841,6 +1208,9 @@ class GameController extends ChangeNotifier {
               radius: first.radius,
               isStuck: false,
               isMirror: true,
+              isFireball: hasFireball,
+              isBomb: hasBomb,
+              isPierce: hasPierce,
             ));
           }
           break;
@@ -861,21 +1231,22 @@ class GameController extends ChangeNotifier {
           break;
       }
       
-      // KURAL: Eğer aktif güçlendirici 3 ise inen diğer güçlendiricileri sil!
-      if (activePowerUps.length >= 3) {
-        capsules.clear();
-      }
+
       return;
     }
 
-    // Remove existing if already present
+        // Remove existing if already present
     activePowerUps.removeWhere((p) => p.type == type);
+
+    // Active power-up balance: max 2 if multiple balls, else max 3
+    final maxActive = (balls.length > 1) ? 2 : 3;
+    while (activePowerUps.length >= maxActive) {
+      final oldest = activePowerUps.removeAt(0);
+      _removePowerUp(oldest.type);
+    }
     activePowerUps.add(ActivePowerUp(type));
     
-    // KURAL: Eğer aktif güçlendirici 3 ise inen diğer güçlendiricileri sil!
-    if (activePowerUps.length >= 3) {
-      capsules.clear();
-    }
+
 
     switch (type) {
       case PowerUpType.wide:
@@ -891,7 +1262,7 @@ class GameController extends ChangeNotifier {
         break;
       case PowerUpType.fastball:
         for (final b in balls) {
-          b.setSpeed(getBaseBallSpeed() * 1.5);
+          b.setSpeed(getBaseBallSpeed() * 1.8);
         }
         break;
       case PowerUpType.sticky:
@@ -1004,13 +1375,21 @@ class GameController extends ChangeNotifier {
     final first = balls.first;
     final spd = first.speed > 0 ? first.speed : getBaseBallSpeed();
 
+    final hasFireball = activePowerUps.any((p) => p.type == PowerUpType.fireball) || first.isFireball;
+    final hasBomb = activePowerUps.any((p) => p.type == PowerUpType.bomb) || first.isBomb;
+    final hasPierce = activePowerUps.any((p) => p.type == PowerUpType.pierce) || first.isPierce;
+
     balls.add(
       Ball(
         x: first.x,
         y: first.y,
         vx: -spd * 0.7,
         vy: -spd * 0.7,
+        radius: first.radius,
         isStuck: false,
+        isFireball: hasFireball,
+        isBomb: hasBomb,
+        isPierce: hasPierce,
       ),
     );
     balls.add(
@@ -1019,33 +1398,56 @@ class GameController extends ChangeNotifier {
         y: first.y,
         vx: spd * 0.7,
         vy: -spd * 0.7,
+        radius: first.radius,
         isStuck: false,
+        isFireball: hasFireball,
+        isBomb: hasBomb,
+        isPierce: hasPierce,
       ),
     );
   }
 
   void triggerUlti() {
-    if (stats.ultiCharge < 100.0 || stats.ultiActiveLeft > 0) return;
+    if (stats.ultiCharge < 100.0 || isDiceRolling || diceSalvoRemaining > 0) return;
     stats.ultiCharge = 0.0;
-    stats.ultiActiveLeft = 2.0;
 
-    particles.triggerShake(7.0, 0.35);
-    particles.spawnShockwave(paddle.x + paddle.width / 2, paddle.y, const Color(0xFF00E5FF), maxRadius: screenWidth);
-    particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.42, I18n.tr('power_mode'), const Color(0xFF00E5FF), isLarge: true);
-    audio.playSfx(GameSfx.ulti);
+    isDiceRolling = true;
+    diceRollTimer = 0.88;
+    _diceShuffleTimer = 0.0;
+    diceDisplayTimer = 0.0;
+    diceSalvoRemaining = 0;
 
-    // Twin giant hyper-lasers
-    for (int i = 0; i < 8; i++) {
-      projectiles.add(
-        Projectile(
-          x: paddle.x + (paddle.width * i / 7),
-          y: paddle.y - 12.0,
-          vy: -650.0,
-          radius: 6.0,
-          isLaser: true,
-        ),
-      );
+    // 25% chance of jackpot double dice
+    isDoubleDice = _rand.nextDouble() < 0.25;
+    dice1Value = 1 + _rand.nextInt(6);
+    dice2Value = 1 + _rand.nextInt(6);
+    diceDisplay1 = 1 + _rand.nextInt(6);
+    diceDisplay2 = 1 + _rand.nextInt(6);
+
+    if (isDoubleDice) {
+      particles.triggerShake(7.0, 0.35);
+      particles.spawnShockwave(paddle.x + paddle.width / 2, paddle.y - 45, const Color(0xFFFFD700), maxRadius: screenWidth * 0.7);
+      particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.42, '🎰 JACKPOT! 2X ZAR! 🎰', const Color(0xFFFFD700), isLarge: true);
+      audio.playSfx(GameSfx.ulti);
+
+      // Gold coin shower
+      for (int i = 0; i < 20; i++) {
+        particles.spawnBurst(
+          screenWidth * 0.5 + (_rand.nextDouble() * 140 - 70),
+          screenHeight * 0.45 + (_rand.nextDouble() * 70 - 35),
+          const Color(0xFFFFD54F),
+          count: 4,
+          speed: 160.0,
+        );
+      }
+    } else {
+      particles.triggerShake(4.0, 0.2);
+      particles.spawnShockwave(paddle.x + paddle.width / 2, paddle.y - 45, const Color(0xFF00E5FF), maxRadius: screenWidth * 0.5);
+      particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.42, '🎲 ŞANSLI ZAR! 🎲', const Color(0xFF00E5FF), isLarge: true);
+      audio.playSfx(GameSfx.laser);
     }
+
+    notifyListeners();
   }
 
   void _loseLife() {
@@ -1071,8 +1473,12 @@ class GameController extends ChangeNotifier {
 
 
 
-    // Check normal bricks completed
-    final remainingBreakable = bricks.where((b) => b.isAlive && !b.isSteel).length;
+    final remainingBreakable = bricks.where((b) {
+      if (!b.isAlive) return false;
+      if (b.isSteel) return false;
+      if (b.isTuft && b.tuftFilled) return false;
+      return true;
+    }).length;
     if (remainingBreakable == 0) {
       if (currentMode == GameMode.daily) {
         _onVictory();
@@ -1113,3 +1519,16 @@ class GameController extends ChangeNotifier {
     }
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
