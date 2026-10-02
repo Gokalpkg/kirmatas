@@ -1305,39 +1305,53 @@ class _GameWorldPainter extends CustomPainter {
       canvas.rotate(bh.rotation);
 
       // 1. Broad Gravitational Lensing & Warped Photon Halo
+      final vortexColors = bh.isVortexTrap
+          ? [
+              Colors.black,
+              const Color(0xFF1A0000), // Deep crimson singularity void
+              const Color(0xFFB71C1C).withValues(alpha: 0.95), // Fiery crimson mantle
+              const Color(0xFFFF1744).withValues(alpha: 0.75), // Intense vortex plasma
+              const Color(0xFFFF80AB).withValues(alpha: 0.35),
+              Colors.transparent,
+            ]
+          : [
+              Colors.black,
+              const Color(0xFF0D0318), // Deep cosmic void
+              const Color(0xFF4A148C).withValues(alpha: 0.95), // Deep violet mantle
+              const Color(0xFF7C4DFF).withValues(alpha: 0.6),  // Radiant plasma arc
+              const Color(0xFFE040FB).withValues(alpha: 0.25), // Outer warped corona
+              Colors.transparent,
+            ];
+
       _fill
         ..style = PaintingStyle.fill
         ..maskFilter = null
         ..shader = RadialGradient(
-          colors: [
-            Colors.black,
-            const Color(0xFF0D0318), // Deep cosmic void
-            const Color(0xFF4A148C).withValues(alpha: 0.95), // Deep violet mantle
-            const Color(0xFF7C4DFF).withValues(alpha: 0.6),  // Radiant plasma arc
-            const Color(0xFFE040FB).withValues(alpha: 0.25), // Outer warped corona
-            Colors.transparent,
-          ],
+          colors: vortexColors,
           stops: const [0.25, 0.42, 0.60, 0.78, 0.92, 1.0],
-        ).createShader(Rect.fromCircle(center: Offset.zero, radius: bh.radius * 2.8));
+        ).createShader(Rect.fromCircle(center: Offset.zero, radius: bh.radius * (bh.isVortexTrap ? 3.4 : 2.8)));
       
-      canvas.drawCircle(Offset.zero, bh.radius * 2.8, _fill);
+      canvas.drawCircle(Offset.zero, bh.radius * (bh.isVortexTrap ? 3.4 : 2.8), _fill);
       _fill.shader = null;
 
       // 2. Swirling Relativistic Accretion Disk Arms (Infalling stellar matter)
-      for (int i = 0; i < 5; i++) {
-        final angleOffset = (pi * 2 / 5) * i + sin(time * 3.0 + i) * 0.15;
-        final r = bh.radius * (0.55 + 0.35 * i);
+      final armCount = bh.isVortexTrap ? 8 : 5;
+      for (int i = 0; i < armCount; i++) {
+        final angleOffset = (pi * 2 / armCount) * i + sin(time * 3.0 + i) * 0.15;
+        final r = bh.radius * (0.55 + 0.35 * (i % 5));
+        final armColor = bh.isVortexTrap
+            ? ((i % 2 == 0) ? const Color(0xFFFF1744) : const Color(0xFFFF80AB))
+            : ((i % 2 == 0) ? const Color(0xFFE040FB) : const Color(0xFF7C4DFF));
         _stroke
           ..style = PaintingStyle.stroke
           ..strokeCap = StrokeCap.round
           ..maskFilter = null
-          ..color = ((i % 2 == 0) ? const Color(0xFFE040FB) : const Color(0xFF7C4DFF))
-              .withValues(alpha: 0.55 - (i * 0.08))
-          ..strokeWidth = 2.0 - (i * 0.25);
+          ..color = armColor.withValues(alpha: 0.65 - (i * 0.05))
+          ..strokeWidth = 2.2 - (i * 0.15);
         canvas.drawArc(
           Rect.fromCircle(center: Offset.zero, radius: r),
           angleOffset,
-          pi * 1.35,
+          pi * (bh.isVortexTrap ? 1.6 : 1.35),
           false,
           _stroke,
         );

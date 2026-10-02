@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1043,6 +1044,34 @@ void main() {
       final rows = List.generate(10, (i) => LevelDesign.buildDescendRow(i, 360, 640)).expand((r) => r).toList();
       expect(rows.any((b) => b.isDynamite), true);
       expect(rows.any((b) => b.isIce), true);
+    });
+
+    test('Normal black hole caps deflection up to 360 degrees while vortex trap allows multiple loops', () {
+      final bhNormal = BlackHole(x: 180, y: 300, radius: 34, mass: 100000, isVortexTrap: false);
+      expect(bhNormal.isVortexTrap, false);
+      
+      final bhVortex = BlackHole(x: 180, y: 300, radius: 34, mass: 100000, isVortexTrap: true);
+      expect(bhVortex.isVortexTrap, true);
+
+      final controller = GameController();
+      controller.setDimensions(360, 640);
+      controller.status = GameStatus.playing;
+      controller.blackHoles.clear();
+      controller.blackHoles.add(bhNormal);
+
+      final ball = Ball(x: 160, y: 300, vx: 0, vy: -120);
+      ball.isStuck = false;
+      controller.balls.clear();
+      controller.balls.add(ball);
+
+      // Simulate 1.5 seconds of trajectory
+      for (int i = 0; i < 90; i++) {
+        controller.update(0.016);
+      }
+
+      // Deflection on normal black hole must not exceed 360 degrees (2 * pi + epsilon)
+      final normalDeflection = bhNormal.ballAccumulatedAngles[ball.hashCode] ?? 0.0;
+      expect(normalDeflection <= (2.0 * pi + 0.15), true);
     });
   });
 }

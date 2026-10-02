@@ -682,17 +682,24 @@ class GameController extends ChangeNotifier {
       if (_blackHoleTimer! >= 22.0 && _rand.nextDouble() < 0.03) {
         _blackHoleTimer = 0.0;
         final r = 20.0 + _rand.nextDouble() * 14.0;
+        final isVortexTrap = _rand.nextDouble() < 0.01; // Exactly 1% chance (1 in 100)
         blackHoles.add(
           BlackHole(
             x: screenWidth * (0.22 + _rand.nextDouble() * 0.56),
             y: screenHeight * (0.40 + _rand.nextDouble() * 0.22),
             radius: r,
             mass: r * 3200.0,
-            timeLeft: 4.5 + _rand.nextDouble() * 2.0,
+            timeLeft: isVortexTrap ? 6.5 : (4.5 + _rand.nextDouble() * 2.0),
+            isVortexTrap: isVortexTrap,
           ),
         );
         audio.playSfx(GameSfx.laser);
-        particles.spawnShockwave(screenWidth * 0.5, screenHeight * 0.5, const Color(0xFF7C4DFF), maxRadius: 60.0);
+        if (isVortexTrap) {
+          particles.spawnFloatingText(screenWidth * 0.5, screenHeight * 0.38, '🌌 GİRDAP KARADELİK (%1)! 🌌', const Color(0xFFFF1744), isLarge: true);
+          particles.spawnShockwave(screenWidth * 0.5, screenHeight * 0.5, const Color(0xFFFF1744), maxRadius: 80.0);
+        } else {
+          particles.spawnShockwave(screenWidth * 0.5, screenHeight * 0.5, const Color(0xFF7C4DFF), maxRadius: 60.0);
+        }
       }
     }
   }
@@ -753,25 +760,82 @@ class GameController extends ChangeNotifier {
         ball.vy = ball.vy >= 0 ? 35.0 : -35.0;
       }
 
-      // Black Hole gravity pull: significantly increased gravitational pull for all black holes (from smallest to largest)
+      // Black Hole gravity pull & trajectory deflection:
+      // Redirection capped at up to 360 degrees (2*pi radians) for largest black hole so balls slingshot away
+      // instead of endlessly orbiting inside.
+      // Only the 1% rare vortex trap allows multiple trapped revolutions.
       for (final bh in blackHoles) {
         final dx = bh.x - ball.x;
         final dy = bh.y - ball.y;
         final dist = sqrt(dx * dx + dy * dy);
-        final maxInfluenceDist = bh.radius * 8.5; // Expanded gravitational sphere of influence
-        if (dist > 6.0 && dist < maxInfluenceDist) {
-          final normalizedDist = (dist / maxInfluenceDist).clamp(0.0, 1.0);
-          final proximity = 1.0 - normalizedDist;
-          // Substantially increased base pull + radius scaling so even small black holes strongly bend trajectory
-          final basePull = 520.0 + (bh.radius * 58.0);
-          final pull = basePull * proximity * (1.2 + proximity * 3.8);
-          final nx = dx / dist;
-          final ny = dy / dist;
-          ball.vx += nx * pull * dt;
-          ball.vy += ny * pull * dt;
-          if (ball.speed > 850.0) {
-            ball.setSpeed(850.0);
+        final maxInfluenceDist = bh.radius * (bh.isVortexTrap ? 9.0 : 6.5);
+
+        if (dist > 3.0 && dist < maxInfluenceDist) {
+          final ballKey = ball.hashCode;
+          final currentAngle = atan2(ball.y - bh.y, ball.x - bh.x);
+
+          // Measure angular rotation around black hole center
+          if (bh.ballAngles.containsKey(ballKey)) {
+            final prevAngle = bh.ballAngles[ballKey]!;
+            var delta = currentAngle - prevAngle;
+            while (delta > pi) {
+              delta -= 2 * pi;
+            }
+            while (delta < -pi) {
+              delta += 2 * pi;
+            }
+            bh.ballAccumulatedAngles[ballKey] = (bh.ballAccumulatedAngles[ballKey] ?? 0.0) + delta.abs();
           }
+          bh.ballAngles[ballKey] = currentAngle;
+
+          final accumulatedAngle = bh.ballAccumulatedAngles[ballKey] ?? 0.0;
+
+          // Max allowed deflection angle:
+          // Largest black hole (radius ~34) deflects up to 360 degrees (2*pi).
+          // Smaller black holes (radius ~20) deflect up to ~210 degrees.
+          // Rare 1% vortex trap allows up to 4 revolutions (8*pi).
+          final maxAllowedDeflection = bh.isVortexTrap
+              ? (8.0 * pi)
+              : ((bh.radius / 34.0).clamp(0.58, 1.0) * (2.0 * pi));
+
+          if (accumulatedAngle < maxAllowedDeflection) {
+            final normalizedDist = (dist / maxInfluenceDist).clamp(0.0, 1.0);
+            final proximity = 1.0 - normalizedDist;
+
+            final basePull = bh.isVortexTrap
+                ? (600.0 + bh.radius * 65.0)
+                : (320.0 + bh.radius * 28.0);
+            final pull = basePull * proximity * (1.1 + proximity * 2.2);
+
+            final nx = dx / dist;
+            final ny = dy / dist;
+
+            ball.vx += nx * pull * dt;
+            ball.vy += ny * pull * dt;
+
+            // Anti-singularity cushion for normal black holes: prevent endless stuck bouncing at center
+            if (!bh.isVortexTrap && dist < bh.radius * 0.75) {
+              ball.vx += (-nx * 160.0) * dt;
+              ball.vy += (-ny * 160.0) * dt;
+            }
+
+            if (ball.speed > 850.0) {
+              ball.setSpeed(850.0);
+            }
+          } else {
+            // Capped: ball reached max 360-degree trajectory change. Slingshot out cleanly!
+            if (dist < bh.radius * 1.8) {
+              final outwardX = (ball.x - bh.x) / dist;
+              final outwardY = (ball.y - bh.y) / dist;
+              ball.vx += outwardX * 240.0 * dt;
+              ball.vy += outwardY * 240.0 * dt;
+            }
+          }
+        } else {
+          // Ball is outside gravitational influence: clear accumulated angle for next encounter
+          final ballKey = ball.hashCode;
+          bh.ballAngles.remove(ballKey);
+          bh.ballAccumulatedAngles.remove(ballKey);
         }
       }
 
