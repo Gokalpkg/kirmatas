@@ -1175,5 +1175,37 @@ void main() {
       expect(AdManager.instance.remainingCooldownSeconds, 0);
       expect(AdManager.instance.canWatchAd, true);
     });
+
+    test('GameController reviveWithOneLife grants 1 life, resets ball, and allows only 1 revive per game', () {
+      final controller = GameController();
+      controller.setDimensions(360, 640);
+      controller.startNewGame(GameMode.classic);
+      expect(controller.hasUsedRevive, false);
+
+      // Trigger Game Over
+      controller.stats.lives = 0;
+      controller.status = GameStatus.gameOver;
+      expect(controller.status, GameStatus.gameOver);
+
+      // Revive!
+      controller.reviveWithOneLife();
+
+      expect(controller.hasUsedRevive, true);
+      expect(controller.stats.lives, 1);
+      expect(controller.status, GameStatus.ready);
+      expect(controller.balls.isNotEmpty, true);
+      expect(controller.balls.first.isStuck, true);
+
+      // Second revive attempt in same game is ignored
+      controller.stats.lives = 0;
+      controller.status = GameStatus.gameOver;
+      controller.reviveWithOneLife();
+      expect(controller.stats.lives, 0); // Still 0, not revived second time
+
+      // Starting new game resets revive ability
+      controller.startNewGame(GameMode.classic);
+      expect(controller.hasUsedRevive, false);
+      expect(controller.stats.lives >= 3, true);
+    });
   });
 }

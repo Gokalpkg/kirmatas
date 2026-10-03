@@ -92,10 +92,12 @@ class GameController extends ChangeNotifier {
     }
   }
 
+  bool hasUsedRevive = false;
+
   void startNewGame(GameMode mode) {
     currentMode = mode;
     status = GameStatus.ready;
-
+    hasUsedRevive = false;
 
     int startLives = mode == GameMode.zen ? 999 : 3;
     if (save.boostStocks['life'] != null && save.boostStocks['life']! > 0) {
@@ -1617,6 +1619,18 @@ class GameController extends ChangeNotifier {
       status = _statusBeforePause;
       notifyListeners();
     }
+  }
+
+  void reviveWithOneLife() {
+    if (hasUsedRevive) return;
+    hasUsedRevive = true;
+    stats.lives = 1;
+    resetPaddleAndBall();
+    status = GameStatus.ready;
+    audio.playSfx(GameSfx.powerupBuff);
+    particles.spawnShockwave(screenWidth / 2, paddle.y, const Color(0xFFFF1744), maxRadius: 100.0);
+    particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.45, '❤️ İKİNCİ ŞANS! +1 CAN', const Color(0xFFFF1744), isLarge: true);
+    notifyListeners();
   }
 }
 

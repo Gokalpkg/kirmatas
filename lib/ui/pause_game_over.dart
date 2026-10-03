@@ -3,6 +3,7 @@ import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
 import '../models/game_state.dart';
 import '../storage/save_manager.dart';
+import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
 
 class PauseGameOverOverlay extends StatelessWidget {
@@ -236,6 +237,11 @@ class PauseGameOverOverlay extends StatelessWidget {
                   ),
                 ),
               const SizedBox(height: 10),
+              // Revive / Second Chance Ad Button (Only on Game Over and once per game)
+              if (isGameOver && !controller.hasUsedRevive) ...[
+                _buildReviveButton(context),
+                const SizedBox(height: 12),
+              ],
               ElevatedButton.icon(
                 onPressed: onRestart,
                 icon: const Icon(Icons.replay),
@@ -265,6 +271,132 @@ class PauseGameOverOverlay extends StatelessWidget {
       ),
     );
       },
+    );
+  }
+
+  Widget _buildReviveButton(BuildContext context) {
+    final adManager = AdManager.instance;
+    final isLoading = adManager.isLoading || adManager.isShowing;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFF1744), Color(0xFFFF5252), Color(0xFFFF8A80)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFF8A80), width: 1.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66FF1744),
+            blurRadius: 18,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: isLoading
+              ? null
+              : () {
+                  adManager.watchAdForRevive(
+                    context,
+                    onReviveSuccess: () {
+                      controller.reviveWithOneLife();
+                    },
+                    onDismissedEarly: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Row(
+                            children: [
+                              Icon(Icons.info_outline, color: Color(0xFFFF8A80), size: 22),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Ödülü kazanmak ve yeniden doğmak için reklamı sonuna kadar izlemelisiniz.',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          backgroundColor: const Color(0xFF1E2438),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: const BorderSide(color: Color(0xFFFF8A80), width: 1),
+                          ),
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    },
+                  );
+                },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isLoading) ...[
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Reklam Hazırlanıyor...',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                    ),
+                  ),
+                ] else ...[
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.favorite, color: Color(0xFFFF1744), size: 16),
+                  ),
+                  const SizedBox(width: 10),
+                  const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'İKİNCİ ŞANS! (+1 CAN)',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        'Reklam İzle ve Devam Et',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

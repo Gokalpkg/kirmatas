@@ -176,4 +176,74 @@ class AdManager extends ChangeNotifier {
       },
     );
   }
+
+  /// Shows the rewarded ad to revive with 1 extra life.
+  Future<void> watchAdForRevive(
+    BuildContext context, {
+    required VoidCallback onReviveSuccess,
+    required VoidCallback onDismissedEarly,
+  }) async {
+    if (_isShowing) return;
+
+    if (_rewardedAd == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reklam yükleniyor, lütfen birkaç saniye sonra tekrar deneyin...'),
+          backgroundColor: Color(0xFF1E2438),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      preloadRewardedAd();
+      return;
+    }
+
+    _isShowing = true;
+    notifyListeners();
+
+    bool userEarnedReward = false;
+    final currentAd = _rewardedAd!;
+
+    currentAd.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (ad) {
+        debugPrint('Revive rewarded ad showed');
+      },
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        _rewardedAd = null;
+        _isShowing = false;
+        notifyListeners();
+
+        // Immediately preload the next rewarded ad in the background
+        preloadRewardedAd();
+
+        if (userEarnedReward) {
+          onReviveSuccess();
+        } else {
+          onDismissedEarly();
+        }
+      },
+      onAdFailedToShowFullScreenContent: (ad, AdError error) {
+        debugPrint('Revive rewarded ad failed to show: $error');
+        ad.dispose();
+        _rewardedAd = null;
+        _isShowing = false;
+        notifyListeners();
+        preloadRewardedAd();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reklam gösterilemedi. Lütfen internet bağlantınızı kontrol edin.'),
+            backgroundColor: Color(0xFFC62828),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+    );
+
+    await currentAd.show(
+      onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+        userEarnedReward = true;
+      },
+    );
+  }
 }
