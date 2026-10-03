@@ -3,6 +3,7 @@ import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
 import 'crate_opening_dialog.dart';
+import 'rewarded_ad_button.dart';
 
 class ShopView extends StatefulWidget {
   const ShopView({super.key});
@@ -52,6 +53,11 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
               ),
             ),
             actions: [
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 10),
+                child: RewardedGoldAdButton(isCompact: true),
+              ),
+              const SizedBox(width: 8),
               Container(
                 margin: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -312,6 +318,10 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // Rewarded Ad Gold Banner Button
+        const RewardedGoldAdButton(),
+        const SizedBox(height: 16),
+
         // Aquarium Crates Header Banner
         Container(
           margin: const EdgeInsets.only(bottom: 16),

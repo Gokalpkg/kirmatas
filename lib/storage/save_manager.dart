@@ -42,6 +42,7 @@ class SaveManager extends ChangeNotifier {
 
   String? lastDailyClaimDate;
   int dailyStreak = 1;
+  int lastAdWatchTime = 0;
 
   SpeedSetting speed = SpeedSetting.medium;
   bool sfxEnabled = false;
@@ -127,8 +128,15 @@ class SaveManager extends ChangeNotifier {
     activeBackground = _prefs?.getString('activeBackground') ?? 'bg_default';
     unlockedBrickStyles = (_prefs?.getStringList('unlockedBrickStyles') ?? ['brick_neon']).toSet();
     activeBrickStyle = _prefs?.getString('activeBrickStyle') ?? 'brick_neon';
+    lastAdWatchTime = _prefs?.getInt('lastAdWatchTime') ?? 0;
 
     _initialized = true;
+    notifyListeners();
+  }
+
+  Future<void> setLastAdWatchTime(int time) async {
+    lastAdWatchTime = time;
+    await _prefs?.setInt('lastAdWatchTime', time);
     notifyListeners();
   }
 

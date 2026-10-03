@@ -12,6 +12,7 @@ import 'package:kirmatas/models/easter_egg.dart';
 import 'package:kirmatas/models/game_state.dart';
 import 'package:kirmatas/models/level_design.dart';
 import 'package:kirmatas/models/portal.dart';
+import 'package:kirmatas/engine/ad_manager.dart';
 import 'package:kirmatas/models/powerup.dart';
 import 'package:kirmatas/storage/save_manager.dart';
 import 'package:kirmatas/ui/game_canvas.dart';
@@ -1140,6 +1141,39 @@ void main() {
           break;
         }
       }
+    });
+
+    test('SaveManager and AdManager rewarded ad cooldown and +50 gold reward logic', () async {
+      SharedPreferences.setMockInitialValues({'gold': 100, 'lastAdWatchTime': 0});
+      final save = SaveManager.instance;
+      await save.init();
+      
+      expect(save.gold, 100);
+      expect(AdManager.rewardedAdUnitId, 'ca-app-pub-9505724609102225/1791945382');
+      expect(AdManager.cooldownSeconds, 90);
+
+      // When lastAdWatchTime is 0, user can watch ad immediately
+      save.lastAdWatchTime = 0;
+      expect(AdManager.instance.remainingCooldownSeconds, 0);
+
+      // Simulate reward completion: +50 gold
+      await save.addGold(50);
+      expect(save.gold, 150);
+
+      // Set ad watch timestamp to now
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await save.setLastAdWatchTime(now);
+      expect(save.lastAdWatchTime, now);
+
+      // Cooldown should now be active (~90 seconds)
+      final remaining = AdManager.instance.remainingCooldownSeconds;
+      expect(remaining >= 88 && remaining <= 90, true);
+      expect(AdManager.instance.canWatchAd, false);
+
+      // After 91 seconds in past, cooldown expires
+      await save.setLastAdWatchTime(now - 92 * 1000);
+      expect(AdManager.instance.remainingCooldownSeconds, 0);
+      expect(AdManager.instance.canWatchAd, true);
     });
   });
 }

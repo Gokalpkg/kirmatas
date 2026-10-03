@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'engine/ad_manager.dart';
 import 'engine/asset_cache.dart';
 import 'engine/audio_manager.dart';
 import 'storage/save_manager.dart';
@@ -13,10 +14,11 @@ void main() async {
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  // Initialize offline storage, audio and image assets
+  // Initialize offline storage, audio, ads and image assets
   await SaveManager.instance.init();
   await AudioManager.instance.init();
   await AssetCache.instance.init();
+  await AdManager.instance.init();
 
   runApp(const KirmatasApp());
 }

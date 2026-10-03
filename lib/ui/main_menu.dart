@@ -9,6 +9,7 @@ import 'eco_tank_background.dart';
 import 'game_canvas.dart';
 import 'hud_overlay.dart';
 import 'pause_game_over.dart';
+import 'rewarded_ad_button.dart';
 import 'shop_view.dart';
 import 'upgrades_view.dart';
 
@@ -282,27 +283,33 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           ),
                           onPressed: _showSettingsDialog,
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: const Color(0x80101320),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0x4DFFD54F)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 18),
-                              const SizedBox(width: 6),
-                              Text(
-                                '${_save.gold}',
-                                style: const TextStyle(
-                                  color: Color(0xFFFFD54F),
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 15,
-                                ),
+                        Row(
+                          children: [
+                            const RewardedGoldAdButton(isCompact: true),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0x80101320),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: const Color(0x4DFFD54F)),
                               ),
-                            ],
-                          ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 18),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${_save.gold}',
+                                    style: const TextStyle(
+                                      color: Color(0xFFFFD54F),
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -449,6 +456,12 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         ],
                       ),
                     ),
+                  ),
+
+                  // Rewarded Ad Gold Button
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+                    child: RewardedGoldAdButton(isCompact: false),
                   ),
 
                   // Bottom Floating Navigation Dock
