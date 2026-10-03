@@ -676,29 +676,46 @@ class GameController extends ChangeNotifier {
       }
     }
 
-    // Black Hole random dynamic appearance in playable zone
+    // Black Hole random dynamic appearance strictly in open playable zone between bricks and paddle
     if (status == GameStatus.playing && blackHoles.isEmpty && currentMode != GameMode.zen) {
       _blackHoleTimer = (_blackHoleTimer ?? 0.0) + dt;
       if (_blackHoleTimer! >= 22.0 && _rand.nextDouble() < 0.03) {
-        _blackHoleTimer = 0.0;
-        final r = 20.0 + _rand.nextDouble() * 14.0;
-        final isVortexTrap = _rand.nextDouble() < 0.01; // Exactly 1% chance (1 in 100)
-        blackHoles.add(
-          BlackHole(
-            x: screenWidth * (0.22 + _rand.nextDouble() * 0.56),
-            y: screenHeight * (0.40 + _rand.nextDouble() * 0.22),
-            radius: r,
-            mass: r * 3200.0,
-            timeLeft: isVortexTrap ? 6.5 : (4.5 + _rand.nextDouble() * 2.0),
-            isVortexTrap: isVortexTrap,
-          ),
-        );
-        audio.playSfx(GameSfx.laser);
-        if (isVortexTrap) {
-          particles.spawnFloatingText(screenWidth * 0.5, screenHeight * 0.38, '🌌 GİRDAP KARADELİK (%1)! 🌌', const Color(0xFFFF1744), isLarge: true);
-          particles.spawnShockwave(screenWidth * 0.5, screenHeight * 0.5, const Color(0xFFFF1744), maxRadius: 80.0);
-        } else {
-          particles.spawnShockwave(screenWidth * 0.5, screenHeight * 0.5, const Color(0xFF7C4DFF), maxRadius: 60.0);
+        // Find bottom-most active brick to ensure black hole NEVER spawns inside or above brick grid
+        double lowestAliveBrickY = 0.0;
+        for (final b in bricks) {
+          if (b.isAlive && (b.y + b.height) > lowestAliveBrickY) {
+            lowestAliveBrickY = b.y + b.height;
+          }
+        }
+
+        final minY = lowestAliveBrickY + 45.0;
+        final maxY = paddle.y - 75.0;
+
+        // Only spawn if there is sufficient open space between bricks and paddle
+        if (maxY > minY + 40.0) {
+          _blackHoleTimer = 0.0;
+          final r = 20.0 + _rand.nextDouble() * 14.0;
+          final isVortexTrap = _rand.nextDouble() < 0.01; // Exactly 1% chance (1 in 100)
+          final spawnY = minY + _rand.nextDouble() * (maxY - minY);
+          final spawnX = (screenWidth * 0.20 + _rand.nextDouble() * (screenWidth * 0.60)).clamp(r + 20.0, screenWidth - r - 20.0);
+
+          blackHoles.add(
+            BlackHole(
+              x: spawnX,
+              y: spawnY,
+              radius: r,
+              mass: r * 3200.0,
+              timeLeft: isVortexTrap ? 6.5 : (4.5 + _rand.nextDouble() * 2.0),
+              isVortexTrap: isVortexTrap,
+            ),
+          );
+          audio.playSfx(GameSfx.laser);
+          if (isVortexTrap) {
+            particles.spawnFloatingText(screenWidth * 0.5, spawnY, '🌌 GİRDAP KARADELİK (%1)! 🌌', const Color(0xFFFF1744), isLarge: true);
+            particles.spawnShockwave(spawnX, spawnY, const Color(0xFFFF1744), maxRadius: 80.0);
+          } else {
+            particles.spawnShockwave(spawnX, spawnY, const Color(0xFF7C4DFF), maxRadius: 60.0);
+          }
         }
       }
     }
@@ -716,8 +733,6 @@ class GameController extends ChangeNotifier {
         }
         continue;
       }
-
-      ball.update(dt, trailLength: activeTrailSkin.length);
 
       // Fireball & Corner boost trail sparks & decay
       if (ball.isFireball) {
@@ -860,35 +875,50 @@ class GameController extends ChangeNotifier {
         }
       }
 
-      // Wall collisions
-      if (ball.x - ball.radius <= 0) {
-        ball.x = ball.radius;
-        ball.vx = ball.vx.abs();
-        ball.triggerSquash(0);
-        audio.playSfx(GameSfx.hitWall);
-      } else if (ball.x + ball.radius >= screenWidth) {
-        ball.x = screenWidth - ball.radius;
-        ball.vx = -ball.vx.abs();
-        ball.triggerSquash(pi);
-        audio.playSfx(GameSfx.hitWall);
-      }
+      // High-speed sub-stepping prevents tunneling through bricks or walls
+      final subSteps = (ball.speed > 380.0) ? 2 : 1;
+      final subDt = dt / subSteps;
+      for (int step = 0; step < subSteps; step++) {
+        ball.update(subDt, trailLength: activeTrailSkin.length);
 
-      if (ball.y - ball.radius <= 36.0) {
-        ball.y = 36.0 + ball.radius;
-        ball.vy = ball.vy.abs();
-        ball.triggerSquash(pi / 2);
-        audio.playSfx(GameSfx.hitWall);
-      }
-
-      // Safety Net collision
-      if (paddle.hasNet && ball.y + ball.radius >= screenHeight - 20.0) {
-        ball.vy = -ball.vy.abs();
-        paddle.netHitsRemaining--;
-        if (paddle.netHitsRemaining <= 0) {
-          paddle.hasNet = false;
+        // Wall collisions
+        if (ball.x - ball.radius <= 0) {
+          ball.x = ball.radius;
+          ball.vx = ball.vx.abs();
+          ball.triggerSquash(0);
+          audio.playSfx(GameSfx.hitWall);
+        } else if (ball.x + ball.radius >= screenWidth) {
+          ball.x = screenWidth - ball.radius;
+          ball.vx = -ball.vx.abs();
+          ball.triggerSquash(pi);
+          audio.playSfx(GameSfx.hitWall);
         }
-        particles.spawnShockwave(ball.x, ball.y, const Color(0xFF8BC34A), maxRadius: 35.0);
-        audio.playSfx(GameSfx.hitWall);
+
+        if (ball.y - ball.radius <= 36.0) {
+          ball.y = 36.0 + ball.radius;
+          ball.vy = ball.vy.abs();
+          ball.triggerSquash(pi / 2);
+          audio.playSfx(GameSfx.hitWall);
+        }
+
+        // Safety Net collision
+        if (paddle.hasNet && ball.y + ball.radius >= screenHeight - 20.0) {
+          ball.vy = -ball.vy.abs();
+          paddle.netHitsRemaining--;
+          if (paddle.netHitsRemaining <= 0) {
+            paddle.hasNet = false;
+          }
+          particles.spawnShockwave(ball.x, ball.y, const Color(0xFF8BC34A), maxRadius: 35.0);
+          audio.playSfx(GameSfx.hitWall);
+        }
+
+        // Paddle collision
+        if (_checkBallPaddleCollision(ball)) {
+          break;
+        }
+
+        // Brick collision
+        _checkBallBrickCollision(ball);
       }
 
       // Bottom fall
@@ -896,14 +926,6 @@ class GameController extends ChangeNotifier {
         balls.removeAt(i);
         continue;
       }
-
-      // Paddle collision
-      if (_checkBallPaddleCollision(ball)) {
-        continue;
-      }
-
-      // Brick collision
-      _checkBallBrickCollision(ball);
     }
 
     // Check if all balls lost
@@ -1026,33 +1048,46 @@ class GameController extends ChangeNotifier {
         _hitBrick(b, ball);
 
         if (!ball.isFireball && !ball.isPierce && !b.isTuft) {
-          // Rebound physics using normalized aspect-ratio Minkowski penetration
-          final halfW = b.width / 2;
-          final halfH = b.height / 2;
-          final relX = bx - (b.x + halfW);
-          final relY = by - (b.y + halfH);
-          final normX = relX / halfW;
-          final normY = relY / halfH;
+          // Robust velocity-direction face collision resolution:
+          // A ball cannot bounce off a face it was moving away from!
+          // Calculate penetration depths into the faces the ball entered from.
+          final depthLeft = (ball.vx > 0) ? ((bx + r) - b.x) : double.infinity;
+          final depthRight = (ball.vx < 0) ? ((b.x + b.width) - (bx - r)) : double.infinity;
+          final depthTop = (ball.vy > 0) ? ((by + r) - b.y) : double.infinity;
+          final depthBottom = (ball.vy < 0) ? ((b.y + b.height) - (by - r)) : double.infinity;
 
-          if (normX.abs() > normY.abs()) {
-            if (normX > 0) {
-              ball.vx = ball.vx.abs();
-              ball.x = b.x + b.width + r;
-              ball.triggerSquash(0);
-            } else {
+          final minHorizontalDepth = min(depthLeft, depthRight);
+          final minVerticalDepth = min(depthTop, depthBottom);
+
+          // Time-of-impact normalized comparison: time = depth / speed
+          final tX = (minHorizontalDepth.isFinite && ball.vx.abs() > 0.001)
+              ? (minHorizontalDepth / ball.vx.abs())
+              : double.infinity;
+          final tY = (minVerticalDepth.isFinite && ball.vy.abs() > 0.001)
+              ? (minVerticalDepth / ball.vy.abs())
+              : double.infinity;
+
+          if (tX < tY) {
+            // Horizontal rebound (hit left or right face)
+            if (depthLeft < depthRight) {
               ball.vx = -ball.vx.abs();
-              ball.x = b.x - r;
+              ball.x = b.x - r - 0.5;
               ball.triggerSquash(pi);
+            } else {
+              ball.vx = ball.vx.abs();
+              ball.x = b.x + b.width + r + 0.5;
+              ball.triggerSquash(0);
             }
           } else {
-            if (normY > 0) {
-              ball.vy = ball.vy.abs();
-              ball.y = b.y + b.height + r;
-              ball.triggerSquash(pi / 2);
-            } else {
+            // Vertical rebound (hit top or bottom face)
+            if (depthTop < depthBottom) {
               ball.vy = -ball.vy.abs();
-              ball.y = b.y - r;
+              ball.y = b.y - r - 0.5;
               ball.triggerSquash(-pi / 2);
+            } else {
+              ball.vy = ball.vy.abs();
+              ball.y = b.y + b.height + r + 0.5;
+              ball.triggerSquash(pi / 2);
             }
           }
         }

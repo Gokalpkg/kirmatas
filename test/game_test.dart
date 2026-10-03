@@ -1073,5 +1073,73 @@ void main() {
       final normalDeflection = bhNormal.ballAccumulatedAngles[ball.hashCode] ?? 0.0;
       expect(normalDeflection <= (2.0 * pi + 0.15), true);
     });
+
+    test('Fast upward ball hitting brick bounces downward and never tunnels upward', () {
+      final controller = GameController();
+      controller.setDimensions(360, 640);
+      controller.status = GameStatus.playing;
+      
+      // Setup brick at y: 200, height: 22, x: 100, width: 50
+      final brick = Brick(x: 100, y: 200, width: 50, height: 22, hp: 5, maxHp: 5, color: Colors.red);
+      controller.bricks.clear();
+      controller.bricks.add(brick);
+
+      // Ball approaching from bottom with high speed (600 px/s)
+      final ball = Ball(x: 125, y: 228, vx: 0, vy: -600);
+      ball.isStuck = false;
+      controller.balls.clear();
+      controller.balls.add(ball);
+
+      // Run 1 frame of update
+      controller.update(0.016);
+
+      // Ball MUST bounce downward (vy > 0) and be below the brick
+      expect(ball.vy > 0, true, reason: 'Ball moving up must bounce downwards');
+      expect(ball.y >= brick.y + brick.height + ball.radius, true, reason: 'Ball must be positioned below the brick');
+    });
+
+    test('Downward ball hitting brick bounces upward and never tunnels downward', () {
+      final controller = GameController();
+      controller.setDimensions(360, 640);
+      controller.status = GameStatus.playing;
+
+      final brick = Brick(x: 100, y: 200, width: 50, height: 22, hp: 5, maxHp: 5, color: Colors.red);
+      controller.bricks.clear();
+      controller.bricks.add(brick);
+
+      // Ball approaching from top
+      final ball = Ball(x: 125, y: 194, vx: 0, vy: 500);
+      ball.isStuck = false;
+      controller.balls.clear();
+      controller.balls.add(ball);
+
+      controller.update(0.016);
+
+      // Ball MUST bounce upward (vy < 0) and be above the brick
+      expect(ball.vy < 0, true, reason: 'Ball moving down must bounce upwards');
+      expect(ball.y <= brick.y - ball.radius, true, reason: 'Ball must be positioned above the brick');
+    });
+
+    test('Black holes only spawn strictly below all alive bricks and above paddle', () {
+      final controller = GameController();
+      controller.setDimensions(360, 640);
+      controller.status = GameStatus.playing;
+
+      // Bricks up to y = 320
+      controller.bricks.clear();
+      controller.bricks.add(Brick(x: 50, y: 300, width: 50, height: 20, hp: 1, maxHp: 1, color: Colors.blue));
+
+      // Trigger black hole spawn
+      for (int i = 0; i < 2000; i++) {
+        controller.blackHoles.clear();
+        controller.update(1.0);
+        if (controller.blackHoles.isNotEmpty) {
+          final bh = controller.blackHoles.first;
+          expect(bh.y >= 320 + 45.0, true, reason: 'Black hole cannot spawn inside or above brick grid');
+          expect(bh.y <= controller.paddle.y - 75.0, true, reason: 'Black hole must be safely above paddle');
+          break;
+        }
+      }
+    });
   });
 }
