@@ -23,6 +23,8 @@ class GameCanvas extends StatefulWidget {
 class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
   Duration _lastElapsed = Duration.zero;
+  double _pointerStartX = 0;
+  bool _pointerMoved = false;
 
   @override
   void initState() {
@@ -55,19 +57,26 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
       builder: (context, constraints) {
         widget.controller.setDimensions(constraints.maxWidth, constraints.maxHeight);
 
-        return GestureDetector(
+        return Listener(
           behavior: HitTestBehavior.opaque,
-          onTap: () {
+          onPointerDown: (event) {
+            _pointerStartX = event.localPosition.dx;
+            _pointerMoved = false;
+          },
+          onPointerMove: (event) {
+            final dx = event.delta.dx;
+            if (!_pointerMoved && (event.localPosition.dx - _pointerStartX).abs() < 8) {
+              return;
+            }
+            _pointerMoved = true;
+            widget.controller.movePaddleBy(dx);
+          },
+          onPointerUp: (_) {
             final controller = widget.controller;
-            if (controller.status == GameStatus.ready || controller.hasStuckBall) {
+            if (!_pointerMoved &&
+                (controller.status == GameStatus.ready || controller.hasStuckBall)) {
               controller.launchBall();
             }
-          },
-          onHorizontalDragUpdate: (details) {
-            widget.controller.movePaddleBy(details.primaryDelta ?? 0);
-          },
-          onDoubleTap: () {
-            widget.controller.triggerUlti();
           },
           child: CustomPaint(
             size: Size(constraints.maxWidth, constraints.maxHeight),
@@ -98,6 +107,22 @@ class _GameWorldPainter extends CustomPainter {
   static final Path _splatPath2 = Path();
   static final Path _splatPath3 = Path();
   static bool _splatPathsInitialized = false;
+  static final Map<int, Color> _alphaColors = {};
+  static final Map<int, Shader> _skinShaders = {};
+  static final Map<int, Shader> _holeShaders = {};
+
+  static Color _ca(Color color, double alpha) {
+    final bucket = (alpha * 32).round().clamp(0, 32);
+    final key = (color.toARGB32() << 6) ^ bucket;
+    final cached = _alphaColors[key];
+    if (cached != null) return cached;
+    final made = color.withValues(alpha: bucket / 32.0);
+    if (_alphaColors.length > 512) {
+      _alphaColors.remove(_alphaColors.keys.first);
+    }
+    _alphaColors[key] = made;
+    return made;
+  }
 
   static void _ensureSplatPaths() {
     if (_splatPathsInitialized) return;
@@ -202,7 +227,7 @@ class _GameWorldPainter extends CustomPainter {
       final alpha = (0.25 + (i % 4) * 0.15 + twinkle).clamp(0.1, 0.85);
       final isLarge = (i % 5 == 0);
 
-      _fill.color = (i % 3 == 0 ? const Color(0xFF80D8FF) : Colors.white).withValues(alpha: alpha);
+      _fill.color = _ca((i % 3 == 0 ? const Color(0xFF80D8FF) : Colors.white), alpha);
       canvas.drawCircle(Offset(x, y), isLarge ? 1.8 : 1.0, _fill);
     }
   }
@@ -223,7 +248,7 @@ class _GameWorldPainter extends CustomPainter {
     for (int i = 0; i < 3; i++) {
       final cloudX = size.width * (0.25 + 0.5 * sin(time * 0.15 + i * 1.5));
       final cloudY = size.height * (0.2 + 0.3 * cos(time * 0.12 + i * 2.0));
-      _fill.color = (i % 2 == 0 ? const Color(0xFFC084FC) : const Color(0xFFF472B6)).withValues(alpha: 0.1);
+      _fill.color = _ca((i % 2 == 0 ? const Color(0xFFC084FC) : const Color(0xFFF472B6)), 0.1);
       canvas.drawCircle(Offset(cloudX, cloudY), 65.0 + 10 * sin(time + i), _fill);
     }
 
@@ -234,7 +259,7 @@ class _GameWorldPainter extends CustomPainter {
       final twinkle = 0.2 * sin(time * 3.0 + i);
       final alpha = (0.3 + (i % 4) * 0.15 + twinkle).clamp(0.1, 0.9);
       final color = i % 3 == 0 ? const Color(0xFFE879F9) : (i % 3 == 1 ? const Color(0xFFA855F7) : Colors.white);
-      _fill.color = color.withValues(alpha: alpha);
+      _fill.color = _ca(color, alpha);
       canvas.drawCircle(Offset(x, y), (i % 6 == 0) ? 2.0 : 1.1, _fill);
     }
   }
@@ -255,7 +280,7 @@ class _GameWorldPainter extends CustomPainter {
     final vpX = size.width / 2;
     final vpY = size.height * 0.45;
     _stroke
-      ..color = const Color(0xFF10B981).withValues(alpha: 0.18)
+      ..color = _ca(const Color(0xFF10B981), 0.18)
       ..strokeWidth = 1.0;
 
     for (int col = -6; col <= 6; col++) {
@@ -269,7 +294,7 @@ class _GameWorldPainter extends CustomPainter {
       final progress = (y - vpY) / (size.height - vpY);
       final animatedY = vpY + pow(progress, 1.6) * (size.height - vpY) + cycle * progress * 0.5;
       if (animatedY <= size.height) {
-        _stroke.color = const Color(0xFF10B981).withValues(alpha: (0.05 + progress * 0.2).clamp(0.0, 0.3));
+        _stroke.color = _ca(const Color(0xFF10B981), (0.05 + progress * 0.2).clamp(0.0, 0.3));
         canvas.drawLine(
           Offset(0, animatedY),
           Offset(size.width, animatedY),
@@ -283,7 +308,7 @@ class _GameWorldPainter extends CustomPainter {
       final x = ((i * 73 + 11) % size.width.toInt()).toDouble();
       final y = size.height - ((i * 127 + time * speed) % size.height);
       final alpha = (0.2 + (i % 3) * 0.2 + 0.1 * sin(time * 2 + i)).clamp(0.1, 0.8);
-      _fill.color = const Color(0xFF34D399).withValues(alpha: alpha);
+      _fill.color = _ca(const Color(0xFF34D399), alpha);
       canvas.drawRect(
         Rect.fromCenter(center: Offset(x, y), width: 2.0, height: 4.0),
         _fill,
@@ -310,7 +335,7 @@ class _GameWorldPainter extends CustomPainter {
       wavePath.lineTo(wx, size.height * 0.3 + sin(wx * 0.015 + time * 0.8) * 24);
     }
     _stroke
-      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.1)
+      ..color = _ca(const Color(0xFF00E5FF), 0.1)
       ..strokeWidth = 14.0;
     canvas.drawPath(wavePath, _stroke);
 
@@ -322,7 +347,7 @@ class _GameWorldPainter extends CustomPainter {
       final alpha = (0.25 + (i % 3) * 0.2 + 0.15 * sin(time * 2.0 + i)).clamp(0.1, 0.85);
       final isBubble = (i % 4 == 0);
       final pColor = i % 2 == 0 ? const Color(0xFF38BDF8) : const Color(0xFF2DD4BF);
-      _fill.color = pColor.withValues(alpha: alpha);
+      _fill.color = _ca(pColor, alpha);
       canvas.drawCircle(Offset(x, y), isBubble ? 2.2 : 1.2, _fill);
     }
   }
@@ -343,8 +368,8 @@ class _GameWorldPainter extends CustomPainter {
 
       _cachedSunGlowShader = RadialGradient(
         colors: [
-          const Color(0xFFFF5376).withValues(alpha: 0.35),
-          const Color(0xFFFFB74D).withValues(alpha: 0.1),
+          _ca(const Color(0xFFFF5376), 0.35),
+          _ca(const Color(0xFFFFB74D), 0.1),
           Colors.transparent,
         ],
       ).createShader(Rect.fromCircle(center: sunCenter, radius: sunRadius * 1.8));
@@ -373,7 +398,7 @@ class _GameWorldPainter extends CustomPainter {
       final y = size.height - ((i * 137 + time * speed) % size.height);
       final alpha = (0.2 + (i % 4) * 0.18 + 0.12 * sin(time * 3 + i)).clamp(0.1, 0.85);
       final color = i % 2 == 0 ? const Color(0xFFFFD54F) : const Color(0xFFFF7043);
-      _fill.color = color.withValues(alpha: alpha);
+      _fill.color = _ca(color, alpha);
       canvas.drawCircle(Offset(x, y), (i % 5 == 0) ? 2.0 : 1.2, _fill);
     }
   }
@@ -391,7 +416,7 @@ class _GameWorldPainter extends CustomPainter {
     _bgPaint.shader = _cachedBgShader;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _bgPaint);
 
-    _fill.color = const Color(0xFFFF5722).withValues(alpha: 0.1);
+    _fill.color = _ca(const Color(0xFFFF5722), 0.1);
     canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.8), size.width * 0.55 + sin(time * 1.5) * 15, _fill);
 
     for (int i = 0; i < 40; i++) {
@@ -403,7 +428,7 @@ class _GameWorldPainter extends CustomPainter {
       final alpha = (0.3 + (i % 4) * 0.15 + twinkle).clamp(0.1, 0.95);
       final isSpark = (i % 5 == 0);
       final color = i % 3 == 0 ? const Color(0xFFFFC107) : (i % 3 == 1 ? const Color(0xFFFF6D00) : const Color(0xFFFF3D00));
-      _fill.color = color.withValues(alpha: alpha);
+      _fill.color = _ca(color, alpha);
       canvas.drawCircle(Offset(x, y), isSpark ? 2.2 : 1.3, _fill);
     }
   }
@@ -430,12 +455,12 @@ class _GameWorldPainter extends CustomPainter {
 
       if (b.isTuft) {
         // Tufting yarn cell: textured canvas with cross-stitches
-        _fill.color = b.tuftFilled ? b.tuftColor : b.tuftColor.withValues(alpha: 0.25);
+        _fill.color = b.tuftFilled ? b.tuftColor : _ca(b.tuftColor, 0.25);
         canvas.drawRRect(rrect, _fill);
 
         // Yarn thread stitches
         _stroke
-          ..color = b.tuftFilled ? Colors.white70 : b.tuftColor.withValues(alpha: 0.6)
+          ..color = b.tuftFilled ? Colors.white70 : _ca(b.tuftColor, 0.6)
           ..strokeWidth = 1.5;
         canvas.drawLine(Offset(-halfW + 4, -halfH + 4), Offset(halfW - 4, halfH - 4), _stroke);
         canvas.drawLine(Offset(-halfW + 4, halfH - 4), Offset(halfW - 4, -halfH + 4), _stroke);
@@ -499,7 +524,7 @@ class _GameWorldPainter extends CustomPainter {
 
         // Damage Cracks (drawn on top of the base brick, without numbers or dots)
         if (b.hp < b.maxHp && b.maxHp > 1 && b.hp > 0) {
-          _stroke..color = Colors.white.withValues(alpha: 0.85)..strokeWidth = 1.5;
+          _stroke..color = _ca(Colors.white, 0.85)..strokeWidth = 1.5;
           _crackPath.reset();
           _crackPath.moveTo(0, -halfH + 2);
           _crackPath.lineTo(-halfW * 0.3, -halfH * 0.2);
@@ -520,15 +545,19 @@ class _GameWorldPainter extends CustomPainter {
           _fill.color = Colors.yellow;
           canvas.drawCircle(Offset.zero, 3.0, _fill);
           _stroke..color = Colors.black54..strokeWidth = 2.0;
-          canvas.drawPath(Path()..moveTo(0, -6)..quadraticBezierTo(5, -12, -4, -16), _stroke);
+          _tempPath
+            ..reset()
+            ..moveTo(0, -6)
+            ..quadraticBezierTo(5, -12, -4, -16);
+          canvas.drawPath(_tempPath, _stroke);
           _fill.color = Colors.redAccent;
           canvas.drawCircle(const Offset(-4, -16), 1.5, _fill);
         }
 
         if (b.isIce) {
-          _stroke..color = Colors.cyanAccent.withValues(alpha: 0.6)..strokeWidth = 2.0;
+          _stroke..color = _ca(Colors.cyanAccent, 0.6)..strokeWidth = 2.0;
           canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: b.width - 6, height: b.height - 6), _stroke);
-          _fill.color = Colors.white.withValues(alpha: 0.3);
+          _fill.color = _ca(Colors.white, 0.3);
           canvas.drawCircle(Offset.zero, 4.0, _fill);
           canvas.drawLine(const Offset(-6, -6), const Offset(6, 6), _stroke);
           canvas.drawLine(const Offset(6, -6), const Offset(-6, 6), _stroke);
@@ -556,27 +585,27 @@ class _GameWorldPainter extends CustomPainter {
     canvas.drawRRect(rrect, _fill);
 
     // Inner subtle glow tint
-    _fill.color = base.withValues(alpha: 0.15);
+    _fill.color = _ca(base, 0.15);
     canvas.drawRRect(rrect.deflate(2.0), _fill);
 
     // Broad outer neon tube bloom
     _stroke
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5.5
-      ..color = base.withValues(alpha: 0.25)
+      ..color = _ca(base, 0.25)
       ..maskFilter = null;
     canvas.drawRRect(rrect, _stroke);
 
     // Main vibrant neon tube
     _stroke
       ..strokeWidth = 2.2
-      ..color = base.withValues(alpha: 0.95);
+      ..color = _ca(base, 0.95);
     canvas.drawRRect(rrect, _stroke);
 
     // Ultra-bright white neon cathode core
     _stroke
       ..strokeWidth = 1.0
-      ..color = Colors.white.withValues(alpha: 0.9);
+      ..color = _ca(Colors.white, 0.9);
     canvas.drawRRect(rrect.deflate(0.5), _stroke);
 
     // Neon corner bracket accents
@@ -628,13 +657,13 @@ class _GameWorldPainter extends CustomPainter {
     _stroke
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
-      ..color = Colors.white.withValues(alpha: 0.65);
+      ..color = _ca(Colors.white, 0.65);
     canvas.drawRRect(rrect, _stroke);
 
     // Subtle bottom bounce highlight
     _stroke
       ..strokeWidth = 1.0
-      ..color = bright.withValues(alpha: 0.5);
+      ..color = _ca(bright, 0.5);
     canvas.drawLine(Offset(rect.left + 6, rect.bottom - 2), Offset(rect.right - 6, rect.bottom - 2), _stroke);
   }
 
@@ -650,7 +679,7 @@ class _GameWorldPainter extends CustomPainter {
     _stroke
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0
-      ..color = softLight.withValues(alpha: 0.45)
+      ..color = _ca(softLight, 0.45)
       ..maskFilter = null;
     canvas.drawRRect(rrect, _stroke);
     canvas.restore();
@@ -659,7 +688,7 @@ class _GameWorldPainter extends CustomPainter {
     canvas.save();
     canvas.translate(2.5, 2.5);
     _stroke
-      ..color = Colors.black.withValues(alpha: 0.35)
+      ..color = _ca(Colors.black, 0.35)
       ..maskFilter = null;
     canvas.drawRRect(rrect, _stroke);
     canvas.restore();
@@ -673,7 +702,7 @@ class _GameWorldPainter extends CustomPainter {
     _fill.shader = LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [softDark.withValues(alpha: 0.35), softLight.withValues(alpha: 0.25)],
+      colors: [_ca(softDark, 0.35), _ca(softLight, 0.25)],
     ).createShader(innerRRect.outerRect);
     canvas.drawRRect(innerRRect, _fill);
     _fill.shader = null;
@@ -681,7 +710,7 @@ class _GameWorldPainter extends CustomPainter {
     // Subtle crisp tactile rim
     _stroke
       ..strokeWidth = 1.0
-      ..color = softLight.withValues(alpha: 0.45);
+      ..color = _ca(softLight, 0.45);
     canvas.drawRRect(innerRRect, _stroke);
   }
 
@@ -719,7 +748,7 @@ class _GameWorldPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(-halfW + 5, -halfH + 5, 3.5, 3.5), _fill);
 
     // 5. Classic 2x2 retro dither blocks in corners
-    _fill.color = dark.withValues(alpha: 0.5);
+    _fill.color = _ca(dark, 0.5);
     canvas.drawRect(Rect.fromLTWH(-halfW + 6, halfH - 8, 2.5, 2.5), _fill);
     canvas.drawRect(Rect.fromLTWH(halfW - 8, -halfH + 6, 2.5, 2.5), _fill);
 
@@ -734,7 +763,7 @@ class _GameWorldPainter extends CustomPainter {
     canvas.drawRRect(rrect, _fill);
 
     // 2. Brushed cyber plating
-    _fill.color = b.color.withValues(alpha: 0.28);
+    _fill.color = _ca(b.color, 0.28);
     canvas.drawRRect(rrect.deflate(1.5), _fill);
 
     // 3. Central glowing energy conduit with animated pulse
@@ -743,13 +772,13 @@ class _GameWorldPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.square
       ..strokeWidth = 2.0
-      ..color = const Color(0xFF00E5FF).withValues(alpha: conduitPulse);
+      ..color = _ca(const Color(0xFF00E5FF), conduitPulse);
     canvas.drawLine(Offset(-halfW + 12, 0), Offset(halfW - 12, 0), _stroke);
 
     // 4. Corner cyber circuit traces
     _stroke
       ..strokeWidth = 1.5
-      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.85);
+      ..color = _ca(const Color(0xFF00E5FF), 0.85);
     // Top-left circuit trace
     canvas.drawLine(Offset(-halfW + 4, -halfH + 9), Offset(-halfW + 4, -halfH + 4), _stroke);
     canvas.drawLine(Offset(-halfW + 4, -halfH + 4), Offset(-halfW + 9, -halfH + 4), _stroke);
@@ -767,14 +796,14 @@ class _GameWorldPainter extends CustomPainter {
     for (final p in hexPositions) {
       _fill.color = const Color(0xFF1E2836);
       canvas.drawCircle(p, 2.0, _fill);
-      _fill.color = const Color(0xFF00E5FF).withValues(alpha: conduitPulse);
+      _fill.color = _ca(const Color(0xFF00E5FF), conduitPulse);
       canvas.drawCircle(p, 1.0, _fill);
     }
 
     // Outer cybernetic armor border
     _stroke
       ..strokeWidth = 1.0
-      ..color = const Color(0xFF80D8FF).withValues(alpha: 0.6);
+      ..color = _ca(const Color(0xFF80D8FF), 0.6);
     canvas.drawRRect(rrect, _stroke);
   }
 
@@ -788,9 +817,9 @@ class _GameWorldPainter extends CustomPainter {
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
-        b.color.withValues(alpha: 0.65),
-        const Color(0xFF240046).withValues(alpha: 0.85),
-        const Color(0xFF00E5FF).withValues(alpha: 0.55),
+        _ca(b.color, 0.65),
+        _ca(const Color(0xFF240046), 0.85),
+        _ca(const Color(0xFF00E5FF), 0.55),
       ],
       stops: const [0.0, 0.55, 1.0],
     ).createShader(rrect.outerRect);
@@ -801,7 +830,7 @@ class _GameWorldPainter extends CustomPainter {
     _stroke
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
-      ..color = const Color(0xFFE040FB).withValues(alpha: 0.65);
+      ..color = _ca(const Color(0xFFE040FB), 0.65);
     canvas.drawLine(Offset(-halfW + 6, -halfH + 3), Offset(halfW - 6, halfH - 3), _stroke);
     canvas.drawLine(Offset(-halfW + 12, halfH - 3), Offset(halfW - 12, -halfH + 3), _stroke);
 
@@ -809,7 +838,7 @@ class _GameWorldPainter extends CustomPainter {
     final pulse = 0.75 + 0.25 * sin(time * 6.0);
     _stroke
       ..strokeWidth = 2.0
-      ..color = const Color(0xFF18FFFF).withValues(alpha: pulse);
+      ..color = _ca(const Color(0xFF18FFFF), pulse);
     canvas.drawRRect(rrect, _stroke);
 
     // 5. Pulsating celestial starburst glint at center
@@ -817,7 +846,7 @@ class _GameWorldPainter extends CustomPainter {
     final slen = min(halfH * 0.75, 7.0);
     _stroke
       ..strokeWidth = 1.5
-      ..color = Colors.white.withValues(alpha: 0.95);
+      ..color = _ca(Colors.white, 0.95);
     canvas.drawLine(Offset(-cos(sa) * slen, -sin(sa) * slen), Offset(cos(sa) * slen, sin(sa) * slen), _stroke);
     canvas.drawLine(Offset(-cos(sa + pi / 2) * slen * 0.6, -sin(sa + pi / 2) * slen * 0.6), Offset(cos(sa + pi / 2) * slen * 0.6, sin(sa + pi / 2) * slen * 0.6), _stroke);
 
@@ -832,7 +861,7 @@ class _GameWorldPainter extends CustomPainter {
 
     // 1. Dual Thruster Glow / Exhaust
     final thrustPulse = 3.5 + sin(time * 12.0) * 2.0;
-    _fill.color = const Color(0xFFFF5722).withValues(alpha: 0.85);
+    _fill.color = _ca(const Color(0xFFFF5722), 0.85);
     canvas.drawOval(Rect.fromCenter(center: Offset(-halfW * 0.65, -halfH - 2), width: 14, height: thrustPulse), _fill);
     canvas.drawOval(Rect.fromCenter(center: Offset(halfW * 0.65, -halfH - 2), width: 14, height: thrustPulse), _fill);
 
@@ -867,12 +896,12 @@ class _GameWorldPainter extends CustomPainter {
     _fill.color = const Color(0xFF37474F);
     // Left Cannon
     canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(-halfW * 0.5, halfH + 4), width: 10, height: 12), const Radius.circular(2)), _fill);
-    _fill.color = const Color(0xFFFF1744).withValues(alpha: 0.75 + sin(time * 8.0) * 0.25);
+    _fill.color = _ca(const Color(0xFFFF1744), 0.75 + sin(time * 8.0) * 0.25);
     canvas.drawCircle(Offset(-halfW * 0.5, halfH + 9), 3.0, _fill);
     // Right Cannon
     _fill.color = const Color(0xFF37474F);
     canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(halfW * 0.5, halfH + 4), width: 10, height: 12), const Radius.circular(2)), _fill);
-    _fill.color = const Color(0xFFFF1744).withValues(alpha: 0.75 + sin(time * 8.0) * 0.25);
+    _fill.color = _ca(const Color(0xFFFF1744), 0.75 + sin(time * 8.0) * 0.25);
     canvas.drawCircle(Offset(halfW * 0.5, halfH + 9), 3.0, _fill);
 
     // 5. Central Reactor Chassis
@@ -902,7 +931,7 @@ class _GameWorldPainter extends CustomPainter {
 
     // Neon Circuit Energy Conduits
     _stroke
-      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.6)
+      ..color = _ca(const Color(0xFF00E5FF), 0.6)
       ..strokeWidth = 1.2;
     canvas.drawLine(Offset(-eyeW, -halfH + 7), Offset(-centerW + 5, -halfH + 7), _stroke);
     canvas.drawLine(Offset(eyeW, -halfH + 7), Offset(centerW - 5, -halfH + 7), _stroke);
@@ -917,7 +946,7 @@ class _GameWorldPainter extends CustomPainter {
     // 7. Outer Pulsing Shield / Forcefield
     final shieldPulse = sin(time * 4.0) * 0.2 + 0.8;
     _stroke
-      ..color = const Color(0xFFFF1744).withValues(alpha: 0.35 * shieldPulse)
+      ..color = _ca(const Color(0xFFFF1744), 0.35 * shieldPulse)
       ..strokeWidth = 2.0;
     canvas.drawRRect(hullRRect, _stroke);
 
@@ -948,7 +977,7 @@ class _GameWorldPainter extends CustomPainter {
     if (!c.paddle.hasNet) return;
     final y = size.height - 22.0;
     _stroke
-      ..color = const Color(0xFF8BC34A).withValues(alpha: 0.75)
+      ..color = _ca(const Color(0xFF8BC34A), 0.75)
       ..strokeWidth = 3.0;
     canvas.drawLine(Offset(0, y), Offset(size.width, y), _stroke);
 
@@ -1006,12 +1035,12 @@ class _GameWorldPainter extends CustomPainter {
 
       // --- Hollow / Ghost Center (Middle 50%) ---
       // Faint transparent ghost tint
-      _fill.color = Colors.cyanAccent.withValues(alpha: 0.05);
+      _fill.color = _ca(Colors.cyanAccent, 0.05);
       canvas.drawRect(centerRect, _fill);
 
       // Soluk ve kesik çizgili hayalet çerçeve (alpha = 0.2, 3x3 dash pattern)
       _stroke
-        ..color = Colors.white.withValues(alpha: 0.20)
+        ..color = _ca(Colors.white, 0.20)
         ..strokeWidth = 1.5;
       _drawDashedLine(canvas, Offset(centerRect.left, centerRect.top), Offset(centerRect.right, centerRect.top), _stroke, dashWidth: 3.0, dashSpace: 3.0);
       _drawDashedLine(canvas, Offset(centerRect.left, centerRect.bottom), Offset(centerRect.right, centerRect.bottom), _stroke, dashWidth: 3.0, dashSpace: 3.0);
@@ -1021,7 +1050,7 @@ class _GameWorldPainter extends CustomPainter {
       // --- Left Solid Wing (25%) ---
       // Outer glow
       _stroke
-        ..color = c.activePaddleSkin.glowColor.withValues(alpha: 0.85)
+        ..color = _ca(c.activePaddleSkin.glowColor, 0.85)
         ..strokeWidth = 3.5;
       canvas.drawRRect(leftRRect.inflate(1.5), _stroke);
 
@@ -1038,13 +1067,13 @@ class _GameWorldPainter extends CustomPainter {
 
       // Specular gloss highlight
       final leftGloss = Rect.fromLTWH(leftRect.left + 2, leftRect.top + 2, leftRect.width - 4, leftRect.height * 0.38);
-      _fill.color = Colors.white.withValues(alpha: 0.50);
+      _fill.color = _ca(Colors.white, 0.50);
       canvas.drawRRect(RRect.fromRectAndRadius(leftGloss, const Radius.circular(2)), _fill);
 
       // --- Right Solid Wing (25%) ---
       // Outer glow
       _stroke
-        ..color = c.activePaddleSkin.glowColor.withValues(alpha: 0.85)
+        ..color = _ca(c.activePaddleSkin.glowColor, 0.85)
         ..strokeWidth = 3.5;
       canvas.drawRRect(rightRRect.inflate(1.5), _stroke);
 
@@ -1061,16 +1090,16 @@ class _GameWorldPainter extends CustomPainter {
 
       // Specular gloss highlight
       final rightGloss = Rect.fromLTWH(rightRect.left + 2, rightRect.top + 2, rightRect.width - 4, rightRect.height * 0.38);
-      _fill.color = Colors.white.withValues(alpha: 0.50);
+      _fill.color = _ca(Colors.white, 0.50);
       canvas.drawRRect(RRect.fromRectAndRadius(rightGloss, const Radius.circular(2)), _fill);
 
       // Ice (Clumsy) effect on wings
       if (p.isClumsy) {
-        _fill.color = Colors.cyanAccent.withValues(alpha: 0.35);
+        _fill.color = _ca(Colors.cyanAccent, 0.35);
         canvas.drawRRect(leftRRect, _fill);
         canvas.drawRRect(rightRRect, _fill);
         _stroke
-          ..color = Colors.white.withValues(alpha: 0.70)
+          ..color = _ca(Colors.white, 0.70)
           ..strokeWidth = 2.0;
         canvas.drawRRect(leftRRect, _stroke);
         canvas.drawRRect(rightRRect, _stroke);
@@ -1080,7 +1109,7 @@ class _GameWorldPainter extends CustomPainter {
 
       // Outer glow ring (high-performance crisp stroke)
       _stroke
-        ..color = c.activePaddleSkin.glowColor.withValues(alpha: 0.35)
+        ..color = _ca(c.activePaddleSkin.glowColor, 0.35)
         ..strokeWidth = 4.0;
       canvas.drawRRect(rrect.inflate(2.0), _stroke);
 
@@ -1097,7 +1126,7 @@ class _GameWorldPainter extends CustomPainter {
 
       // Specular highlight
       final gloss = Rect.fromLTWH(rect.left + 4, rect.top + 2, rect.width - 8, rect.height * 0.38);
-      _fill.color = Colors.white.withValues(alpha: 0.35);
+      _fill.color = _ca(Colors.white, 0.35);
       canvas.drawRRect(RRect.fromRectAndRadius(gloss, const Radius.circular(4)), _fill);
 
       // Distinctive Paddle Skin Cosmetic Features
@@ -1108,7 +1137,7 @@ class _GameWorldPainter extends CustomPainter {
         _fill.color = const Color(0x6680D8FF);
         canvas.drawRRect(rrect, _fill);
         _stroke
-          ..color = Colors.white.withValues(alpha: 0.8)
+          ..color = _ca(Colors.white, 0.8)
           ..strokeWidth = 2.0;
         canvas.drawRRect(rrect, _stroke);
 
@@ -1144,7 +1173,7 @@ class _GameWorldPainter extends CustomPainter {
     switch (skin.id) {
       case 'pclassic':
         // Cyber Chassis: Side thruster exhausts & central 5-segment cyan LED meter
-        _fill.color = const Color(0xFF00E5FF).withValues(alpha: 0.8 + 0.2 * sin(time * 12.0));
+        _fill.color = _ca(const Color(0xFF00E5FF), 0.8 + 0.2 * sin(time * 12.0));
         canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(rect.left + 2, rect.top + 3, 5, h - 6), const Radius.circular(2)), _fill);
         canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(rect.right - 7, rect.top + 3, 5, h - 6), const Radius.circular(2)), _fill);
 
@@ -1167,13 +1196,13 @@ class _GameWorldPainter extends CustomPainter {
         _stroke
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5
-          ..color = const Color(0xFFFF80AB).withValues(alpha: 0.9);
+          ..color = _ca(const Color(0xFFFF80AB), 0.9);
         canvas.drawLine(Offset(rect.left + 12, rect.top + 2), Offset(rect.right - 12, rect.top + 2), _stroke);
         canvas.drawLine(Offset(rect.left + 12, rect.bottom - 2), Offset(rect.right - 12, rect.bottom - 2), _stroke);
 
         for (int i = -3; i <= 3; i++) {
           final barH = (sin(time * 10.0 + i.abs() * 1.2).abs() * (h * 0.5) + 3.0).clamp(2.0, h - 4.0);
-          _fill.color = Colors.white.withValues(alpha: 0.85);
+          _fill.color = _ca(Colors.white, 0.85);
           canvas.drawRRect(
             RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(cx + i * 5.0, cy), width: 2.2, height: barH), const Radius.circular(1)),
             _fill,
@@ -1186,7 +1215,7 @@ class _GameWorldPainter extends CustomPainter {
         _stroke
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.2
-          ..color = Colors.white.withValues(alpha: 0.85);
+          ..color = _ca(Colors.white, 0.85);
         for (double x = rect.left + 14; x < rect.right - 14; x += 14) {
           canvas.drawLine(Offset(x, rect.top + 2), Offset(x + 5, cy), _stroke);
           canvas.drawLine(Offset(x + 5, cy), Offset(x, rect.bottom - 2), _stroke);
@@ -1232,7 +1261,7 @@ class _GameWorldPainter extends CustomPainter {
         canvas.drawPath(pcbRight, _stroke);
 
         final cyberPulse = 0.6 + 0.4 * sin(time * 8.0);
-        _fill.color = const Color(0xFF00E5FF).withValues(alpha: cyberPulse);
+        _fill.color = _ca(const Color(0xFF00E5FF), cyberPulse);
         canvas.drawCircle(Offset(cx, cy), 3.0, _fill);
         _fill.color = Colors.white;
         canvas.drawCircle(Offset(cx, cy), 1.2, _fill);
@@ -1269,7 +1298,7 @@ class _GameWorldPainter extends CustomPainter {
         _stroke
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.5
-          ..color = const Color(0xFF00E676).withValues(alpha: venomPulse);
+          ..color = _ca(const Color(0xFF00E676), venomPulse);
         canvas.drawLine(Offset(rect.left + 14, cy), Offset(rect.right - 14, cy), _stroke);
 
         for (double x = rect.left + 20; x < rect.right - 20; x += 18) {
@@ -1284,14 +1313,14 @@ class _GameWorldPainter extends CustomPainter {
         _stroke
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.4
-          ..color = const Color(0xFFE040FB).withValues(alpha: nebPulse);
+          ..color = _ca(const Color(0xFFE040FB), nebPulse);
         canvas.drawRRect(rrect.deflate(2.0), _stroke);
 
         for (int i = 0; i < 6; i++) {
           final starX = rect.left + 14 + (i * ((w - 28) / 5));
           final starY = cy + sin(time * 3.0 + i * 1.5) * (h * 0.22);
           final twinkle = 0.5 + 0.5 * sin(time * 7.0 + i * 2.0);
-          _fill.color = (i % 2 == 0 ? const Color(0xFF80D8FF) : Colors.white).withValues(alpha: twinkle);
+          _fill.color = _ca((i % 2 == 0 ? const Color(0xFF80D8FF) : Colors.white), twinkle);
           canvas.drawCircle(Offset(starX, starY), 1.3, _fill);
         }
         break;
@@ -1305,31 +1334,36 @@ class _GameWorldPainter extends CustomPainter {
       canvas.rotate(bh.rotation);
 
       // 1. Broad Gravitational Lensing & Warped Photon Halo
-      final vortexColors = bh.isVortexTrap
-          ? [
-              Colors.black,
-              const Color(0xFF1A0000), // Deep crimson singularity void
-              const Color(0xFFB71C1C).withValues(alpha: 0.95), // Fiery crimson mantle
-              const Color(0xFFFF1744).withValues(alpha: 0.75), // Intense vortex plasma
-              const Color(0xFFFF80AB).withValues(alpha: 0.35),
-              Colors.transparent,
-            ]
-          : [
-              Colors.black,
-              const Color(0xFF0D0318), // Deep cosmic void
-              const Color(0xFF4A148C).withValues(alpha: 0.95), // Deep violet mantle
-              const Color(0xFF7C4DFF).withValues(alpha: 0.6),  // Radiant plasma arc
-              const Color(0xFFE040FB).withValues(alpha: 0.25), // Outer warped corona
-              Colors.transparent,
-            ];
-
+      final holeKey = Object.hash(bh.isVortexTrap, (bh.radius * 2).round());
       _fill
         ..style = PaintingStyle.fill
         ..maskFilter = null
-        ..shader = RadialGradient(
-          colors: vortexColors,
-          stops: const [0.25, 0.42, 0.60, 0.78, 0.92, 1.0],
-        ).createShader(Rect.fromCircle(center: Offset.zero, radius: bh.radius * (bh.isVortexTrap ? 3.4 : 2.8)));
+        ..shader = _holeShaders.putIfAbsent(holeKey, () {
+          final vortexColors = bh.isVortexTrap
+              ? [
+                  Colors.black,
+                  const Color(0xFF1A0000),
+                  _ca(const Color(0xFFB71C1C), 0.95),
+                  _ca(const Color(0xFFFF1744), 0.75),
+                  _ca(const Color(0xFFFF80AB), 0.35),
+                  Colors.transparent,
+                ]
+              : [
+                  Colors.black,
+                  const Color(0xFF0D0318),
+                  _ca(const Color(0xFF4A148C), 0.95),
+                  _ca(const Color(0xFF7C4DFF), 0.6),
+                  _ca(const Color(0xFFE040FB), 0.25),
+                  Colors.transparent,
+                ];
+          return RadialGradient(
+            colors: vortexColors,
+            stops: const [0.25, 0.42, 0.60, 0.78, 0.92, 1.0],
+          ).createShader(Rect.fromCircle(
+            center: Offset.zero,
+            radius: bh.radius * (bh.isVortexTrap ? 3.4 : 2.8),
+          ));
+        });
       
       canvas.drawCircle(Offset.zero, bh.radius * (bh.isVortexTrap ? 3.4 : 2.8), _fill);
       _fill.shader = null;
@@ -1346,7 +1380,7 @@ class _GameWorldPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeCap = StrokeCap.round
           ..maskFilter = null
-          ..color = armColor.withValues(alpha: 0.65 - (i * 0.05))
+          ..color = _ca(armColor, 0.65 - (i * 0.05))
           ..strokeWidth = 2.2 - (i * 0.15);
         canvas.drawArc(
           Rect.fromCircle(center: Offset.zero, radius: r),
@@ -1361,12 +1395,12 @@ class _GameWorldPainter extends CustomPainter {
       _stroke
         ..strokeWidth = 3.2
         ..maskFilter = null
-        ..color = const Color(0xFFB388FF).withValues(alpha: 0.45);
+        ..color = _ca(const Color(0xFFB388FF), 0.45);
       canvas.drawCircle(Offset.zero, bh.radius * 0.48, _stroke);
 
       _stroke
         ..strokeWidth = 1.2
-        ..color = Colors.white.withValues(alpha: 0.95);
+        ..color = _ca(Colors.white, 0.95);
       canvas.drawCircle(Offset.zero, bh.radius * 0.48, _stroke);
 
       // 4. Absolute Singularity Event Horizon (Infinite Black Void)
@@ -1399,7 +1433,7 @@ class _GameWorldPainter extends CustomPainter {
         final x = cos(angle) * (p.radius * 0.5);
         final y = sin(angle) * (p.radius * 0.5);
         
-        _fill.color = p.color.withValues(alpha: 0.8);
+        _fill.color = _ca(p.color, 0.8);
         canvas.drawCircle(Offset(x, y), p.radius * 0.3, _fill);
       }
 
@@ -1468,7 +1502,7 @@ class _GameWorldPainter extends CustomPainter {
             final taper = (1.0 - progress).clamp(0.0, 1.0);
             _stroke
               ..strokeWidth = (ball.radius * 0.55 * taper).clamp(0.4, ball.radius)
-              ..color = dotColor.withValues(alpha: 0.45 * taper);
+              ..color = _ca(dotColor, 0.45 * taper);
             canvas.drawLine(dotPositions[i], dotPositions[i + 1], _stroke);
           }
 
@@ -1485,15 +1519,15 @@ class _GameWorldPainter extends CustomPainter {
             final pos = dotPositions[i];
 
             // Soft diffuse halo (2-pass alpha, zero blur overhead)
-            _fill.color = dotColor.withValues(alpha: 0.22 * taper);
+            _fill.color = _ca(dotColor, 0.22 * taper);
             canvas.drawCircle(pos, baseR * 1.6, _fill);
 
             // Luminous bead
-            _fill.color = coreColor.withValues(alpha: 0.85 * taper);
+            _fill.color = _ca(coreColor, 0.85 * taper);
             canvas.drawCircle(pos, baseR, _fill);
 
             // Starlight white core
-            _fill.color = Colors.white.withValues(alpha: 0.95 * taper);
+            _fill.color = _ca(Colors.white, 0.95 * taper);
             canvas.drawCircle(pos, baseR * 0.4, _fill);
 
             // Rotating 4-point micro-glint star on alternating beads
@@ -1502,7 +1536,7 @@ class _GameWorldPainter extends CustomPainter {
               final spLen = baseR * 1.6;
               _stroke
                 ..strokeWidth = 1.0
-                ..color = Colors.white.withValues(alpha: 0.75 * taper);
+                ..color = _ca(Colors.white, 0.75 * taper);
               canvas.drawLine(
                 Offset(pos.dx - cos(spAngle) * spLen, pos.dy - sin(spAngle) * spLen),
                 Offset(pos.dx + cos(spAngle) * spLen, pos.dy + sin(spAngle) * spLen),
@@ -1556,7 +1590,7 @@ class _GameWorldPainter extends CustomPainter {
             final taper = (1.0 - progress).clamp(0.0, 1.0);
             _stroke
               ..strokeWidth = (ball.radius * 2.2 * taper).clamp(0.8, ball.radius * 2.2)
-              ..color = sparkGlowColor.withValues(alpha: 0.28 * taper);
+              ..color = _ca(sparkGlowColor, 0.28 * taper);
             canvas.drawLine(sparkPositions[i], sparkPositions[i + 1], _stroke);
           }
 
@@ -1566,7 +1600,7 @@ class _GameWorldPainter extends CustomPainter {
             final taper = (1.0 - progress).clamp(0.0, 1.0);
             _stroke
               ..strokeWidth = (ball.radius * 1.1 * taper).clamp(0.6, ball.radius * 1.1)
-              ..color = sparkBaseColor.withValues(alpha: 0.88 * taper);
+              ..color = _ca(sparkBaseColor, 0.88 * taper);
             canvas.drawLine(sparkPositions[i], sparkPositions[i + 1], _stroke);
           }
 
@@ -1576,7 +1610,7 @@ class _GameWorldPainter extends CustomPainter {
             final taper = (1.0 - progress).clamp(0.0, 1.0);
             _stroke
               ..strokeWidth = (ball.radius * 0.42 * taper).clamp(0.4, ball.radius * 0.42)
-              ..color = Colors.white.withValues(alpha: 0.95 * taper);
+              ..color = _ca(Colors.white, 0.95 * taper);
             canvas.drawLine(sparkPositions[i], sparkPositions[i + 1], _stroke);
           }
 
@@ -1590,7 +1624,7 @@ class _GameWorldPainter extends CustomPainter {
             final a = time * 8 + i * 2;
             _stroke
               ..strokeWidth = 1.0
-              ..color = Colors.white.withValues(alpha: 0.85 * taper);
+              ..color = _ca(Colors.white, 0.85 * taper);
             canvas.drawLine(
               Offset(pt.dx - cos(a) * sparkSize, pt.dy - sin(a) * sparkSize),
               Offset(pt.dx + cos(a) * sparkSize, pt.dy + sin(a) * sparkSize),
@@ -1627,13 +1661,13 @@ class _GameWorldPainter extends CustomPainter {
             // Outer mist
             _stroke
               ..strokeWidth = (ball.radius * 1.5 * taper).clamp(0.6, ball.radius * 1.5)
-              ..color = ghostGlowColor.withValues(alpha: 0.22 * taper);
+              ..color = _ca(ghostGlowColor, 0.22 * taper);
             canvas.drawLine(p1, p2, _stroke);
 
             // Inner core ribbon
             _stroke
               ..strokeWidth = (ball.radius * 0.7 * taper).clamp(0.4, ball.radius * 0.7)
-              ..color = ghostBaseColor.withValues(alpha: 0.45 * taper);
+              ..color = _ca(ghostBaseColor, 0.45 * taper);
             canvas.drawLine(p1, p2, _stroke);
           }
 
@@ -1650,21 +1684,21 @@ class _GameWorldPainter extends CustomPainter {
             if (ghostRadius <= 0.4) continue;
 
             // Ethereal diffuse mist aura (NO blur lag)
-            _fill.color = ghostGlowColor.withValues(alpha: 0.20 * taper);
+            _fill.color = _ca(ghostGlowColor, 0.20 * taper);
             canvas.drawCircle(pt, ghostRadius * 1.4, _fill);
 
             // Spectral body
-            _fill.color = ghostBaseColor.withValues(alpha: 0.35 * taper);
+            _fill.color = _ca(ghostBaseColor, 0.35 * taper);
             canvas.drawCircle(pt, ghostRadius, _fill);
 
             // Spectral rim ring
             _stroke
               ..strokeWidth = 1.0
-              ..color = Colors.white.withValues(alpha: 0.55 * taper);
+              ..color = _ca(Colors.white, 0.55 * taper);
             canvas.drawCircle(pt, ghostRadius, _stroke);
 
             // Specular reflection echo
-            _fill.color = Colors.white.withValues(alpha: 0.7 * taper);
+            _fill.color = _ca(Colors.white, 0.7 * taper);
             canvas.drawCircle(Offset(pt.dx - ghostRadius * 0.3, pt.dy - ghostRadius * 0.3), ghostRadius * 0.25, _fill);
           }
         } else if (trailStyle == TrailStyle.rainbow) {
@@ -1688,19 +1722,19 @@ class _GameWorldPainter extends CustomPainter {
             // Outer chromatic bloom (tapering, NO blur)
             _stroke
               ..strokeWidth = (ball.radius * 2.5 * taper).clamp(0.8, ball.radius * 2.5)
-              ..color = color.withValues(alpha: 0.22 * taper);
+              ..color = _ca(color, 0.22 * taper);
             canvas.drawLine(p1, p2, _stroke);
 
             // Vibrant aurora ribbon (tapering)
             _stroke
               ..strokeWidth = (ball.radius * 1.3 * taper).clamp(0.6, ball.radius * 1.3)
-              ..color = color.withValues(alpha: 0.85 * taper);
+              ..color = _ca(color, 0.85 * taper);
             canvas.drawLine(p1, p2, _stroke);
 
             // Pure luminous core filament (tapering)
             _stroke
               ..strokeWidth = (ball.radius * 0.42 * taper).clamp(0.4, ball.radius * 0.42)
-              ..color = Colors.white.withValues(alpha: 0.90 * taper);
+              ..color = _ca(Colors.white, 0.90 * taper);
             canvas.drawLine(p1, p2, _stroke);
 
             // Prismatic star sparkle on crests
@@ -1709,7 +1743,7 @@ class _GameWorldPainter extends CustomPainter {
               final a = time * 4 + i;
               _stroke
                 ..strokeWidth = 1.0
-                ..color = Colors.white.withValues(alpha: 0.8 * taper);
+                ..color = _ca(Colors.white, 0.8 * taper);
               canvas.drawLine(
                 Offset(p1.dx - cos(a) * spSize, p1.dy - sin(a) * spSize),
                 Offset(p1.dx + cos(a) * spSize, p1.dy + sin(a) * spSize),
@@ -1759,7 +1793,7 @@ class _GameWorldPainter extends CustomPainter {
             final taper = (1.0 - progress).clamp(0.0, 1.0);
             _stroke
               ..strokeWidth = (ball.radius * 2.8 * taper).clamp(0.8, ball.radius * 2.8)
-              ..color = const Color(0xFF00E5FF).withValues(alpha: 0.25 * taper);
+              ..color = _ca(const Color(0xFF00E5FF), 0.25 * taper);
             canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
           }
 
@@ -1769,10 +1803,10 @@ class _GameWorldPainter extends CustomPainter {
             final taper = (1.0 - progress).clamp(0.0, 1.0);
             _stroke
               ..strokeWidth = (ball.radius * 0.55 * taper).clamp(0.4, ball.radius * 0.55)
-              ..color = const Color(0xFF18FFFF).withValues(alpha: 0.85 * taper);
+              ..color = _ca(const Color(0xFF18FFFF), 0.85 * taper);
             canvas.drawLine(helix1Pts[i], helix1Pts[i + 1], _stroke);
 
-            _stroke.color = const Color(0xFFB388FF).withValues(alpha: 0.85 * taper);
+            _stroke.color = _ca(const Color(0xFFB388FF), 0.85 * taper);
             canvas.drawLine(helix2Pts[i], helix2Pts[i + 1], _stroke);
           }
 
@@ -1782,12 +1816,12 @@ class _GameWorldPainter extends CustomPainter {
             final taper = (1.0 - progress).clamp(0.0, 1.0);
             _stroke
               ..strokeWidth = (ball.radius * 1.0 * taper).clamp(0.6, ball.radius * 1.0)
-              ..color = const Color(0xFFE0F7FA).withValues(alpha: 0.90 * taper);
+              ..color = _ca(const Color(0xFFE0F7FA), 0.90 * taper);
             canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
 
             _stroke
               ..strokeWidth = (ball.radius * 0.45 * taper).clamp(0.4, ball.radius * 0.45)
-              ..color = Colors.white.withValues(alpha: 0.95 * taper);
+              ..color = _ca(Colors.white, 0.95 * taper);
             canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
           }
 
@@ -1800,7 +1834,7 @@ class _GameWorldPainter extends CustomPainter {
             if (r <= 0.5) continue;
             _stroke
               ..strokeWidth = 1.2
-              ..color = const Color(0xFF00E5FF).withValues(alpha: 0.75 * taper);
+              ..color = _ca(const Color(0xFF00E5FF), 0.75 * taper);
             canvas.drawCircle(pt, r, _stroke);
           }
         } else if (trailStyle == TrailStyle.fire) {
@@ -1836,7 +1870,7 @@ class _GameWorldPainter extends CustomPainter {
             final taper = (1.0 - progress).clamp(0.0, 1.0);
             _stroke
               ..strokeWidth = (ball.radius * 2.8 * taper).clamp(0.8, ball.radius * 2.8)
-              ..color = const Color(0xFFFF1744).withValues(alpha: 0.28 * taper);
+              ..color = _ca(const Color(0xFFFF1744), 0.28 * taper);
             canvas.drawLine(firePts[i], firePts[i + 1], _stroke);
           }
 
@@ -1846,7 +1880,7 @@ class _GameWorldPainter extends CustomPainter {
             final taper = (1.0 - progress).clamp(0.0, 1.0);
             _stroke
               ..strokeWidth = (ball.radius * 1.5 * taper).clamp(0.6, ball.radius * 1.5)
-              ..color = const Color(0xFFFF6D00).withValues(alpha: 0.85 * taper);
+              ..color = _ca(const Color(0xFFFF6D00), 0.85 * taper);
             canvas.drawLine(firePts[i], firePts[i + 1], _stroke);
           }
 
@@ -1856,7 +1890,7 @@ class _GameWorldPainter extends CustomPainter {
             final taper = (1.0 - progress).clamp(0.0, 1.0);
             _stroke
               ..strokeWidth = (ball.radius * 0.6 * taper).clamp(0.4, ball.radius * 0.6)
-              ..color = const Color(0xFFFFF9C4).withValues(alpha: 0.95 * taper);
+              ..color = _ca(const Color(0xFFFFF9C4), 0.95 * taper);
             canvas.drawLine(firePts[i], firePts[i + 1], _stroke);
           }
 
@@ -1871,7 +1905,7 @@ class _GameWorldPainter extends CustomPainter {
             final emberPulse = sin(time * 22.0 + i * 1.8) * (ball.radius * 0.5 * taper);
             final emberSize = ball.radius * (0.55 + 0.3 * sin(time * 14 + i)) * taper;
             if (emberSize <= 0.4) continue;
-            _fill.color = (i % 4 == 0 ? const Color(0xFFFFEB3B) : const Color(0xFFFF3D00)).withValues(alpha: 0.9 * taper);
+            _fill.color = _ca((i % 4 == 0 ? const Color(0xFFFFEB3B) : const Color(0xFFFF3D00)), 0.9 * taper);
             canvas.drawCircle(Offset(pt.dx + emberPulse, pt.dy - emberPulse), emberSize, _fill);
           }
         } else {
@@ -1890,7 +1924,7 @@ class _GameWorldPainter extends CustomPainter {
               final taper = (1.0 - progress).clamp(0.0, 1.0);
               _stroke
                 ..strokeWidth = (ball.radius * 3.0 * taper).clamp(0.8, ball.radius * 3.0)
-                ..color = const Color(0xFFFF1744).withValues(alpha: 0.28 * taper);
+                ..color = _ca(const Color(0xFFFF1744), 0.28 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
@@ -1900,7 +1934,7 @@ class _GameWorldPainter extends CustomPainter {
               final taper = (1.0 - progress).clamp(0.0, 1.0);
               _stroke
                 ..strokeWidth = (ball.radius * 1.7 * taper).clamp(0.6, ball.radius * 1.7)
-                ..color = const Color(0xFFFF6D00).withValues(alpha: 0.85 * taper);
+                ..color = _ca(const Color(0xFFFF6D00), 0.85 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
@@ -1910,7 +1944,7 @@ class _GameWorldPainter extends CustomPainter {
               final taper = (1.0 - progress).clamp(0.0, 1.0);
               _stroke
                 ..strokeWidth = (ball.radius * 0.75 * taper).clamp(0.4, ball.radius * 0.75)
-                ..color = const Color(0xFFFFEB3B).withValues(alpha: 0.95 * taper);
+                ..color = _ca(const Color(0xFFFFEB3B), 0.95 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
@@ -1920,7 +1954,7 @@ class _GameWorldPainter extends CustomPainter {
               final taper = (1.0 - progress).clamp(0.0, 1.0);
               _stroke
                 ..strokeWidth = (ball.radius * 0.35 * taper).clamp(0.4, ball.radius * 0.35)
-                ..color = Colors.white.withValues(alpha: 0.98 * taper);
+                ..color = _ca(Colors.white, 0.98 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
           } else if (isCornerBoost) {
@@ -1937,7 +1971,7 @@ class _GameWorldPainter extends CustomPainter {
               final taper = (1.0 - progress).clamp(0.0, 1.0);
               _stroke
                 ..strokeWidth = (ball.radius * 2.6 * taper).clamp(0.8, ball.radius * 2.6)
-                ..color = const Color(0xFFFFAB00).withValues(alpha: 0.26 * taper);
+                ..color = _ca(const Color(0xFFFFAB00), 0.26 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
@@ -1947,7 +1981,7 @@ class _GameWorldPainter extends CustomPainter {
               final taper = (1.0 - progress).clamp(0.0, 1.0);
               _stroke
                 ..strokeWidth = (ball.radius * 1.4 * taper).clamp(0.6, ball.radius * 1.4)
-                ..color = const Color(0xFFFFD600).withValues(alpha: 0.85 * taper);
+                ..color = _ca(const Color(0xFFFFD600), 0.85 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
@@ -1957,7 +1991,7 @@ class _GameWorldPainter extends CustomPainter {
               final taper = (1.0 - progress).clamp(0.0, 1.0);
               _stroke
                 ..strokeWidth = (ball.radius * 0.55 * taper).clamp(0.4, ball.radius * 0.55)
-                ..color = const Color(0xFFFFFDE7).withValues(alpha: 0.96 * taper);
+                ..color = _ca(const Color(0xFFFFFDE7), 0.96 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
@@ -1979,10 +2013,10 @@ class _GameWorldPainter extends CustomPainter {
               _tempPath.lineTo(pt.dx - dSize * 0.7, pt.dy);
               _tempPath.close();
 
-              _fill.color = const Color(0xFFFFD600).withValues(alpha: 0.85 * taper);
+              _fill.color = _ca(const Color(0xFFFFD600), 0.85 * taper);
               canvas.drawPath(_tempPath, _fill);
 
-              _fill.color = Colors.white.withValues(alpha: 0.95 * taper);
+              _fill.color = _ca(Colors.white, 0.95 * taper);
               canvas.drawCircle(pt, dSize * 0.35, _fill);
             }
           } else {
@@ -2018,7 +2052,7 @@ class _GameWorldPainter extends CustomPainter {
               final taper = (1.0 - progress).clamp(0.0, 1.0);
               _stroke
                 ..strokeWidth = (ball.radius * 2.2 * taper).clamp(0.8, ball.radius * 2.2)
-                ..color = skinGlow.withValues(alpha: 0.25 * taper);
+                ..color = _ca(skinGlow, 0.25 * taper);
               canvas.drawLine(wavePts[i], wavePts[i + 1], _stroke);
             }
 
@@ -2028,7 +2062,7 @@ class _GameWorldPainter extends CustomPainter {
               final taper = (1.0 - progress).clamp(0.0, 1.0);
               _stroke
                 ..strokeWidth = (ball.radius * 1.1 * taper).clamp(0.6, ball.radius * 1.1)
-                ..color = skinMain.withValues(alpha: 0.85 * taper);
+                ..color = _ca(skinMain, 0.85 * taper);
               canvas.drawLine(wavePts[i], wavePts[i + 1], _stroke);
             }
 
@@ -2038,7 +2072,7 @@ class _GameWorldPainter extends CustomPainter {
               final taper = (1.0 - progress).clamp(0.0, 1.0);
               _stroke
                 ..strokeWidth = (ball.radius * 0.4 * taper).clamp(0.4, ball.radius * 0.4)
-                ..color = Colors.white.withValues(alpha: 0.85 * taper);
+                ..color = _ca(Colors.white, 0.85 * taper);
               canvas.drawLine(wavePts[i], wavePts[i + 1], _stroke);
             }
 
@@ -2052,7 +2086,7 @@ class _GameWorldPainter extends CustomPainter {
               final pt = ball.trail[i].position;
               final sparkSize = ball.radius * (0.4 + 0.25 * sin(time * 18 + i)) * taper;
               if (sparkSize <= 0.4) continue;
-              _fill.color = Colors.white.withValues(alpha: 0.8 * taper);
+              _fill.color = _ca(Colors.white, 0.8 * taper);
               canvas.drawCircle(pt, sparkSize, _fill);
             }
           }
@@ -2077,11 +2111,11 @@ class _GameWorldPainter extends CustomPainter {
         _fill
           ..style = PaintingStyle.fill
           ..maskFilter = null
-          ..color = const Color(0xFFFF1744).withValues(alpha: 0.22 * flick);
+          ..color = _ca(const Color(0xFFFF1744), 0.22 * flick);
         canvas.drawCircle(Offset.zero, ball.radius + 13 + flick * 4, _fill);
 
         // 2. Fiery crimson inner blaze
-        _fill.color = const Color(0xFFFF3D00).withValues(alpha: 0.45 * flick);
+        _fill.color = _ca(const Color(0xFFFF3D00), 0.45 * flick);
         canvas.drawCircle(Offset.zero, ball.radius + 7 + flick * 2, _fill);
 
         // 3. Swirling crimson/orange flame spikes
@@ -2089,7 +2123,7 @@ class _GameWorldPainter extends CustomPainter {
           ..strokeWidth = 2.5
           ..strokeCap = StrokeCap.round
           ..maskFilter = null
-          ..color = const Color(0xFFFFD54F).withValues(alpha: 0.92);
+          ..color = _ca(const Color(0xFFFFD54F), 0.92);
 
         for (int f = 0; f < 8; f++) {
           final a = time * 10 + f * (pi * 2 / 8) + (sin(time * 18 + f) * 0.25);
@@ -2120,10 +2154,10 @@ class _GameWorldPainter extends CustomPainter {
         _fill
           ..style = PaintingStyle.fill
           ..maskFilter = null
-          ..color = const Color(0xFFFFAB00).withValues(alpha: 0.20 * flick);
+          ..color = _ca(const Color(0xFFFFAB00), 0.20 * flick);
         canvas.drawCircle(Offset.zero, ball.radius * 2.2, _fill);
 
-        _fill.color = const Color(0xFFFFD600).withValues(alpha: 0.42 * flick);
+        _fill.color = _ca(const Color(0xFFFFD600), 0.42 * flick);
         canvas.drawCircle(Offset.zero, ball.radius * 1.5, _fill);
 
         // 2. Supersonic Aerodynamic Bow Shock Arc & Mach Shock Streamers (Ahead of Ball)
@@ -2137,7 +2171,7 @@ class _GameWorldPainter extends CustomPainter {
           ..strokeJoin = StrokeJoin.round
           ..maskFilter = null
           ..strokeWidth = 3.6
-          ..color = const Color(0xFFFFF9C4).withValues(alpha: 0.30 * flick);
+          ..color = _ca(const Color(0xFFFFF9C4), 0.30 * flick);
         canvas.drawArc(
           Rect.fromCircle(center: bowCenter, radius: ball.radius + 3.5),
           fwdAngle - pi / 2.8,
@@ -2148,7 +2182,7 @@ class _GameWorldPainter extends CustomPainter {
 
         _stroke
           ..strokeWidth = 1.8
-          ..color = const Color(0xFFFFF9C4).withValues(alpha: 0.90 * flick);
+          ..color = _ca(const Color(0xFFFFF9C4), 0.90 * flick);
         canvas.drawArc(
           Rect.fromCircle(center: bowCenter, radius: ball.radius + 3.5),
           fwdAngle - pi / 2.8,
@@ -2162,7 +2196,7 @@ class _GameWorldPainter extends CustomPainter {
         final machRightStart = bowCenter + Offset(cos(fwdAngle + pi / 3.0) * (ball.radius + 3.5), sin(fwdAngle + pi / 3.0) * (ball.radius + 3.5));
         _stroke
           ..strokeWidth = 1.3
-          ..color = const Color(0xFFFFE082).withValues(alpha: 0.6 * flick);
+          ..color = _ca(const Color(0xFFFFE082), 0.6 * flick);
         canvas.drawLine(
           machLeftStart,
           machLeftStart + Offset(backX * (ball.radius * 1.8) + perpX * (ball.radius * 0.8), backY * (ball.radius * 1.8) + perpY * (ball.radius * 0.8)),
@@ -2188,7 +2222,7 @@ class _GameWorldPainter extends CustomPainter {
         _fill
           ..style = PaintingStyle.fill
           ..maskFilter = null
-          ..color = const Color(0xFFFF6D00).withValues(alpha: 0.35);
+          ..color = _ca(const Color(0xFFFF6D00), 0.35);
         canvas.drawPath(_tempPath, _fill);
 
         // Mid golden plasma thrust cone
@@ -2198,7 +2232,7 @@ class _GameWorldPainter extends CustomPainter {
         _tempPath.lineTo(backX * (mainFlameLen * 0.85), backY * (mainFlameLen * 0.85));
         _tempPath.close();
 
-        _fill.color = const Color(0xFFFFD600).withValues(alpha: 0.85);
+        _fill.color = _ca(const Color(0xFFFFD600), 0.85);
         canvas.drawPath(_tempPath, _fill);
 
         // Hyper-dense white-gold core jet needle
@@ -2208,7 +2242,7 @@ class _GameWorldPainter extends CustomPainter {
         _tempPath.lineTo(backX * (mainFlameLen * 0.55), backY * (mainFlameLen * 0.55));
         _tempPath.close();
 
-        _fill.color = const Color(0xFFFFFDE7).withValues(alpha: 0.98);
+        _fill.color = _ca(const Color(0xFFFFFDE7), 0.98);
         canvas.drawPath(_tempPath, _fill);
 
         // 4. Twin Vector Flanking Jets (Secondary Nozzles at ±22°)
@@ -2226,12 +2260,12 @@ class _GameWorldPainter extends CustomPainter {
             ..strokeWidth = 3.6
             ..strokeCap = StrokeCap.round
             ..maskFilter = null
-            ..color = const Color(0xFFFF9100).withValues(alpha: 0.35);
+            ..color = _ca(const Color(0xFFFF9100), 0.35);
           canvas.drawLine(nozzleOffset, nozzleOffset + Offset(sideDirX * sideFlameLen, sideDirY * sideFlameLen), _stroke);
 
           _stroke
             ..strokeWidth = 1.3
-            ..color = const Color(0xFFFFF9C4).withValues(alpha: 0.95);
+            ..color = _ca(const Color(0xFFFFF9C4), 0.95);
           canvas.drawLine(nozzleOffset, nozzleOffset + Offset(sideDirX * (sideFlameLen * 0.65), sideDirY * (sideFlameLen * 0.65)), _stroke);
         }
 
@@ -2259,11 +2293,11 @@ class _GameWorldPainter extends CustomPainter {
           _fill
             ..style = PaintingStyle.fill
             ..maskFilter = null
-            ..color = const Color(0xFFFFD600).withValues(alpha: 0.85);
+            ..color = _ca(const Color(0xFFFFD600), 0.85);
           canvas.drawPath(_tempPath, _fill);
 
           // Shock diamond blinding white plasma nucleus
-          _fill.color = Colors.white.withValues(alpha: 0.96);
+          _fill.color = _ca(Colors.white, 0.96);
           canvas.drawCircle(dCenter, dSize * 0.35, _fill);
         }
 
@@ -2289,7 +2323,7 @@ class _GameWorldPainter extends CustomPainter {
             ..strokeWidth = 1.4
             ..strokeCap = StrokeCap.round
             ..maskFilter = null
-            ..color = const Color(0xFFFFEA00).withValues(alpha: 0.85);
+            ..color = _ca(const Color(0xFFFFEA00), 0.85);
           canvas.drawLine(p1, pMid, _stroke);
 
           _stroke
@@ -2308,7 +2342,7 @@ class _GameWorldPainter extends CustomPainter {
 
           _stroke
             ..strokeWidth = 1.1
-            ..color = const Color(0xFFFFF9C4).withValues(alpha: 0.9);
+            ..color = _ca(const Color(0xFFFFF9C4), 0.9);
           canvas.drawLine(
             Offset(gPos.dx - cos(gAngle) * gSize, gPos.dy - sin(gAngle) * gSize),
             Offset(gPos.dx + cos(gAngle) * gSize, gPos.dy + sin(gAngle) * gSize),
@@ -2334,7 +2368,7 @@ class _GameWorldPainter extends CustomPainter {
         _fill
           ..style = PaintingStyle.fill
           ..maskFilter = null
-          ..color = glowColor.withValues(alpha: 0.32);
+          ..color = _ca(glowColor, 0.32);
         canvas.drawCircle(Offset.zero, ball.radius + 3.5, _fill);
 
         // Ball Core
@@ -2349,9 +2383,9 @@ class _GameWorldPainter extends CustomPainter {
         canvas.drawCircle(Offset.zero, ball.radius, _fill);
 
         // Specular shine
-        _fill.color = Colors.white.withValues(alpha: (isFireball || isCornerBoost) ? 0.85 : 0.55);
+        _fill.color = _ca(Colors.white, (isFireball || isCornerBoost) ? 0.85 : 0.55);
         canvas.drawCircle(Offset(-ball.radius * 0.28, -ball.radius * 0.28), ball.radius * 0.38, _fill);
-        _fill.color = Colors.white.withValues(alpha: 0.95);
+        _fill.color = _ca(Colors.white, 0.95);
         canvas.drawCircle(Offset(-ball.radius * 0.38, -ball.radius * 0.38), ball.radius * 0.16, _fill);
       }
 
@@ -2366,15 +2400,18 @@ class _GameWorldPainter extends CustomPainter {
     _fill
       ..style = PaintingStyle.fill
       ..maskFilter = null
-      ..color = skin.glowColor.withValues(alpha: 0.35);
+      ..color = _ca(skin.glowColor, 0.35);
     canvas.drawCircle(Offset.zero, r + 3.5, _fill);
 
     // 1. Skin-specific base body with radial gradient
-    _fill.shader = RadialGradient(
-      center: const Alignment(-0.35, -0.35),
-      radius: 0.95,
-      colors: [skin.mainColor, skin.darkColor],
-    ).createShader(Rect.fromCircle(center: Offset.zero, radius: r));
+    final skinKey = Object.hash(skin.id, (r * 2).round());
+    _fill.shader = _skinShaders.putIfAbsent(skinKey, () {
+      return RadialGradient(
+        center: const Alignment(-0.35, -0.35),
+        radius: 0.95,
+        colors: [skin.mainColor, skin.darkColor],
+      ).createShader(Rect.fromCircle(center: Offset.zero, radius: r));
+    });
     canvas.drawCircle(Offset.zero, r, _fill);
     _fill.shader = null;
 
@@ -2385,7 +2422,7 @@ class _GameWorldPainter extends CustomPainter {
         _stroke
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.2
-          ..color = const Color(0xFF80D8FF).withValues(alpha: 0.85);
+          ..color = _ca(const Color(0xFF80D8FF), 0.85);
         canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: r * 1.85, height: r * 0.38), _stroke);
         break;
 
@@ -2423,7 +2460,7 @@ class _GameWorldPainter extends CustomPainter {
         _stroke
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.0
-          ..color = const Color(0xFFB9F6CA).withValues(alpha: 0.75);
+          ..color = _ca(const Color(0xFFB9F6CA), 0.75);
         canvas.drawLine(Offset(-r * 0.6, 0), Offset(0, -r * 0.6), _stroke);
         canvas.drawLine(Offset(0, -r * 0.6), Offset(r * 0.6, 0), _stroke);
         canvas.drawLine(Offset(r * 0.6, 0), Offset(0, r * 0.6), _stroke);
@@ -2446,7 +2483,7 @@ class _GameWorldPainter extends CustomPainter {
       case 'ates':
         // Ateş: Molten magma ball with pulsing volcanic veins
         final magmaPulse = 0.7 + 0.3 * sin(time * 8.0);
-        _fill.color = const Color(0xFFFFD54F).withValues(alpha: magmaPulse);
+        _fill.color = _ca(const Color(0xFFFFD54F), magmaPulse);
         canvas.drawCircle(Offset.zero, r * 0.45, _fill);
         _stroke
           ..style = PaintingStyle.stroke
@@ -2509,9 +2546,9 @@ class _GameWorldPainter extends CustomPainter {
     }
 
     // 3. Specular highlights
-    _fill.color = Colors.white.withValues(alpha: 0.60);
+    _fill.color = _ca(Colors.white, 0.60);
     canvas.drawCircle(Offset(-r * 0.28, -r * 0.28), r * 0.36, _fill);
-    _fill.color = Colors.white.withValues(alpha: 0.95);
+    _fill.color = _ca(Colors.white, 0.95);
     canvas.drawCircle(Offset(-r * 0.38, -r * 0.38), r * 0.16, _fill);
   }
 
@@ -2584,7 +2621,7 @@ class _GameWorldPainter extends CustomPainter {
           fontSize: 12,
           fontWeight: FontWeight.w900,
           shadows: [
-            Shadow(color: badgeColor.withValues(alpha: 0.8), offset: const Offset(0, 1)),
+            Shadow(color: _ca(badgeColor, 0.8), offset: const Offset(0, 1)),
             const Shadow(color: Colors.black, offset: Offset(1, 1)),
           ],
         ),
@@ -2623,13 +2660,13 @@ class _GameWorldPainter extends CustomPainter {
     _fill
       ..style = PaintingStyle.fill
       ..maskFilter = null
-      ..color = Colors.black.withValues(alpha: 0.35);
+      ..color = _ca(Colors.black, 0.35);
     canvas.drawRRect(rrect.shift(const Offset(2.0, 3.5)), _fill);
 
     // 2. Die Body (Pearl Ivory or Radiant Gold)
     if (isGold) {
       _stroke
-        ..color = const Color(0xFFFFD700).withValues(alpha: 0.35 + sin(time * 10) * 0.15)
+        ..color = _ca(const Color(0xFFFFD700), 0.35 + sin(time * 10) * 0.15)
         ..strokeWidth = 4.5
         ..maskFilter = null;
       canvas.drawRRect(rrect, _stroke);
@@ -2663,7 +2700,7 @@ class _GameWorldPainter extends CustomPainter {
 
     // 3. Specular top gloss
     final glossRect = Rect.fromLTWH(-diceSize / 2 + 3, -diceSize / 2 + 2, diceSize - 6, diceSize * 0.38);
-    _fill.color = Colors.white.withValues(alpha: isGold ? 0.6 : 0.7);
+    _fill.color = _ca(Colors.white, isGold ? 0.6 : 0.7);
     canvas.drawRRect(RRect.fromRectAndRadius(glossRect, const Radius.circular(4)), _fill);
 
     // 4. Pips (Dots)
@@ -2766,14 +2803,14 @@ class _GameWorldPainter extends CustomPainter {
   void _drawParticles(Canvas canvas) {
     for (final p in c.particles.particles) {
       final progress = (p.life / p.maxLife).clamp(0.0, 1.0);
-      _fill.color = p.color.withValues(alpha: progress);
+      _fill.color = _ca(p.color, progress);
       canvas.drawCircle(Offset(p.x, p.y), p.size * progress, _fill);
     }
 
     for (final s in c.particles.shockwaves) {
       final alpha = (1.0 - s.progress).clamp(0.0, 1.0);
       _stroke
-        ..color = s.color.withValues(alpha: alpha * 0.75)
+        ..color = _ca(s.color, alpha * 0.75)
         ..strokeWidth = 2.5 * (1.0 - s.progress) + 0.5;
       canvas.drawCircle(Offset(s.x, s.y), s.currentRadius, _stroke);
     }
@@ -2783,7 +2820,7 @@ class _GameWorldPainter extends CustomPainter {
       _tp.text = TextSpan(
         text: f.text,
         style: TextStyle(
-          color: f.color.withValues(alpha: alpha),
+          color: _ca(f.color, alpha),
           fontSize: f.isLarge ? 22.0 : 13.0,
           fontWeight: FontWeight.w900,
           shadows: const [
@@ -2938,20 +2975,20 @@ class _GameWorldPainter extends CustomPainter {
       ..style = PaintingStyle.fill
       ..maskFilter = null
       ..shader = null
-      ..color = const Color(0x22CC1122).withValues(alpha: 0.10 * alpha);
+      ..color = _ca(const Color(0x22CC1122), 0.10 * alpha);
     canvas.drawCircle(Offset(splat.x, splat.y), splatWidth * 0.32, _fill);
 
     // 2. Pixel Art Bug Splat (Matching Image 2 directly with batched paths)
     canvas.save();
     canvas.translate(left, top);
 
-    _fill.color = const Color(0xFFCC1122).withValues(alpha: alpha);
+    _fill.color = _ca(const Color(0xFFCC1122), alpha);
     canvas.drawPath(_splatPath1, _fill);
 
-    _fill.color = const Color(0xFF8E070D).withValues(alpha: alpha);
+    _fill.color = _ca(const Color(0xFF8E070D), alpha);
     canvas.drawPath(_splatPath2, _fill);
 
-    _fill.color = const Color(0xFFFF2E3D).withValues(alpha: alpha);
+    _fill.color = _ca(const Color(0xFFFF2E3D), alpha);
     canvas.drawPath(_splatPath3, _fill);
 
     canvas.restore();
@@ -2962,7 +2999,7 @@ class _GameWorldPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..maskFilter = null
       ..strokeWidth = 1.3
-      ..color = Colors.white.withValues(alpha: 0.35 * alpha);
+      ..color = _ca(Colors.white, 0.35 * alpha);
     canvas.drawLine(
       Offset(splat.x - 14.0, splat.y - 12.0),
       Offset(splat.x + 8.0, splat.y + 10.0),

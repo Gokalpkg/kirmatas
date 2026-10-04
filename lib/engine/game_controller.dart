@@ -93,11 +93,13 @@ class GameController extends ChangeNotifier {
   }
 
   bool hasUsedRevive = false;
+  bool hasClaimedVictoryBonus = false;
 
   void startNewGame(GameMode mode) {
     currentMode = mode;
     status = GameStatus.ready;
     hasUsedRevive = false;
+    hasClaimedVictoryBonus = false;
 
     int startLives = mode == GameMode.zen ? 999 : 3;
     if (save.boostStocks['life'] != null && save.boostStocks['life']! > 0) {
@@ -260,6 +262,7 @@ class GameController extends ChangeNotifier {
         ball.y = paddle.y - ball.radius - 2.0;
       }
     }
+    frameTick.ping();
   }
 
   void movePaddleBy(double deltaX) {
@@ -284,12 +287,14 @@ class GameController extends ChangeNotifier {
         ball.y = paddle.y - ball.radius - 2.0;
       }
     }
+    frameTick.ping();
   }
 
   void update(double dt) {
     gameTime += dt;
 
     // Windshield Splat update: persists on screen glass for 2 seconds even when game state changes
+    final hadSplat = activeSplat != null;
     if (activeSplat != null) {
       activeSplat!.update(dt);
       if (activeSplat!.isDead) {
@@ -298,8 +303,15 @@ class GameController extends ChangeNotifier {
     }
 
     if (status != GameStatus.playing) {
+      final splash =
+          hadSplat ||
+          particles.particles.isNotEmpty ||
+          particles.shockwaves.isNotEmpty ||
+          particles.floatingTexts.isNotEmpty ||
+          particles.shakeTimeLeft > 0;
+      if (!splash) return;
       particles.update(dt);
-      notifyListeners();
+      frameTick.ping();
       return;
     }
 
@@ -324,6 +336,27 @@ class GameController extends ChangeNotifier {
     _updateDice(effectiveDt);
     _checkGameProgress();
     frameTick.ping();
+    _syncHud();
+  }
+
+  int _hudSig = 0;
+
+  void _syncHud() {
+    var sig = Object.hash(
+      stats.score,
+      stats.lives,
+      stats.level,
+      status,
+      stats.ultiCharge >= 100.0,
+      isDiceRolling,
+      diceDisplayTimer > 0,
+      activePowerUps.length,
+    );
+    for (final p in activePowerUps) {
+      sig = Object.hash(sig, p.type, (p.timeLeft * 10).floor());
+    }
+    if (sig == _hudSig) return;
+    _hudSig = sig;
     notifyListeners();
   }
 
@@ -743,8 +776,9 @@ class GameController extends ChangeNotifier {
         }
       }
       if (ball.cornerBoostTimer > 0) {
-        // Corner Shot (Köşe Vuruşu): Supersonic afterburner exhaust sparks and lingering heat burn trail
-        particles.spawnBurnEmber(ball.x, ball.y);
+        if (_rand.nextDouble() < 0.45) {
+          particles.spawnBurnEmber(ball.x, ball.y);
+        }
         if (_rand.nextDouble() < 0.30) {
           final sparkColor = _rand.nextBool() ? const Color(0xFFFFD54F) : const Color(0xFFFFF9C4);
           particles.spawnBurst(ball.x, ball.y, sparkColor, count: 1, speed: 65.0);
@@ -1630,6 +1664,16 @@ class GameController extends ChangeNotifier {
     audio.playSfx(GameSfx.powerupBuff);
     particles.spawnShockwave(screenWidth / 2, paddle.y, const Color(0xFFFF1744), maxRadius: 100.0);
     particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.45, '❤️ İKİNCİ ŞANS! +1 CAN', const Color(0xFFFF1744), isLarge: true);
+    notifyListeners();
+  }
+
+  void claimVictoryBonus() {
+    if (hasClaimedVictoryBonus) return;
+    hasClaimedVictoryBonus = true;
+    save.addGold(100);
+    audio.playSfx(GameSfx.powerupBuff);
+    particles.spawnShockwave(screenWidth / 2, screenHeight / 2, const Color(0xFFFFD54F), maxRadius: 120.0);
+    particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.45, '👑 3X ZAFER BONUSU! +100 🪙', const Color(0xFFFFD54F), isLarge: true);
     notifyListeners();
   }
 }

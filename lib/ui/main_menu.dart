@@ -10,6 +10,7 @@ import 'game_canvas.dart';
 import 'hud_overlay.dart';
 import 'pause_game_over.dart';
 import 'rewarded_ad_button.dart';
+import 'fortune_wheel_dialog.dart';
 import 'shop_view.dart';
 import 'upgrades_view.dart';
 
@@ -285,6 +286,26 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         ),
                         Row(
                           children: [
+                            IconButton(
+                              icon: const Text('🎡', style: TextStyle(fontSize: 18)),
+                              tooltip: 'Şans Çarkı',
+                              style: IconButton.styleFrom(
+                                backgroundColor: const Color(0x33FFB300),
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(36, 36),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  side: const BorderSide(color: Color(0x80FFD54F)),
+                                ),
+                              ),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (_) => const FortuneWheelDialog(),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 8),
                             const RewardedGoldAdButton(isCompact: true),
                             const SizedBox(width: 8),
                             Container(
@@ -398,6 +419,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             ],
                           ),
                           const SizedBox(height: 12),
+                          // Fortune Wheel High-Yield Feature Card
+                          _buildFortuneWheelCard(),
+                          const SizedBox(height: 12),
                           // Game Speed Options moved under modes
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -509,6 +533,144 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildFortuneWheelCard() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2E1065), Color(0xFF581C87), Color(0xFF701A75)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFFFD54F), width: 1.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66701A75),
+            blurRadius: 18,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (_) => const FortuneWheelDialog(),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                // Wheel Icon / Badge with golden glow
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const RadialGradient(
+                      colors: [Color(0xFFFFEE58), Color(0xFFF57F17)],
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x88FFD600),
+                        blurRadius: 12,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Text('🎡', style: TextStyle(fontSize: 26)),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                // Text Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'ŞANS ÇARKI',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFD54F),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              '500 🪙 BÜYÜK ÖDÜL',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'Çevir & Sandık, Altın veya Parça Kazan!',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Play Icon Button Pill
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFD54F),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x66FFD54F),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'ÇEVİR',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      Icon(Icons.arrow_forward_ios, color: Colors.black, size: 11),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

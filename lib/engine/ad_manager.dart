@@ -12,6 +12,9 @@ class AdManager extends ChangeNotifier {
   // User's provided AdMob Rewarded Ad Unit ID
   static const String rewardedAdUnitId = 'ca-app-pub-9505724609102225/1791945382';
   
+  // User's provided High-Yield (Yüksek Gelirli) AdMob Ad Unit ID for Fortune Wheel & Victory 3X
+  static const String highYieldAdUnitId = 'ca-app-pub-9505724609102225/2723019148';
+
   // Standard Google AdMob test rewarded ad unit ID (used as reliable fallback in development/zero-inventory)
   static const String testRewardedAdUnitId = 'ca-app-pub-3940256099942544/5224354917';
 
@@ -19,13 +22,17 @@ class AdManager extends ChangeNotifier {
   static const int cooldownSeconds = 90;
 
   RewardedAd? _rewardedAd;
+  RewardedAd? _highYieldAd;
   bool _isLoading = false;
+  bool _isLoadingHighYield = false;
   bool _isShowing = false;
   bool _initialized = false;
 
   bool get isLoading => _isLoading;
+  bool get isLoadingHighYield => _isLoadingHighYield;
   bool get isShowing => _isShowing;
   bool get isAdReady => _rewardedAd != null;
+  bool get isHighYieldAdReady => _highYieldAd != null;
 
   int get remainingCooldownSeconds {
     final lastTime = SaveManager.instance.lastAdWatchTime;
@@ -46,6 +53,7 @@ class AdManager extends ChangeNotifier {
       debugPrint('MobileAds initialization error: $e');
     }
     preloadRewardedAd();
+    preloadHighYieldAd();
   }
 
   /// Preloads a rewarded ad in the background so it is instantly ready when clicked.
@@ -233,6 +241,117 @@ class AdManager extends ChangeNotifier {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Reklam gösterilemedi. Lütfen internet bağlantınızı kontrol edin.'),
+            backgroundColor: Color(0xFFC62828),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+    );
+
+    await currentAd.show(
+      onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+        userEarnedReward = true;
+      },
+    );
+  }
+
+  /// Preloads the high-yield rewarded ad in the background.
+  void preloadHighYieldAd() {
+    if (_highYieldAd != null || _isLoadingHighYield) return;
+    _isLoadingHighYield = true;
+    notifyListeners();
+
+    // First attempt to load with the user's high-yield Ad Unit ID.
+    // If it fails (e.g. initial zero-fill period on newly created IDs), fallback to test ID.
+    RewardedAd.load(
+      adUnitId: highYieldAdUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          _highYieldAd = ad;
+          _isLoadingHighYield = false;
+          notifyListeners();
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          debugPrint('High-yield ad failed: $error. Falling back to test Ad Unit ID...');
+          RewardedAd.load(
+            adUnitId: testRewardedAdUnitId,
+            request: const AdRequest(),
+            rewardedAdLoadCallback: RewardedAdLoadCallback(
+              onAdLoaded: (testAd) {
+                _highYieldAd = testAd;
+                _isLoadingHighYield = false;
+                notifyListeners();
+              },
+              onAdFailedToLoad: (LoadAdError testError) {
+                debugPrint('High-yield test fallback failed: $testError');
+                _highYieldAd = null;
+                _isLoadingHighYield = false;
+                notifyListeners();
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Shows the high-yield rewarded ad for Fortune Wheel spins or 3X Victory gold multipliers.
+  Future<void> watchHighYieldAd(
+    BuildContext context, {
+    required VoidCallback onSuccess,
+    required VoidCallback onDismissedEarly,
+  }) async {
+    if (_isShowing) return;
+
+    if (_highYieldAd == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ödüllü reklam yükleniyor, lütfen birkaç saniye sonra tekrar deneyin...'),
+          backgroundColor: Color(0xFF1E2438),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      preloadHighYieldAd();
+      return;
+    }
+
+    _isShowing = true;
+    notifyListeners();
+
+    bool userEarnedReward = false;
+    final currentAd = _highYieldAd!;
+
+    currentAd.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (ad) {
+        debugPrint('High-yield rewarded ad showed');
+      },
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        _highYieldAd = null;
+        _isShowing = false;
+        notifyListeners();
+
+        // Preload next high-yield ad in the background
+        preloadHighYieldAd();
+
+        if (userEarnedReward) {
+          onSuccess();
+        } else {
+          onDismissedEarly();
+        }
+      },
+      onAdFailedToShowFullScreenContent: (ad, AdError error) {
+        debugPrint('High-yield rewarded ad failed to show: $error');
+        ad.dispose();
+        _highYieldAd = null;
+        _isShowing = false;
+        notifyListeners();
+        preloadHighYieldAd();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reklam açılamadı. Lütfen internet bağlantınızı kontrol edin.'),
             backgroundColor: Color(0xFFC62828),
             behavior: SnackBarBehavior.floating,
           ),

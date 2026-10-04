@@ -1207,5 +1207,35 @@ void main() {
       expect(controller.hasUsedRevive, false);
       expect(controller.stats.lives >= 3, true);
     });
+
+    test('AdManager highYieldAdUnitId is configured correctly with ca-app-pub-9505724609102225/2723019148', () {
+      expect(AdManager.highYieldAdUnitId, 'ca-app-pub-9505724609102225/2723019148');
+      expect(AdManager.instance.isHighYieldAdReady, false); // Not loaded in headless unit test
+      expect(AdManager.instance.isLoadingHighYield, false);
+    });
+
+    test('GameController claimVictoryBonus grants +100 gold and is single-use per victory', () async {
+      final save = SaveManager.instance;
+      await save.init();
+      final initialGold = save.gold;
+
+      final controller = GameController();
+      controller.setDimensions(360, 640);
+      controller.startNewGame(GameMode.classic);
+      expect(controller.hasClaimedVictoryBonus, false);
+
+      // Claim victory bonus
+      controller.claimVictoryBonus();
+      expect(controller.hasClaimedVictoryBonus, true);
+      expect(save.gold, initialGold + 100);
+
+      // Attempt to claim again in same match
+      controller.claimVictoryBonus();
+      expect(save.gold, initialGold + 100); // Does not increase again
+
+      // New game resets victory bonus claim
+      controller.startNewGame(GameMode.classic);
+      expect(controller.hasClaimedVictoryBonus, false);
+    });
   });
 }
