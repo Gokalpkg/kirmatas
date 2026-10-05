@@ -42,6 +42,27 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
     super.dispose();
   }
 
+  int _getBaseGoldForDay(int day) {
+    switch (day) {
+      case 1:
+        return 50;
+      case 2:
+        return 100;
+      case 3:
+        return 150;
+      case 4:
+        return 200;
+      case 5:
+        return 300;
+      case 6:
+        return 400;
+      case 7:
+        return 600;
+      default:
+        return 50;
+    }
+  }
+
   void _claimReward({bool doubleWithAd = false}) async {
     final result = await _save.claimDailyLoginReward(doubleWithAd: doubleWithAd);
     if (!mounted) return;
@@ -182,55 +203,126 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
 
                 // Action Buttons
                 if (canClaim) ...[
-                  Row(
-                    children: [
-                      // Normal Claim
-                      Expanded(
-                        flex: 4,
-                        child: OutlinedButton(
-                          onPressed: () => _claimReward(doubleWithAd: false),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.white24, width: 1.5),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          ),
-                          child: const Text(
-                            'Normal Al',
-                            style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w800, fontSize: 13),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      // 2X Video Double
-                      Expanded(
-                        flex: 6,
-                        child: ScaleTransition(
-                          scale: _pulseScale,
-                          child: ElevatedButton(
-                            onPressed: _watchAdToDouble,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFFB300),
-                              foregroundColor: const Color(0xFF2E1C00),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              elevation: 6,
-                              shadowColor: const Color(0xFFFFB300).withValues(alpha: 0.6),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.play_circle_fill, size: 18, color: Color(0xFF2E1C00)),
-                                SizedBox(width: 6),
-                                Text(
-                                  '2X KATLA & AL!',
-                                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                  Builder(
+                    builder: (context) {
+                      final baseGold = _getBaseGoldForDay(currentDay);
+                      final doubledGold = baseGold * 2;
+
+                      return Column(
+                        children: [
+                          // 2X Video Double Button (Primary, glowing)
+                          ScaleTransition(
+                            scale: _pulseScale,
+                            child: Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFFFD54F), Color(0xFFFFB300), Color(0xFFFF8F00)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
-                              ],
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: const Color(0xFFFFF9C4), width: 1.5),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFFF8F00).withValues(alpha: 0.5),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(20),
+                                  onTap: _watchAdToDouble,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    child: Column(
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(5),
+                                              decoration: const BoxDecoration(
+                                                color: Color(0xFF2E1C00),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFFFD54F), size: 18),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '🔥 2X KATLA & AL: $doubledGold 🪙',
+                                              style: const TextStyle(
+                                                color: Color(0xFF2E1C00),
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 16,
+                                                letterSpacing: 0.3,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFD50000),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: const Text(
+                                                '+2X',
+                                                style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              '$baseGold 🪙',
+                                              style: const TextStyle(
+                                                color: Color(0xFF5D4037),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                decoration: TextDecoration.lineThrough,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            const Text(
+                                              '➔',
+                                              style: TextStyle(color: Color(0xFF2E1C00), fontSize: 11, fontWeight: FontWeight.w900),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Kısa Video İzle, Bugünkü Ödülü 2\'ye Katla! (Günde 1 Kez)',
+                                              style: const TextStyle(
+                                                color: Color(0xFF3E2723),
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    ],
+                          const SizedBox(height: 10),
+                          // Normal 1X Claim Button
+                          TextButton(
+                            onPressed: () => _claimReward(doubleWithAd: false),
+                            child: Text(
+                              'Normal Al ($baseGold 🪙 - Katlamadan)',
+                              style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ] else ...[
                   Container(
