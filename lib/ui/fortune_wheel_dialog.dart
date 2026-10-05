@@ -340,8 +340,8 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
               ],
             ),
             const Text(
-              'Her Çevirmede Büyük Ödüller!',
-              style: TextStyle(color: Colors.white60, fontSize: 12),
+              '💎 500🪙 Jackpot, Sandık veya Parça Kazanma Şansı!',
+              style: TextStyle(color: Color(0xFFFFD54F), fontSize: 12, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
 
@@ -402,51 +402,100 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
               builder: (context, _) {
                 final isLoading = adManager.isLoadingHighYield || _isSpinning;
 
-                return ElevatedButton(
-                  onPressed: isLoading ? null : _onWatchAdAndSpin,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFB300),
-                    foregroundColor: const Color(0xFF2E1C00),
-                    disabledBackgroundColor: const Color(0x33FFB300),
-                    minimumSize: const Size.fromHeight(52),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    elevation: 6,
-                    shadowColor: const Color(0xFFFF8F00).withValues(alpha: 0.5),
+                return Container(
+                  decoration: BoxDecoration(
+                    gradient: isLoading
+                        ? null
+                        : const LinearGradient(
+                            colors: [Color(0xFFFFF176), Color(0xFFFFB300), Color(0xFFFF8F00)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                    color: isLoading ? const Color(0x33FFB300) : null,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: isLoading ? Colors.white12 : const Color(0xFFFFFDE7),
+                      width: 1.8,
+                    ),
+                    boxShadow: isLoading
+                        ? null
+                        : [
+                            BoxShadow(
+                              color: const Color(0xFFFF8F00).withValues(alpha: 0.5),
+                              blurRadius: 18,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (isLoading) ...[
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(22),
+                      onTap: isLoading ? null : _onWatchAdAndSpin,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (isLoading) ...[
+                              const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                _isSpinning ? 'Çark Dönüyor...' : 'Reklam Hazırlanıyor...',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ] else ...[
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2E1C00),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFFFD54F).withValues(alpha: 0.6),
+                                      blurRadius: 6,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFFFD54F), size: 18),
+                              ),
+                              const SizedBox(width: 10),
+                              const Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '🎯 ŞANSINI DENE & ÇEVİR!',
+                                    style: TextStyle(
+                                      color: Color(0xFF2E1C00),
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 14,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Garanti Ödül: 500🪙, Sandık veya Parça',
+                                    style: TextStyle(
+                                      color: Color(0xFF4E342E),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
                         ),
-                        const SizedBox(width: 10),
-                        Text(
-                          _isSpinning ? 'Çark Dönüyor...' : 'Reklam Hazırlanıyor...',
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
-                        ),
-                      ] else ...[
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF2E1C00),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFFFD54F), size: 16),
-                        ),
-                        const SizedBox(width: 10),
-                        const Text(
-                          '🎬 REKLAM İZLE & ÇEVİR!',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ],
+                      ),
+                    ),
                   ),
                 );
               },

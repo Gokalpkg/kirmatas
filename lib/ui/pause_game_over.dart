@@ -386,29 +386,48 @@ class PauseGameOverOverlay extends StatelessWidget {
                   ),
                 ] else ...[
                   Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          blurRadius: 8,
+                        ),
+                      ],
                     ),
-                    child: const Icon(Icons.favorite, color: Color(0xFFFF1744), size: 16),
+                    child: const Icon(Icons.favorite, color: Color(0xFFFF1744), size: 18),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   const Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'İKİNCİ ŞANS! (+1 CAN)',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                          letterSpacing: 0.5,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            '❤️ REKORU KURTAR!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            '(+1 CAN)',
+                            style: TextStyle(
+                              color: Color(0xFFFFEB3B),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
                       Text(
-                        'Reklam İzle ve Devam Et',
+                        'Kaldığın Yerden Rekoruna Devam Et',
                         style: TextStyle(
                           color: Colors.white70,
                           fontWeight: FontWeight.w600,
@@ -460,16 +479,16 @@ class PauseGameOverOverlay extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFFFB300), Color(0xFFFF8F00), Color(0xFFFF6F00)],
+          colors: [Color(0xFFFFA000), Color(0xFFFF8F00), Color(0xFFFF6F00)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFFFE082), width: 1.5),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFFFF9C4), width: 1.8),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x66FF8F00),
-            blurRadius: 18,
+            color: Color(0x88FF8F00),
+            blurRadius: 20,
             offset: Offset(0, 4),
           ),
         ],
@@ -477,7 +496,7 @@ class PauseGameOverOverlay extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           onTap: isLoading
               ? null
               : () {
@@ -518,59 +537,121 @@ class PauseGameOverOverlay extends StatelessWidget {
                   );
                 },
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                if (isLoading) ...[
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                // Top Tag Banner
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0x33000000),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white24),
                   ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Reklam Hazırlanıyor...',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                    ),
-                  ),
-                ] else ...[
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.monetization_on, color: Color(0xFFFF8F00), size: 16),
-                  ),
-                  const SizedBox(width: 10),
-                  const Column(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Icon(Icons.local_fire_department, color: Color(0xFFFFEB3B), size: 14),
+                      SizedBox(width: 4),
                       Text(
-                        '👑 ZAFERİ 3X KATLA! (+200 🪙)',
+                        'ÖDÜLÜ KATLAMA FIRSATI',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
-                          fontSize: 13,
+                          fontSize: 10,
                           letterSpacing: 0.5,
-                        ),
-                      ),
-                      Text(
-                        'Ödüllü Reklam İzle & Altınını Katla',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
+                const SizedBox(height: 6),
+                // Main Multiplier Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (isLoading) ...[
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Reklam Hazırlanıyor...',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
+                      ),
+                    ] else ...[
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFFD54F).withValues(alpha: 0.6),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.stars_rounded, color: Color(0xFFFF8F00), size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                '100 🪙 ➔ ',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
+                              const Text(
+                                '👑 300 🪙',
+                                style: TextStyle(
+                                  color: Color(0xFFFFFDE7),
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 15,
+                                  letterSpacing: 0.5,
+                                  shadows: [
+                                    Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFD50000),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  '+200 BONUS',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 9),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Kısa Reklam İzle & 3 Kat Fazla Kazan!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),

@@ -136,7 +136,7 @@ class _RewardedGoldAdButtonState extends State<RewardedGoldAdButton> with Single
     final reward = AdManager.goldRewardAmount;
     final text = isOnCooldown
         ? '🪙 +$reward (${_formatCooldown(cooldown)})'
-        : (isLoading ? 'Yükleniyor...' : '🪙 +$reward Altın');
+        : (isLoading ? 'Hazırlanıyor...' : '🎁 +$reward Altın');
 
     return Container(
       decoration: BoxDecoration(
@@ -235,52 +235,97 @@ class _RewardedGoldAdButtonState extends State<RewardedGoldAdButton> with Single
               ]
             : null,
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (isLoading) ...[
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white70),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'Reklam Yükleniyor...',
-              style: TextStyle(
-                color: Colors.white70,
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-              ),
-            ),
-          ] else if (isOnCooldown) ...[
-            const Icon(Icons.hourglass_top, color: Colors.white54, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              '🪙 +${AdManager.goldRewardAmount} Altın (${_formatCooldown(cooldown)})',
-              style: const TextStyle(
-                color: Colors.white54,
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-              ),
-            ),
-          ] else ...[
+          if (isEnabled) ...[
             Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Color(0xFF3E2723),
-                shape: BoxShape.circle,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              margin: const EdgeInsets.only(bottom: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD84315),
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 1)),
+                ],
               ),
-              child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFFFD54F), size: 16),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.card_giftcard, size: 12, color: Colors.white),
+                  SizedBox(width: 4),
+                  Text(
+                    '🎁 ÜCRETSİZ HEDİYE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(width: 10),
-            Text(
-              '🪙 +${AdManager.goldRewardAmount} Altın (Reklam İzle)',
-              style: const TextStyle(
-                color: Color(0xFF2E1C00),
-                fontWeight: FontWeight.w900,
-                fontSize: 15,
-                letterSpacing: 0.3,
+          ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isLoading) ...[
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white70),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Reklam Hazırlanıyor...',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+              ] else if (isOnCooldown) ...[
+                const Icon(Icons.hourglass_top, color: Colors.white54, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  '🪙 +${AdManager.goldRewardAmount} Altın (${_formatCooldown(cooldown)})',
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF3E2723),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFFFD54F), size: 18),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '🪙 +${AdManager.goldRewardAmount} Altın Al!',
+                  style: const TextStyle(
+                    color: Color(0xFF2E1C00),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (isEnabled) ...[
+            const SizedBox(height: 2),
+            const Text(
+              'Kısa Video İzle & Kasana +100 Altın Ekle',
+              style: TextStyle(
+                color: Color(0xFF4E342E),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],

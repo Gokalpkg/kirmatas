@@ -601,22 +601,27 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             'ŞANS ÇARKI',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 15,
+                              fontSize: 16,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 0.8,
                             ),
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFD54F),
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFFD54F), Color(0xFFFF9100)],
+                              ),
                               borderRadius: BorderRadius.circular(8),
+                              boxShadow: const [
+                                BoxShadow(color: Color(0x66FF9100), blurRadius: 6),
+                              ],
                             ),
                             child: const Text(
-                              '500 🪙 BÜYÜK ÖDÜL',
+                              '500 🪙 BÜYÜK İKRAMİYE',
                               style: TextStyle(
-                                color: Colors.black,
+                                color: Color(0xFF2E1C00),
                                 fontSize: 9,
                                 fontWeight: FontWeight.w900,
                               ),
@@ -624,11 +629,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       const Text(
                         'Çevir & Sandık, Altın veya Parça Kazan!',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: Color(0xFFE1BEE7),
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -640,12 +645,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFD54F),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFFF9800)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: const [
                       BoxShadow(
-                        color: Color(0x66FFD54F),
-                        blurRadius: 8,
+                        color: Color(0x88FFD54F),
+                        blurRadius: 10,
                         offset: Offset(0, 2),
                       ),
                     ],
@@ -656,13 +665,14 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       Text(
                         'ÇEVİR',
                         style: TextStyle(
-                          color: Colors.black,
+                          color: Color(0xFF2E1C00),
                           fontWeight: FontWeight.w900,
                           fontSize: 12,
+                          letterSpacing: 0.5,
                         ),
                       ),
                       SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_ios, color: Colors.black, size: 11),
+                      Icon(Icons.play_arrow_rounded, color: Color(0xFF2E1C00), size: 14),
                     ],
                   ),
                 ),
