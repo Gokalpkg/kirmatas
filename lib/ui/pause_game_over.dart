@@ -150,6 +150,27 @@ class PauseGameOverOverlay extends StatelessWidget {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Kazanılan Altın', style: TextStyle(color: Colors.white70)),
+                          Row(
+                            children: [
+                              const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
+                              const SizedBox(width: 4),
+                              Text(
+                                '+${stats.goldCollected}',
+                                style: const TextStyle(
+                                  color: Color(0xFFFFD54F),
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -423,7 +444,7 @@ class PauseGameOverOverlay extends StatelessWidget {
             Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 20),
             SizedBox(width: 8),
             Text(
-              '3X ZAFER BONUSU ALINDI! (+100 🪙)',
+              '3X ZAFER BONUSU ALINDI! (+200 🪙)',
               style: TextStyle(
                 color: Color(0xFF81C784),
                 fontWeight: FontWeight.w900,
@@ -474,7 +495,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                               SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  '3X Zafer ödülünü (+100 🪙) kazanmak için reklamı sonuna kadar izlemelisiniz.',
+                                  '3X Zafer ödülünü (+200 🪙) kazanmak için reklamı sonuna kadar izlemelisiniz.',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
@@ -531,7 +552,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '👑 ZAFERİ 3X KATLA! (+100 🪙)',
+                        '👑 ZAFERİ 3X KATLA! (+200 🪙)',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,

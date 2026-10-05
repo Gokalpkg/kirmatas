@@ -1205,9 +1205,10 @@ class GameController extends ChangeNotifier {
     // Roll powerup drop
     _rollCapsuleDrop(b.x + b.width / 2, b.y + b.height / 2);
 
-    // Coin gain
-    if (_rand.nextDouble() < 0.20) {
-      final coins = 1 + _rand.nextInt(3);
+    // Balanced coin gain: 30% drop rate, 2-5 coins + combo bonus
+    if (_rand.nextDouble() < 0.30) {
+      int coins = 2 + _rand.nextInt(4);
+      if (stats.combo >= 5) coins += 2;
       stats.goldCollected += coins;
       save.addGold(coins);
       particles.spawnFloatingText(b.x + b.width / 2, b.y, '+$coins 🪙', const Color(0xFFFFD54F));
@@ -1619,10 +1620,14 @@ class GameController extends ChangeNotifier {
       if (currentMode == GameMode.daily) {
         _onVictory();
       } else {
-        // Classic next level
+        // Classic next level: award Level Clear Gold Bonus!
+        final levelGold = 25 + (stats.level * 5).clamp(0, 50);
+        stats.goldCollected += levelGold;
+        save.addGold(levelGold);
         stats.level++;
         stats.score += 250 * stats.level;
         particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.4, '${I18n.tr('level').toUpperCase()} ${stats.level}!', const Color(0xFFFFD54F), isLarge: true);
+        particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.47, '+$levelGold 🪙 BÖLÜM BONUSU!', const Color(0xFFFFD54F), isLarge: false);
         audio.playSfx(GameSfx.victory);
         resetPaddleAndBall();
         loadLevelBricks();
@@ -1634,7 +1639,8 @@ class GameController extends ChangeNotifier {
   void _onVictory() {
     status = GameStatus.victory;
     save.updateHighScore(currentMode, stats.score);
-    save.addGold(50);
+    save.addGold(100);
+    stats.goldCollected += 100;
     audio.playSfx(GameSfx.victory);
   }
 
@@ -1670,10 +1676,11 @@ class GameController extends ChangeNotifier {
   void claimVictoryBonus() {
     if (hasClaimedVictoryBonus) return;
     hasClaimedVictoryBonus = true;
-    save.addGold(100);
+    save.addGold(200);
+    stats.goldCollected += 200;
     audio.playSfx(GameSfx.powerupBuff);
     particles.spawnShockwave(screenWidth / 2, screenHeight / 2, const Color(0xFFFFD54F), maxRadius: 120.0);
-    particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.45, '👑 3X ZAFER BONUSU! +100 🪙', const Color(0xFFFFD54F), isLarge: true);
+    particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.45, '👑 3X ZAFER BONUSU! +200 🪙', const Color(0xFFFFD54F), isLarge: true);
     notifyListeners();
   }
 }

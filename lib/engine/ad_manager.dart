@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../storage/save_manager.dart';
@@ -20,6 +19,9 @@ class AdManager extends ChangeNotifier {
 
   // 90 seconds (1.5 minutes) anti-spam cooldown between rewarded ad watches
   static const int cooldownSeconds = 90;
+
+  // Balanced reward amount for standard rewarded ad watch (+100 gold)
+  static const int goldRewardAmount = 100;
 
   RewardedAd? _rewardedAd;
   RewardedAd? _highYieldAd;
@@ -152,11 +154,11 @@ class AdManager extends ChangeNotifier {
         preloadRewardedAd();
 
         if (userEarnedReward) {
-          // Add 50 gold to the player and save immediately
-          SaveManager.instance.addGold(50);
+          // Add gold to the player and save immediately
+          SaveManager.instance.addGold(goldRewardAmount);
           SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
           AudioManager.instance.playSfx(GameSfx.powerupBuff);
-          onSuccess(50);
+          onSuccess(goldRewardAmount);
         } else {
           onDismissedEarly();
         }

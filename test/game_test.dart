@@ -718,10 +718,10 @@ void main() {
       expect(CategoryCrateInfo.categoryCrates.containsKey('trails'), true);
       expect(CategoryCrateInfo.categoryCrates.containsKey('bricks'), true);
 
-      expect(CategoryCrateInfo.categoryCrates['balls']!.cost, 1200);
-      expect(CategoryCrateInfo.categoryCrates['paddles']!.cost, 1500);
-      expect(CategoryCrateInfo.categoryCrates['trails']!.cost, 1400);
-      expect(CategoryCrateInfo.categoryCrates['bricks']!.cost, 1300);
+      expect(CategoryCrateInfo.categoryCrates['balls']!.cost, 800);
+      expect(CategoryCrateInfo.categoryCrates['paddles']!.cost, 1000);
+      expect(CategoryCrateInfo.categoryCrates['trails']!.cost, 900);
+      expect(CategoryCrateInfo.categoryCrates['bricks']!.cost, 850);
 
       final weights = CategoryCrateInfo.rarityWeights;
       expect(weights[Rarity.common], 55.0);
@@ -1151,14 +1151,15 @@ void main() {
       expect(save.gold, 100);
       expect(AdManager.rewardedAdUnitId, 'ca-app-pub-9505724609102225/1791945382');
       expect(AdManager.cooldownSeconds, 90);
+      expect(AdManager.goldRewardAmount, 100);
 
       // When lastAdWatchTime is 0, user can watch ad immediately
       save.lastAdWatchTime = 0;
       expect(AdManager.instance.remainingCooldownSeconds, 0);
 
-      // Simulate reward completion: +50 gold
-      await save.addGold(50);
-      expect(save.gold, 150);
+      // Simulate reward completion: +100 gold
+      await save.addGold(AdManager.goldRewardAmount);
+      expect(save.gold, 200);
 
       // Set ad watch timestamp to now
       final now = DateTime.now().millisecondsSinceEpoch;
@@ -1214,7 +1215,7 @@ void main() {
       expect(AdManager.instance.isLoadingHighYield, false);
     });
 
-    test('GameController claimVictoryBonus grants +100 gold and is single-use per victory', () async {
+    test('GameController claimVictoryBonus grants +200 gold and is single-use per victory', () async {
       final save = SaveManager.instance;
       await save.init();
       final initialGold = save.gold;
@@ -1227,11 +1228,11 @@ void main() {
       // Claim victory bonus
       controller.claimVictoryBonus();
       expect(controller.hasClaimedVictoryBonus, true);
-      expect(save.gold, initialGold + 100);
+      expect(save.gold, initialGold + 200);
 
       // Attempt to claim again in same match
       controller.claimVictoryBonus();
-      expect(save.gold, initialGold + 100); // Does not increase again
+      expect(save.gold, initialGold + 200); // Does not increase again
 
       // New game resets victory bonus claim
       controller.startNewGame(GameMode.classic);

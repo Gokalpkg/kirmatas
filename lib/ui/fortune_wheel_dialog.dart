@@ -2,7 +2,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
-import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
 import 'crate_opening_dialog.dart';
@@ -38,7 +37,6 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
 
   double _currentRotation = 0.0;
   bool _isSpinning = false;
-  WheelReward? _winningReward;
 
   final List<WheelReward> _rewards = [
     WheelReward(
@@ -86,12 +84,12 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       onClaim: (context, save) => save.addGold(250),
     ),
     WheelReward(
-      label: '100 🪙',
+      label: '150 🪙',
       subtitle: 'Altın',
       icon: Icons.stars,
       primaryColor: const Color(0xFFFFD54F),
       secondaryColor: const Color(0xFFFFB300),
-      onClaim: (context, save) => save.addGold(100),
+      onClaim: (context, save) => save.addGold(150),
     ),
     WheelReward(
       label: '+1 CAN',
@@ -102,20 +100,20 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       onClaim: (context, save) => save.addBoostStock('life', 1),
     ),
     WheelReward(
-      label: '75 🪙',
+      label: '100 🪙',
       subtitle: 'Altın',
       icon: Icons.toll,
       primaryColor: const Color(0xFF26A69A),
       secondaryColor: const Color(0xFF00897B),
-      onClaim: (context, save) => save.addGold(75),
+      onClaim: (context, save) => save.addGold(100),
     ),
     WheelReward(
-      label: '50 🪙',
+      label: '75 🪙',
       subtitle: 'Altın',
       icon: Icons.monetization_on,
       primaryColor: const Color(0xFFAB47BC),
       secondaryColor: const Color(0xFF8E24AA),
-      onClaim: (context, save) => save.addGold(50),
+      onClaim: (context, save) => save.addGold(75),
     ),
   ];
 
@@ -138,7 +136,6 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     if (_isSpinning) return;
     setState(() {
       _isSpinning = true;
-      _winningReward = null;
     });
 
     final rand = Random();
@@ -189,7 +186,6 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       final selectedReward = _rewards[targetIndex];
       setState(() {
         _isSpinning = false;
-        _winningReward = selectedReward;
       });
 
       AudioManager.instance.playSfx(GameSfx.ulti);

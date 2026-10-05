@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../engine/ad_manager.dart';
-import '../engine/audio_manager.dart';
 
 class RewardedGoldAdButton extends StatefulWidget {
   final bool isCompact;
@@ -134,9 +133,10 @@ class _RewardedGoldAdButtonState extends State<RewardedGoldAdButton> with Single
   }
 
   Widget _buildCompactButton(bool isEnabled, bool isOnCooldown, bool isLoading, int cooldown) {
+    final reward = AdManager.goldRewardAmount;
     final text = isOnCooldown
-        ? '🪙 +50 (${_formatCooldown(cooldown)})'
-        : (isLoading ? 'Yükleniyor...' : '🪙 +50 Altın');
+        ? '🪙 +$reward (${_formatCooldown(cooldown)})'
+        : (isLoading ? 'Yükleniyor...' : '🪙 +$reward Altın');
 
     return Container(
       decoration: BoxDecoration(
@@ -257,7 +257,7 @@ class _RewardedGoldAdButtonState extends State<RewardedGoldAdButton> with Single
             const Icon(Icons.hourglass_top, color: Colors.white54, size: 20),
             const SizedBox(width: 8),
             Text(
-              '🪙 +50 Altın (${_formatCooldown(cooldown)})',
+              '🪙 +${AdManager.goldRewardAmount} Altın (${_formatCooldown(cooldown)})',
               style: const TextStyle(
                 color: Colors.white54,
                 fontWeight: FontWeight.w800,
@@ -274,9 +274,9 @@ class _RewardedGoldAdButtonState extends State<RewardedGoldAdButton> with Single
               child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFFFD54F), size: 16),
             ),
             const SizedBox(width: 10),
-            const Text(
-              '🪙 +50 Altın (Reklam İzle)',
-              style: TextStyle(
+            Text(
+              '🪙 +${AdManager.goldRewardAmount} Altın (Reklam İzle)',
+              style: const TextStyle(
                 color: Color(0xFF2E1C00),
                 fontWeight: FontWeight.w900,
                 fontSize: 15,

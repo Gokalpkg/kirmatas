@@ -543,7 +543,7 @@ class CrateDef {
     CrateDef(
       id: 'wood',
       name: 'Ahşap Sandık',
-      cost: 900,
+      cost: 600,
       tier: Rarity.common,
       primaryColor: Color(0xFF8D6E63),
       weights: {
@@ -556,7 +556,7 @@ class CrateDef {
     CrateDef(
       id: 'coral',
       name: 'Mercan Sandığı',
-      cost: 1800,
+      cost: 1400,
       tier: Rarity.rare,
       primaryColor: Color(0xFF00BCD4),
       weights: {
@@ -569,7 +569,7 @@ class CrateDef {
     CrateDef(
       id: 'abyss',
       name: 'Derinlik Sandığı',
-      cost: 3200,
+      cost: 2800,
       tier: Rarity.legendary,
       primaryColor: Color(0xFF7C4DFF),
       weights: {
@@ -609,7 +609,7 @@ class UpgradeDef {
       description: 'Ulti göstergesi her seviyede %25 daha hızlı dolar.',
       icon: Icons.bolt,
       maxLevel: 3,
-      costs: [900, 1800, 3200],
+      costs: [500, 1200, 2500],
     ),
     UpgradeDef(
       id: 'magnet',
@@ -617,7 +617,7 @@ class UpgradeDef {
       description: 'Düşen tüm güçlendirmeleri otomatik olarak rakete çeker.',
       icon: Icons.filter_tilt_shift,
       maxLevel: 3,
-      costs: [1100, 2100, 3600],
+      costs: [600, 1500, 3000],
     ),
     UpgradeDef(
       id: 'luck',
@@ -625,7 +625,7 @@ class UpgradeDef {
       description: 'Sandıklardan nadir eşya ve oyunda pozitif buff çıkma şansını artırır.',
       icon: Icons.auto_awesome,
       maxLevel: 3,
-      costs: [1400, 2600, 4200],
+      costs: [800, 1800, 3500],
     ),
   ];
 }
@@ -655,7 +655,7 @@ class BoostItem {
       id: 'life',
       name: '+1 Ekstra Can',
       description: 'Maça 1 fazladan can ile başlayın.',
-      cost: 900,
+      cost: 250,
       icon: Icons.favorite,
       color: Color(0xFFFF5252),
     ),
@@ -663,7 +663,7 @@ class BoostItem {
       id: 'wide',
       name: 'Geniş Raket',
       description: 'Maça doğrudan genişletilmiş raket ile başlayın.',
-      cost: 1100,
+      cost: 350,
       icon: Icons.aspect_ratio,
       color: Color(0xFF40C4FF),
     ),
@@ -671,7 +671,7 @@ class BoostItem {
       id: 'multi',
       name: 'Çoklu Başlangıç',
       description: 'Maça tek top yerine 3 topla aynı anda başlayın.',
-      cost: 1700,
+      cost: 500,
       icon: Icons.blur_on,
       color: Color(0xFFFF9800),
     ),
@@ -826,7 +826,7 @@ class CategoryCrateInfo {
       category: 'balls',
       titleKey: 'crate_balls',
       defaultName: 'Top Sandığı',
-      cost: 1200,
+      cost: 800,
       primaryColor: Color(0xFFFFD54F),
       icon: Icons.sports_volleyball,
     ),
@@ -834,7 +834,7 @@ class CategoryCrateInfo {
       category: 'paddles',
       titleKey: 'crate_paddles',
       defaultName: 'Paddle Sandığı',
-      cost: 1500,
+      cost: 1000,
       primaryColor: Color(0xFF00E5FF),
       icon: Icons.view_stream,
     ),
@@ -842,7 +842,7 @@ class CategoryCrateInfo {
       category: 'trails',
       titleKey: 'crate_trails',
       defaultName: 'İz Sandığı',
-      cost: 1400,
+      cost: 900,
       primaryColor: Color(0xFFE040FB),
       icon: Icons.grain,
     ),
@@ -850,7 +850,7 @@ class CategoryCrateInfo {
       category: 'bricks',
       titleKey: 'crate_bricks',
       defaultName: 'Blok Sandığı',
-      cost: 1300,
+      cost: 850,
       primaryColor: Color(0xFFFF7EB3),
       icon: Icons.view_module,
     ),
