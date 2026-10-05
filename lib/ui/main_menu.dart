@@ -11,6 +11,8 @@ import 'hud_overlay.dart';
 import 'pause_game_over.dart';
 import 'rewarded_ad_button.dart';
 import 'fortune_wheel_dialog.dart';
+import 'daily_login_dialog.dart';
+import 'daily_quests_dialog.dart';
 import 'shop_view.dart';
 import 'upgrades_view.dart';
 
@@ -513,9 +515,18 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         _buildNavButton(
                           icon: Icons.water,
                           label: I18n.tr('aquarium'),
+                          badge: _save.currentAvailableFishGold > 0 ? '🪙' : (_save.isFishHungry ? '🌾' : null),
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => const AquariumView()),
                           ),
+                        ),
+                        _buildNavButton(
+                          icon: Icons.assignment_turned_in,
+                          label: 'Görevler',
+                          badge: ((_save.questFishFed && !_save.claimedQuests.contains('feed_fish')) ||
+                                  (_save.questBricksBroken >= 100 && !_save.claimedQuests.contains('break_bricks')) ||
+                                  (_save.questAdOrWinDone && !_save.claimedQuests.contains('ad_or_win'))) ? '!' : null,
+                          onTap: () => DailyQuestsDialog.show(context),
                         ),
                         _buildNavButton(
                           icon: Icons.auto_awesome,
@@ -865,7 +876,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   }
 
   Widget _buildDailyMiniCard() {
-    final canClaim = _save.canClaimDaily();
+    final canClaim = _save.canClaimDailyLogin();
 
     return Container(
       height: 115,
@@ -884,7 +895,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _launchGame(GameMode.daily),
+          onTap: () => DailyLoginDialog.show(context),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -904,23 +915,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     ),
                     if (canClaim)
                       GestureDetector(
-                        onTap: () async {
-                          final reward = await _save.claimDailyReward();
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('+$reward ${I18n.tr('coins')}!')),
-                            );
-                          }
-                        },
+                        onTap: () => DailyLoginDialog.show(context),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: const Color(0xFF2A1800),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Text(
-                            I18n.tr('claim').toUpperCase(),
-                            style: const TextStyle(
+                          child: const Text(
+                            'AL (7 GÜN)',
+                            style: TextStyle(
                               color: Color(0xFFFFD54F),
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
@@ -936,21 +940,21 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      I18n.tr('daily'),
+                      '${_save.dailyLoginStreak}. GÜN ÖDÜLÜ',
                       style: const TextStyle(
                         color: Color(0xFF2A1800),
-                        fontSize: 15,
+                        fontSize: 13,
                         fontWeight: FontWeight.w900,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      canClaim ? I18n.tr('today_ready') : I18n.tr('today_done'),
+                      canClaim ? '🎁 Tıkla & Ödülü Al!' : '✓ Bugün Alındı',
                       style: const TextStyle(
-                        color: Color(0xCC2A1800),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF4A2800),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -969,16 +973,44 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    String? badge,
   }) {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: const Color(0xFFFFD54F), size: 22),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(icon, color: const Color(0xFFFFD54F), size: 22),
+                if (badge != null)
+                  Positioned(
+                    top: -4,
+                    right: -10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE53935),
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
+                        ],
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 14),
+                      child: Center(
+                        child: Text(
+                          badge,
+                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: 3),
             Text(
               label,

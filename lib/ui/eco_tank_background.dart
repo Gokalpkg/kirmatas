@@ -13,10 +13,10 @@ class EcoTankBackground extends StatefulWidget {
   const EcoTankBackground({super.key, this.interactive = false, this.child});
 
   @override
-  State<EcoTankBackground> createState() => _EcoTankBackgroundState();
+  State<EcoTankBackground> createState() => EcoTankBackgroundState();
 }
 
-class _EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerProviderStateMixin {
+class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
   Duration _lastElapsed = Duration.zero;
 
@@ -86,6 +86,20 @@ class _EcoTankBackgroundState extends State<EcoTankBackground> with SingleTicker
     _ticker.dispose();
     _frame.dispose();
     super.dispose();
+  }
+
+  void spawnFeast() {
+    for (int i = 0; i < 12; i++) {
+      _foodPellets.add(
+        _FoodPellet(
+          x: 40.0 + _rand.nextDouble() * 300.0,
+          y: 60.0 + _rand.nextDouble() * 80.0,
+          vy: 28.0 + _rand.nextDouble() * 20.0,
+          swayPhase: _rand.nextDouble() * pi * 2,
+        ),
+      );
+    }
+    AudioManager.instance.playSfx(GameSfx.bubble);
   }
 
   void _addFood(Offset pos) {
@@ -337,7 +351,7 @@ class _TankFrame extends ChangeNotifier {
 }
 
 class _TankPainter extends CustomPainter {
-  final _EcoTankBackgroundState host;
+  final EcoTankBackgroundState host;
   Size? _shaderSize;
   Shader? _waterShader;
   final Paint _waterPaint = Paint();

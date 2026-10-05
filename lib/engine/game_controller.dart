@@ -1184,6 +1184,7 @@ class GameController extends ChangeNotifier {
   void _destroyBrick(Brick b) {
     b.isAlive = false;
     stats.bricksBroken++;
+    save.recordBrickBrokenQuest();
 
     particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, b.color, count: 16);
     particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, b.color, maxRadius: 40.0);
@@ -1641,6 +1642,7 @@ class GameController extends ChangeNotifier {
     save.updateHighScore(currentMode, stats.score);
     save.addGold(100);
     stats.goldCollected += 100;
+    save.recordAdOrWinQuest();
     audio.playSfx(GameSfx.victory);
   }
 

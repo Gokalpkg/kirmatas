@@ -1238,5 +1238,131 @@ void main() {
       controller.startNewGame(GameMode.classic);
       expect(controller.hasClaimedVictoryBonus, false);
     });
+
+    test('Eco-Tank Hay Day feeding and harvest cycle functions accurately', () async {
+      final save = SaveManager.instance;
+      await save.init();
+
+      // Reset state for test
+      save.fishFood = 3;
+      save.lastFishFedTimestamp = 0;
+
+      expect(save.isFishHungry, true);
+      expect(save.isFishFed, false);
+      expect(save.currentAvailableFishGold, 0);
+      expect(save.totalFishGoldPerHour, greaterThan(0));
+
+      // Feed fish (Hay Day: give oat)
+      final fed = await save.feedFish();
+      expect(fed, true);
+      expect(save.fishFood, 2);
+      expect(save.isFishFed, true);
+      expect(save.isFishHungry, false);
+
+      // Simulate 1 hour of time elapsed
+      save.lastFishFedTimestamp = DateTime.now().millisecondsSinceEpoch - (3600 * 1000);
+      expect(save.currentAvailableFishGold, greaterThan(0));
+      final generatedGold = save.currentAvailableFishGold;
+
+      // Cannot re-feed while uncollected gold exists
+      final refeed = await save.feedFish();
+      expect(refeed, false);
+
+      // Harvest gold (Hay Day: take milk)
+      final initialPlayerGold = save.gold;
+      final collected = await save.collectFishGold();
+      expect(collected, generatedGold);
+      expect(save.gold, initialPlayerGold + generatedGold);
+
+      // Crucial Hay Day reset check: fish are hungry again!
+      expect(save.isFishHungry, true);
+      expect(save.lastFishFedTimestamp, 0);
+      expect(save.currentAvailableFishGold, 0);
+
+      // Now can feed again
+      final feedAgain = await save.feedFish();
+      expect(feedAgain, true);
+      expect(save.fishFood, 1);
+    });
+
+    test('7-Day Login Streak awards correct sequential rewards and ad double', () async {
+      final save = SaveManager.instance;
+      await save.init();
+
+      save.dailyLoginStreak = 1;
+      save.lastDailyLoginClaimDate = null;
+      final initialGold = save.gold;
+
+      // Day 1
+      expect(save.canClaimDailyLogin(), true);
+      final day1Result = await save.claimDailyLoginReward(doubleWithAd: false);
+      expect(day1Result['claimed'], true);
+      expect(day1Result['day'], 1);
+      expect(day1Result['gold'], 50);
+      expect(save.dailyLoginStreak, 2);
+      expect(save.gold, initialGold + 50);
+      expect(save.canClaimDailyLogin(), false);
+
+      // Simulate Day 2 with ad double
+      save.lastDailyLoginClaimDate = '2020-01-01';
+      final day2InitialFood = save.fishFood;
+      final day2Result = await save.claimDailyLoginReward(doubleWithAd: true);
+      expect(day2Result['claimed'], true);
+      expect(day2Result['day'], 2);
+      expect(day2Result['gold'], 200); // 100 * 2
+      expect(day2Result['food'], 2);
+      expect(save.fishFood, day2InitialFood + 2);
+      expect(save.dailyLoginStreak, 3);
+
+      // Simulate Day 7 loop-around
+      save.dailyLoginStreak = 7;
+      save.lastDailyLoginClaimDate = '2020-01-02';
+      final day7Result = await save.claimDailyLoginReward(doubleWithAd: false);
+      expect(day7Result['claimed'], true);
+      expect(day7Result['day'], 7);
+      expect(day7Result['gold'], 600);
+      // Loops back to Day 1
+      expect(save.dailyLoginStreak, 1);
+    });
+
+    test('Daily quests track brick breaks, fish feeding, and rewards claiming', () async {
+      final save = SaveManager.instance;
+      await save.init();
+
+      save.currentQuestDate = DateTime.now().toIso8601String().substring(0, 10);
+      save.questBricksBroken = 0;
+      save.questFishFed = false;
+      save.questAdOrWinDone = false;
+      save.claimedQuests = {};
+
+      // Test Brick breaking progress
+      save.recordBrickBrokenQuest(50);
+      expect(save.questBricksBroken, 50);
+      save.recordBrickBrokenQuest(50);
+      expect(save.questBricksBroken, 100);
+
+      // Claim brick reward
+      final initialGold = save.gold;
+      final brickReward = await save.claimQuestReward('break_bricks');
+      expect(brickReward, 120);
+      expect(save.gold, initialGold + 120);
+
+      // Claim again should fail
+      final repeatClaim = await save.claimQuestReward('break_bricks');
+      expect(repeatClaim, 0);
+
+      // Feed fish quest
+      expect(await save.claimQuestReward('feed_fish'), 0); // Not completed yet
+      save.recordFishFedQuest();
+      expect(save.questFishFed, true);
+      final feedReward = await save.claimQuestReward('feed_fish');
+      expect(feedReward, 60);
+
+      // Ad or win quest
+      save.recordAdOrWinQuest();
+      expect(save.questAdOrWinDone, true);
+      final adReward = await save.claimQuestReward('ad_or_win');
+      expect(adReward, 150);
+    });
   });
 }

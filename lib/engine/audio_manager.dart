@@ -1,4 +1,5 @@
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/services.dart';
 import 'package:vibration/vibration.dart';
 import '../models/game_state.dart';
 import '../storage/save_manager.dart';
@@ -158,20 +159,53 @@ class AudioManager {
   }
 
   void _maybeVibrate(GameSfx sfx, int now) {
-    if (!appInForeground || !_hasVib) return;
-    final vibLevel = SaveManager.instance.vibrationLevel;
-    if (vibLevel <= 0) return;
-    const felt = {GameSfx.hitPaddle, GameSfx.breakBrick, GameSfx.powerupBuff};
-    if (!felt.contains(sfx)) return;
-    if (now - _lastVibTime < 160) return;
+    if (!appInForeground) return;
+    final save = SaveManager.instance;
+    if (!save.hapticsEnabled || save.vibrationLevel <= 0) return;
+
+    if (now - _lastVibTime < 100) return;
     _lastVibTime = now;
 
-    final dur = 12 + vibLevel * 2;
-    final amp = (vibLevel * 18).clamp(1, 160);
-    if (_hasAmp) {
-      Vibration.vibrate(duration: dur, amplitude: amp);
-    } else {
-      Vibration.vibrate(duration: dur);
+    // 1. Native Flutter Haptic Feedback (Works universally on all devices)
+    try {
+      switch (sfx) {
+        case GameSfx.explosion:
+        case GameSfx.gameOver:
+          HapticFeedback.heavyImpact();
+          break;
+        case GameSfx.powerupBuff:
+        case GameSfx.powerupDebuff:
+        case GameSfx.ulti:
+        case GameSfx.laser:
+        case GameSfx.victory:
+          HapticFeedback.mediumImpact();
+          break;
+        case GameSfx.hitPaddle:
+        case GameSfx.breakBrick:
+        case GameSfx.bubble:
+        case GameSfx.steel:
+          HapticFeedback.lightImpact();
+          break;
+        case GameSfx.click:
+          HapticFeedback.selectionClick();
+          break;
+        default:
+          break;
+      }
+    } catch (_) {}
+
+    // 2. Hardware vibration with custom amplitude if available
+    if (_hasVib) {
+      final vibLevel = save.vibrationLevel;
+      final dur = 14 + vibLevel * 3;
+      final amp = (vibLevel * 20).clamp(1, 200);
+      try {
+        if (_hasAmp) {
+          Vibration.vibrate(duration: dur, amplitude: amp);
+        } else {
+          Vibration.vibrate(duration: dur);
+        }
+      } catch (_) {}
     }
   }
 

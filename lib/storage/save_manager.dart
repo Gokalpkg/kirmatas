@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/game_state.dart';
+import '../models/cosmetics.dart';
 
 class SaveManager extends ChangeNotifier {
   static final SaveManager instance = SaveManager._internal();
@@ -40,8 +41,24 @@ class SaveManager extends ChangeNotifier {
   int aquariumKelp = 1;
   int aquariumAnubias = 1;
 
+  // --- ECO-TANK FEEDING & PASSIVE GOLD (HAY DAY SYSTEM) ---
+  int fishFood = 5;
+  int lastFishFedTimestamp = 0; // ms epoch, 0 = hungry
+  static const int fishFedDurationHours = 4;
+
+  // --- 7-DAY LOGIN STREAK ---
   String? lastDailyClaimDate;
   int dailyStreak = 1;
+  int dailyLoginStreak = 1; // 1 to 7
+  String? lastDailyLoginClaimDate;
+
+  // --- DAILY QUESTS ---
+  String? currentQuestDate;
+  int questBricksBroken = 0;
+  bool questFishFed = false;
+  bool questAdOrWinDone = false;
+  Set<String> claimedQuests = {};
+
   int lastAdWatchTime = 0;
 
   SpeedSetting speed = SpeedSetting.medium;
@@ -112,8 +129,20 @@ class SaveManager extends ChangeNotifier {
     aquariumKelp = _prefs?.getInt('aquariumKelp') ?? 1;
     aquariumAnubias = _prefs?.getInt('aquariumAnubias') ?? 1;
 
+    fishFood = _prefs?.getInt('fishFood') ?? 5;
+    lastFishFedTimestamp = _prefs?.getInt('lastFishFedTimestamp') ?? 0;
+
     lastDailyClaimDate = _prefs?.getString('lastDailyClaimDate');
     dailyStreak = _prefs?.getInt('dailyStreak') ?? 1;
+    dailyLoginStreak = _prefs?.getInt('dailyLoginStreak') ?? 1;
+    lastDailyLoginClaimDate = _prefs?.getString('lastDailyLoginClaimDate');
+
+    currentQuestDate = _prefs?.getString('currentQuestDate');
+    questBricksBroken = _prefs?.getInt('questBricksBroken') ?? 0;
+    questFishFed = _prefs?.getBool('questFishFed') ?? false;
+    questAdOrWinDone = _prefs?.getBool('questAdOrWinDone') ?? false;
+    claimedQuests = (_prefs?.getStringList('claimedQuests') ?? []).toSet();
+    _checkAndResetQuests();
 
     final speedIndex = _prefs?.getInt('speedSetting') ?? 1;
     speed = SpeedSetting.values[speedIndex.clamp(0, SpeedSetting.values.length - 1)];
@@ -249,21 +278,240 @@ class SaveManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool canClaimDaily() {
+  // --- ECO-TANK IDLE PRODUCTION & FEEDING (HAY DAY CYCLE) ---
+
+  /// Total gold produced per hour by all currently unlocked fish
+  double get totalFishGoldPerHour {
+    double total = 0;
+    for (final id in unlockedFish) {
+      final fish = FishItem.getById(id);
+      switch (fish.rarity) {
+        case Rarity.common:
+          total += 6.0;
+          break;
+        case Rarity.rare:
+          total += 14.0;
+          break;
+        case Rarity.epic:
+          total += 28.0;
+          break;
+        case Rarity.legendary:
+          total += 60.0;
+          break;
+      }
+    }
+    return total;
+  }
+
+  /// Milliseconds remaining until the fed session expires
+  int get remainingFedDurationMs {
+    if (lastFishFedTimestamp <= 0) return 0;
+    const maxMs = fishFedDurationHours * 3600 * 1000;
+    final elapsed = DateTime.now().millisecondsSinceEpoch - lastFishFedTimestamp;
+    final remaining = maxMs - elapsed;
+    return remaining > 0 ? remaining : 0;
+  }
+
+  bool get isFishFed => remainingFedDurationMs > 0;
+  bool get isFishHungry => !isFishFed;
+
+  /// Gold generated during the current fed session
+  int get currentAvailableFishGold {
+    if (lastFishFedTimestamp <= 0) return 0;
+    const maxMs = fishFedDurationHours * 3600 * 1000;
+    final elapsed = DateTime.now().millisecondsSinceEpoch - lastFishFedTimestamp;
+    final activeMs = elapsed.clamp(0, maxMs);
+    final hours = activeMs / (3600.0 * 1000.0);
+    return (hours * totalFishGoldPerHour).floor();
+  }
+
+  /// Feed the fish: consumes 1 food pellet, starts 4-hour active production
+  Future<bool> feedFish() async {
+    if (fishFood <= 0) return false;
+    // If fish already have uncollected gold, player must harvest first (Hay Day oat/milk rule)
+    if (currentAvailableFishGold > 0) return false;
+
+    fishFood--;
+    lastFishFedTimestamp = DateTime.now().millisecondsSinceEpoch;
+    await _prefs?.setInt('fishFood', fishFood);
+    await _prefs?.setInt('lastFishFedTimestamp', lastFishFedTimestamp);
+
+    recordFishFedQuest();
+    notifyListeners();
+    return true;
+  }
+
+  /// Harvest the accumulated gold, resetting fish back to hungry state (Hay Day cycle)
+  Future<int> collectFishGold() async {
+    final goldToCollect = currentAvailableFishGold;
+    if (goldToCollect <= 0) return 0;
+
+    await addGold(goldToCollect);
+    // Milk taken: cows are hungry again and need more oats!
+    lastFishFedTimestamp = 0;
+    await _prefs?.setInt('lastFishFedTimestamp', 0);
+    notifyListeners();
+    return goldToCollect;
+  }
+
+  Future<void> addFishFood(int count) async {
+    fishFood += count;
+    await _prefs?.setInt('fishFood', fishFood);
+    notifyListeners();
+  }
+
+  Future<bool> buyFishFoodWithGold({int count = 2, int cost = 80}) async {
+    if (gold < cost) return false;
+    await spendGold(cost);
+    await addFishFood(count);
+    return true;
+  }
+
+  // --- 7-DAY LOGIN STREAK REWARDS ---
+
+  bool canClaimDaily() => canClaimDailyLogin();
+
+  bool canClaimDailyLogin() {
     final today = DateTime.now().toIso8601String().substring(0, 10);
-    return lastDailyClaimDate != today;
+    return lastDailyLoginClaimDate != today;
   }
 
   Future<int> claimDailyReward() async {
-    if (!canClaimDaily()) return 0;
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    lastDailyClaimDate = today;
-    await _prefs?.setString('lastDailyClaimDate', today);
-    dailyStreak++;
-    await _prefs?.setInt('dailyStreak', dailyStreak);
+    final result = await claimDailyLoginReward();
+    return result['gold'] as int? ?? 0;
+  }
 
-    final reward = 50 + (dailyStreak % 7) * 15;
-    await addGold(reward);
+  /// Claims today's 7-Day login reward. Supports optional 2X reward on video ad.
+  Future<Map<String, dynamic>> claimDailyLoginReward({bool doubleWithAd = false}) async {
+    if (!canClaimDailyLogin()) return {'claimed': false};
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    lastDailyLoginClaimDate = today;
+    lastDailyClaimDate = today;
+    await _prefs?.setString('lastDailyLoginClaimDate', today);
+    await _prefs?.setString('lastDailyClaimDate', today);
+
+    int currentDay = dailyLoginStreak;
+    if (currentDay < 1 || currentDay > 7) currentDay = 1;
+
+    int baseGold = 50;
+    int foodReward = 0;
+    String? bonusItem;
+
+    switch (currentDay) {
+      case 1:
+        baseGold = 50;
+        break;
+      case 2:
+        baseGold = 100;
+        foodReward = 2;
+        break;
+      case 3:
+        baseGold = 150;
+        bonusItem = 'shard_balls';
+        await addShard('balls', 1);
+        break;
+      case 4:
+        baseGold = 200;
+        bonusItem = 'boost_life';
+        await addBoostStock('life', 1);
+        break;
+      case 5:
+        baseGold = 300;
+        bonusItem = 'shard_paddles';
+        await addShard('paddles', 1);
+        break;
+      case 6:
+        baseGold = 400;
+        foodReward = 3;
+        break;
+      case 7:
+        baseGold = 600;
+        bonusItem = 'legendary_shard';
+        await addShard('trails', 2);
+        break;
+    }
+
+    if (foodReward > 0) {
+      await addFishFood(foodReward);
+    }
+
+    final totalGold = doubleWithAd ? (baseGold * 2) : baseGold;
+    await addGold(totalGold);
+
+    dailyStreak++;
+    dailyLoginStreak = (currentDay >= 7) ? 1 : (currentDay + 1);
+    await _prefs?.setInt('dailyStreak', dailyStreak);
+    await _prefs?.setInt('dailyLoginStreak', dailyLoginStreak);
+
+    notifyListeners();
+    return {
+      'claimed': true,
+      'day': currentDay,
+      'gold': totalGold,
+      'food': foodReward,
+      'bonusItem': bonusItem,
+      'isDoubled': doubleWithAd,
+    };
+  }
+
+  // --- DAILY QUESTS ---
+
+  void _checkAndResetQuests() {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    if (currentQuestDate != today) {
+      currentQuestDate = today;
+      questBricksBroken = 0;
+      questFishFed = false;
+      questAdOrWinDone = false;
+      claimedQuests = {};
+      _prefs?.setString('currentQuestDate', today);
+      _prefs?.setInt('questBricksBroken', 0);
+      _prefs?.setBool('questFishFed', false);
+      _prefs?.setBool('questAdOrWinDone', false);
+      _prefs?.setStringList('claimedQuests', []);
+    }
+  }
+
+  void recordBrickBrokenQuest([int count = 1]) {
+    _checkAndResetQuests();
+    questBricksBroken += count;
+    _prefs?.setInt('questBricksBroken', questBricksBroken);
+    notifyListeners();
+  }
+
+  void recordFishFedQuest() {
+    _checkAndResetQuests();
+    questFishFed = true;
+    _prefs?.setBool('questFishFed', true);
+    notifyListeners();
+  }
+
+  void recordAdOrWinQuest() {
+    _checkAndResetQuests();
+    questAdOrWinDone = true;
+    _prefs?.setBool('questAdOrWinDone', true);
+    notifyListeners();
+  }
+
+  Future<int> claimQuestReward(String questId) async {
+    _checkAndResetQuests();
+    if (claimedQuests.contains(questId)) return 0;
+    int reward = 0;
+    if (questId == 'feed_fish' && questFishFed) {
+      reward = 60;
+      await addFishFood(1);
+    } else if (questId == 'break_bricks' && questBricksBroken >= 100) {
+      reward = 120;
+    } else if (questId == 'ad_or_win' && questAdOrWinDone) {
+      reward = 150;
+    }
+
+    if (reward > 0) {
+      claimedQuests.add(questId);
+      await _prefs?.setStringList('claimedQuests', claimedQuests.toList());
+      await addGold(reward);
+      notifyListeners();
+    }
     return reward;
   }
 

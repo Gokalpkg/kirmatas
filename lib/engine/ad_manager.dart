@@ -157,6 +157,7 @@ class AdManager extends ChangeNotifier {
           // Add gold to the player and save immediately
           SaveManager.instance.addGold(goldRewardAmount);
           SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
+          SaveManager.instance.recordAdOrWinQuest();
           AudioManager.instance.playSfx(GameSfx.powerupBuff);
           onSuccess(goldRewardAmount);
         } else {
