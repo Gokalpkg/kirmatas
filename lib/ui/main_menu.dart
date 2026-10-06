@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
 import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
@@ -286,53 +287,34 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           ),
                           onPressed: _showSettingsDialog,
                         ),
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: const Text('🎡', style: TextStyle(fontSize: 18)),
-                              tooltip: 'Şans Çarkı',
-                              style: IconButton.styleFrom(
-                                backgroundColor: const Color(0x33FFB300),
-                                padding: EdgeInsets.zero,
-                                minimumSize: const Size(36, 36),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  side: const BorderSide(color: Color(0x80FFD54F)),
-                                ),
-                              ),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (_) => const FortuneWheelDialog(),
-                                );
-                              },
+                        GestureDetector(
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const ShopView()),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0x80101320),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: const Color(0x4DFFD54F)),
                             ),
-                            const SizedBox(width: 8),
-                            const RewardedGoldAdButton(isCompact: true),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: const Color(0x80101320),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: const Color(0x4DFFD54F)),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 18),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '${_save.gold}',
-                                    style: const TextStyle(
-                                      color: Color(0xFFFFD54F),
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 15,
-                                    ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 18),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${_save.gold}',
+                                  style: const TextStyle(
+                                    color: Color(0xFFFFD54F),
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 15,
                                   ),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.add_circle, color: Color(0xFFFFD54F), size: 14),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
@@ -357,6 +339,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     ),
                   ),
 
+                  const SizedBox(height: 10),
+                  _buildTopRewardsBar(),
                   const SizedBox(height: 12),
 
                   // Main Modes Section (Hero Classic + 2x2 Grid)
@@ -404,10 +388,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: _buildDailyMiniCard(),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
                                 child: _buildArcadeMiniCard(
                                   mode: GameMode.shapes,
                                   title: I18n.tr('shapes'),
@@ -418,11 +398,20 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                   onTap: () => _launchGame(GameMode.shapes),
                                 ),
                               ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildArcadeMiniCard(
+                                  mode: GameMode.daily,
+                                  title: I18n.tr('daily'),
+                                  desc: I18n.tr('daily_desc'),
+                                  icon: Icons.military_tech_rounded,
+                                  color1: const Color(0xFFF59E0B),
+                                  color2: const Color(0xFFD97706),
+                                  onTap: () => _launchGame(GameMode.daily),
+                                ),
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          // Fortune Wheel High-Yield Feature Card
-                          _buildFortuneWheelCard(),
                           const SizedBox(height: 12),
                           // Game Speed Options moved under modes
                           Container(
@@ -484,12 +473,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     ),
                   ),
 
-                  // Rewarded Ad Gold Button
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-                    child: RewardedGoldAdButton(isCompact: false),
-                  ),
-
                   // Bottom Floating Navigation Dock
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
@@ -547,148 +530,207 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     );
   }
 
-  Widget _buildFortuneWheelCard() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2E1065), Color(0xFF581C87), Color(0xFF701A75)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+  Widget _buildTopRewardsBar() {
+    final canClaimDaily = _save.canClaimDailyLogin();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0x80101320),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white12),
+          boxShadow: const [
+            BoxShadow(color: Colors.black38, blurRadius: 10, offset: Offset(0, 2)),
+          ],
         ),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFFFD54F), width: 1.5),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x66701A75),
-            blurRadius: 18,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(22),
-          onTap: () {
-            showDialog(
-              context: context,
-              builder: (_) => const FortuneWheelDialog(),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                // Wheel Icon / Badge with golden glow
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const RadialGradient(
-                      colors: [Color(0xFFFFEE58), Color(0xFFF57F17)],
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x88FFD600),
-                        blurRadius: 12,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Text('🎡', style: TextStyle(fontSize: 26)),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                // Text Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Text(
-                            'ŞANS ÇARKI',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFFFD54F), Color(0xFFFF9100)],
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: const [
-                                BoxShadow(color: Color(0x66FF9100), blurRadius: 6),
-                              ],
-                            ),
-                            child: const Text(
-                              '500 🪙 BÜYÜK İKRAMİYE',
-                              style: TextStyle(
-                                color: Color(0xFF2E1C00),
-                                fontSize: 9,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Çevir & Sandık, Altın veya Parça Kazan!',
-                        style: TextStyle(
-                          color: Color(0xFFE1BEE7),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Play Icon Button Pill
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFFF9800)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x88FFD54F),
-                        blurRadius: 10,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'ÇEVİR',
-                        style: TextStyle(
-                          color: Color(0xFF2E1C00),
-                          fontWeight: FontWeight.w900,
-                          fontSize: 12,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(Icons.play_arrow_rounded, color: Color(0xFF2E1C00), size: 14),
-                    ],
-                  ),
-                ),
-              ],
+        child: Row(
+          children: [
+            // 1. 7 Günlük Giriş
+            Expanded(
+              child: _buildRewardBarItem(
+                icon: Icons.calendar_month_rounded,
+                iconColor: const Color(0xFFFFB300),
+                title: '7 Günlük',
+                subtitle: 'Gün ${_save.dailyLoginStreak}',
+                badge: canClaimDaily ? 'AL' : null,
+                badgeColor: const Color(0xFFFF9100),
+                onTap: () => DailyLoginDialog.show(context),
+              ),
             ),
+            const SizedBox(width: 8),
+
+            // 2. Şans Çarkı
+            Expanded(
+              child: _buildRewardBarItem(
+                icon: Icons.motion_photos_on_rounded,
+                iconColor: const Color(0xFF00E5FF),
+                title: 'Şans Çarkı',
+                subtitle: 'Ödül Kazan',
+                badge: null,
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => const FortuneWheelDialog(),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // 3. Ücretsiz Altın (+100)
+            Expanded(
+              child: ListenableBuilder(
+                listenable: AdManager.instance,
+                builder: (context, _) {
+                  final cooldown = AdManager.instance.remainingCooldownSeconds;
+                  final onCooldown = cooldown > 0;
+                  final isLoading = AdManager.instance.isLoading || AdManager.instance.isShowing;
+
+                  String sub;
+                  if (isLoading) {
+                    sub = 'Bekleyin...';
+                  } else if (onCooldown) {
+                    final m = cooldown ~/ 60;
+                    final s = cooldown % 60;
+                    sub = '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+                  } else {
+                    sub = '+100 🪙';
+                  }
+
+                  return _buildRewardBarItem(
+                    icon: Icons.card_giftcard_rounded,
+                    iconColor: const Color(0xFF69F0AE),
+                    title: 'Ücretsiz',
+                    subtitle: sub,
+                    badge: (!onCooldown && !isLoading) ? 'HAZIR' : null,
+                    badgeColor: const Color(0xFF00E676),
+                    onTap: () {
+                      if (!onCooldown && !isLoading) {
+                        AdManager.instance.watchAdForGold(
+                          context,
+                          onSuccess: (reward) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('🪙 +$reward Altın Hesabınıza Eklendi!'),
+                                backgroundColor: const Color(0xFF161A29),
+                              ),
+                            );
+                          },
+                          onDismissedEarly: () {},
+                        );
+                      } else if (onCooldown) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Yeni hediye için kalan süre: $sub'),
+                            backgroundColor: const Color(0xFF161A29),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRewardBarItem({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    String? badge,
+    Color badgeColor = const Color(0xFFFF9100),
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: iconColor.withValues(alpha: 0.25), width: 1),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: iconColor.withValues(alpha: 0.18),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: iconColor, size: 16),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: iconColor,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (badge != null)
+                Positioned(
+                  top: -6,
+                  right: -2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: badgeColor,
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [
+                        BoxShadow(color: badgeColor.withValues(alpha: 0.6), blurRadius: 4),
+                      ],
+                    ),
+                    child: Text(
+                      badge,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
@@ -862,100 +904,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     Text(
                       desc,
                       style: const TextStyle(color: Colors.white70, fontSize: 10),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDailyMiniCard() {
-    final canClaim = _save.canClaimDailyLogin();
-
-    return Container(
-      height: 115,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF5D27A), Color(0xFFFF9A4A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(color: Color(0x33FF9A4A), blurRadius: 12, offset: Offset(0, 4)),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => DailyLoginDialog.show(context),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.black26,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.calendar_month, color: Color(0xFF2A1800), size: 20),
-                    ),
-                    if (canClaim)
-                      GestureDetector(
-                        onTap: () => DailyLoginDialog.show(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2A1800),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Text(
-                            'AL (7 GÜN)',
-                            style: TextStyle(
-                              color: Color(0xFFFFD54F),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      const Icon(Icons.check_circle, color: Color(0xFF2A1800), size: 18),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${_save.dailyLoginStreak}. GÜN ÖDÜLÜ',
-                      style: const TextStyle(
-                        color: Color(0xFF2A1800),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      canClaim ? '🎁 Tıkla & Ödülü Al!' : '✓ Bugün Alındı',
-                      style: const TextStyle(
-                        color: Color(0xFF4A2800),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

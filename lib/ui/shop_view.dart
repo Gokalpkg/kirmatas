@@ -54,34 +54,6 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
               ),
             ),
             actions: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: IconButton(
-                  icon: const Text('🎡', style: TextStyle(fontSize: 18)),
-                  tooltip: 'Şans Çarkı',
-                  style: IconButton.styleFrom(
-                    backgroundColor: const Color(0x33FFB300),
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(36, 36),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      side: const BorderSide(color: Color(0x80FFD54F)),
-                    ),
-                  ),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => const FortuneWheelDialog(),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 10),
-                child: RewardedGoldAdButton(isCompact: true),
-              ),
-              const SizedBox(width: 8),
               Container(
                 margin: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -376,19 +348,19 @@ class _ShopViewState extends State<ShopView> with SingleTickerProviderStateMixin
                   height: 48,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: const RadialGradient(
-                      colors: [Color(0xFFFFEE58), Color(0xFFF57F17)],
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00E5FF), Color(0xFF7C4DFF)],
                     ),
                     boxShadow: const [
                       BoxShadow(
-                        color: Color(0x88FFD600),
+                        color: Color(0x6600E5FF),
                         blurRadius: 12,
                         spreadRadius: 1,
                       ),
                     ],
                   ),
                   child: const Center(
-                    child: Text('🎡', style: TextStyle(fontSize: 26)),
+                    child: Icon(Icons.motion_photos_on_rounded, color: Colors.white, size: 26),
                   ),
                 ),
                 const SizedBox(width: 14),
