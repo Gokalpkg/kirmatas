@@ -124,7 +124,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with SingleTick
   void _handleCategoryCrate(SaveManager save, String category, Random rand) {
     final luckLevel = save.upgrades['luck'] ?? 0;
     final weights = Map<Rarity, double>.from(CategoryCrateInfo.rarityWeights);
-    // Legendary is extremely rare (~3%) as requested
+    // Legendary is rare (~3% base, boosted by luck)
     weights[Rarity.legendary] = (weights[Rarity.legendary] ?? 3.0) * (1.0 + luckLevel * 0.25);
     weights[Rarity.epic] = (weights[Rarity.epic] ?? 12.0) * (1.0 + luckLevel * 0.20);
 
@@ -139,68 +139,113 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with SingleTick
       }
       roll -= entry.value;
     }
-    _rewardRarity = rolledRarity;
 
     switch (category) {
       case 'balls':
-        final list = BallSkin.allSkins.where((s) => s.rarity == rolledRarity).toList();
-        final skin = list.isNotEmpty ? list[rand.nextInt(list.length)] : BallSkin.allSkins[rand.nextInt(BallSkin.allSkins.length)];
+        // Unlockable skins pool (excludes free default starter 'classic')
+        final unlockables = BallSkin.allSkins.where((s) => s.id != 'classic').toList();
+        var pool = unlockables.where((s) => s.rarity == rolledRarity).toList();
+        if (pool.isEmpty) {
+          pool = unlockables.where((s) => s.rarity == Rarity.rare).toList();
+          if (pool.isEmpty) pool = unlockables;
+        }
+
+        final skin = pool[rand.nextInt(pool.length)];
         _reward = skin;
         _rewardTitle = skin.name;
+        _rewardRarity = skin.rarity;
+
         if (save.unlockedBalls.contains(skin.id)) {
+          // Genuinely already owned! Convert to duplicate shard
           _isDuplicate = true;
           _isShardReward = true;
           save.addShard(category, 1);
-          _rewardSubtitle = I18n.tr('duplicate_shard_reward').replaceAll('{count}', '${save.getShards(category)}');
+          _rewardSubtitle = 'Bu topa zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category)}/3).';
         } else {
+          // Brand new unlock!
+          _isDuplicate = false;
+          _isShardReward = false;
           _rewardSubtitle = I18n.tr('new_ball_unlocked');
           save.unlockBall(skin.id);
         }
         break;
 
       case 'paddles':
-        final list = PaddleSkin.allSkins.where((s) => s.rarity == rolledRarity).toList();
-        final skin = list.isNotEmpty ? list[rand.nextInt(list.length)] : PaddleSkin.allSkins[rand.nextInt(PaddleSkin.allSkins.length)];
+        // Unlockable paddles pool (excludes free default starter 'pclassic')
+        final unlockables = PaddleSkin.allSkins.where((s) => s.id != 'pclassic').toList();
+        var pool = unlockables.where((s) => s.rarity == rolledRarity).toList();
+        if (pool.isEmpty) {
+          pool = unlockables.where((s) => s.rarity == Rarity.rare).toList();
+          if (pool.isEmpty) pool = unlockables;
+        }
+
+        final skin = pool[rand.nextInt(pool.length)];
         _reward = skin;
         _rewardTitle = skin.name;
+        _rewardRarity = skin.rarity;
+
         if (save.unlockedPaddles.contains(skin.id)) {
           _isDuplicate = true;
           _isShardReward = true;
           save.addShard(category, 1);
-          _rewardSubtitle = I18n.tr('duplicate_shard_reward').replaceAll('{count}', '${save.getShards(category)}');
+          _rewardSubtitle = 'Bu rakete zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category)}/3).';
         } else {
+          _isDuplicate = false;
+          _isShardReward = false;
           _rewardSubtitle = I18n.tr('new_paddle_unlocked');
           save.unlockPaddle(skin.id);
         }
         break;
 
       case 'trails':
-        final list = TrailSkin.allTrails.where((s) => s.rarity == rolledRarity).toList();
-        final skin = list.isNotEmpty ? list[rand.nextInt(list.length)] : TrailSkin.allTrails[rand.nextInt(TrailSkin.allTrails.length)];
+        // Unlockable trails pool (excludes free default starter 't1')
+        final unlockables = TrailSkin.allTrails.where((s) => s.id != 't1').toList();
+        var pool = unlockables.where((s) => s.rarity == rolledRarity).toList();
+        if (pool.isEmpty) {
+          pool = unlockables.where((s) => s.rarity == Rarity.rare).toList();
+          if (pool.isEmpty) pool = unlockables;
+        }
+
+        final skin = pool[rand.nextInt(pool.length)];
         _reward = skin;
         _rewardTitle = skin.name;
+        _rewardRarity = skin.rarity;
+
         if (save.unlockedTrails.contains(skin.id)) {
           _isDuplicate = true;
           _isShardReward = true;
           save.addShard(category, 1);
-          _rewardSubtitle = I18n.tr('duplicate_shard_reward').replaceAll('{count}', '${save.getShards(category)}');
+          _rewardSubtitle = 'Bu ize zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category)}/3).';
         } else {
+          _isDuplicate = false;
+          _isShardReward = false;
           _rewardSubtitle = I18n.tr('new_trail_unlocked');
           save.unlockTrail(skin.id);
         }
         break;
 
       case 'bricks':
-        final list = BrickStyle.all.where((s) => s.rarity == rolledRarity).toList();
-        final style = list.isNotEmpty ? list[rand.nextInt(list.length)] : BrickStyle.all[rand.nextInt(BrickStyle.all.length)];
+        // Unlockable bricks pool (excludes free default starter 'brick_neon')
+        final unlockables = BrickStyle.all.where((s) => s.id != 'brick_neon').toList();
+        var pool = unlockables.where((s) => s.rarity == rolledRarity).toList();
+        if (pool.isEmpty) {
+          pool = unlockables.where((s) => s.rarity == Rarity.rare).toList();
+          if (pool.isEmpty) pool = unlockables;
+        }
+
+        final style = pool[rand.nextInt(pool.length)];
         _reward = style;
         _rewardTitle = style.name;
+        _rewardRarity = style.rarity;
+
         if (save.unlockedBrickStyles.contains(style.id)) {
           _isDuplicate = true;
           _isShardReward = true;
           save.addShard(category, 1);
-          _rewardSubtitle = I18n.tr('duplicate_shard_reward').replaceAll('{count}', '${save.getShards(category)}');
+          _rewardSubtitle = 'Bu blok stiline zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category)}/3).';
         } else {
+          _isDuplicate = false;
+          _isShardReward = false;
           _rewardSubtitle = I18n.tr('new_brick_unlocked');
           save.unlockBrickStyle(style.id);
         }
@@ -368,7 +413,58 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with SingleTick
                           child: _buildRewardIcon(),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
+                      if (_isDuplicate)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF9800).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFF9800), width: 1),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.inventory, size: 13, color: Color(0xFFFFB74D)),
+                              SizedBox(width: 5),
+                              Text(
+                                'ZATEN SAHİPSİN (KOPYA)',
+                                style: TextStyle(
+                                  color: Color(0xFFFFB74D),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00E676).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF00E676), width: 1),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.stars, size: 13, color: Color(0xFF69F0AE)),
+                              SizedBox(width: 5),
+                              Text(
+                                'YENİ AÇILDI!',
+                                style: TextStyle(
+                                  color: Color(0xFF69F0AE),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 8),
                       Text(
                         _rewardTitle,
                         style: const TextStyle(
@@ -390,6 +486,63 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with SingleTick
                         ),
                         textAlign: TextAlign.center,
                       ),
+                      if (_isShardReward) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFF00E5FF).withValues(alpha: 0.2),
+                                const Color(0xFF00B0FF).withValues(alpha: 0.1),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.6)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.diamond, color: Color(0xFF00E5FF), size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                '+1 Parça Eklendi! (${SaveManager.instance.getShards(widget.category ?? widget.categoryCrate?.category ?? 'balls')}/3)',
+                                style: const TextStyle(
+                                  color: Color(0xFF00E5FF),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (_isDuplicate && _duplicateGold > 0) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFD54F).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFFFD54F).withValues(alpha: 0.6)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                '+$_duplicateGold Altın Eklendi!',
+                                style: const TextStyle(
+                                  color: Color(0xFFFFD54F),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
 
@@ -447,22 +600,6 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with SingleTick
   }
 
   Widget _buildRewardIcon() {
-    if (_isShardReward) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(Icons.diamond, size: 48, color: Color(0xFF00E5FF)),
-          SizedBox(height: 2),
-          Text(
-            '+1 SHARD',
-            style: TextStyle(color: Color(0xFF00E5FF), fontSize: 10, fontWeight: FontWeight.w900),
-          ),
-        ],
-      );
-    }
-    if (_isDuplicate) {
-      return const Icon(Icons.monetization_on, size: 52, color: Color(0xFFFFD54F));
-    }
     if (_reward is FishItem) {
       return Image.asset((_reward as FishItem).assetPath, width: 64, height: 64, fit: BoxFit.contain);
     }
