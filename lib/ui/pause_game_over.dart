@@ -302,7 +302,7 @@ class PauseGameOverOverlay extends StatelessWidget {
 
   Widget _buildReviveButton(BuildContext context) {
     final adManager = AdManager.instance;
-    final isLoading = adManager.isLoading || adManager.isShowing;
+    final isLoading = adManager.isLoadingHighYield || adManager.isShowing;
 
     return Container(
       decoration: BoxDecoration(

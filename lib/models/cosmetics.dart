@@ -138,6 +138,16 @@ class BallSkin {
       darkColor: Color(0xFF00B8D4),
       hasAura: true,
     ),
+    BallSkin(
+      id: 'gokkusagi',
+      name: 'Gökkuşağı Topu',
+      cost: 7500,
+      rarity: Rarity.legendary,
+      mainColor: Color(0xFFFF4081),
+      glowColor: Color(0xFF00E5FF),
+      darkColor: Color(0xFF7C4DFF),
+      hasAura: true,
+    ),
   ];
 
   static BallSkin getById(String id) {
@@ -258,6 +268,8 @@ class TrailSkin {
   final Rarity rarity;
   final TrailStyle style;
   final int length;
+  final Color primaryColor;
+  final Color glowColor;
 
   const TrailSkin({
     required this.id,
@@ -266,6 +278,8 @@ class TrailSkin {
     required this.rarity,
     required this.style,
     required this.length,
+    this.primaryColor = const Color(0xFF00E5FF),
+    this.glowColor = const Color(0xFF80D8FF),
   }) : _name = name;
 
   String get name {
@@ -280,55 +294,69 @@ class TrailSkin {
       cost: 0,
       rarity: Rarity.common,
       style: TrailStyle.dot,
-      length: 6,
+      length: 22,
+      primaryColor: Color(0xFF80D8FF),
+      glowColor: Color(0xFF40C4FF),
     ),
     TrailSkin(
       id: 't2',
       name: 'Neon Kuyruk',
-      cost: 1600,
+      cost: 4800,
       rarity: Rarity.rare,
       style: TrailStyle.dot,
-      length: 16,
+      length: 32,
+      primaryColor: Color(0xFF00E5FF),
+      glowColor: Color(0xFF69F0AE),
     ),
     TrailSkin(
       id: 'spark',
       name: 'Kıvılcım İzi',
-      cost: 2200,
+      cost: 7200,
       rarity: Rarity.rare,
       style: TrailStyle.spark,
-      length: 22,
+      length: 36,
+      primaryColor: Color(0xFFFFD54F),
+      glowColor: Color(0xFFFF9100),
     ),
     TrailSkin(
       id: 'fire',
       name: 'Alev İzi',
-      cost: 2800,
+      cost: 9800,
       rarity: Rarity.epic,
       style: TrailStyle.fire,
-      length: 26,
+      length: 50,
+      primaryColor: Color(0xFFFF3D00),
+      glowColor: Color(0xFFFF9100),
     ),
     TrailSkin(
       id: 'rainbow',
       name: 'Gökkuşağı',
-      cost: 3400,
+      cost: 14500,
       rarity: Rarity.epic,
       style: TrailStyle.rainbow,
-      length: 28,
-    ),
-    TrailSkin(
-      id: 'plasma',
-      name: 'Kozmik Plazma',
-      cost: 4200,
-      rarity: Rarity.legendary,
-      style: TrailStyle.plasma,
-      length: 32,
+      length: 56,
+      primaryColor: Color(0xFFFF4081),
+      glowColor: Color(0xFF00E5FF),
     ),
     TrailSkin(
       id: 'ghost',
       name: 'Hayalet İz',
-      cost: 4800,
+      cost: 18500,
       rarity: Rarity.epic,
       style: TrailStyle.ghost,
-      length: 24,
+      length: 46,
+      primaryColor: Color(0xFFB388FF),
+      glowColor: Color(0xFF7C4DFF),
+    ),
+    TrailSkin(
+      id: 'plasma',
+      name: 'Kozmik Plazma',
+      cost: 25000,
+      rarity: Rarity.legendary,
+      style: TrailStyle.plasma,
+      length: 70,
+      primaryColor: Color(0xFF18FFFF),
+      glowColor: Color(0xFFB388FF),
     ),
   ];
 

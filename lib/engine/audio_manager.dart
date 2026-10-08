@@ -7,7 +7,8 @@ import '../storage/save_manager.dart';
 enum GameSfx {
   hitPaddle, hitWall, hitBrick, breakBrick, steel,
   powerupBuff, powerupDebuff, laser, explosion, ulti,
-  bubble, click, gameOver, victory
+  bubble, click, gameOver, victory,
+  cornerBoost, bossHit, wallBounce8
 }
 
 class AudioManager {
@@ -106,12 +107,25 @@ class AudioManager {
       
       switch (sfx) {
         case GameSfx.breakBrick:
-          soundKey = SaveManager.instance.activeBrickStyle;
+          final curStyle = SaveManager.instance.activeBrickStyle;
+          soundKey = curStyle == 'random' ? 'brick_neon' : curStyle;
           gain = 0.65;
           break;
         case GameSfx.laser:
           soundKey = 'laser';
           gain = 0.5;
+          break;
+        case GameSfx.cornerBoost:
+          soundKey = 'laser';
+          gain = 0.85;
+          break;
+        case GameSfx.bossHit:
+          soundKey = 'explosion';
+          gain = 0.75;
+          break;
+        case GameSfx.wallBounce8:
+          soundKey = 'ulti';
+          gain = 0.8;
           break;
         case GameSfx.explosion:
           soundKey = 'explosion';
@@ -163,14 +177,16 @@ class AudioManager {
     final save = SaveManager.instance;
     if (!save.hapticsEnabled || save.vibrationLevel <= 0) return;
 
-    if (now - _lastVibTime < 100) return;
+    final minInterval = (sfx == GameSfx.bossHit || sfx == GameSfx.cornerBoost || sfx == GameSfx.wallBounce8) ? 60 : 85;
+    if (now - _lastVibTime < minInterval) return;
     _lastVibTime = now;
 
-    // 1. Native Flutter Haptic Feedback (Works universally on all devices)
+    // 1. Native Flutter Haptic Feedback (Works universally on all mobile platforms)
     try {
       switch (sfx) {
         case GameSfx.explosion:
         case GameSfx.gameOver:
+        case GameSfx.bossHit:
           HapticFeedback.heavyImpact();
           break;
         case GameSfx.powerupBuff:
@@ -178,6 +194,8 @@ class AudioManager {
         case GameSfx.ulti:
         case GameSfx.laser:
         case GameSfx.victory:
+        case GameSfx.cornerBoost:
+        case GameSfx.wallBounce8:
           HapticFeedback.mediumImpact();
           break;
         case GameSfx.hitPaddle:
@@ -187,18 +205,43 @@ class AudioManager {
           HapticFeedback.lightImpact();
           break;
         case GameSfx.click:
+        case GameSfx.hitBrick:
+        case GameSfx.hitWall:
           HapticFeedback.selectionClick();
-          break;
-        default:
           break;
       }
     } catch (_) {}
 
-    // 2. Hardware vibration with custom amplitude if available
+    // 2. Hardware vibration with custom amplitude tuning
     if (_hasVib) {
       final vibLevel = save.vibrationLevel;
-      final dur = 14 + vibLevel * 3;
-      final amp = (vibLevel * 20).clamp(1, 200);
+      int dur;
+      int amp;
+      switch (sfx) {
+        case GameSfx.bossHit:
+        case GameSfx.explosion:
+          dur = 32 + vibLevel * 5;
+          amp = (vibLevel * 35).clamp(1, 255);
+          break;
+        case GameSfx.cornerBoost:
+        case GameSfx.wallBounce8:
+        case GameSfx.ulti:
+          dur = 22 + vibLevel * 4;
+          amp = (vibLevel * 30).clamp(1, 240);
+          break;
+        case GameSfx.breakBrick:
+          dur = 14 + vibLevel * 3;
+          amp = (vibLevel * 20).clamp(1, 180);
+          break;
+        case GameSfx.hitPaddle:
+          dur = 11 + vibLevel * 2;
+          amp = (vibLevel * 16).clamp(1, 150);
+          break;
+        default:
+          dur = 9 + vibLevel * 2;
+          amp = (vibLevel * 14).clamp(1, 130);
+          break;
+      }
       try {
         if (_hasAmp) {
           Vibration.vibrate(duration: dur, amplitude: amp);

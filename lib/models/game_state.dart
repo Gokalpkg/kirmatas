@@ -5,7 +5,8 @@ enum GameMode {
   shapes,
   zen,
   descend,
-  daily;
+  daily,
+  chaos;
 
   String get displayName => I18n.tr(name);
   String get description => I18n.tr('${name}_desc');

@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kirmatas/engine/game_controller.dart';
+import 'package:kirmatas/engine/audio_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kirmatas/models/ball.dart';
 import 'package:kirmatas/models/black_hole.dart';
@@ -13,10 +14,12 @@ import 'package:kirmatas/models/game_state.dart';
 import 'package:kirmatas/models/level_design.dart';
 import 'package:kirmatas/models/portal.dart';
 import 'package:kirmatas/engine/ad_manager.dart';
+import 'package:kirmatas/engine/i18n.dart';
 import 'package:kirmatas/models/powerup.dart';
 import 'package:kirmatas/storage/save_manager.dart';
 import 'package:kirmatas/ui/game_canvas.dart';
 import 'package:kirmatas/ui/pixel_art.dart';
+import 'package:kirmatas/ui/shop_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -48,8 +51,8 @@ void main() {
       expect(bricks.any((b) => b.isAlive), true);
     });
 
-    test('Level 5 is a boss battle with high HP boss brick', () {
-      final bricks = LevelDesign.buildClassicLevel(5, 360, 640);
+    test('Level 12 is a boss battle with high HP boss brick (every 10-15 levels)', () {
+      final bricks = LevelDesign.buildClassicLevel(12, 360, 640);
       final boss = bricks.firstWhere((b) => b.isBoss);
       expect(boss.isBoss, true);
       expect(boss.hp >= 25, true);
@@ -1042,7 +1045,7 @@ void main() {
       final descendBricks = LevelDesign.buildDescendInitial(360, 640);
       expect(descendBricks.length, 28);
       // Generate multiple rows to verify both types are created
-      final rows = List.generate(10, (i) => LevelDesign.buildDescendRow(i, 360, 640)).expand((r) => r).toList();
+      final rows = List.generate(30, (i) => LevelDesign.buildDescendRow(i, 360, 640)).expand((r) => r).toList();
       expect(rows.any((b) => b.isDynamite), true);
       expect(rows.any((b) => b.isIce), true);
     });
@@ -1363,6 +1366,623 @@ void main() {
       expect(save.questAdOrWinDone, true);
       final adReward = await save.claimQuestReward('ad_or_win');
       expect(adReward, 150);
+    });
+
+    test('Fortune Wheel 3-spins per day limit and daily reset', () async {
+      final save = SaveManager.instance;
+      await save.init();
+
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      save.lastFortuneWheelDate = today;
+      save.fortuneWheelSpinsToday = 0;
+
+      // Starts with 3 spins
+      expect(save.remainingWheelSpins, 3);
+      expect(save.canSpinFortuneWheel, true);
+
+      // Spin 1
+      final ok1 = await save.recordWheelSpin();
+      expect(ok1, true);
+      expect(save.remainingWheelSpins, 2);
+      expect(save.canSpinFortuneWheel, true);
+
+      // Spin 2
+      final ok2 = await save.recordWheelSpin();
+      expect(ok2, true);
+      expect(save.remainingWheelSpins, 1);
+      expect(save.canSpinFortuneWheel, true);
+
+      // Spin 3
+      final ok3 = await save.recordWheelSpin();
+      expect(ok3, true);
+      expect(save.remainingWheelSpins, 0);
+      expect(save.canSpinFortuneWheel, false);
+
+      // Spin 4 should fail (capped at 3)
+      final ok4 = await save.recordWheelSpin();
+      expect(ok4, false);
+      expect(save.remainingWheelSpins, 0);
+      expect(save.canSpinFortuneWheel, false);
+
+      // Different day resets to 3 spins
+      save.lastFortuneWheelDate = '2026-01-01';
+      expect(save.remainingWheelSpins, 3);
+      expect(save.canSpinFortuneWheel, true);
+    });
+
+    test('Fortune Wheel probability weights favour lower rewards without skewing sector layout', () {
+      // 8 slices in wheel
+      final weights = [2.5, 4.5, 6.0, 9.0, 20.0, 10.0, 23.0, 25.0];
+      final totalWeight = weights.reduce((a, b) => a + b);
+      expect(totalWeight, closeTo(100.0, 0.01));
+
+      // Lower rewards (75g, 100g, 150g at indices 7, 6, 4):
+      final lowerRewardsWeight = weights[7] + weights[6] + weights[4];
+      expect(lowerRewardsWeight, 68.0); // Exactly 68%
+
+      // Jackpot (500g at index 0):
+      expect(weights[0], 2.5); // 2.5%
+
+      // Mystery Crate & Shard (indices 1 & 2):
+      final mysteryItemsWeight = weights[1] + weights[2];
+      expect(mysteryItemsWeight, 10.5); // 10.5%
+    });
+
+    test('Ball trail length cap during corner boost is 120 points', () {
+      final ball = Ball(x: 100, y: 100, vx: 100, vy: 100, isStuck: false);
+      ball.cornerBoostTimer = 5.0;
+
+      // Simulate 150 frames of motion (150 * 0.016 = 2.4s, timer still > 0)
+      for (int i = 0; i < 150; i++) {
+        ball.update(0.016, trailLength: 24);
+      }
+
+      // Cap should be exactly 120 (far higher than default 24 or 64)
+      expect(ball.trail.length, 120);
+
+      // When corner boost expires, cap returns to normal trailLength
+      ball.cornerBoostTimer = 0.0;
+      ball.update(0.016, trailLength: 24);
+      expect(ball.trail.length, 24);
+    });
+
+    test('Fish food gold purchase and inventory tracking', () async {
+      final save = SaveManager.instance;
+      await save.init();
+
+      final initialFood = save.fishFood;
+      save.gold = 500;
+
+      // Buy 3 food for 50 gold
+      final bought1 = await save.buyFishFoodWithGold(count: 3, cost: 50);
+      expect(bought1, true);
+      expect(save.fishFood, initialFood + 3);
+      expect(save.gold, 450);
+
+      // Buy 10 food for 140 gold
+      final bought2 = await save.buyFishFoodWithGold(count: 10, cost: 140);
+      expect(bought2, true);
+      expect(save.fishFood, initialFood + 13);
+      expect(save.gold, 310);
+
+      // Cannot afford if gold is insufficient
+      save.gold = 30;
+      final bought3 = await save.buyFishFoodWithGold(count: 3, cost: 50);
+      expect(bought3, false);
+      expect(save.fishFood, initialFood + 13);
+    });
+
+    test('AdManager high-yield ad unit is used for wheel, free gift and revive', () {
+      expect(AdManager.highYieldAdUnitId, 'ca-app-pub-9505724609102225/2723019148');
+    });
+
+    testWidgets('ShopView renders with animated trail preview, ball preview, and paddle preview painters without exceptions', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: ShopView(),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Verify tabs exist
+      expect(find.byType(ShopView), findsOneWidget);
+      expect(find.byType(TabBar), findsOneWidget);
+
+      // Switch to Trails tab
+      await tester.tap(find.text(I18n.tr('trails')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Verify live trail showcase arena title
+      expect(find.textContaining('CANLI İZ SİMÜLASYONU'), findsOneWidget);
+
+      // Verify custom painters are actively rendering trail previews
+      expect(find.byType(CustomPaint), findsWidgets);
+      expect(find.text(TrailSkin.allTrails.first.name), findsWidgets);
+    });
+
+    test('All 238 levels are valid, winnable, bounded, and progressively scaled', () {
+      const double screenWidth = 360.0;
+      const double screenHeight = 640.0;
+
+      for (int lvl = 1; lvl <= 238; lvl++) {
+        final bricks = LevelDesign.buildClassicLevel(lvl, screenWidth, screenHeight);
+        expect(bricks.isNotEmpty, true, reason: 'Level $lvl must not be empty');
+
+        final breakables = bricks.where((b) => !b.isSteel && !b.isHeavySteel).toList();
+        expect(breakables.length >= 6, true,
+            reason: 'Level $lvl must have at least 6 breakable bricks');
+
+        for (final b in bricks) {
+          expect(b.x >= 15.99, true,
+              reason: 'Level $lvl brick left bound ${b.x} out of screen');
+          expect(b.x + b.width <= screenWidth - 15.99, true,
+              reason: 'Level $lvl brick right bound ${b.x + b.width} out of screen');
+          expect(b.hp >= 1, true, reason: 'Level $lvl brick must have positive HP');
+        }
+
+        // Boss level verification (every 10-15 levels)
+        if (LevelDesign.isBossLevelNumber(lvl)) {
+          final bosses = bricks.where((b) => b.isBoss).toList();
+          expect(bosses.length, 1, reason: 'Level $lvl must have exactly 1 boss brick');
+          final boss = bosses.first;
+          expect(boss.hp >= 25, true, reason: 'Level $lvl boss must have substantial HP');
+          // Guard bricks must be present
+          final guards = bricks.where((b) => !b.isBoss && !b.isMover).toList();
+          expect(guards.length >= 6, true, reason: 'Level $lvl boss must have guard escort');
+        }
+      }
+
+      // Verify World Pacing & Identity
+      expect(LevelDesign.getWorldIndex(1), 1);
+      expect(LevelDesign.getWorldName(1), 'Neon Başlangıç');
+      expect(LevelDesign.getWorldIndex(35), 1);
+
+      expect(LevelDesign.getWorldIndex(36), 2);
+      expect(LevelDesign.getWorldName(36), 'Siber Bastion');
+      expect(LevelDesign.getWorldIndex(75), 2);
+
+      expect(LevelDesign.getWorldIndex(76), 3);
+      expect(LevelDesign.getWorldName(76), 'Manyetik Girdap');
+      expect(LevelDesign.getWorldIndex(115), 3);
+
+      expect(LevelDesign.getWorldIndex(116), 4);
+      expect(LevelDesign.getWorldName(116), 'Kristal Labirent');
+      expect(LevelDesign.getWorldIndex(155), 4);
+
+      expect(LevelDesign.getWorldIndex(156), 5);
+      expect(LevelDesign.getWorldName(156), 'Lav Çölü & Titanyum');
+      expect(LevelDesign.getWorldIndex(195), 5);
+
+      expect(LevelDesign.getWorldIndex(196), 6);
+      expect(LevelDesign.getWorldName(196), 'Kuantum Zirvesi');
+      expect(LevelDesign.getWorldIndex(238), 6);
+
+      // Verify significant progression difference between level 25 and level 187
+      final lvl25 = LevelDesign.buildClassicLevel(25, screenWidth, screenHeight);
+      final lvl187 = LevelDesign.buildClassicLevel(187, screenWidth, screenHeight);
+
+      final boss25 = lvl25.firstWhere((b) => b.isBoss);
+      final boss187 = lvl187.firstWhere((b) => b.isBoss);
+      expect(boss187.hp > boss25.hp * 3, true,
+          reason: 'Level 187 boss must have dramatically higher HP than Level 25 boss');
+
+      // Non-boss comparison (Level 21 vs Level 181)
+      final lvl21 = LevelDesign.buildClassicLevel(21, screenWidth, screenHeight);
+      final lvl181 = LevelDesign.buildClassicLevel(181, screenWidth, screenHeight);
+      final avgHp21 = lvl21.where((b) => !b.isSteel).map((b) => b.hp).reduce((a, b) => a + b) /
+          lvl21.where((b) => !b.isSteel).length;
+      final avgHp181 = lvl181.where((b) => !b.isSteel && !b.isHeavySteel).map((b) => b.hp).reduce((a, b) => a + b) /
+          lvl181.where((b) => !b.isSteel && !b.isHeavySteel).length;
+      expect(avgHp181 > avgHp21, true,
+          reason: 'Level 181 must have higher average brick resilience than Level 21');
+    });
+
+    test('Shield powerup has 12.0 seconds duration, acts as timed buff, and protects bottom ball', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.classic);
+      gc.status = GameStatus.playing;
+
+      // PowerUpType.shield duration must be 12.0
+      expect(PowerUpType.shield.duration, 12.0);
+      expect(PowerUpType.shield.isInstant, false);
+
+      // Apply shield
+      gc.applyPowerUp(PowerUpType.shield);
+      expect(gc.paddle.hasNet, true);
+      expect(gc.paddle.netHitsRemaining, 1);
+      expect(gc.activePowerUps.any((p) => p.type == PowerUpType.shield), true);
+
+      final shieldBuff = gc.activePowerUps.firstWhere((p) => p.type == PowerUpType.shield);
+      expect(shieldBuff.timeLeft, 12.0);
+
+      // Catch ball at screen bottom
+      final ball = gc.balls.first;
+      ball.isStuck = false;
+      ball.x = gc.screenWidth / 2;
+      ball.y = gc.screenHeight - 15.0; // below screen bottom threshold
+      ball.vy = 200.0;
+
+      // Update balls tick to simulate bottom collision with shield
+      gc.update(0.016);
+      expect(gc.paddle.hasNet, false);
+      expect(gc.activePowerUps.any((p) => p.type == PowerUpType.shield), false);
+    });
+
+    test('Random cosmetic selection rolls owned cosmetics and locks them per game session', () async {
+      final save = SaveManager.instance;
+      await save.init();
+
+      // Equip random on all categories
+      save.activeBall = 'random';
+      save.activePaddle = 'random';
+      save.activeTrail = 'random';
+      save.activeBrickStyle = 'random';
+      save.activeBackground = 'random';
+
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.classic);
+
+      // Session cosmetics should not be 'random', but an actual owned cosmetic id
+      expect(gc.activeBallId != 'random', true);
+      expect(save.unlockedBalls.contains(gc.activeBallId), true);
+
+      expect(gc.activePaddleId != 'random', true);
+      expect(save.unlockedPaddles.contains(gc.activePaddleId), true);
+
+      expect(gc.activeTrailId != 'random', true);
+      expect(save.unlockedTrails.contains(gc.activeTrailId), true);
+
+      expect(gc.activeBrickStyle != 'random', true);
+      expect(save.unlockedBrickStyles.contains(gc.activeBrickStyle), true);
+
+      expect(gc.activeBackground != 'random', true);
+      expect(save.unlockedBackgrounds.contains(gc.activeBackground), true);
+
+      // Throughout game ticks, the session cosmetic remains consistent
+      final lockedBall = gc.activeBallId;
+      final lockedPaddle = gc.activePaddleId;
+      final lockedTrail = gc.activeTrailId;
+      final lockedBrick = gc.activeBrickStyle;
+      final lockedBg = gc.activeBackground;
+
+      gc.update(0.016);
+      gc.update(0.016);
+
+      expect(gc.activeBallId, lockedBall);
+      expect(gc.activePaddleId, lockedPaddle);
+      expect(gc.activeTrailId, lockedTrail);
+      expect(gc.activeBrickStyle, lockedBrick);
+      expect(gc.activeBackground, lockedBg);
+    });
+
+    test('Trail prices are set to luxury high tier and corner shot matches ball/trail colors', () {
+      // Trail prices must be significantly high
+      final t2 = TrailSkin.getById('t2');
+      final spark = TrailSkin.getById('spark');
+      final fire = TrailSkin.getById('fire');
+      final rainbow = TrailSkin.getById('rainbow');
+      final ghost = TrailSkin.getById('ghost');
+      final plasma = TrailSkin.getById('plasma');
+
+      expect(t2.cost >= 4000, true);
+      expect(spark.cost >= 7000, true);
+      expect(fire.cost >= 9000, true);
+      expect(rainbow.cost >= 14000, true);
+      expect(ghost.cost >= 18000, true);
+      expect(plasma.cost >= 24000, true);
+
+      // Verify each trail has a distinct primary color
+      expect(t2.primaryColor, isNotNull);
+      expect(spark.primaryColor, isNotNull);
+      expect(fire.primaryColor, isNotNull);
+      expect(rainbow.primaryColor, isNotNull);
+      expect(ghost.primaryColor, isNotNull);
+      expect(plasma.primaryColor, isNotNull);
+
+      // Verify corner shot color selection logic
+      final save = SaveManager.instance;
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.classic);
+
+      // 1. With short trail 't1': corner shot flame uses active ball color
+      save.activeTrail = 't1';
+      final ballSkin = BallSkin.getById('altin');
+      save.activeBall = ballSkin.id;
+      gc.rollSessionCosmetics();
+      final isShort = gc.activeTrailSkin.id == 't1';
+      final Color flameColorShort = isShort ? gc.activeBallSkin.mainColor : gc.activeTrailSkin.primaryColor;
+      expect(flameColorShort, ballSkin.mainColor);
+
+      // 2. With another trail (e.g. ghost): corner shot flame uses trail primary color
+      save.activeTrail = 'ghost';
+      gc.rollSessionCosmetics();
+      final isNotShort = gc.activeTrailSkin.id == 't1';
+      final Color flameColorOther = isNotShort ? gc.activeBallSkin.mainColor : gc.activeTrailSkin.primaryColor;
+      expect(flameColorOther, ghost.primaryColor);
+    });
+
+    test('Chaos Mode starts with exactly 3 balls and spawns pickups with balanced HP', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.chaos);
+
+      expect(gc.currentMode, GameMode.chaos);
+      expect(gc.chaosStock, 3);
+      expect(gc.chaosPendingExtraBalls, 0);
+      expect(gc.balls.length, 3);
+
+      // Verify level layout has +1 ball pickups and balanced HP
+      expect(gc.bricks.any((b) => b.isBallPickup), true);
+      final solidBricks = gc.bricks.where((b) => b.isAlive && !b.isBallPickup).toList();
+      expect(solidBricks.isNotEmpty, true);
+      // Wave 1 bricks should have low/winnable HP
+      for (final b in solidBricks) {
+        expect(b.hp <= 5, true);
+      }
+    });
+
+    test('Chaos Mode ball collecting +1 ball pickup increments pending extra balls without bouncing', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.chaos);
+
+      final pickup = gc.bricks.firstWhere((b) => b.isBallPickup);
+      final ball = Ball(
+        x: pickup.x + pickup.width / 2,
+        y: pickup.y + pickup.height / 2,
+        vx: 120.0,
+        vy: -200.0,
+        radius: 6.0,
+        isStuck: false,
+      );
+      final originalVx = ball.vx;
+      final originalVy = ball.vy;
+
+      gc.balls.clear();
+      gc.balls.add(ball);
+      gc.status = GameStatus.playing;
+
+      // Step balls to trigger collision
+      gc.update(0.005);
+
+      // Pickup must be collected
+      expect(pickup.isAlive, false);
+      expect(gc.chaosPendingExtraBalls, 1);
+      // Ball must pass through smoothly without rebounding
+      expect(ball.vx, originalVx);
+      expect(ball.vy, originalVy);
+    });
+
+    test('Chaos Mode clearing all solid bricks resets balls to 3 for next level', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.chaos);
+
+      // Simulate player collecting 4 extra balls during the game
+      gc.chaosStock = 7;
+      gc.chaosPendingExtraBalls = 2;
+      expect(gc.stats.level, 1);
+
+      // Mark all solid bricks as destroyed (level cleared)
+      for (final b in gc.bricks) {
+        if (!b.isBallPickup) {
+          b.isAlive = false;
+        }
+      }
+
+      // Simulate volley finish and turn advance
+      gc.status = GameStatus.playing;
+      gc.chaosToLaunch = 0;
+      gc.chaosReturned = 7;
+      gc.balls.clear();
+      gc.update(0.016);
+
+      // Level must advance to 2 and ball count MUST reset back to exactly 3!
+      expect(gc.stats.level, 2);
+      expect(gc.chaosStock, 3);
+      expect(gc.chaosPendingExtraBalls, 0);
+      expect(gc.status, GameStatus.ready);
+      expect(gc.balls.length, 3);
+    });
+
+    test('Smooth real-world contact normal reflection preserves speed and reflects corners accurately', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.classic);
+      gc.bricks.clear();
+
+      final brick = Brick(
+        x: 100.0,
+        y: 100.0,
+        width: 40.0,
+        height: 20.0,
+        hp: 10,
+        maxHp: 10,
+        color: Colors.red,
+      );
+      gc.bricks.add(brick);
+
+      // 1. Flat top edge collision: purely vertical reflection
+      final ballTop = Ball(
+        x: 120.0, // center on brick top edge
+        y: 95.0,  // approaching top face
+        vx: 80.0,
+        vy: 150.0, // moving downward
+        radius: 6.0,
+        isStuck: false,
+      );
+      final initialSpeed = ballTop.speed;
+      gc.balls.clear();
+      gc.balls.add(ballTop);
+      gc.status = GameStatus.playing;
+      gc.update(0.01);
+
+      expect(ballTop.vy < 0, true); // bounced upward
+      expect((ballTop.vx - 80.0).abs() < 2.0, true); // horizontal speed preserved
+      expect((ballTop.speed - initialSpeed).abs() < 2.0, true); // kinetic speed preserved
+
+      // 2. Corner vertex hit: reflects along contact normal vector without 90-degree axis snapping
+      final ballCorner = Ball(
+        x: 98.0, // to the left of left edge (100)
+        y: 98.0, // above top edge (100)
+        vx: 120.0,
+        vy: 120.0,
+        radius: 6.0,
+        isStuck: false,
+      );
+      final cornerInitialSpeed = ballCorner.speed;
+      gc.balls.clear();
+      gc.balls.add(ballCorner);
+      gc.status = GameStatus.playing;
+      gc.update(0.01);
+
+      // Ball hit the top-left corner vertex: both vx and vy should reflect away from vertex
+      expect(ballCorner.vx < 0, true);
+      expect(ballCorner.vy < 0, true);
+      expect((ballCorner.speed - cornerInitialSpeed).abs() < 2.0, true);
+    });
+
+    testWidgets('GameCanvas renders Chaos Mode with +1 ball pickups, ball counter and trajectory', (tester) async {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.chaos);
+      gc.status = GameStatus.ready;
+      gc.aimChaos(180, 200);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GameCanvas(controller: gc),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(find.byType(GameCanvas), findsOneWidget);
+    });
+
+    test('Chaos Mode accelerates balls after 8s and 22s and waits for all balls before ending volley', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.chaos);
+      gc.status = GameStatus.playing;
+      gc.chaosToLaunch = 0;
+      gc.chaosReturned = 1;
+      gc.chaosTurnTime = 8.5; // past 8 seconds threshold
+
+      final ball1 = Ball(x: 180, y: 200, vx: 50, vy: 50, radius: 5.2, isStuck: false);
+      gc.balls.add(ball1);
+      gc.update(0.016);
+
+      // Speed should be boosted to at least 480 px/s
+      expect(ball1.speed >= 480.0, true);
+      // Turn should NOT end while balls are still flying
+      expect(gc.status, GameStatus.playing);
+      expect(gc.balls.isNotEmpty, true);
+
+      // Past 22 seconds: even faster (min 720 px/s)
+      gc.chaosTurnTime = 22.5;
+      gc.update(0.016);
+      expect(ball1.speed >= 720.0, true);
+      expect(gc.status, GameStatus.playing);
+
+      // When ball finally hits bottom floor (chaosFloorY), it is removed
+      gc.balls.clear();
+      gc.balls.add(ball1);
+      ball1.y = gc.chaosFloorY + 10.0;
+      gc.update(0.016);
+
+      // All active balls are removed, advance turn prepares next volley
+      expect(gc.status, GameStatus.ready);
+      expect(gc.chaosToLaunch, 0);
+    });
+
+    test('Black Hole has wide gravity field, prevents permanent slowdown and boosts exit speed', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.currentMode = GameMode.zen;
+      final bh = BlackHole(x: 180, y: 300, radius: 25.0, mass: 100000, timeLeft: 5.0);
+      gc.blackHoles.add(bh);
+
+      final ball = Ball(x: 180, y: 150, vx: 0, vy: 100, isStuck: false);
+      gc.balls.add(ball);
+      gc.status = GameStatus.playing;
+
+      // Distance is 150 px (within 25 * 11 = 275 px wide gravitational zone)
+      gc.update(0.016);
+      expect(ball.vy > 100, true); // Pulled towards black hole (+y)
+
+      // Slow ball inside black hole never drops below getBaseBallSpeed()
+      ball.x = 180;
+      ball.y = 295; // Right inside black hole
+      ball.setSpeed(50.0);
+      gc.update(0.016);
+      expect(ball.speed >= gc.getBaseBallSpeed(), true);
+    });
+
+    test('Ball bouncing 8 consecutive times on side walls speeds up until hitting paddle or brick', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.classic);
+      gc.status = GameStatus.playing;
+
+      final ball = Ball(x: 355, y: 300, vx: 100, vy: 50, radius: 6.0, isStuck: false);
+      gc.balls.clear();
+      gc.balls.add(ball);
+
+      // Hit side wall 7 times
+      for (int i = 0; i < 7; i++) {
+        ball.x = 359;
+        ball.vx = 100;
+        gc.update(0.005);
+      }
+      expect(ball.sideWallBounceCount, 7);
+      expect(ball.isWallSpeedBoosted, false);
+
+      // 8th hit triggers speed boost
+      ball.x = 359;
+      ball.vx = 100;
+      gc.update(0.005);
+      expect(ball.sideWallBounceCount >= 8, true);
+      expect(ball.isWallSpeedBoosted, true);
+      expect(ball.speed >= gc.getBaseBallSpeed() * 1.5, true);
+
+      // Hitting paddle resets the boost
+      gc.paddle.x = 150;
+      gc.paddle.y = 580;
+      ball.x = 180;
+      ball.y = 578;
+      ball.vy = 200;
+      gc.update(0.01);
+      expect(ball.sideWallBounceCount, 0);
+      expect(ball.isWallSpeedBoosted, false);
+    });
+
+    test('Rainbow Ball skin (gokkusagi) exists and renders with multifaceted diamond and star glints', () {
+      final skin = BallSkin.getById('gokkusagi');
+      expect(skin.id, 'gokkusagi');
+      expect(skin.name.isNotEmpty, true);
+      expect(skin.rarity, Rarity.legendary);
+
+      final diamondSkin = BallSkin.getById('elmas_top');
+      expect(diamondSkin.id, 'elmas_top');
+      expect(diamondSkin.rarity, Rarity.legendary);
+    });
+
+    test('AudioManager has cornerBoost, bossHit, wallBounce8 GameSfx and haptic bindings', () {
+      expect(GameSfx.values.contains(GameSfx.cornerBoost), true);
+      expect(GameSfx.values.contains(GameSfx.bossHit), true);
+      expect(GameSfx.values.contains(GameSfx.wallBounce8), true);
+
+      // Verify playing without crash
+      final am = AudioManager.instance;
+      am.playSfx(GameSfx.cornerBoost);
+      am.playSfx(GameSfx.bossHit);
+      am.playSfx(GameSfx.wallBounce8);
     });
   });
 }

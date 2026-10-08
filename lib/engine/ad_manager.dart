@@ -100,8 +100,8 @@ class AdManager extends ChangeNotifier {
     );
   }
 
-  /// Shows the rewarded ad to earn 50 gold.
-  /// Prevents spamming and double clicks.
+  /// Shows the high-yield rewarded ad to earn free gold reward.
+  /// (Same high-yield ad unit as Fortune Wheel: 2723019148).
   Future<void> watchAdForGold(
     BuildContext context, {
     required void Function(int goldReward) onSuccess,
@@ -121,15 +121,17 @@ class AdManager extends ChangeNotifier {
       return;
     }
 
-    if (_rewardedAd == null) {
+    final adToUse = _highYieldAd ?? _rewardedAd;
+    if (adToUse == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Reklam yükleniyor, lütfen birkaç saniye sonra tekrar deneyin...'),
-          backgroundColor: const Color(0xFF1E2438),
+          backgroundColor: Color(0xFF1E2438),
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 2),
         ),
       );
+      preloadHighYieldAd();
       preloadRewardedAd();
       return;
     }
@@ -138,23 +140,27 @@ class AdManager extends ChangeNotifier {
     notifyListeners();
 
     bool userEarnedReward = false;
-    final currentAd = _rewardedAd!;
+    final currentAd = adToUse;
 
     currentAd.fullScreenContentCallback = FullScreenContentCallback(
       onAdShowedFullScreenContent: (ad) {
-        debugPrint('Rewarded ad showed');
+        debugPrint('Free gift rewarded ad showed (High Yield)');
       },
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
-        _rewardedAd = null;
+        if (currentAd == _highYieldAd) {
+          _highYieldAd = null;
+        } else {
+          _rewardedAd = null;
+        }
         _isShowing = false;
         notifyListeners();
 
-        // Immediately preload the next rewarded ad in the background
+        // Immediately preload next ads in the background
+        preloadHighYieldAd();
         preloadRewardedAd();
 
         if (userEarnedReward) {
-          // Add gold to the player and save immediately
           SaveManager.instance.addGold(goldRewardAmount);
           SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
           SaveManager.instance.recordAdOrWinQuest();
@@ -165,11 +171,16 @@ class AdManager extends ChangeNotifier {
         }
       },
       onAdFailedToShowFullScreenContent: (ad, AdError error) {
-        debugPrint('Rewarded ad failed to show: $error');
+        debugPrint('Free gift ad failed to show: $error');
         ad.dispose();
-        _rewardedAd = null;
+        if (currentAd == _highYieldAd) {
+          _highYieldAd = null;
+        } else {
+          _rewardedAd = null;
+        }
         _isShowing = false;
         notifyListeners();
+        preloadHighYieldAd();
         preloadRewardedAd();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -188,7 +199,7 @@ class AdManager extends ChangeNotifier {
     );
   }
 
-  /// Shows the rewarded ad to revive with 1 extra life.
+  /// Shows the high-yield long rewarded ad to revive with 1 extra life.
   Future<void> watchAdForRevive(
     BuildContext context, {
     required VoidCallback onReviveSuccess,
@@ -196,16 +207,16 @@ class AdManager extends ChangeNotifier {
   }) async {
     if (_isShowing) return;
 
-    if (_rewardedAd == null) {
+    if (_highYieldAd == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Reklam yükleniyor, lütfen birkaç saniye sonra tekrar deneyin...'),
+          content: Text('Uzun ödüllü reklam yükleniyor, lütfen birkaç saniye sonra tekrar deneyin...'),
           backgroundColor: Color(0xFF1E2438),
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 2),
         ),
       );
-      preloadRewardedAd();
+      preloadHighYieldAd();
       return;
     }
 
@@ -213,20 +224,20 @@ class AdManager extends ChangeNotifier {
     notifyListeners();
 
     bool userEarnedReward = false;
-    final currentAd = _rewardedAd!;
+    final currentAd = _highYieldAd!;
 
     currentAd.fullScreenContentCallback = FullScreenContentCallback(
       onAdShowedFullScreenContent: (ad) {
-        debugPrint('Revive rewarded ad showed');
+        debugPrint('Revive rewarded ad showed (High-Yield Long Ad: $highYieldAdUnitId)');
       },
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
-        _rewardedAd = null;
+        _highYieldAd = null;
         _isShowing = false;
         notifyListeners();
 
-        // Immediately preload the next rewarded ad in the background
-        preloadRewardedAd();
+        // Immediately preload next high-yield ad in the background
+        preloadHighYieldAd();
 
         if (userEarnedReward) {
           onReviveSuccess();
@@ -235,15 +246,15 @@ class AdManager extends ChangeNotifier {
         }
       },
       onAdFailedToShowFullScreenContent: (ad, AdError error) {
-        debugPrint('Revive rewarded ad failed to show: $error');
+        debugPrint('Revive high-yield ad failed to show: $error');
         ad.dispose();
-        _rewardedAd = null;
+        _highYieldAd = null;
         _isShowing = false;
         notifyListeners();
-        preloadRewardedAd();
+        preloadHighYieldAd();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Reklam gösterilemedi. Lütfen internet bağlantınızı kontrol edin.'),
+            content: Text('Reklam açılamadı. Lütfen internet bağlantınızı kontrol edin.'),
             backgroundColor: Color(0xFFC62828),
             behavior: SnackBarBehavior.floating,
           ),

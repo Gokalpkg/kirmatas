@@ -30,6 +30,8 @@ class Ball {
   int cornerHitCount = 0;
   bool isPurple = false;
   double anomalyCooldown = 0.0;
+  int sideWallBounceCount = 0;
+  bool isWallSpeedBoosted = false;
 
   Ball({
     required this.x,
@@ -89,8 +91,8 @@ class Ball {
 
       trail.insert(0, TrailPoint(Offset(x, y), dt));
       final cap = cornerBoostTimer > 0
-          ? 56
-          : (isFireball ? (trailLength + 12) : trailLength);
+          ? 120
+          : (isFireball ? (trailLength + 16) : trailLength);
       while (trail.length > cap) {
         trail.removeLast();
       }

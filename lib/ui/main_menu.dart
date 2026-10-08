@@ -28,6 +28,75 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   final SaveManager _save = SaveManager.instance;
   GameController? _activeGame;
 
+  static bool _hasAutoShownWheelThisSession = false;
+  final GlobalKey _wheelButtonKey = GlobalKey();
+  bool _highlightWheelButton = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_hasAutoShownWheelThisSession && mounted) {
+        _hasAutoShownWheelThisSession = true;
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (mounted && _activeGame == null) {
+            _openFortuneWheelWithHero();
+          }
+        });
+      }
+    });
+  }
+
+  Future<void> _openFortuneWheelWithHero() async {
+    final renderBox = _wheelButtonKey.currentContext?.findRenderObject() as RenderBox?;
+    final screenSize = MediaQuery.of(context).size;
+    final targetCenter = renderBox != null && renderBox.hasSize
+        ? renderBox.localToGlobal(renderBox.size.center(Offset.zero))
+        : Offset(screenSize.width / 2, 140);
+    final screenCenter = Offset(screenSize.width / 2, screenSize.height / 2);
+
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'FortuneWheel',
+      barrierColor: Colors.black.withValues(alpha: 0.75),
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return const FortuneWheelDialog();
+      },
+      transitionBuilder: (dialogContext, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutBack,
+          reverseCurve: Curves.easeInOutCubic,
+        );
+
+        final t = curved.value;
+        final dx = (targetCenter.dx - screenCenter.dx) * (1.0 - t);
+        final dy = (targetCenter.dy - screenCenter.dy) * (1.0 - t);
+        final scale = 0.05 + 0.95 * t.clamp(0.0, 1.2);
+
+        return Transform.translate(
+          offset: Offset(dx, dy),
+          child: Transform.scale(
+            scale: scale,
+            child: Opacity(
+              opacity: animation.value.clamp(0.0, 1.0),
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+
+    if (mounted) {
+      setState(() => _highlightWheelButton = true);
+      Future.delayed(const Duration(milliseconds: 900), () {
+        if (mounted) setState(() => _highlightWheelButton = false);
+      });
+    }
+  }
+
   void _launchGame(GameMode mode) {
     AudioManager.instance.isBgmAllowed = false;
     AudioManager.instance.pauseBgm();
@@ -192,24 +261,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       onChanged: (val) {
                         _save.setVibrationLevel(val.toInt());
                         AudioManager.instance.playSfx(GameSfx.hitBrick);
-                      },
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    SwitchListTile(
-                      title: const Text('Geliştirici Modu (Sınırsız Altın)', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 13)),
-                      value: _save.devMode,
-                      activeThumbColor: const Color(0xFFFFD54F),
-                      contentPadding: EdgeInsets.zero,
-                      onChanged: (val) {
-                        if (val) {
-                          _save.gold = 9999999;
-                          _save.setDevMode(true);
-                        } else {
-                          _save.setDevMode(false);
-                        }
-                        setState(() {});
                       },
                     ),
                   ],
@@ -401,13 +452,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildArcadeMiniCard(
-                                  mode: GameMode.daily,
-                                  title: I18n.tr('daily'),
-                                  desc: I18n.tr('daily_desc'),
-                                  icon: Icons.military_tech_rounded,
-                                  color1: const Color(0xFFF59E0B),
-                                  color2: const Color(0xFFD97706),
-                                  onTap: () => _launchGame(GameMode.daily),
+                                  mode: GameMode.chaos,
+                                  title: I18n.tr('chaos'),
+                                  desc: I18n.tr('chaos_desc'),
+                                  icon: Icons.bubble_chart_rounded,
+                                  color1: const Color(0xFFFF3D00),
+                                  color2: const Color(0xFFB71C1C),
+                                  onTap: () => _launchGame(GameMode.chaos),
                                 ),
                               ),
                             ],
@@ -534,52 +585,87 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     final canClaimDaily = _save.canClaimDailyLogin();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0x80101320),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white12),
+          gradient: const LinearGradient(
+            colors: [Color(0xEE121626), Color(0xEE0D101C)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0x55FFD54F), width: 1.2),
           boxShadow: const [
-            BoxShadow(color: Colors.black38, blurRadius: 10, offset: Offset(0, 2)),
+            BoxShadow(color: Color(0x66000000), blurRadius: 18, offset: Offset(0, 6)),
           ],
         ),
         child: Row(
           children: [
-            // 1. 7 Günlük Giriş
+            // 1. 7 GÜNLÜK GİRİŞ (Royal Golden Arc / Glowing Amber)
             Expanded(
-              child: _buildRewardBarItem(
+              child: _buildFancyRewardButton(
+                gradientColors: [const Color(0xFF382305), const Color(0xFF1E1302)],
+                borderColor: canClaimDaily ? const Color(0xFFFFD54F) : const Color(0x99FFA000),
+                glowColor: const Color(0xFFFFA000),
+                isGlowing: canClaimDaily,
+                iconGradient: const [Color(0xFFFFD54F), Color(0xFFFF8F00)],
                 icon: Icons.calendar_month_rounded,
-                iconColor: const Color(0xFFFFB300),
-                title: '7 Günlük',
+                iconColor: const Color(0xFF261500),
+                title: '7 GÜNLÜK',
+                titleColor: const Color(0xFFFFE082),
                 subtitle: 'Gün ${_save.dailyLoginStreak}',
-                badge: canClaimDaily ? 'AL' : null,
-                badgeColor: const Color(0xFFFF9100),
+                subColor: const Color(0xFFFFB300),
+                badgeText: canClaimDaily ? '🔥 AL!' : null,
+                badgeGradient: const [Color(0xFFFF5252), Color(0xFFFF1744)],
                 onTap: () => DailyLoginDialog.show(context),
               ),
             ),
             const SizedBox(width: 8),
 
-            // 2. Şans Çarkı
+            // 2. ŞANS ÇARKI (Cosmic Neon Cyan / Violet with dynamic target key & Hero Shrink)
             Expanded(
-              child: _buildRewardBarItem(
-                icon: Icons.motion_photos_on_rounded,
-                iconColor: const Color(0xFF00E5FF),
-                title: 'Şans Çarkı',
-                subtitle: 'Ödül Kazan',
-                badge: null,
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (_) => const FortuneWheelDialog(),
-                  );
-                },
+              child: KeyedSubtree(
+                key: _wheelButtonKey,
+                child: ListenableBuilder(
+                  listenable: _save,
+                  builder: (context, _) {
+                    final spinsLeft = _save.remainingWheelSpins;
+                    final hasSpins = spinsLeft > 0;
+
+                    return _buildFancyRewardButton(
+                      gradientColors: hasSpins
+                          ? const [Color(0xFF0D253A), Color(0xFF1F0C38)]
+                          : const [Color(0xFF141724), Color(0xFF1A1D2B)],
+                      borderColor: _highlightWheelButton
+                          ? const Color(0xFFFFFF00)
+                          : (hasSpins ? const Color(0xFF00E5FF) : Colors.white24),
+                      glowColor: _highlightWheelButton
+                          ? const Color(0xFFFFD700)
+                          : const Color(0xFF00E5FF),
+                      isGlowing: hasSpins || _highlightWheelButton,
+                      iconGradient: hasSpins
+                          ? const [Color(0xFF00E5FF), Color(0xFFD500F9)]
+                          : const [Color(0xFF455A64), Color(0xFF263238)],
+                      icon: Icons.motion_photos_on_rounded,
+                      iconColor: hasSpins ? Colors.white : Colors.white54,
+                      title: 'ŞANS ÇARKI',
+                      titleColor: hasSpins ? const Color(0xFF80D8FF) : Colors.white60,
+                      subtitle: hasSpins ? '$spinsLeft/3 Hak' : 'Yarın Gel',
+                      subColor: hasSpins ? const Color(0xFF00E5FF) : Colors.white38,
+                      badgeText: hasSpins ? '✨ $spinsLeft/3' : '0/3',
+                      badgeGradient: hasSpins
+                          ? const [Color(0xFF00E5FF), Color(0xFF7C4DFF)]
+                          : const [Color(0xFF37474F), Color(0xFF263238)],
+                      onTap: _openFortuneWheelWithHero,
+                    );
+                  },
+                ),
               ),
             ),
             const SizedBox(width: 8),
 
-            // 3. Ücretsiz Altın (+100)
+            // 3. ÜCRETSİZ HEDİYE (Emerald Radiant Fortune)
             Expanded(
               child: ListenableBuilder(
                 listenable: AdManager.instance,
@@ -587,6 +673,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   final cooldown = AdManager.instance.remainingCooldownSeconds;
                   final onCooldown = cooldown > 0;
                   final isLoading = AdManager.instance.isLoading || AdManager.instance.isShowing;
+                  final isReady = !onCooldown && !isLoading;
 
                   String sub;
                   if (isLoading) {
@@ -599,15 +686,24 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     sub = '+100 🪙';
                   }
 
-                  return _buildRewardBarItem(
+                  return _buildFancyRewardButton(
+                    gradientColors: [const Color(0xFF08331F), const Color(0xFF071E20)],
+                    borderColor: isReady ? const Color(0xFF00E676) : const Color(0x6600E676),
+                    glowColor: const Color(0xFF00E676),
+                    isGlowing: isReady,
+                    iconGradient: const [Color(0xFF69F0AE), Color(0xFF00B0FF)],
                     icon: Icons.card_giftcard_rounded,
-                    iconColor: const Color(0xFF69F0AE),
-                    title: 'Ücretsiz',
+                    iconColor: const Color(0xFF00331A),
+                    title: 'ÜCRETSİZ',
+                    titleColor: const Color(0xFFA7FFEB),
                     subtitle: sub,
-                    badge: (!onCooldown && !isLoading) ? 'HAZIR' : null,
-                    badgeColor: const Color(0xFF00E676),
+                    subColor: const Color(0xFF69F0AE),
+                    badgeText: isReady ? '🎁 +100' : (onCooldown ? '⏳ $sub' : null),
+                    badgeGradient: isReady
+                        ? const [Color(0xFF00E676), Color(0xFF00C853)]
+                        : const [Color(0xFF37474F), Color(0xFF263238)],
                     onTap: () {
-                      if (!onCooldown && !isLoading) {
+                      if (isReady) {
                         AdManager.instance.watchAdForGold(
                           context,
                           onSuccess: (reward) {
@@ -641,26 +737,47 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     );
   }
 
-  Widget _buildRewardBarItem({
+  Widget _buildFancyRewardButton({
+    required List<Color> gradientColors,
+    required Color borderColor,
+    required Color glowColor,
+    required bool isGlowing,
+    required List<Color> iconGradient,
     required IconData icon,
     required Color iconColor,
     required String title,
+    required Color titleColor,
     required String subtitle,
-    String? badge,
-    Color badgeColor = const Color(0xFFFF9100),
+    required Color subColor,
+    String? badgeText,
+    List<Color>? badgeGradient,
     required VoidCallback onTap,
   }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
           decoration: BoxDecoration(
-            color: iconColor.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: iconColor.withValues(alpha: 0.25), width: 1),
+            gradient: LinearGradient(
+              colors: gradientColors,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor, width: isGlowing ? 1.5 : 1.0),
+            boxShadow: isGlowing
+                ? [
+                    BoxShadow(
+                      color: glowColor.withValues(alpha: 0.4),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
           child: Stack(
             clipBehavior: Clip.none,
@@ -668,13 +785,27 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               Row(
                 children: [
                   Container(
-                    width: 28,
-                    height: 28,
+                    width: 30,
+                    height: 30,
                     decoration: BoxDecoration(
-                      color: iconColor.withValues(alpha: 0.18),
+                      gradient: LinearGradient(
+                        colors: iconGradient,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: iconGradient.first.withValues(alpha: 0.6),
+                          blurRadius: 6,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 1.2),
                     ),
-                    child: Icon(icon, color: iconColor, size: 16),
+                    child: Center(
+                      child: Icon(icon, color: iconColor, size: 17),
+                    ),
                   ),
                   const SizedBox(width: 6),
                   Expanded(
@@ -684,20 +815,29 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: titleColor,
                             fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.4,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.8),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        const SizedBox(height: 1),
                         Text(
                           subtitle,
                           style: TextStyle(
-                            color: iconColor,
+                            color: subColor,
                             fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -707,25 +847,34 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   ),
                 ],
               ),
-              if (badge != null)
+              if (badgeText != null)
                 Positioned(
-                  top: -6,
-                  right: -2,
+                  top: -8,
+                  right: -3,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                     decoration: BoxDecoration(
-                      color: badgeColor,
-                      borderRadius: BorderRadius.circular(6),
+                      gradient: badgeGradient != null
+                          ? LinearGradient(colors: badgeGradient)
+                          : null,
+                      color: badgeGradient == null ? Colors.orange : null,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 0.8),
                       boxShadow: [
-                        BoxShadow(color: badgeColor.withValues(alpha: 0.6), blurRadius: 4),
+                        BoxShadow(
+                          color: (badgeGradient?.first ?? Colors.black).withValues(alpha: 0.6),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
                       ],
                     ),
                     child: Text(
-                      badge,
+                      badgeText,
                       style: const TextStyle(
-                        color: Colors.black,
+                        color: Colors.white,
                         fontSize: 8,
                         fontWeight: FontWeight.w900,
+                        letterSpacing: 0.3,
                       ),
                     ),
                   ),

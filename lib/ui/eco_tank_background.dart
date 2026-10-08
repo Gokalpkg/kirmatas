@@ -104,6 +104,9 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
 
   void _addFood(Offset pos) {
     if (!widget.interactive) return;
+    // Yem yoksa yem atılma animasyonu olmasın
+    if (SaveManager.instance.fishFood <= 0) return;
+
     // Spawn 2 food pellets near tap
     for (int i = 0; i < 2; i++) {
       final offsetX = (_rand.nextDouble() * 2 - 1) * 12.0;
@@ -277,11 +280,16 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       child: Stack(
         children: [
           Positioned.fill(
-            child: CustomPaint(
-              painter: _TankPainter(this),
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: _TankPainter(this),
+              ),
             ),
           ),
-          if (widget.child != null) widget.child!,
+          if (widget.child != null)
+            RepaintBoundary(
+              child: widget.child!,
+            ),
         ],
       ),
     );
@@ -365,7 +373,7 @@ class _TankPainter extends CustomPainter {
   final Paint _foodPaint = Paint()..color = const Color(0xFFFFD54F);
   final Paint _foodGlow = Paint()..color = const Color(0x44FFD54F);
   final Paint _sparkPaint = Paint();
-  final Paint _imgPaint = Paint()..filterQuality = FilterQuality.medium;
+  final Paint _imgPaint = Paint()..filterQuality = FilterQuality.low;
   final Paint _bodyPaint = Paint();
   final Paint _tailPaint = Paint();
   final Paint _eyeWhite = Paint()..color = const Color(0xFFFFFFFF);

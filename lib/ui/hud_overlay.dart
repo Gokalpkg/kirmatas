@@ -88,7 +88,9 @@ class HudOverlay extends StatelessWidget {
                             child: Text(
                               controller.currentMode == GameMode.classic
                                   ? '${I18n.tr('level').toUpperCase()} ${stats.level}'
-                                  : I18n.tr(controller.currentMode.name).toUpperCase(),
+                                  : controller.currentMode == GameMode.chaos
+                                      ? '${I18n.tr('chaos').toUpperCase()} ${stats.level} · ⚽${controller.chaosStock}'
+                                      : I18n.tr(controller.currentMode.name).toUpperCase(),
                               style: const TextStyle(
                                 color: Color(0xFFFFD54F),
                                 fontWeight: FontWeight.w900,
@@ -165,7 +167,9 @@ class HudOverlay extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            I18n.tr('tap_to_launch'),
+                            controller.currentMode == GameMode.chaos
+                                ? I18n.tr('chaos_aim')
+                                : I18n.tr('tap_to_launch'),
                             style: const TextStyle(
                               color: Color(0xFFFFD54F),
                               fontWeight: FontWeight.w900,

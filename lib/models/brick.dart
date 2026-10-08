@@ -25,6 +25,7 @@ class Brick {
   bool isTuft;
   bool tuftFilled;
   Color tuftColor;
+  bool isBallPickup;
   double jelly; // wobble deformation amount (0.0 to 1.0)
   Color color;
   Color? originalColor;
@@ -55,11 +56,14 @@ class Brick {
     this.isTuft = false,
     this.tuftFilled = false,
     this.tuftColor = const Color(0xFFFF7043),
+    this.isBallPickup = false,
     this.jelly = 0.0,
     required this.color,
     this.points = 10,
     this.isAlive = true,
   }) : targetY = targetY ?? y;
+
+  bool get isEnraged => isBoss && hp <= maxHp * 0.35 && hp > 0;
 
   Rect get rect => Rect.fromLTWH(x, y, width, height);
 
@@ -93,7 +97,8 @@ class Brick {
 
     // Boss brick logic
     if (isBoss) {
-      x += bossVx * dt;
+      final currentVx = (hp <= maxHp * 0.35 && hp > 0) ? bossVx * 1.5 : bossVx;
+      x += currentVx * dt;
       if (x <= minX) {
         x = minX;
         bossVx = bossVx.abs();

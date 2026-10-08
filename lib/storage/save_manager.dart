@@ -20,6 +20,7 @@ class SaveManager extends ChangeNotifier {
     'zen': 0,
     'descend': 0,
     'daily': 0,
+    'chaos': 0,
     'tuft': 0,
   };
 
@@ -52,6 +53,11 @@ class SaveManager extends ChangeNotifier {
   int dailyLoginStreak = 1; // 1 to 7
   String? lastDailyLoginClaimDate;
 
+  // --- FORTUNE WHEEL (3 SPINS PER DAY) ---
+  static const int maxDailyWheelSpins = 3;
+  String? lastFortuneWheelDate;
+  int fortuneWheelSpinsToday = 0;
+
   // --- DAILY QUESTS ---
   String? currentQuestDate;
   int questBricksBroken = 0;
@@ -71,7 +77,6 @@ class SaveManager extends ChangeNotifier {
   String activeBackground = 'bg_default';
   Set<String> unlockedBrickStyles = {'brick_neon'};
   String activeBrickStyle = 'brick_neon';
-  bool devMode = false;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -81,7 +86,6 @@ class SaveManager extends ChangeNotifier {
     sfxVolume = _prefs?.getInt('sfxVolume') ?? 8;
     bgmVolume = _prefs?.getInt('bgmVolume') ?? 3;
     vibrationLevel = _prefs?.getInt('vibrationLevel') ?? 8;
-    devMode = _prefs?.getBool('devMode') ?? false;
 
     final hsStr = _prefs?.getString('highScores');
     if (hsStr != null) {
@@ -136,6 +140,13 @@ class SaveManager extends ChangeNotifier {
     dailyStreak = _prefs?.getInt('dailyStreak') ?? 1;
     dailyLoginStreak = _prefs?.getInt('dailyLoginStreak') ?? 1;
     lastDailyLoginClaimDate = _prefs?.getString('lastDailyLoginClaimDate');
+
+    lastFortuneWheelDate = _prefs?.getString('lastFortuneWheelDate');
+    fortuneWheelSpinsToday = _prefs?.getInt('fortuneWheelSpinsToday') ?? 0;
+    final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+    if (lastFortuneWheelDate != todayStr) {
+      fortuneWheelSpinsToday = 0;
+    }
 
     currentQuestDate = _prefs?.getString('currentQuestDate');
     questBricksBroken = _prefs?.getInt('questBricksBroken') ?? 0;
@@ -454,6 +465,34 @@ class SaveManager extends ChangeNotifier {
     };
   }
 
+  // --- FORTUNE WHEEL (3 SPINS PER DAY) ---
+
+  int get remainingWheelSpins {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    if (lastFortuneWheelDate != today) {
+      return maxDailyWheelSpins;
+    }
+    return (maxDailyWheelSpins - fortuneWheelSpinsToday).clamp(0, maxDailyWheelSpins);
+  }
+
+  bool get canSpinFortuneWheel => remainingWheelSpins > 0;
+
+  Future<bool> recordWheelSpin() async {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    if (lastFortuneWheelDate != today) {
+      lastFortuneWheelDate = today;
+      fortuneWheelSpinsToday = 0;
+    }
+    if (fortuneWheelSpinsToday >= maxDailyWheelSpins) {
+      return false;
+    }
+    fortuneWheelSpinsToday++;
+    await _prefs?.setString('lastFortuneWheelDate', today);
+    await _prefs?.setInt('fortuneWheelSpinsToday', fortuneWheelSpinsToday);
+    notifyListeners();
+    return true;
+  }
+
   // --- DAILY QUESTS ---
 
   void _checkAndResetQuests() {
@@ -560,7 +599,7 @@ class SaveManager extends ChangeNotifier {
   }
 
   Future<void> selectBackground(String id) async {
-    if (unlockedBackgrounds.contains(id)) {
+    if (id == 'random' || unlockedBackgrounds.contains(id)) {
       activeBackground = id;
       await _prefs?.setString('activeBackground', id);
       notifyListeners();
@@ -576,12 +615,6 @@ class SaveManager extends ChangeNotifier {
   Future<void> equipBrickStyle(String id) async {
     activeBrickStyle = id;
     await _prefs?.setString('activeBrickStyle', id);
-    notifyListeners();
-  }
-
-  Future<void> setDevMode(bool enabled) async {
-    devMode = enabled;
-    await _prefs?.setBool('devMode', enabled);
     notifyListeners();
   }
 

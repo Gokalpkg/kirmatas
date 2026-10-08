@@ -139,9 +139,19 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     });
 
     final rand = Random();
-    // Weighted selection: higher prizes slightly rarer, smaller prizes more frequent
-    // Indexes: 0: 500g, 1: crate, 2: shard, 3: 250g, 4: 100g, 5: life, 6: 75g, 7: 50g
-    final weights = [4.0, 7.0, 9.0, 14.0, 20.0, 10.0, 18.0, 18.0];
+    // Weighted selection: visually all 8 sectors are identically sized (45 degrees),
+    // but lower/mid rewards have a noticeably higher probability (75, 100, 150 gold total ~68%)
+    // while high-tier prizes remain rare and exciting.
+    // Indexes:
+    // 0: 500g   (Jackpot) -> 2.5%
+    // 1: Crate  (Gizemli) -> 4.5%
+    // 2: Shard  (Parça)   -> 6.0%
+    // 3: 250g   (Büyük)   -> 9.0%
+    // 4: 150g   (Altın)   -> 20.0%
+    // 5: +1 Can (Can)     -> 10.0%
+    // 6: 100g   (Altın)   -> 23.0%
+    // 7: 75g    (Altın)   -> 25.0%
+    final weights = [2.5, 4.5, 6.0, 9.0, 20.0, 10.0, 23.0, 25.0];
     final totalWeight = weights.reduce((a, b) => a + b);
     double roll = rand.nextDouble() * totalWeight;
     int targetIndex = 0;
@@ -198,11 +208,27 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
   }
 
   void _onWatchAdAndSpin() {
+    final save = SaveManager.instance;
+    if (!save.canSpinFortuneWheel) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Bugünkü 3 çark hakkını kullandın! Yarın yeni haklar gelecek.'),
+          backgroundColor: const Color(0xFF1E2438),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      );
+      return;
+    }
+
     AdManager.instance.watchHighYieldAd(
       context,
-      onSuccess: () {
+      onSuccess: () async {
         if (!mounted) return;
-        _triggerWheelSpin();
+        final ok = await SaveManager.instance.recordWheelSpin();
+        if (ok && mounted) {
+          _triggerWheelSpin();
+        }
       },
       onDismissedEarly: () {
         if (!mounted) return;
@@ -292,132 +318,177 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
   @override
   Widget build(BuildContext context) {
     final adManager = AdManager.instance;
+    final save = SaveManager.instance;
 
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(0xFA0F1322),
-          borderRadius: BorderRadius.circular(32),
-          border: Border.all(color: const Color(0xFFFFD54F), width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFFB300).withValues(alpha: 0.35),
-              blurRadius: 36,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const SizedBox(width: 32),
-                const Row(
-                  children: [
-                    Icon(Icons.stars, color: Color(0xFFFFD54F), size: 24),
-                    SizedBox(width: 8),
-                    Text(
-                      'ŞANS ÇARKI',
-                      style: TextStyle(
-                        color: Color(0xFFFFD54F),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 20,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  onPressed: _isSpinning ? null : () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, color: Colors.white70),
+      child: ListenableBuilder(
+        listenable: Listenable.merge([adManager, save]),
+        builder: (context, _) {
+          final spinsLeft = save.remainingWheelSpins;
+          final canSpin = save.canSpinFortuneWheel;
+          final isLoading = adManager.isLoadingHighYield || _isSpinning;
+
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFA0F1322),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: const Color(0xFFFFD54F), width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFFB300).withValues(alpha: 0.35),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
-            const Text(
-              '💎 500🪙 Jackpot, Sandık veya Parça Kazanma Şansı!',
-              style: TextStyle(color: Color(0xFFFFD54F), fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-
-            // Animated Wheel with top pointer
-            SizedBox(
-              width: 270,
-              height: 270,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Outer Glow & Wheel Painter
-                  Transform.rotate(
-                    angle: _currentRotation,
-                    child: CustomPaint(
-                      size: const Size(270, 270),
-                      painter: _WheelPainter(rewards: _rewards),
-                    ),
-                  ),
-
-                  // Center Pin Hub
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const RadialGradient(
-                        colors: [Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFFF8F00)],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const SizedBox(width: 32),
+                    const Row(
+                      children: [
+                        Icon(Icons.stars, color: Color(0xFFFFD54F), size: 24),
+                        SizedBox(width: 8),
+                        Text(
+                          'ŞANS ÇARKI',
+                          style: TextStyle(
+                            color: Color(0xFFFFD54F),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 20,
+                            letterSpacing: 1.2,
+                          ),
                         ),
                       ],
                     ),
-                    child: const Center(
-                      child: Icon(Icons.star, color: Color(0xFF3E2723), size: 24),
+                    IconButton(
+                      onPressed: _isSpinning ? null : () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: Colors.white70),
                     ),
-                  ),
+                  ],
+                ),
+                const SizedBox(height: 4),
 
-                  // Top Indicator Arrow
-                  Positioned(
-                    top: 0,
-                    child: CustomPaint(
-                      size: const Size(26, 26),
-                      painter: _PointerArrowPainter(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Action Button: Watch High-Yield Ad & Spin
-            ListenableBuilder(
-              listenable: adManager,
-              builder: (context, _) {
-                final isLoading = adManager.isLoadingHighYield || _isSpinning;
-
-                return Container(
+                // Daily Spins Badge Chip
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    gradient: isLoading
-                        ? null
-                        : const LinearGradient(
-                            colors: [Color(0xFFFFF176), Color(0xFFFFB300), Color(0xFFFF8F00)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                    color: canSpin ? const Color(0x2E00E5FF) : const Color(0x33FF5252),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: canSpin ? const Color(0xFF00E5FF) : const Color(0xFFFF5252),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        canSpin ? Icons.local_activity_rounded : Icons.lock_clock,
+                        color: canSpin ? const Color(0xFF00E5FF) : const Color(0xFFFF5252),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        canSpin
+                            ? 'Bugün Kalan Hak: $spinsLeft / 3'
+                            : 'Günlük Hak Bitti (0/3) - Yarın Tekrar Gel!',
+                        style: TextStyle(
+                          color: canSpin ? const Color(0xFF00E5FF) : const Color(0xFFFF8A80),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '💎 500🪙 Jackpot, Sandık veya Parça Kazanma Şansı!',
+                  style: TextStyle(color: Color(0xFFFFD54F), fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+
+                // Animated Wheel with top pointer
+                SizedBox(
+                  width: 270,
+                  height: 270,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Outer Glow & Wheel Painter
+                      Transform.rotate(
+                        angle: _currentRotation,
+                        child: CustomPaint(
+                          size: const Size(270, 270),
+                          painter: _WheelPainter(rewards: _rewards),
+                        ),
+                      ),
+
+                      // Center Pin Hub
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const RadialGradient(
+                            colors: [Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFFF8F00)],
                           ),
-                    color: isLoading ? const Color(0x33FFB300) : null,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.star, color: Color(0xFF3E2723), size: 24),
+                        ),
+                      ),
+
+                      // Top Indicator Arrow
+                      Positioned(
+                        top: 0,
+                        child: CustomPaint(
+                          size: const Size(26, 26),
+                          painter: _PointerArrowPainter(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Action Button: Watch High-Yield Ad & Spin
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: (!canSpin)
+                        ? null
+                        : (isLoading
+                            ? null
+                            : const LinearGradient(
+                                colors: [Color(0xFFFFF176), Color(0xFFFFB300), Color(0xFFFF8F00)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )),
+                    color: (!canSpin)
+                        ? const Color(0xFF1E2436)
+                        : (isLoading ? const Color(0x33FFB300) : null),
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(
-                      color: isLoading ? Colors.white12 : const Color(0xFFFFFDE7),
+                      color: (!canSpin)
+                          ? Colors.white24
+                          : (isLoading ? Colors.white12 : const Color(0xFFFFFDE7)),
                       width: 1.8,
                     ),
-                    boxShadow: isLoading
+                    boxShadow: (!canSpin || isLoading)
                         ? null
                         : [
                             BoxShadow(
@@ -452,6 +523,32 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                   fontSize: 14,
                                 ),
                               ),
+                            ] else if (!canSpin) ...[
+                              const Icon(Icons.timer_outlined, color: Colors.white54, size: 20),
+                              const SizedBox(width: 10),
+                              const Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'GÜNLÜK HAK BİTTİ (0 / 3)',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 13,
+                                      letterSpacing: 0.4,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Yarın yeni 3 çevirme hakkı eklenecek!',
+                                    style: TextStyle(
+                                      color: Colors.white38,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ] else ...[
                               Container(
                                 padding: const EdgeInsets.all(6),
@@ -468,21 +565,21 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                 child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFFFD54F), size: 18),
                               ),
                               const SizedBox(width: 10),
-                              const Column(
+                              Column(
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '🎯 ŞANSINI DENE & ÇEVİR!',
-                                    style: TextStyle(
+                                    '🎯 ŞANSINI DENE & ÇEVİR! ($spinsLeft / 3)',
+                                    style: const TextStyle(
                                       color: Color(0xFF2E1C00),
                                       fontWeight: FontWeight.w900,
                                       fontSize: 14,
                                       letterSpacing: 0.5,
                                     ),
                                   ),
-                                  Text(
-                                    'Garanti Ödül: 500🪙, Sandık veya Parça',
+                                  const Text(
+                                    'Reklam İzle & Çarkı Çevir',
                                     style: TextStyle(
                                       color: Color(0xFF4E342E),
                                       fontWeight: FontWeight.w700,
@@ -497,11 +594,11 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                       ),
                     ),
                   ),
-                );
-              },
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -509,6 +606,9 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
 
 class _WheelPainter extends CustomPainter {
   final List<WheelReward> rewards;
+  static final Map<String, TextPainter> _textPainters = {};
+  static final Map<int, Shader> _sectorShaders = {};
+
   _WheelPainter({required this.rewards});
 
   @override
@@ -529,19 +629,24 @@ class _WheelPainter extends CustomPainter {
       ..color = const Color(0x80FFFFFF)
       ..strokeWidth = 2;
 
+    final circleRect = Rect.fromCircle(center: center, radius: radius);
+
     for (int i = 0; i < rewards.length; i++) {
       final reward = rewards[i];
       final startAngle = i * sectorAngle;
 
-      // Draw Sector
-      sectorPaint.shader = LinearGradient(
-        colors: [reward.primaryColor, reward.secondaryColor],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-      ).createShader(Rect.fromCircle(center: center, radius: radius));
+      // Draw Sector with cached shader
+      final shaderKey = Object.hash(reward.primaryColor.toARGB32(), reward.secondaryColor.toARGB32(), radius.round());
+      sectorPaint.shader = _sectorShaders.putIfAbsent(shaderKey, () {
+        return LinearGradient(
+          colors: [reward.primaryColor, reward.secondaryColor],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ).createShader(circleRect);
+      });
 
       canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
+        circleRect,
         startAngle,
         sectorAngle,
         true,
@@ -553,7 +658,7 @@ class _WheelPainter extends CustomPainter {
       final divY = center.dy + sin(startAngle) * radius;
       canvas.drawLine(center, Offset(divX, divY), dividerPaint);
 
-      // Draw Sector Label & Icon
+      // Draw Sector Label & Icon with cached TextPainter
       final midAngle = startAngle + sectorAngle / 2;
       final textRadius = radius * 0.68;
       final tx = center.dx + cos(midAngle) * textRadius;
@@ -563,21 +668,23 @@ class _WheelPainter extends CustomPainter {
       canvas.translate(tx, ty);
       canvas.rotate(midAngle + pi / 2);
 
-      final textSpan = TextSpan(
-        text: reward.label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: 12,
-          shadows: [Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1))],
-        ),
-      );
-      final textPainter = TextPainter(
-        text: textSpan,
-        textDirection: TextDirection.ltr,
-      )..layout();
+      final tp = _textPainters.putIfAbsent(reward.label, () {
+        final textSpan = TextSpan(
+          text: reward.label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            fontSize: 12,
+            shadows: [Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1))],
+          ),
+        );
+        return TextPainter(
+          text: textSpan,
+          textDirection: TextDirection.ltr,
+        )..layout();
+      });
 
-      textPainter.paint(canvas, Offset(-textPainter.width / 2, -textPainter.height / 2));
+      tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
       canvas.restore();
     }
   }

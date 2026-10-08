@@ -138,82 +138,282 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
   void _showGetFoodDialog() {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF161928),
+      builder: (dlgContext) => AlertDialog(
+        backgroundColor: const Color(0xFF131726),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: Color(0xFF4FC3F7), width: 1.2),
+          borderRadius: BorderRadius.circular(26),
+          side: const BorderSide(color: Color(0xFF4FC3F7), width: 1.5),
         ),
-        title: const Row(
+        title: Column(
           children: [
-            Icon(Icons.set_meal, color: Color(0xFF4FC3F7)),
-            SizedBox(width: 8),
-            Text('Yem Temin Et', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Balıklarının altın üretmesi için yem vermelisin. Nasıl yem almak istersin?',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
-            ),
-            const SizedBox(height: 18),
-            // Ad option
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.of(context).pop();
-                AdManager.instance.watchAdForGold(
-                  context,
-                  onSuccess: (_) async {
-                    await _save.addFishFood(3);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('🌾 +3 Balık Yemi Hesabınıza Eklendi!'),
-                          backgroundColor: Color(0xFF161A29),
-                        ),
-                      );
-                    }
-                  },
-                  onDismissedEarly: () {},
-                );
-              },
-              icon: const Icon(Icons.play_circle_fill, color: Color(0xFF2E1C00)),
-              label: const Text('Video İzle & +3 Yem Al (ÜCRETSİZ)'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFB300),
-                foregroundColor: const Color(0xFF2E1C00),
-                minimumSize: const Size(double.infinity, 44),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: Color(0x334FC3F7),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.set_meal, color: Color(0xFF4FC3F7), size: 24),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Balık Yemi Temin Et',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
-            // Gold buy option
-            OutlinedButton.icon(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                final bought = await _save.buyFishFoodWithGold(count: 2, cost: 80);
-                if (!bought && mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Yeterli altınınız yok (80 Altın gerekli).'),
-                      backgroundColor: Color(0xFF1E2438),
-                    ),
-                  );
-                }
-              },
-              icon: const Icon(Icons.monetization_on, color: Color(0xFFFFD54F)),
-              label: const Text('80 Altına 2 Yem Satın Al'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white24),
-                minimumSize: const Size(double.infinity, 44),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            // Current inventory bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black45,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.set_meal, color: Color(0xFF4FC3F7), size: 16),
+                      const SizedBox(width: 5),
+                      Text('Yem: ${_save.fishFood}', style: const TextStyle(color: Color(0xFF4FC3F7), fontWeight: FontWeight.w900, fontSize: 13)),
+                    ],
+                  ),
+                  Container(width: 1, height: 14, color: Colors.white24),
+                  Row(
+                    children: [
+                      const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
+                      const SizedBox(width: 5),
+                      Text('${_save.gold} 🪙', style: const TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.w900, fontSize: 13)),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Balıkların acıktığında yem vererek altın üretimini başlatabilirsin:',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              const SizedBox(height: 14),
+
+              // Option 1: Watch Ad (High Yield)
+              Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFF176), Color(0xFFFFB300), Color(0xFFFF8F00)],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF8F00).withValues(alpha: 0.4),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      Navigator.of(dlgContext).pop();
+                      AdManager.instance.watchHighYieldAd(
+                        context,
+                        onSuccess: () async {
+                          await _save.addFishFood(3);
+                          AudioManager.instance.playSfx(GameSfx.powerupBuff);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('🌾 +3 Balık Yemi Hesabınıza Eklendi!'),
+                                backgroundColor: Color(0xFF161A29),
+                              ),
+                            );
+                          }
+                        },
+                        onDismissedEarly: () {},
+                      );
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.play_circle_fill, color: Color(0xFF2E1C00), size: 28),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Reklam İzle -> +3 Yem Al',
+                                  style: TextStyle(color: Color(0xFF2E1C00), fontWeight: FontWeight.w900, fontSize: 13.5),
+                                ),
+                                Text(
+                                  'Tamamen Ücretsiz!',
+                                  style: TextStyle(color: Color(0xFF4E342E), fontWeight: FontWeight.w700, fontSize: 10.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text('ÜCRETSİZ', style: TextStyle(color: Color(0xFF2E1C00), fontWeight: FontWeight.w900, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 14),
+              const Row(
+                children: [
+                  Expanded(child: Divider(color: Colors.white24)),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('VEYA ALTINLA AL', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w900)),
+                  ),
+                  Expanded(child: Divider(color: Colors.white24)),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Gold Package 1: 3 Food for 50 Gold
+              _buildFoodBuyTile(
+                dlgContext: dlgContext,
+                count: 3,
+                cost: 50,
+                subtitle: 'Küçük Paket (50 🪙)',
+              ),
+              const SizedBox(height: 8),
+
+              // Gold Package 2: 10 Food for 140 Gold (Discounted)
+              _buildFoodBuyTile(
+                dlgContext: dlgContext,
+                count: 10,
+                cost: 140,
+                subtitle: 'Avantajlı Paket (140 🪙)',
+                badge: 'İNDİRİMLİ',
+              ),
+              const SizedBox(height: 8),
+
+              // Gold Package 3: 25 Food for 300 Gold (Super Value)
+              _buildFoodBuyTile(
+                dlgContext: dlgContext,
+                count: 25,
+                cost: 300,
+                subtitle: 'Süper Paket (300 🪙)',
+                badge: 'EN İYİ FİYAT',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFoodBuyTile({
+    required BuildContext dlgContext,
+    required int count,
+    required int cost,
+    required String subtitle,
+    String? badge,
+  }) {
+    final canAfford = _save.gold >= cost;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () async {
+          Navigator.of(dlgContext).pop();
+          final bought = await _save.buyFishFoodWithGold(count: count, cost: cost);
+          if (bought) {
+            AudioManager.instance.playSfx(GameSfx.powerupBuff);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('🌾 +$count Balık Yemi Satın Alındı! (-$cost 🪙)'),
+                  backgroundColor: const Color(0xFF161A29),
+                ),
+              );
+            }
+          } else if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Yeterli altınınız yok ($cost Altın gerekli).'),
+                backgroundColor: const Color(0xFF1E2438),
+              ),
+            );
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: canAfford ? const Color(0x554FC3F7) : Colors.white12,
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.set_meal, color: Color(0xFF4FC3F7), size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text('+$count Yem', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
+                        if (badge != null) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF5252),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              badge,
+                              style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 10.5)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: canAfford ? const Color(0xFFFFD54F) : Colors.white12,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$cost 🪙',
+                  style: TextStyle(
+                    color: canAfford ? Colors.black : Colors.white38,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -376,13 +576,41 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                       ),
                                     ],
                                   ),
-                                  Text(
-                                    '+$hourlyRate 🪙/saat',
-                                    style: const TextStyle(
-                                      color: Color(0xFFFFD54F),
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 12,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black38,
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: const Color(0x334FC3F7)),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.set_meal, color: Color(0xFF4FC3F7), size: 13),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Yem: ${_save.fishFood}',
+                                              style: const TextStyle(
+                                                color: Color(0xFF4FC3F7),
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '+$hourlyRate 🪙/saat',
+                                        style: const TextStyle(
+                                          color: Color(0xFFFFD54F),
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -425,10 +653,18 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                         scale: _pulseScale,
                                         child: ElevatedButton.icon(
                                           onPressed: _onFeedPressed,
-                                          icon: const Icon(Icons.set_meal, size: 18),
-                                          label: Text('🌾 BALIKLARI BESLE (-1 Yem / Kalan: ${_save.fishFood})'),
+                                          icon: Icon(
+                                            _save.fishFood <= 0 ? Icons.add_shopping_cart : Icons.set_meal,
+                                            size: 18,
+                                          ),
+                                          label: Text(
+                                            _save.fishFood <= 0
+                                                ? '🛒 YEM TÜKENDİ! (Yem Al / Reklam İzle)'
+                                                : '🌾 BALIKLARI BESLE (-1 Yem / Kalan: ${_save.fishFood})',
+                                            style: const TextStyle(fontWeight: FontWeight.w900),
+                                          ),
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(0xFFFF7043),
+                                            backgroundColor: _save.fishFood <= 0 ? const Color(0xFFFF9800) : const Color(0xFFFF7043),
                                             foregroundColor: Colors.white,
                                             padding: const EdgeInsets.symmetric(vertical: 12),
                                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
