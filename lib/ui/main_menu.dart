@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
@@ -10,7 +11,6 @@ import 'eco_tank_background.dart';
 import 'game_canvas.dart';
 import 'hud_overlay.dart';
 import 'pause_game_over.dart';
-import 'rewarded_ad_button.dart';
 import 'fortune_wheel_dialog.dart';
 import 'daily_login_dialog.dart';
 import 'daily_quests_dialog.dart';
@@ -27,14 +27,21 @@ class MainMenuScreen extends StatefulWidget {
 class _MainMenuScreenState extends State<MainMenuScreen> {
   final SaveManager _save = SaveManager.instance;
   GameController? _activeGame;
+  Timer? _cooldownRefreshTimer;
 
   static bool _hasAutoShownWheelThisSession = false;
   final GlobalKey _wheelButtonKey = GlobalKey();
   bool _highlightWheelButton = false;
+  bool _showArcadeModes = false;
 
   @override
   void initState() {
     super.initState();
+    _cooldownRefreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _activeGame == null && AdManager.instance.remainingCooldownSeconds > 0) {
+        setState(() {});
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_hasAutoShownWheelThisSession && mounted) {
         _hasAutoShownWheelThisSession = true;
@@ -45,6 +52,12 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         });
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _cooldownRefreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _openFortuneWheelWithHero() async {
@@ -97,15 +110,242 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     }
   }
 
-  void _launchGame(GameMode mode) {
+  void _startOrPromptResume(GameMode mode) {
+    if ((mode == GameMode.classic || mode == GameMode.chaos) && _save.hasSavedGame(mode)) {
+      _showContinueDialog(mode);
+    } else {
+      _launchGame(mode, isResume: false);
+    }
+  }
+
+  void _launchGame(GameMode mode, {bool isResume = false}) {
     AudioManager.instance.isBgmAllowed = false;
     AudioManager.instance.pauseBgm();
     setState(() {
-      _activeGame = GameController()..startNewGame(mode);
+      _activeGame = GameController()..startNewGame(mode, isResume: isResume);
     });
   }
 
+  void _showContinueDialog(GameMode mode) {
+    final isClassic = mode == GameMode.classic;
+    final level = isClassic ? (_save.classicSavedLevel ?? 1) : (_save.chaosSavedLevel ?? 1);
+    final score = isClassic ? (_save.classicSavedScore ?? 0) : (_save.chaosSavedScore ?? 0);
+    final extraStat = isClassic
+        ? '${_save.classicSavedLives ?? 3} ❤️'
+        : '${_save.chaosSavedStock ?? 3} ⚪ Top';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xF0101320),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: const BorderSide(color: Color(0x3300E5FF), width: 1.5),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0x2200E5FF),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0x6600E5FF)),
+                ),
+                child: Icon(
+                  isClassic ? Icons.play_arrow_rounded : Icons.flash_on_rounded,
+                  color: const Color(0xFF00E5FF),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  isClassic ? 'KLASİK OYUN' : 'KAOS MODU',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0x3300E5FF), Color(0x1100E5FF)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0x4400E5FF)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.bookmark_added_rounded, color: Color(0xFF00E5FF), size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'KAYITLI OYUNUN BULUNDU',
+                      style: TextStyle(
+                        color: Color(0xFF00E5FF),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF161A28),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          children: [
+                            const Text('BÖLÜM', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            Text('$level', style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 18, fontWeight: FontWeight.w900)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          children: [
+                            const Text('SKOR', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            Text('$score', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(isClassic ? 'CAN' : 'TOP', style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            Text(extraStat, style: const TextStyle(color: Color(0xFF69F0AE), fontSize: 16, fontWeight: FontWeight.w900)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Option 1: DEVAM ET (Glowing Primary Button)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _launchGame(mode, isResume: true);
+                  },
+                  icon: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 22),
+                  label: const Text(
+                    'DEVAM ET',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00E5FF),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 6,
+                    shadowColor: const Color(0x6600E5FF),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Option 2: YENİDEN BAŞLA (Secondary Outline Button)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _launchGame(mode, isResume: false);
+                  },
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.white70, size: 20),
+                  label: const Text(
+                    'YENİDEN BAŞLA',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.white24),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _exitGameToMenu() {
+    if (_activeGame != null && (_activeGame!.status == GameStatus.playing || _activeGame!.status == GameStatus.ready)) {
+      if (_activeGame!.currentMode == GameMode.classic && _activeGame!.stats.level <= 1) {
+        _save.noteLevel1Left();
+      }
+      if (_activeGame!.currentMode == GameMode.classic) {
+        _save.saveClassicSession(
+          level: _activeGame!.stats.level,
+          score: _activeGame!.stats.score,
+          lives: _activeGame!.stats.lives,
+        );
+      } else if (_activeGame!.currentMode == GameMode.chaos) {
+        _save.saveChaosSession(
+          level: _activeGame!.stats.level,
+          score: _activeGame!.stats.score,
+          stock: _activeGame!.chaosStock,
+        );
+      }
+    }
+
     AudioManager.instance.isBgmAllowed = true;
     if (AudioManager.instance.appInForeground) {
       AudioManager.instance.resumeBgm();
@@ -223,7 +463,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     const SizedBox(height: 8),
 
                     Text(
-                      'Müzik (BGM): ${_save.bgmVolume}',
+                      '${I18n.tr('music_bgm')}: ${_save.bgmVolume}',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
@@ -262,6 +502,68 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         _save.setVibrationLevel(val.toInt());
                         AudioManager.instance.playSfx(GameSfx.hitBrick);
                       },
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Game Speed Setting
+                    Text(
+                      I18n.tr('speed'),
+                      style: const TextStyle(
+                        color: Color(0xFFFFD54F),
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: SpeedSetting.values.map((s) {
+                        final isSelected = _save.speed == s;
+                        String label = s.label;
+                        if (s == SpeedSetting.slow) label = I18n.tr('slow');
+                        if (s == SpeedSetting.medium) label = I18n.tr('normal');
+                        if (s == SpeedSetting.fast) label = I18n.tr('fast');
+
+                        return Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: OutlinedButton(
+                              onPressed: () => _save.setSpeed(s),
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: isSelected ? const Color(0x33FFD54F) : Colors.transparent,
+                                side: BorderSide(
+                                  color: isSelected ? const Color(0xFFFFD54F) : Colors.white12,
+                                ),
+                                foregroundColor: isSelected ? const Color(0xFFFFD54F) : Colors.white60,
+                                padding: const EdgeInsets.symmetric(vertical: 0),
+                                minimumSize: const Size(0, 36),
+                              ),
+                              child: Text(
+                                label,
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 18),
+                    Text(
+                      I18n.tr('metrics_title'),
+                      style: const TextStyle(
+                        color: Color(0xFFFFD54F),
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${I18n.tr('metric_sessions')}: ${_save.metricSessions}\n'
+                      '${I18n.tr('metric_day2')}: ${_save.metricDay2 ? I18n.tr('metric_yes') : I18n.tr('metric_no')}\n'
+                      '${I18n.tr('metric_leave')}: ${_save.metricLevel1Leaves}\n'
+                      '${I18n.tr('metric_ad')}: ${_save.metricAdCloses}',
+                      style: const TextStyle(color: Colors.white60, fontSize: 12, height: 1.45),
                     ),
                   ],
                 ),
@@ -304,8 +606,29 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               child: PauseGameOverOverlay(
                 controller: _activeGame!,
                 onResume: () => _activeGame!.resume(),
-                onRestart: () => _activeGame!.startNewGame(_activeGame!.currentMode),
-                onMainMenu: _exitGameToMenu,
+                onRestart: () {
+                  final wasGameOverOrVictory = _activeGame!.status == GameStatus.gameOver || _activeGame!.status == GameStatus.victory;
+                  final mode = _activeGame!.currentMode;
+                  if (wasGameOverOrVictory) {
+                    AdManager.instance.checkAndShowInterstitial(context, onComplete: () {
+                      if (mounted && _activeGame != null) {
+                        _activeGame!.startNewGame(mode);
+                      }
+                    });
+                  } else {
+                    _activeGame!.startNewGame(mode);
+                  }
+                },
+                onMainMenu: () {
+                  final wasGameOverOrVictory = _activeGame!.status == GameStatus.gameOver || _activeGame!.status == GameStatus.victory;
+                  if (wasGameOverOrVictory) {
+                    AdManager.instance.checkAndShowInterstitial(context, onComplete: () {
+                      if (mounted) _exitGameToMenu();
+                    });
+                  } else {
+                    _exitGameToMenu();
+                  }
+                },
               ),
             ),
           ],
@@ -394,7 +717,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   _buildTopRewardsBar(),
                   const SizedBox(height: 12),
 
-                  // Main Modes Section (Hero Classic + 2x2 Grid)
+                  // Main Modes Section (Hero Classic + Chaos Card + Collapsible Extra Arcade Modes)
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -405,120 +728,96 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                           const SizedBox(height: 12),
 
-                          // 2x2 ARCADE MATRIX
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildArcadeMiniCard(
-                                  mode: GameMode.zen,
-                                  title: I18n.tr('zen'),
-                                  desc: I18n.tr('zen_desc'),
-                                  icon: Icons.spa,
-                                  color1: const Color(0xFF00B4D8),
-                                  color2: const Color(0xFF0077B6),
-                                  onTap: () => _launchGame(GameMode.zen),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildArcadeMiniCard(
-                                  mode: GameMode.descend,
-                                  title: I18n.tr('descend'),
-                                  desc: I18n.tr('descend_desc'),
-                                  icon: Icons.keyboard_double_arrow_down,
-                                  color1: const Color(0xFF9D4EDD),
-                                  color2: const Color(0xFFC77DFF),
-                                  onTap: () => _launchGame(GameMode.descend),
-                                ),
-                              ),
-                            ],
-                          ),
+                          _buildChaosHeroCard(),
 
                           const SizedBox(height: 12),
 
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildArcadeMiniCard(
-                                  mode: GameMode.shapes,
-                                  title: I18n.tr('shapes'),
-                                  desc: I18n.tr('shapes_desc'),
-                                  icon: Icons.palette,
-                                  color1: const Color(0xFFD4A373),
-                                  color2: const Color(0xFFA98467),
-                                  onTap: () => _launchGame(GameMode.shapes),
-                                ),
+                          // COLLAPSIBLE EXTRA ARCADE MODES BUTTON & DRAWER
+                          InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () {
+                              setState(() {
+                                _showArcadeModes = !_showArcadeModes;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0x33101320),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.white12),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildArcadeMiniCard(
-                                  mode: GameMode.chaos,
-                                  title: I18n.tr('chaos'),
-                                  desc: I18n.tr('chaos_desc'),
-                                  icon: Icons.bubble_chart_rounded,
-                                  color1: const Color(0xFFFF3D00),
-                                  color2: const Color(0xFFB71C1C),
-                                  onTap: () => _launchGame(GameMode.chaos),
-                                ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _showArcadeModes ? Icons.grid_view_rounded : Icons.sports_esports_rounded,
+                                    color: const Color(0xFFFFD54F),
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _showArcadeModes ? I18n.tr('other_modes_hide') : I18n.tr('other_modes_show'),
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Icon(
+                                    _showArcadeModes ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                    color: Colors.white54,
+                                    size: 18,
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          // Game Speed Options moved under modes
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: const Color(0x33FFFFFF),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white12),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          ),
+
+                          if (_showArcadeModes) ...[
+                            const SizedBox(height: 10),
+                            Row(
                               children: [
-                                Text(
-                                  I18n.tr('speed'),
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
+                                Expanded(
+                                  child: _buildArcadeMiniCard(
+                                    mode: GameMode.zen,
+                                    title: I18n.tr('zen'),
+                                    desc: I18n.tr('zen_desc'),
+                                    icon: Icons.spa,
+                                    color1: const Color(0xFF00B4D8),
+                                    color2: const Color(0xFF0077B6),
+                                    onTap: () => _launchGame(GameMode.zen),
                                   ),
                                 ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: SpeedSetting.values.map((s) {
-                                    final isSelected = _save.speed == s;
-                                    String label = s.label;
-                                    if (s == SpeedSetting.slow) label = I18n.tr('slow');
-                                    if (s == SpeedSetting.medium) label = I18n.tr('normal');
-                                    if (s == SpeedSetting.fast) label = I18n.tr('fast');
-
-                                    return Expanded(
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                                        child: OutlinedButton(
-                                          onPressed: () => _save.setSpeed(s),
-                                          style: OutlinedButton.styleFrom(
-                                            backgroundColor: isSelected ? const Color(0x33FFD54F) : Colors.transparent,
-                                            side: BorderSide(
-                                              color: isSelected ? const Color(0xFFFFD54F) : Colors.white12,
-                                            ),
-                                            foregroundColor: isSelected ? const Color(0xFFFFD54F) : Colors.white60,
-                                            padding: const EdgeInsets.symmetric(vertical: 0),
-                                            minimumSize: const Size(0, 36),
-                                          ),
-                                          child: Text(
-                                            label,
-                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _buildArcadeMiniCard(
+                                    mode: GameMode.descend,
+                                    title: I18n.tr('descend'),
+                                    desc: I18n.tr('descend_desc'),
+                                    icon: Icons.keyboard_double_arrow_down,
+                                    color1: const Color(0xFF9D4EDD),
+                                    color2: const Color(0xFFC77DFF),
+                                    onTap: () => _launchGame(GameMode.descend),
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-                          const SizedBox(height: 8),
+                            const SizedBox(height: 10),
+                            _buildArcadeMiniCard(
+                              mode: GameMode.shapes,
+                              title: I18n.tr('shapes'),
+                              desc: I18n.tr('shapes_desc'),
+                              icon: Icons.palette,
+                              color1: const Color(0xFFD4A373),
+                              color2: const Color(0xFFA98467),
+                              onTap: () => _launchGame(GameMode.shapes),
+                            ),
+                          ],
+
+                          const SizedBox(height: 12),
                         ],
                       ),
                     ),
@@ -549,18 +848,21 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         _buildNavButton(
                           icon: Icons.water,
                           label: I18n.tr('aquarium'),
-                          badge: _save.currentAvailableFishGold > 0 ? '🪙' : (_save.isFishHungry ? '🌾' : null),
+                          badge: _save.currentAvailableFishGold > 0 ? '🪙' : null,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => const AquariumView()),
                           ),
                         ),
                         _buildNavButton(
                           icon: Icons.assignment_turned_in,
-                          label: 'Görevler',
+                          label: I18n.tr('quests'),
                           badge: ((_save.questFishFed && !_save.claimedQuests.contains('feed_fish')) ||
                                   (_save.questBricksBroken >= 100 && !_save.claimedQuests.contains('break_bricks')) ||
                                   (_save.questAdOrWinDone && !_save.claimedQuests.contains('ad_or_win'))) ? '!' : null,
-                          onTap: () => DailyQuestsDialog.show(context),
+                          onTap: () => DailyQuestsDialog.show(
+                            context,
+                            onPlayToday: () => _launchGame(GameMode.daily),
+                          ),
                         ),
                         _buildNavButton(
                           icon: Icons.auto_awesome,
@@ -583,47 +885,42 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
   Widget _buildTopRewardsBar() {
     final canClaimDaily = _save.canClaimDailyLogin();
+    final canClaimAd = _save.canClaimDailyLoginAd();
+    final hasAnyClaim = canClaimDaily || canClaimAd;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xEE121626), Color(0xEE0D101C)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0x55FFD54F), width: 1.2),
-          boxShadow: const [
-            BoxShadow(color: Color(0x66000000), blurRadius: 18, offset: Offset(0, 6)),
-          ],
+          color: const Color(0x66101320),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white12),
         ),
         child: Row(
           children: [
-            // 1. 7 GÜNLÜK GİRİŞ (Royal Golden Arc / Glowing Amber)
+            // 1. 7 GÜNLÜK GİRİŞ (Compact Pill)
             Expanded(
               child: _buildFancyRewardButton(
-                gradientColors: [const Color(0xFF382305), const Color(0xFF1E1302)],
-                borderColor: canClaimDaily ? const Color(0xFFFFD54F) : const Color(0x99FFA000),
+                gradientColors: [const Color(0xFF261A08), const Color(0xFF161004)],
+                borderColor: hasAnyClaim ? const Color(0xFFFFD54F) : Colors.white12,
                 glowColor: const Color(0xFFFFA000),
-                isGlowing: canClaimDaily,
+                isGlowing: hasAnyClaim,
                 iconGradient: const [Color(0xFFFFD54F), Color(0xFFFF8F00)],
                 icon: Icons.calendar_month_rounded,
                 iconColor: const Color(0xFF261500),
-                title: '7 GÜNLÜK',
+                title: 'GİRİŞ',
                 titleColor: const Color(0xFFFFE082),
-                subtitle: 'Gün ${_save.dailyLoginStreak}',
+                subtitle: '${_save.currentDailyLoginDay}. Gün',
                 subColor: const Color(0xFFFFB300),
-                badgeText: canClaimDaily ? '🔥 AL!' : null,
+                badgeText: canClaimDaily ? 'AL!' : (canClaimAd ? '2X' : null),
                 badgeGradient: const [Color(0xFFFF5252), Color(0xFFFF1744)],
                 onTap: () => DailyLoginDialog.show(context),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
 
-            // 2. ŞANS ÇARKI (Cosmic Neon Cyan / Violet with dynamic target key & Hero Shrink)
+            // 2. ŞANS ÇARKI (Compact Pill)
             Expanded(
               child: KeyedSubtree(
                 key: _wheelButtonKey,
@@ -635,11 +932,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                     return _buildFancyRewardButton(
                       gradientColors: hasSpins
-                          ? const [Color(0xFF0D253A), Color(0xFF1F0C38)]
+                          ? const [Color(0xFF0B2135), Color(0xFF160A29)]
                           : const [Color(0xFF141724), Color(0xFF1A1D2B)],
                       borderColor: _highlightWheelButton
                           ? const Color(0xFFFFFF00)
-                          : (hasSpins ? const Color(0xFF00E5FF) : Colors.white24),
+                          : (hasSpins ? const Color(0xFF00E5FF) : Colors.white12),
                       glowColor: _highlightWheelButton
                           ? const Color(0xFFFFD700)
                           : const Color(0xFF00E5FF),
@@ -649,23 +946,23 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           : const [Color(0xFF455A64), Color(0xFF263238)],
                       icon: Icons.motion_photos_on_rounded,
                       iconColor: hasSpins ? Colors.white : Colors.white54,
-                      title: 'ŞANS ÇARKI',
+                      title: 'ÇARK',
                       titleColor: hasSpins ? const Color(0xFF80D8FF) : Colors.white60,
-                      subtitle: hasSpins ? '$spinsLeft/3 Hak' : 'Yarın Gel',
+                      subtitle: hasSpins ? '$spinsLeft/3' : 'Bitti',
                       subColor: hasSpins ? const Color(0xFF00E5FF) : Colors.white38,
-                      badgeText: hasSpins ? '✨ $spinsLeft/3' : '0/3',
+                      badgeText: hasSpins ? '$spinsLeft' : null,
                       badgeGradient: hasSpins
                           ? const [Color(0xFF00E5FF), Color(0xFF7C4DFF)]
-                          : const [Color(0xFF37474F), Color(0xFF263238)],
+                          : null,
                       onTap: _openFortuneWheelWithHero,
                     );
                   },
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
 
-            // 3. ÜCRETSİZ HEDİYE (Emerald Radiant Fortune)
+            // 3. ÜCRETSİZ HEDİYE (Compact Pill)
             Expanded(
               child: ListenableBuilder(
                 listenable: AdManager.instance,
@@ -677,31 +974,31 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                   String sub;
                   if (isLoading) {
-                    sub = 'Bekleyin...';
+                    sub = '...';
                   } else if (onCooldown) {
                     final m = cooldown ~/ 60;
                     final s = cooldown % 60;
                     sub = '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
                   } else {
-                    sub = '+100 🪙';
+                    sub = '+100';
                   }
 
                   return _buildFancyRewardButton(
-                    gradientColors: [const Color(0xFF08331F), const Color(0xFF071E20)],
-                    borderColor: isReady ? const Color(0xFF00E676) : const Color(0x6600E676),
+                    gradientColors: [const Color(0xFF082B1C), const Color(0xFF061A1D)],
+                    borderColor: isReady ? const Color(0xFF00E676) : Colors.white12,
                     glowColor: const Color(0xFF00E676),
                     isGlowing: isReady,
                     iconGradient: const [Color(0xFF69F0AE), Color(0xFF00B0FF)],
                     icon: Icons.card_giftcard_rounded,
                     iconColor: const Color(0xFF00331A),
-                    title: 'ÜCRETSİZ',
+                    title: 'HEDİYE',
                     titleColor: const Color(0xFFA7FFEB),
                     subtitle: sub,
                     subColor: const Color(0xFF69F0AE),
-                    badgeText: isReady ? '🎁 +100' : (onCooldown ? '⏳ $sub' : null),
+                    badgeText: isReady ? '+100' : null,
                     badgeGradient: isReady
                         ? const [Color(0xFF00E676), Color(0xFF00C853)]
-                        : const [Color(0xFF37474F), Color(0xFF263238)],
+                        : null,
                     onTap: () {
                       if (isReady) {
                         AdManager.instance.watchAdForGold(
@@ -905,7 +1202,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: () => _launchGame(GameMode.classic),
+          onTap: () => _startOrPromptResume(GameMode.classic),
           child: Padding(
             padding: const EdgeInsets.all(18),
             child: Row(
@@ -914,20 +1211,44 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black26,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          I18n.tr('classic_desc'),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black26,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              I18n.tr('classic_desc'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                        ),
+                          if (_save.hasSavedGame(GameMode.classic))
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xDD00E5FF),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                'BÖLÜM ${_save.classicSavedLevel} 💾',
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 10),
                       Text(
@@ -964,6 +1285,123 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     ],
                   ),
                   child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFFF5722), size: 40),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChaosHeroCard() {
+    final best = _save.getHighScore(GameMode.chaos);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFD50000), Color(0xFFFF3D00), Color(0xFFFF6E40)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(color: Color(0x66FF1744), blurRadius: 18, offset: Offset(0, 6)),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () => _startOrPromptResume(GameMode.chaos),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black26,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              I18n.tr('chaos_desc'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          if (_save.hasSavedGame(GameMode.chaos))
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xDDFFD54F),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                'BÖLÜM ${_save.chaosSavedLevel} 💾',
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Text(
+                            I18n.tr('chaos').toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.flash_on_rounded, color: Color(0xFFFFD54F), size: 24),
+                        ],
+                      ),
+                      if (best > 0) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '${I18n.tr('high_score')}: $best',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4)),
+                    ],
+                  ),
+                  child: const Icon(Icons.bolt_rounded, color: Color(0xFFD50000), size: 38),
                 ),
               ],
             ),

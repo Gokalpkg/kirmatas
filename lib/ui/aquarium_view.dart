@@ -33,9 +33,17 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
 
-    // Refresh remaining duration countdown every second
+    // Automatically grant ready 6-hour fish gold upon entering the aquarium
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndAutoCollectGold();
+    });
+
+    // Refresh remaining duration countdown every second & auto-collect if 6h completes
     _uiTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
+      if (mounted) {
+        _checkAndAutoCollectGold();
+        setState(() {});
+      }
     });
   }
 
@@ -54,270 +62,270 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
     return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
-  void _onFeedPressed() async {
+  bool _isCollecting = false;
+
+  Future<void> _checkAndAutoCollectGold() async {
+    if (_isCollecting || !mounted) return;
+    if (_save.currentAvailableFishGold <= 0) return;
+
+    _isCollecting = true;
+    final collected = await _save.collectFishGold();
+    _isCollecting = false;
+
+    if (collected > 0 && mounted) {
+      AudioManager.instance.playSfx(GameSfx.victory);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '🪙 6 Saat Doldu! Beslediğin balıklardan +$collected Altın hesabına eklendi!',
+                  style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFFD54F)),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF161A29),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFFFFD54F), width: 1.5),
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  void _onFeedPressed() {
     if (_save.fishFood <= 0) {
       _showGetFoodDialog();
       return;
     }
 
-    if (_save.currentAvailableFishGold > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⚠️ Önce biriken altınları topla, ardından balıklara yeni yem verebilirsin!'),
-          backgroundColor: Color(0xFF1E2438),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    final success = await _save.feedFish();
-    if (success) {
-      _tankKey.currentState?.spawnFeast();
-      AudioManager.instance.playSfx(GameSfx.powerupBuff);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.set_meal, color: Color(0xFF4FC3F7), size: 22),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '🌾 Balıklar doydu! 4 saat boyunca altın üretmeye başladılar.',
-                    style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFF151928),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: Color(0xFF4FC3F7), width: 1.2),
-            ),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
-  }
-
-  void _onCollectPressed() async {
-    final collected = await _save.collectFishGold();
-    if (collected > 0) {
-      AudioManager.instance.playSfx(GameSfx.victory);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 24),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '🪙 +$collected Altın Kasana Eklendi!\n(Balıklar tekrar acıktı, yeni üretim için yem ver)',
-                    style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFFD54F)),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFF161A29),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: Color(0xFFFFD54F), width: 1.5),
-            ),
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    }
+    _tankKey.currentState?.dropSinglePellet();
   }
 
   void _showGetFoodDialog() {
     showDialog(
       context: context,
-      builder: (dlgContext) => AlertDialog(
-        backgroundColor: const Color(0xFF131726),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(26),
-          side: const BorderSide(color: Color(0xFF4FC3F7), width: 1.5),
-        ),
-        title: Column(
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: Color(0x334FC3F7),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.set_meal, color: Color(0xFF4FC3F7), size: 24),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Balık Yemi Temin Et',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
-                  ),
-                ),
-              ],
+      builder: (dlgContext) => ListenableBuilder(
+        listenable: _save,
+        builder: (context, _) {
+          return Dialog(
+            backgroundColor: const Color(0xFF131726),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(26),
+              side: const BorderSide(color: Color(0xFF4FC3F7), width: 1.5),
             ),
-            const SizedBox(height: 10),
-            // Current inventory bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.black45,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.set_meal, color: Color(0xFF4FC3F7), size: 16),
-                      const SizedBox(width: 5),
-                      Text('Yem: ${_save.fishFood}', style: const TextStyle(color: Color(0xFF4FC3F7), fontWeight: FontWeight.w900, fontSize: 13)),
-                    ],
-                  ),
-                  Container(width: 1, height: 14, color: Colors.white24),
-                  Row(
-                    children: [
-                      const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
-                      const SizedBox(width: 5),
-                      Text('${_save.gold} 🪙', style: const TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.w900, fontSize: 13)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Balıkların acıktığında yem vererek altın üretimini başlatabilirsin:',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-              const SizedBox(height: 14),
-
-              // Option 1: Watch Ad (High Yield)
-              Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFF176), Color(0xFFFFB300), Color(0xFFFF8F00)],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFF8F00).withValues(alpha: 0.4),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: Color(0x334FC3F7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.grain, color: Color(0xFF4FC3F7), size: 22),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Balık Yemi Mağazası',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(dlgContext).pop(),
+                          icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () {
-                      Navigator.of(dlgContext).pop();
-                      AdManager.instance.watchHighYieldAd(
-                        context,
-                        onSuccess: () async {
-                          await _save.addFishFood(3);
-                          AudioManager.instance.playSfx(GameSfx.powerupBuff);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('🌾 +3 Balık Yemi Hesabınıza Eklendi!'),
-                                backgroundColor: Color(0xFF161A29),
-                              ),
-                            );
-                          }
-                        },
-                        onDismissedEarly: () {},
-                      );
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    const SizedBox(height: 10),
+
+                    // Current inventory bar
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.white12),
+                      ),
                       child: Row(
                         children: [
-                          Icon(Icons.play_circle_fill, color: Color(0xFF2E1C00), size: 28),
-                          SizedBox(width: 10),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(
-                                  'Reklam İzle -> +3 Yem Al',
-                                  style: TextStyle(color: Color(0xFF2E1C00), fontWeight: FontWeight.w900, fontSize: 13.5),
-                                ),
-                                Text(
-                                  'Tamamen Ücretsiz!',
-                                  style: TextStyle(color: Color(0xFF4E342E), fontWeight: FontWeight.w700, fontSize: 10.5),
+                                const Icon(Icons.grain, color: Color(0xFF4FC3F7), size: 16),
+                                const SizedBox(width: 5),
+                                Flexible(
+                                  child: Text(
+                                    'Yem: ${_save.fishFood}',
+                                    style: const TextStyle(
+                                      color: Color(0xFF4FC3F7),
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 13,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                          Text('ÜCRETSİZ', style: TextStyle(color: Color(0xFF2E1C00), fontWeight: FontWeight.w900, fontSize: 11)),
+                          Container(width: 1, height: 16, color: Colors.white24),
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
+                                const SizedBox(width: 5),
+                                Flexible(
+                                  child: Text(
+                                    '${_save.gold} 🪙',
+                                    style: const TextStyle(
+                                      color: Color(0xFFFFD54F),
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 13,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 12),
+
+                    const Text(
+                      'Beslediğin her balık 6 saat sonunda kendi değerinde altın verir:',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Option 1: Watch Ad (High Yield)
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFFF176), Color(0xFFFFB300), Color(0xFFFF8F00)],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF8F00).withValues(alpha: 0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () {
+                            final messenger = ScaffoldMessenger.of(context);
+                            Navigator.of(dlgContext).pop();
+                            AdManager.instance.watchSkippableAd(
+                              context,
+                              onSuccess: () async {
+                                await _save.addFishFood(3);
+                                AudioManager.instance.playSfx(GameSfx.powerupBuff);
+                                if (mounted) {
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text('🌾 +3 Balık Yemi Hesabınıza Eklendi!'),
+                                      backgroundColor: Color(0xFF161A29),
+                                    ),
+                                  );
+                                }
+                              },
+                              onDismissedEarly: () {},
+                            );
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            child: Row(
+                              children: [
+                                Icon(Icons.fast_forward_rounded, color: Color(0xFF2E1C00), size: 28),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Kısa Reklam İzle -> +3 Yem Al',
+                                        style: TextStyle(color: Color(0xFF2E1C00), fontWeight: FontWeight.w900, fontSize: 13.5),
+                                      ),
+                                      Text(
+                                        '⚡ Geçilebilir Reklam • Ücretsiz!',
+                                        style: TextStyle(color: Color(0xFF4E342E), fontWeight: FontWeight.w700, fontSize: 10.5),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text('ÜCRETSİZ', style: TextStyle(color: Color(0xFF2E1C00), fontWeight: FontWeight.w900, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+                    const Row(
+                      children: [
+                        Expanded(child: Divider(color: Colors.white24)),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text('VEYA ALTINLA AL', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w900)),
+                        ),
+                        Expanded(child: Divider(color: Colors.white24)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    _buildFoodBuyTile(
+                      dlgContext: dlgContext,
+                      count: 3,
+                      cost: 50,
+                      subtitle: 'Küçük Paket (50 🪙)',
+                    ),
+                    const SizedBox(height: 8),
+                    _buildFoodBuyTile(
+                      dlgContext: dlgContext,
+                      count: 10,
+                      cost: 140,
+                      subtitle: 'Avantajlı Paket (140 🪙)',
+                      badge: 'İNDİRİMLİ',
+                    ),
+                    const SizedBox(height: 8),
+                    _buildFoodBuyTile(
+                      dlgContext: dlgContext,
+                      count: 25,
+                      cost: 300,
+                      subtitle: 'Süper Paket (300 🪙)',
+                      badge: 'EN İYİ FİYAT',
+                    ),
+                  ],
                 ),
               ),
-
-              const SizedBox(height: 14),
-              const Row(
-                children: [
-                  Expanded(child: Divider(color: Colors.white24)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('VEYA ALTINLA AL', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w900)),
-                  ),
-                  Expanded(child: Divider(color: Colors.white24)),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Gold Package 1: 3 Food for 50 Gold
-              _buildFoodBuyTile(
-                dlgContext: dlgContext,
-                count: 3,
-                cost: 50,
-                subtitle: 'Küçük Paket (50 🪙)',
-              ),
-              const SizedBox(height: 8),
-
-              // Gold Package 2: 10 Food for 140 Gold (Discounted)
-              _buildFoodBuyTile(
-                dlgContext: dlgContext,
-                count: 10,
-                cost: 140,
-                subtitle: 'Avantajlı Paket (140 🪙)',
-                badge: 'İNDİRİMLİ',
-              ),
-              const SizedBox(height: 8),
-
-              // Gold Package 3: 25 Food for 300 Gold (Super Value)
-              _buildFoodBuyTile(
-                dlgContext: dlgContext,
-                count: 25,
-                cost: 300,
-                subtitle: 'Süper Paket (300 🪙)',
-                badge: 'EN İYİ FİYAT',
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -336,7 +344,6 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: () async {
-          Navigator.of(dlgContext).pop();
           final bought = await _save.buyFishFoodWithGold(count: count, cost: cost);
           if (bought) {
             AudioManager.instance.playSfx(GameSfx.powerupBuff);
@@ -345,6 +352,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                 SnackBar(
                   content: Text('🌾 +$count Balık Yemi Satın Alındı! (-$cost 🪙)'),
                   backgroundColor: const Color(0xFF161A29),
+                  duration: const Duration(seconds: 2),
                 ),
               );
             }
@@ -353,6 +361,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
               SnackBar(
                 content: Text('Yeterli altınınız yok ($cost Altın gerekli).'),
                 backgroundColor: const Color(0xFF1E2438),
+                duration: const Duration(seconds: 2),
               ),
             );
           }
@@ -368,7 +377,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
           ),
           child: Row(
             children: [
-              const Icon(Icons.set_meal, color: Color(0xFF4FC3F7), size: 22),
+              const Icon(Icons.grain, color: Color(0xFF4FC3F7), size: 22),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -376,7 +385,13 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                   children: [
                     Row(
                       children: [
-                        Text('+$count Yem', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
+                        Flexible(
+                          child: Text(
+                            '+$count Yem',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         if (badge != null) ...[
                           const SizedBox(width: 6),
                           Container(
@@ -397,6 +412,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
@@ -424,9 +440,9 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
     return ListenableBuilder(
       listenable: _save,
       builder: (context, _) {
-        final isHungry = _save.isFishHungry;
-        final availableGold = _save.currentAvailableFishGold;
-        final hourlyRate = _save.totalFishGoldPerHour.toInt();
+        final fedCount = _save.fedFishCount;
+        final totalFish = _save.unlockedFish.length;
+        final pendingGold = _save.pendingFishGold;
         final remainingMs = _save.remainingFedDurationMs;
 
         return Scaffold(
@@ -436,339 +452,245 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
             child: SafeArea(
               child: Stack(
                 children: [
-                  // Top Bar
+                  // Top Bar (Overflow-safe)
                   Positioned(
                     top: 10,
-                    left: 14,
-                    right: 14,
+                    left: 12,
+                    right: 12,
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-                          style: IconButton.styleFrom(backgroundColor: const Color(0x66000000)),
-                          onPressed: () => Navigator.of(context).pop(),
+                        SizedBox(
+                          width: 38,
+                          height: 38,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+                            style: IconButton.styleFrom(backgroundColor: const Color(0x80000000)),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
                         ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0x80000000),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: const Color(0x334FC3F7)),
+                            ),
+                            child: Text(
+                              I18n.tr('aquarium_title'),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF4FC3F7),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 12,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Food Pill
+                        GestureDetector(
+                          onTap: _showGetFoodDialog,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0x990D1B2A),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0x664FC3F7)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.grain, color: Color(0xFF4FC3F7), size: 15),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${_save.fishFood}',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
+                                ),
+                                const SizedBox(width: 3),
+                                const Icon(Icons.add_circle, color: Color(0xFF4FC3F7), size: 14),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        // Gold Pill
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0x80000000),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0x334FC3F7)),
+                            color: const Color(0x990D1B2A),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0x55FFD54F)),
                           ),
-                          child: Text(
-                            I18n.tr('aquarium_title'),
-                            style: const TextStyle(
-                              color: Color(0xFF4FC3F7),
-                              fontWeight: FontWeight.w900,
-                              fontSize: 13,
-                              letterSpacing: 1.0,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 15),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${_save.gold}',
+                                style: const TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.w900, fontSize: 12),
+                              ),
+                            ],
                           ),
-                        ),
-                        Row(
-                          children: [
-                            // Food badge
-                            GestureDetector(
-                              onTap: _showGetFoodDialog,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: const Color(0x80000000),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: const Color(0x444FC3F7)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.set_meal, color: Color(0xFF4FC3F7), size: 16),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${_save.fishFood}',
-                                      style: const TextStyle(color: Color(0xFF4FC3F7), fontWeight: FontWeight.w900),
-                                    ),
-                                    const SizedBox(width: 2),
-                                    const Icon(Icons.add_circle, color: Color(0xFF4FC3F7), size: 14),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            // Gold badge
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: const Color(0x80000000),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0x33FFD54F)),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${_save.gold}',
-                                    style: const TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.w900),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
                         ),
                       ],
                     ),
                   ),
 
-                  // Hay Day Production & Feeding Station HUD (Bottom Panel)
+                  // Bottom Per-Fish Feeding & 6-Hour Gold HUD Panel
                   Positioned(
-                    bottom: 20,
+                    bottom: 16,
                     left: 14,
                     right: 14,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Main Feeding / Harvesting Card
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: isHungry
-                                  ? [const Color(0xF0261313), const Color(0xF01A0D0D)]
-                                  : [const Color(0xF0102422), const Color(0xF00D1A1A)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(
-                              color: isHungry ? const Color(0xFFFF5252) : const Color(0xFF69F0AE),
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (isHungry ? Colors.redAccent : Colors.tealAccent).withValues(alpha: 0.25),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xF2102229), Color(0xF20B151C)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: const Color(0x664FC3F7),
+                          width: 1.4,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Row 1: Fed fish status & Expected 6-hour gold reward
+                          Row(
                             children: [
-                              // Status Bar
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        isHungry ? Icons.warning_amber_rounded : Icons.check_circle_outline,
-                                        color: isHungry ? const Color(0xFFFF5252) : const Color(0xFF69F0AE),
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        isHungry ? '⚠️ BALIKLAR AÇ! (Üretim Durdu)' : '✅ TOK & ALTIN ÜRETİYOR',
-                                        style: TextStyle(
-                                          color: isHungry ? const Color(0xFFFF5252) : const Color(0xFF69F0AE),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                    ],
+                              const Icon(Icons.water_drop_rounded, color: Color(0xFF4FC3F7), size: 17),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Beslenen Balık: $fedCount / $totalFish',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w900,
                                   ),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black38,
-                                          borderRadius: BorderRadius.circular(10),
-                                          border: Border.all(color: const Color(0x334FC3F7)),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(Icons.set_meal, color: Color(0xFF4FC3F7), size: 13),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Yem: ${_save.fishFood}',
-                                              style: const TextStyle(
-                                                color: Color(0xFF4FC3F7),
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '+$hourlyRate 🪙/saat',
-                                        style: const TextStyle(
-                                          color: Color(0xFFFFD54F),
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                ),
                               ),
-                              const SizedBox(height: 8),
-
-                              // Info row
-                              if (!isHungry) ...[
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      '⏳ Kalan Süre: ${_formatDuration(remainingMs)}',
-                                      style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
-                                    ),
-                                    Text(
-                                      'Biriken: 🪙 +$availableGold',
-                                      style: const TextStyle(
-                                        color: Color(0xFFFFD54F),
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0x26FFD54F),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0x66FFD54F)),
                                 ),
-                                const SizedBox(height: 10),
-                              ] else ...[
-                                const Text(
-                                  'Hay Day Kuralı: Balıklarına yem ver; 4 saat tok kalsınlar ve altın üretsinler!',
-                                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                                child: Text(
+                                  '6s Ödülü: +$pendingGold 🪙',
+                                  style: const TextStyle(
+                                    color: Color(0xFFFFD54F),
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 11.5,
+                                  ),
                                 ),
-                                const SizedBox(height: 10),
-                              ],
-
-                              // Buttons
-                              Row(
-                                children: [
-                                  if (isHungry) ...[
-                                    Expanded(
-                                      child: ScaleTransition(
-                                        scale: _pulseScale,
-                                        child: ElevatedButton.icon(
-                                          onPressed: _onFeedPressed,
-                                          icon: Icon(
-                                            _save.fishFood <= 0 ? Icons.add_shopping_cart : Icons.set_meal,
-                                            size: 18,
-                                          ),
-                                          label: Text(
-                                            _save.fishFood <= 0
-                                                ? '🛒 YEM TÜKENDİ! (Yem Al / Reklam İzle)'
-                                                : '🌾 BALIKLARI BESLE (-1 Yem / Kalan: ${_save.fishFood})',
-                                            style: const TextStyle(fontWeight: FontWeight.w900),
-                                          ),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: _save.fishFood <= 0 ? const Color(0xFFFF9800) : const Color(0xFFFF7043),
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(vertical: 12),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                            elevation: 4,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ] else ...[
-                                    // Collect Button
-                                    if (availableGold > 0) ...[
-                                      Expanded(
-                                        child: ScaleTransition(
-                                          scale: _pulseScale,
-                                          child: ElevatedButton.icon(
-                                            onPressed: _onCollectPressed,
-                                            icon: const Icon(Icons.monetization_on, color: Color(0xFF2E1C00)),
-                                            label: Text(
-                                              '💰 ALTINLARI TOPLA (+ $availableGold 🪙)',
-                                              style: const TextStyle(fontWeight: FontWeight.w900),
-                                            ),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color(0xFFFFD54F),
-                                              foregroundColor: const Color(0xFF2E1C00),
-                                              padding: const EdgeInsets.symmetric(vertical: 12),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ] else ...[
-                                      Expanded(
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(vertical: 11),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white10,
-                                            borderRadius: BorderRadius.circular(16),
-                                          ),
-                                          child: const Center(
-                                            child: Text(
-                                              'Altın Üretiliyor... (Birazdan ilk altınlar hazır)',
-                                              style: TextStyle(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w700),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ],
                               ),
                             ],
                           ),
-                        ),
+                          const SizedBox(height: 8),
 
-                        const SizedBox(height: 8),
+                          // Row 2: Timer or instruction
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: Colors.black26,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              remainingMs > 0
+                                  ? '⏳ Sonraki Ödüle Kalan: ${_formatDuration(remainingMs)}  •  Yem yiyen balık 3s yem yemez'
+                                  : 'Suya dokunarak veya aşağıdaki butonla yem atabilirsin (Ödül: 6 saat sonra)',
+                              style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
 
-                        // Secondary Strip (Collection drawer button & Get food button)
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 6,
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    backgroundColor: const Color(0xF00D0F18),
-                                    shape: const RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                          // Row 3: Action buttons (Feed + Collection + Buy Food)
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 5,
+                                child: ScaleTransition(
+                                  scale: _pulseScale,
+                                  child: ElevatedButton.icon(
+                                    onPressed: _onFeedPressed,
+                                    icon: Icon(
+                                      _save.fishFood <= 0 ? Icons.add_shopping_cart : Icons.grain,
+                                      size: 16,
                                     ),
-                                    builder: (_) => _buildFishSheet(context, _save),
-                                  );
-                                },
-                                icon: const Icon(Icons.collections_bookmark, size: 16),
-                                label: Text(
-                                  '${I18n.tr('fish_collection')} (${_save.unlockedFish.length}/${FishItem.allFish.length})',
-                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white70,
-                                  side: const BorderSide(color: Colors.white24),
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              flex: 4,
-                              child: ElevatedButton.icon(
-                                onPressed: _showGetFoodDialog,
-                                icon: const Icon(Icons.add_shopping_cart, size: 15),
-                                label: const Text('Yem Al', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF00ACC1),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    label: Text(
+                                      _save.fishFood <= 0 ? 'Yem Al' : 'Yem At (${_save.fishFood})',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _save.fishFood <= 0 ? const Color(0xFFFF9800) : const Color(0xFF00ACC1),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 11),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                      elevation: 3,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 5,
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: const Color(0xF00D0F18),
+                                      shape: const RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                      ),
+                                      builder: (_) => _buildFishSheet(context, _save),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.collections_bookmark, size: 15),
+                                  label: Text(
+                                    'Balıklar ($totalFish/${FishItem.allFish.length})',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: const BorderSide(color: Colors.white24),
+                                    padding: const EdgeInsets.symmetric(vertical: 11),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -853,7 +775,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          owned ? fish.rarity.label : 'Kilitli',
+                          owned ? '${fish.rarity.label} • +${fish.goldReward} 🪙' : 'Kilitli',
                           style: TextStyle(
                             color: owned ? fish.rarity.primaryColor : Colors.white24,
                             fontSize: 9,

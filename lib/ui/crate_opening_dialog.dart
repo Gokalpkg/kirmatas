@@ -1,9 +1,11 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
+import 'chest_widget.dart';
 
 class CrateOpeningDialog extends StatefulWidget {
   final CrateDef? crate;
@@ -23,9 +25,19 @@ class CrateOpeningDialog extends StatefulWidget {
   State<CrateOpeningDialog> createState() => _CrateOpeningDialogState();
 }
 
-class _CrateOpeningDialogState extends State<CrateOpeningDialog> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProviderStateMixin {
+  late final AnimationController _dropController;
+  late final Animation<double> _dropAnimation;
+  late final AnimationController _shakeController;
+  late final AnimationController _openController;
+  late final AnimationController _flashController;
+
+  int _tapCount = 0; // 0 (start), 1, 2, 3 (open)
+  Rarity _currentRarity = Rarity.common;
+  bool _isShaking = false;
+  bool _isOpening = false;
   bool _opened = false;
+
   dynamic _reward;
   String _rewardTitle = '';
   String _rewardSubtitle = '';
@@ -34,33 +46,176 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with SingleTick
   int _duplicateGold = 0;
   bool _isShardReward = false;
 
-  Color get _primaryColor {
-    if (widget.crate != null) return widget.crate!.primaryColor;
-    if (widget.categoryCrate != null) return widget.categoryCrate!.primaryColor;
-    return const Color(0xFF00E5FF);
+  double get _chestScale {
+    switch (_currentRarity) {
+      case Rarity.common:
+        return 1.0;
+      case Rarity.rare:
+        return 1.14;
+      case Rarity.epic:
+        return 1.28;
+      case Rarity.legendary:
+        return 1.44;
+    }
   }
 
-  String get _crateName {
-    if (widget.isGuaranteedRedemption) {
-      return I18n.tr('guaranteed_item_unlocked');
+  Color get _currentPrimaryColor {
+    switch (_currentRarity) {
+      case Rarity.common:
+        return widget.crate?.primaryColor ?? const Color(0xFF90A4AE);
+      case Rarity.rare:
+        return const Color(0xFF00E5FF);
+      case Rarity.epic:
+        return const Color(0xFFE040FB);
+      case Rarity.legendary:
+        return const Color(0xFFFFD54F);
     }
-    if (widget.crate != null) return widget.crate!.name;
-    if (widget.categoryCrate != null) return widget.categoryCrate!.name;
-    return 'CRATE';
+  }
+
+  Color get _currentSecondaryColor {
+    switch (_currentRarity) {
+      case Rarity.common:
+        return const Color(0xFF5D4037);
+      case Rarity.rare:
+        return const Color(0xFF006064);
+      case Rarity.epic:
+        return const Color(0xFF4A148C);
+      case Rarity.legendary:
+        return const Color(0xFFE65100);
+    }
+  }
+
+  String get _currentRarityLabel {
+    switch (_currentRarity) {
+      case Rarity.common:
+        return 'SIRADAN';
+      case Rarity.rare:
+        return 'ENDER';
+      case Rarity.epic:
+        return 'DESTANSI';
+      case Rarity.legendary:
+        return '✨ EFSANEVİ ✨';
+    }
+  }
+
+  String get _tapPromptText {
+    if (_tapCount == 0) return 'Sandığa Dokun (1/3)';
+    if (_tapCount == 1) return 'Tekrar Dokun (2/3)';
+    return 'Açmak İçin Dokun! (3/3)';
   }
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _dropController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 650),
+    );
+    _dropAnimation = CurvedAnimation(
+      parent: _dropController,
+      curve: Curves.bounceOut,
     );
 
-    _openCrate();
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+
+    _openController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+
+    _flashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+
+    _rollReward();
+
+    _dropController.forward().then((_) {
+      if (mounted) {
+        AudioManager.instance.playSfx(GameSfx.hitPaddle);
+        HapticFeedback.mediumImpact();
+      }
+    });
   }
 
-  void _openCrate() {
+  @override
+  void dispose() {
+    _dropController.dispose();
+    _shakeController.dispose();
+    _openController.dispose();
+    _flashController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleChestTap() async {
+    if (_opened || _isShaking || _isOpening || _dropController.value < 0.80) return;
+
+    if (_tapCount == 0) {
+      // 1. Dokunuş: Sıradan -> Ender kontrolü
+      _isShaking = true;
+      _tapCount = 1;
+      final willUpgrade = _rewardRarity.index >= Rarity.rare.index;
+      await _shakeController.forward(from: 0.0);
+      if (willUpgrade) {
+        setState(() {
+          _currentRarity = Rarity.rare;
+        });
+        AudioManager.instance.playSfx(GameSfx.powerupBuff);
+        HapticFeedback.heavyImpact();
+      } else {
+        AudioManager.instance.playSfx(GameSfx.hitPaddle);
+        HapticFeedback.mediumImpact();
+      }
+      _isShaking = false;
+      setState(() {});
+    } else if (_tapCount == 1) {
+      // 2. Dokunuş: Ender -> Destansı kontrolü
+      _isShaking = true;
+      _tapCount = 2;
+      final willUpgrade = _rewardRarity.index >= Rarity.epic.index;
+      await _shakeController.forward(from: 0.0);
+      if (willUpgrade) {
+        setState(() {
+          _currentRarity = Rarity.epic;
+        });
+        AudioManager.instance.playSfx(GameSfx.powerupBuff);
+        HapticFeedback.heavyImpact();
+      } else {
+        AudioManager.instance.playSfx(GameSfx.hitPaddle);
+        HapticFeedback.mediumImpact();
+      }
+      _isShaking = false;
+      setState(() {});
+    } else if (_tapCount == 2) {
+      // 3. Dokunuş: Destansı -> Efsanevi kontrolü & AÇILIŞ!
+      _tapCount = 3;
+      _isOpening = true;
+      final isLegendary = _rewardRarity == Rarity.legendary;
+      if (isLegendary) {
+        setState(() {
+          _currentRarity = Rarity.legendary;
+        });
+        _flashController.forward(from: 0.0);
+        AudioManager.instance.playSfx(GameSfx.cornerBoost);
+        HapticFeedback.heavyImpact();
+      }
+
+      await _shakeController.forward(from: 0.0);
+      await _openController.forward();
+
+      setState(() {
+        _opened = true;
+        _isOpening = false;
+      });
+      AudioManager.instance.playSfx(GameSfx.victory);
+      HapticFeedback.heavyImpact();
+    }
+  }
+
+  void _rollReward() {
     final save = SaveManager.instance;
     final rand = Random();
 
@@ -76,13 +231,6 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with SingleTick
       // General Crates tab: ONLY aquarium fish/creatures drop from these crates!
       _handleAquariumCrate(save, rand);
     }
-
-    _controller.forward().then((_) {
-      setState(() {
-        _opened = true;
-      });
-      AudioManager.instance.playSfx(GameSfx.victory);
-    });
   }
 
   void _handleAquariumCrate(SaveManager save, Random rand) {
@@ -329,72 +477,134 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with SingleTick
   }
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
       child: AnimatedBuilder(
-        animation: _controller,
+        animation: Listenable.merge([
+          _dropController,
+          _shakeController,
+          _openController,
+          _flashController,
+        ]),
         builder: (context, _) {
-          return Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: const Color(0xF00D0F18),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: _opened ? _rewardRarity.primaryColor : _primaryColor,
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: (_opened ? _rewardRarity.primaryColor : _primaryColor).withValues(alpha: 0.4),
-                  blurRadius: 32,
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _opened ? _rewardRarity.label.toUpperCase() : _crateName.toUpperCase(),
-                  style: TextStyle(
-                    color: _opened ? _rewardRarity.primaryColor : _primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.5,
+          final activeColor = _opened ? _rewardRarity.primaryColor : _currentPrimaryColor;
+          return Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
+                decoration: BoxDecoration(
+                  color: const Color(0xF00D0F18),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: activeColor,
+                    width: 2,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: activeColor.withValues(alpha: 0.45),
+                      blurRadius: 36,
+                      spreadRadius: 2,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 20),
-
-                // Chest animation or Reward reveal
-                if (!_opened)
-                  Transform.rotate(
-                    angle: sin(_controller.value * pi * 8) * 0.08 * (1.0 - _controller.value),
-                    child: Container(
-                      width: 120,
-                      height: 120,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Title / Rarity Badge
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          colors: [
-                            _primaryColor.withValues(alpha: 0.5),
-                            Colors.transparent,
-                          ],
-                        ),
-                        shape: BoxShape.circle,
+                        color: activeColor.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: activeColor.withValues(alpha: 0.8), width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: activeColor.withValues(alpha: 0.35),
+                            blurRadius: 12,
+                          ),
+                        ],
                       ),
-                      child: Icon(
-                        widget.categoryCrate?.icon ?? Icons.inventory_2,
-                        size: 72,
-                        color: _primaryColor,
+                      child: Text(
+                        _opened ? _rewardRarity.label.toUpperCase() : _currentRarityLabel,
+                        style: TextStyle(
+                          color: activeColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2.0,
+                        ),
                       ),
                     ),
-                  )
+                    const SizedBox(height: 20),
+
+                    // Unopened Chest View with Drop, Shake, Scale, and Tap Prompt
+                    if (!_opened)
+                      Transform.translate(
+                        offset: Offset(0, (1.0 - _dropAnimation.value) * -280),
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _handleChestTap,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Transform.rotate(
+                                angle: sin(_shakeController.value * pi * 8) * (0.09 + _tapCount * 0.02) * (1.0 - _shakeController.value),
+                                child: AnimatedScale(
+                                  scale: _chestScale,
+                                  duration: const Duration(milliseconds: 320),
+                                  curve: Curves.elasticOut,
+                                  child: ChestWidget(
+                                    size: 118,
+                                    primaryColor: _currentPrimaryColor,
+                                    secondaryColor: _currentSecondaryColor,
+                                    openProgress: _openController.value,
+                                    showGlow: true,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              AnimatedOpacity(
+                                opacity: (_dropController.value > 0.80 && !_isShaking && !_isOpening) ? 1.0 : 0.45,
+                                duration: const Duration(milliseconds: 150),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: activeColor.withValues(alpha: 0.20),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: activeColor.withValues(alpha: 0.6)),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: activeColor.withValues(alpha: 0.3),
+                                        blurRadius: 10,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.touch_app_rounded, color: activeColor, size: 18),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _tapPromptText,
+                                        style: TextStyle(
+                                          color: activeColor,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 13,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
                 else
                   Column(
                     children: [
@@ -593,10 +803,33 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with SingleTick
                 ],
               ],
             ),
-          );
-        },
-      ),
-    );
+          ),
+          if (_flashController.isAnimating)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: FadeTransition(
+                  opacity: ReverseAnimation(_flashController),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(28),
+                      gradient: const RadialGradient(
+                        colors: [
+                          Color(0xE6FFF176),
+                          Color(0x99FFD54F),
+                          Colors.transparent,
+                        ],
+                        radius: 1.1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    },
+  ),
+);
   }
 
   Widget _buildRewardIcon() {
@@ -631,15 +864,16 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with SingleTick
       final br = _reward as BrickStyle;
       if (br.id == 'brick_cosmic') {
         return Container(
-          width: 54,
-          height: 24,
+          width: 58,
+          height: 26,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFFE040FB), Color(0xFF00E5FF)]),
             borderRadius: BorderRadius.circular(5),
-            boxShadow: const [BoxShadow(color: Color(0xFFE040FB), blurRadius: 14)],
+            boxShadow: const [
+              BoxShadow(color: Color(0xFFE040FB), blurRadius: 14, spreadRadius: 1),
+            ],
           ),
-          child: const Center(
-            child: Icon(Icons.auto_awesome, size: 14, color: Colors.white),
+          child: CustomPaint(
+            painter: _DialogCosmicBrickPainter(),
           ),
         );
       }
@@ -674,4 +908,121 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with SingleTick
     }
     return const Icon(Icons.check_circle, size: 48, color: Colors.white);
   }
+}
+
+class _DialogCosmicBrickPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(5.0));
+    final halfW = size.width / 2;
+    final halfH = size.height / 2;
+    final c = Offset(halfW, halfH);
+
+    canvas.save();
+    canvas.clipRRect(rrect);
+
+    // Deep cosmic space void
+    final bgPaint = Paint()
+      ..shader = const LinearGradient(
+        colors: [Color(0xFF070114), Color(0xFF110324), Color(0xFF070114)],
+      ).createShader(rect);
+    canvas.drawRect(rect, bgPaint);
+
+    // Violet galactic nebula
+    final haloRect = Rect.fromCenter(center: Offset(c.dx - halfW * 0.1, c.dy), width: halfW * 2.2, height: halfH * 2.4);
+    final haloPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF7C4DFF).withValues(alpha: 0.60),
+          const Color(0xFF7C4DFF).withValues(alpha: 0.20),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.55, 1.0],
+      ).createShader(haloRect);
+    canvas.drawOval(haloRect, haloPaint);
+
+    // Magenta nebula filament
+    final magRect = Rect.fromCenter(center: Offset(c.dx - halfW * 0.35, c.dy - halfH * 0.25), width: halfW * 1.5, height: halfH * 1.6);
+    final magPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFFE040FB).withValues(alpha: 0.65),
+          const Color(0xFFE040FB).withValues(alpha: 0.22),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.48, 1.0],
+      ).createShader(magRect);
+    canvas.drawOval(magRect, magPaint);
+
+    // Cyan interstellar dust veil
+    final cyanRect = Rect.fromCenter(center: Offset(c.dx + halfW * 0.35, c.dy + halfH * 0.22), width: halfW * 1.6, height: halfH * 1.7);
+    final cyanPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF00E5FF).withValues(alpha: 0.60),
+          const Color(0xFF00E5FF).withValues(alpha: 0.18),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.50, 1.0],
+      ).createShader(cyanRect);
+    canvas.drawOval(cyanRect, cyanPaint);
+
+    // Milky Way stardust stream
+    final streamPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment(-0.85, -0.9),
+        end: Alignment(0.85, 0.9),
+        colors: [
+          Colors.transparent,
+          Color(0x407C4DFF),
+          Color(0x70FFFFFF),
+          Color(0x4000E5FF),
+          Colors.transparent,
+        ],
+        stops: [0.0, 0.30, 0.50, 0.70, 1.0],
+      ).createShader(rect);
+    canvas.drawRect(rect, streamPaint);
+
+    // Micro-stars
+    final starPaint = Paint()..color = Colors.white;
+    canvas.drawCircle(Offset(c.dx - halfW * 0.6, c.dy - halfH * 0.3), 0.9, starPaint);
+    canvas.drawCircle(Offset(c.dx + halfW * 0.5, c.dy - halfH * 0.4), 0.8, starPaint);
+    canvas.drawCircle(Offset(c.dx + halfW * 0.65, c.dy + halfH * 0.35), 0.9, starPaint);
+    canvas.drawCircle(Offset(c.dx - halfW * 0.45, c.dy + halfH * 0.45), 0.8, starPaint);
+
+    // JWST 4-point star
+    final starPos = Offset(c.dx - halfW * 0.15, c.dy - halfH * 0.15);
+    canvas.drawCircle(starPos, 1.5, starPaint);
+    final spikePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8
+      ..color = Colors.white.withValues(alpha: 0.85);
+    canvas.drawLine(Offset(starPos.dx - 4.5, starPos.dy), Offset(starPos.dx + 4.5, starPos.dy), spikePaint);
+    canvas.drawLine(Offset(starPos.dx, starPos.dy - 3.5), Offset(starPos.dx, starPos.dy + 3.5), spikePaint);
+
+    // Crystal prism sheen
+    final sheenPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0x55FFFFFF), Color(0x10FFFFFF), Colors.transparent],
+        stops: [0.0, 0.45, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, halfH * 0.85));
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, halfH * 0.85), sheenPaint);
+
+    canvas.restore();
+
+    // Prismatic crystal rim
+    final rimPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..shader = const LinearGradient(
+        colors: [Color(0xFF00E5FF), Color(0xFFE040FB), Color(0xFF7C4DFF), Color(0xFF00E5FF)],
+      ).createShader(rect);
+    canvas.drawRRect(rrect, rimPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -19,6 +19,9 @@ class Paddle {
   bool isGhost;
   bool isReversed;
   bool isClumsy;
+  bool hasVortex;
+  double vortexAngle;
+  double slideVelocity;
   double prevX;
   double velocityX;
 
@@ -40,6 +43,9 @@ class Paddle {
     this.isGhost = false,
     this.isReversed = false,
     this.isClumsy = false,
+    this.hasVortex = false,
+    this.vortexAngle = 0.0,
+    this.slideVelocity = 0.0,
     this.prevX = 0.0,
     this.velocityX = 0.0,
   });
@@ -54,6 +60,9 @@ class Paddle {
     if (rocketCooldown > 0) rocketCooldown -= dt;
     if (hasDrone) {
       droneAngle += dt * 3.0;
+    }
+    if (hasVortex) {
+      vortexAngle += dt * 7.5;
     }
   }
 

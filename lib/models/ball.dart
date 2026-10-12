@@ -39,7 +39,7 @@ class Ball {
     this.vx = 0.0,
     this.vy = 0.0,
     this.radius = 7.5,
-    this.isStuck = true,
+    bool? isStuck,
     this.stuckOffsetX = 0.0,
     this.isFireball = false,
     this.isBomb = false,
@@ -50,7 +50,7 @@ class Ball {
     this.squashAngle = 0.0,
     this.stuckTimer = 0.0,
     this.cornerBoostTimer = 0.0,
-  });
+  }) : isStuck = isStuck ?? (vx == 0.0 && vy == 0.0);
 
   double get speed => sqrt(vx * vx + vy * vy);
 
@@ -71,7 +71,7 @@ class Ball {
     squashAngle = angle;
   }
 
-  void update(double dt, {int trailLength = 24}) {
+  void update(double dt, {int trailLength = 24, bool recordTrail = true}) {
     if (squashTimer > 0) {
       squashTimer -= dt;
       if (squashTimer < 0) squashTimer = 0;
@@ -89,12 +89,14 @@ class Ball {
       x += vx * dt;
       y += vy * dt;
 
-      trail.insert(0, TrailPoint(Offset(x, y), dt));
-      final cap = cornerBoostTimer > 0
-          ? 120
-          : (isFireball ? (trailLength + 16) : trailLength);
-      while (trail.length > cap) {
-        trail.removeLast();
+      if (recordTrail) {
+        trail.insert(0, TrailPoint(Offset(x, y), dt));
+        final cap = cornerBoostTimer > 0
+            ? 120
+            : (isFireball ? (trailLength + 16) : trailLength);
+        while (trail.length > cap) {
+          trail.removeLast();
+        }
       }
     }
   }

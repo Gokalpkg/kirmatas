@@ -15,7 +15,7 @@ enum PowerUpType {
   multi('Çoklu Top', Color(0xFFFF9800), 0.0, PowerUpKind.buff, Icons.hub),
   life('Can', Color(0xFFFF5252), 0.0, PowerUpKind.buff, Icons.favorite),
   shield('Kalkan', Color(0xFF26C6DA), 12.0, PowerUpKind.buff, Icons.shield),
-  pierce('Delici', Color(0xFF00E5FF), 6.0, PowerUpKind.buff, Icons.arrow_upward),
+  pierce('Yakıcı', Color(0xFFFF6D00), 6.0, PowerUpKind.buff, Icons.local_fire_department),
   rocket('Roket', Color(0xFFFF5722), 0.0, PowerUpKind.buff, Icons.rocket_launch),
   net('Güvenlik Ağı', Color(0xFF8BC34A), 10.0, PowerUpKind.buff, Icons.grid_goldenratio),
   lightning('Yıldırım', Color(0xFF00E5FF), 8.0, PowerUpKind.buff, Icons.bolt),

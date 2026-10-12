@@ -70,7 +70,107 @@ class UpgradesView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text('Kalıcı eklentiler kaldırıldı. Sadece tek seferlik (Boost) eklentileri maç öncesi alabilirsiniz.', style: TextStyle(color: Colors.white70)),
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0x33FFD54F), Color(0xFF141724)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: save.hasPermanentRelic ? const Color(0xFFFFD54F) : const Color(0x66FFD54F),
+                    width: save.hasPermanentRelic ? 1.8 : 1.2,
+                  ),
+                  boxShadow: [
+                    if (save.hasPermanentRelic)
+                      const BoxShadow(color: Color(0x33FFD54F), blurRadius: 14, offset: Offset(0, 4)),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        gradient: const RadialGradient(
+                          colors: [Color(0x66FFD54F), Color(0x11FFD54F)],
+                        ),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFFFD54F), width: 1.5),
+                      ),
+                      child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFFFFD54F), size: 30),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  "Midas'ın Mikro Çekimi",
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15),
+                                ),
+                              ),
+                              if (save.hasPermanentRelic)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0x3369F0AE),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFF69F0AE)),
+                                  ),
+                                  child: const Text(
+                                    'AKTİF',
+                                    style: TextStyle(color: Color(0xFF69F0AE), fontSize: 10, fontWeight: FontWeight.w900),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Kalıcı Lüks Yadigar: Raket yakınındaki kapsülleri çok hafif (mikro) çeker ve bölüm sonlarında +%5 altın bonusu verir. Oyunu çok az etkiler.',
+                            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            save.hasPermanentRelic ? 'Kalıcı olarak açık • Tek seferlik' : '25.000 Altın • Çok pahalı & Kalıcı',
+                            style: TextStyle(
+                              color: save.hasPermanentRelic ? const Color(0xFF69F0AE) : const Color(0xFFFFD54F),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    if (!save.hasPermanentRelic)
+                      ElevatedButton(
+                        onPressed: save.gold >= 25000
+                            ? () async {
+                                await save.buyPermanentRelic(cost: 25000);
+                              }
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFD54F),
+                          foregroundColor: Colors.black,
+                          disabledBackgroundColor: Colors.white12,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        child: const Text(
+                          '25.000 🪙',
+                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 24),
               Text(
                 I18n.tr('pre_match_boosts'),

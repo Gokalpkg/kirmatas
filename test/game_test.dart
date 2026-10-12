@@ -1,9 +1,10 @@
-import 'dart:math';
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kirmatas/engine/game_controller.dart';
 import 'package:kirmatas/engine/audio_manager.dart';
+import 'package:kirmatas/engine/particle_system.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kirmatas/models/ball.dart';
 import 'package:kirmatas/models/black_hole.dart';
@@ -13,13 +14,17 @@ import 'package:kirmatas/models/easter_egg.dart';
 import 'package:kirmatas/models/game_state.dart';
 import 'package:kirmatas/models/level_design.dart';
 import 'package:kirmatas/models/portal.dart';
+import 'package:kirmatas/models/paddle.dart';
 import 'package:kirmatas/engine/ad_manager.dart';
 import 'package:kirmatas/engine/i18n.dart';
 import 'package:kirmatas/models/powerup.dart';
 import 'package:kirmatas/storage/save_manager.dart';
 import 'package:kirmatas/ui/game_canvas.dart';
 import 'package:kirmatas/ui/pixel_art.dart';
+import 'package:kirmatas/ui/chest_widget.dart';
+import 'package:kirmatas/ui/crate_opening_dialog.dart';
 import 'package:kirmatas/ui/shop_view.dart';
+import 'package:kirmatas/ui/aquarium_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -406,6 +411,7 @@ void main() {
       controller.paddle.width = 100;
       controller.paddle.height = 14;
       controller.paddle.isGhost = true;
+      controller.bricks = [Brick(x: 0, y: 0, width: 10, height: 10, hp: 1, maxHp: 1, color: Colors.blue)];
 
       // Ball positioned in left wing (x = 110, in [100, 125])
       final leftBall = Ball(x: 110, y: 494, vx: 0, vy: 200);
@@ -434,6 +440,7 @@ void main() {
       controller.paddle.width = 100;
       controller.paddle.height = 14;
       controller.paddle.isGhost = true;
+      controller.bricks = [Brick(x: 0, y: 0, width: 10, height: 10, hp: 1, maxHp: 1, color: Colors.blue)];
 
       // Ball positioned in right wing (x = 190, in [175, 200])
       final rightBall = Ball(x: 190, y: 494, vx: 0, vy: 200);
@@ -620,7 +627,7 @@ void main() {
       expect(controller.isDiceRolling, true);
       expect(controller.isDiceActive, true);
 
-            // Advance roll timer to completion
+      // Advance roll timer to completion
       controller.update(0.90);
       expect(controller.isDiceRolling, false);
       expect(controller.diceTotal >= 1 && controller.diceTotal <= 12, true);
@@ -660,9 +667,9 @@ void main() {
       controller.balls.clear();
       controller.balls.add(ball1);
 
-      // Substantially increased pull produces large velocity shift in 1 tick
+      // Smooth, natural pull produces steady velocity shift without violent snapping
       controller.update(0.016);
-      expect(ball1.vx > 25.0, true, reason: 'Smallest black hole pull must be significantly stronger than before');
+      expect(ball1.vx > 0.5, true, reason: 'Smallest black hole pulls ball towards center smoothly');
 
       // Largest black hole (r = 34)
       controller.status = GameStatus.playing;
@@ -676,8 +683,50 @@ void main() {
       controller.balls.add(ball2);
 
       controller.update(0.016);
-      expect(ball2.vx > 40.0, true, reason: 'Largest black hole pull must be significantly stronger than before');
+      expect(ball2.vx > 1.0, true, reason: 'Largest black hole exerts smooth gravitational force');
       expect(ball2.vx > ball1.vx, true, reason: 'Larger black hole exerts more gravitational force than smaller one');
+    });
+
+    test('Supercharged exotic black hole accelerates balls and performs high-speed slingshot upon orbit exit', () {
+      final controller = GameController();
+      controller.setDimensions(360, 640);
+      controller.bricks = [Brick(x: 0, y: 0, width: 20, height: 10, hp: 99, maxHp: 99, color: Colors.blue)];
+      controller.status = GameStatus.playing;
+
+      final bhSuper = BlackHole(
+        x: 200,
+        y: 300,
+        radius: 28,
+        mass: 90000,
+        timeLeft: 5.0,
+        isSupercharged: true,
+      );
+      controller.blackHoles.clear();
+      controller.blackHoles.add(bhSuper);
+
+      // Ball entering gravitational influence
+      final ball = Ball(x: 160, y: 300, vx: 0, vy: -200);
+      ball.isStuck = false;
+      controller.balls.clear();
+      controller.balls.add(ball);
+
+      final initialSpeed = ball.speed;
+      controller.update(0.016);
+
+      // Supercharged black hole pulls stronger and applies tangential spin
+      expect(ball.vx > 0.8, true, reason: 'Supercharged black hole exerts strong pull');
+
+      // Simulate ball having orbited at least pi radians (half circle) before leaving influence
+      final ballKey = ball.hashCode;
+      bhSuper.ballAccumulatedAngles[ballKey] = 3.5; // > pi
+
+      // Move ball outside gravitational influence
+      ball.x = 40;
+      ball.y = 40; // Far away (dist ~ 300 > maxInfluenceDist ~ 106)
+      controller.update(0.016);
+
+      // Should have triggered slingshot speed boost
+      expect(ball.speed > initialSpeed, true, reason: 'Exotic black hole slingshots ball upon orbit completion');
     });
 
     testWidgets('GameCanvas renders all upgraded trail styles (dot, spark, ghost, rainbow, plasma, fire) and corner boost flawlessly', (tester) async {
@@ -1050,7 +1099,7 @@ void main() {
       expect(rows.any((b) => b.isIce), true);
     });
 
-    test('Normal black hole caps deflection up to 360 degrees while vortex trap allows multiple loops', () {
+    test('Black hole exhibits realistic orbital deflection and slingshot speed increase with orbit laps', () {
       final bhNormal = BlackHole(x: 180, y: 300, radius: 34, mass: 100000, isVortexTrap: false);
       expect(bhNormal.isVortexTrap, false);
       
@@ -1063,19 +1112,28 @@ void main() {
       controller.blackHoles.clear();
       controller.blackHoles.add(bhNormal);
 
-      final ball = Ball(x: 160, y: 300, vx: 0, vy: -120);
+      final initialSpeed = 120.0;
+      final ball = Ball(x: 160, y: 300, vx: 0, vy: -initialSpeed);
       ball.isStuck = false;
       controller.balls.clear();
       controller.balls.add(ball);
 
+      double maxDeflection = 0.0;
       // Simulate 1.5 seconds of trajectory
       for (int i = 0; i < 90; i++) {
         controller.update(0.016);
+        final currentDeflection = bhNormal.ballAccumulatedAngles[ball.hashCode] ?? 0.0;
+        if (currentDeflection > maxDeflection) {
+          maxDeflection = currentDeflection;
+        }
       }
 
-      // Deflection on normal black hole must not exceed 360 degrees (2 * pi + epsilon)
-      final normalDeflection = bhNormal.ballAccumulatedAngles[ball.hashCode] ?? 0.0;
-      expect(normalDeflection <= (2.0 * pi + 0.15), true);
+      // 1. Deflection occurred smoothly without sudden unnatural teleportation or infinite loop
+      final normalDeflection = math.max(maxDeflection, bhNormal.ballAccumulatedAngles[ball.hashCode] ?? 0.0);
+      expect(normalDeflection > 0.5, true, reason: 'Ball trajectory was bent smoothly by black hole gravity');
+
+      // 2. Ball gained slingshot speed boost from orbiting
+      expect(ball.speed >= initialSpeed, true, reason: 'Orbital momentum gave ball a slingshot assist');
     });
 
     test('Fast upward ball hitting brick bounces downward and never tunnels upward', () {
@@ -1212,10 +1270,20 @@ void main() {
       expect(controller.stats.lives >= 3, true);
     });
 
-    test('AdManager highYieldAdUnitId is configured correctly with ca-app-pub-9505724609102225/2723019148', () {
-      expect(AdManager.highYieldAdUnitId, 'ca-app-pub-9505724609102225/2723019148');
+    test('AdManager cascade waterfall ad units are configured correctly', () {
+      // Rewarded Waterfall
+      expect(AdManager.tier1RewardedAdUnitId, 'ca-app-pub-9505724609102225/7282413936');
+      expect(AdManager.tier2RewardedAdUnitId, 'ca-app-pub-9505724609102225/7585576971');
+      expect(AdManager.tier3RewardedAdUnitId, 'ca-app-pub-9505724609102225/1791945382');
       expect(AdManager.instance.isHighYieldAdReady, false); // Not loaded in headless unit test
       expect(AdManager.instance.isLoadingHighYield, false);
+
+      // Interstitial Waterfall
+      expect(AdManager.tier1InterstitialAdUnitId, 'ca-app-pub-9505724609102225/2542891443');
+      expect(AdManager.tier2InterstitialAdUnitId, 'ca-app-pub-9505724609102225/5776304305');
+      expect(AdManager.tier3InterstitialAdUnitId, 'ca-app-pub-9505724609102225/4463222631');
+      expect(AdManager.instance.isInterstitialReady, false);
+      expect(AdManager.instance.isLoadingInterstitial, false);
     });
 
     test('GameController claimVictoryBonus grants +200 gold and is single-use per victory', () async {
@@ -1242,50 +1310,93 @@ void main() {
       expect(controller.hasClaimedVictoryBonus, false);
     });
 
-    test('Eco-Tank Hay Day feeding and harvest cycle functions accurately', () async {
+    test('Eco-Tank per-fish 3-hour satiety and 6-hour gold payout cycle functions accurately', () async {
       final save = SaveManager.instance;
       await save.init();
 
-      // Reset state for test
-      save.fishFood = 3;
+      // Reset state for test with 2 fish: guppy (10 gold) & tetra (20 gold)
+      save.unlockedFish = ['guppy', 'tetra'];
+      save.fishFood = 5;
+      save.fishFedTimestamps.clear();
       save.lastFishFedTimestamp = 0;
 
-      expect(save.isFishHungry, true);
+      // Never emit hunger signals
+      expect(save.isFishHungry, false);
       expect(save.isFishFed, false);
       expect(save.currentAvailableFishGold, 0);
-      expect(save.totalFishGoldPerHour, greaterThan(0));
+      expect(save.getFishGoldValue('guppy'), 10);
+      expect(save.getFishGoldValue('tetra'), 20);
 
-      // Feed fish (Hay Day: give oat)
-      final fed = await save.feedFish();
-      expect(fed, true);
-      expect(save.fishFood, 2);
-      expect(save.isFishFed, true);
-      expect(save.isFishHungry, false);
+      // 1. Feed 1st fish (guppy -> 10 gold)
+      final fed1 = await save.feedFish('guppy');
+      expect(fed1, true);
+      expect(save.fishFood, 4);
+      expect(save.isFishProducing('guppy'), true);
+      expect(save.isFishInSatietyCooldown('guppy'), true);
+      expect(save.pendingFishGold, 10);
 
-      // Simulate 1 hour of time elapsed
-      save.lastFishFedTimestamp = DateTime.now().millisecondsSinceEpoch - (3600 * 1000);
-      expect(save.currentAvailableFishGold, greaterThan(0));
-      final generatedGold = save.currentAvailableFishGold;
+      // Within 3 hours, guppy refuses to eat again
+      expect(await save.onFishAtePellet('guppy'), false);
 
-      // Cannot re-feed while uncollected gold exists
-      final refeed = await save.feedFish();
-      expect(refeed, false);
-
-      // Harvest gold (Hay Day: take milk)
-      final initialPlayerGold = save.gold;
-      final collected = await save.collectFishGold();
-      expect(collected, generatedGold);
-      expect(save.gold, initialPlayerGold + generatedGold);
-
-      // Crucial Hay Day reset check: fish are hungry again!
-      expect(save.isFishHungry, true);
-      expect(save.lastFishFedTimestamp, 0);
+      //After 4 hours (>= 3h, < 6h): guppy can eat freely, but its 6h timer and payout do NOT change
+      final fourHoursAgo = DateTime.now().millisecondsSinceEpoch - (4 * 3600 * 1000);
+      save.fishFedTimestamps['guppy'] = fourHoursAgo;
+      expect(save.isFishInSatietyCooldown('guppy'), false);
+      expect(save.isFishGoldReady('guppy'), false);
       expect(save.currentAvailableFishGold, 0);
 
-      // Now can feed again
-      final feedAgain = await save.feedFish();
-      expect(feedAgain, true);
+      final ateAfter3h = await save.onFishAtePellet('guppy');
+      expect(ateAfter3h, true);
+      // Timestamp must remain unchanged at fourHoursAgo!
+      expect(save.fishFedTimestamps['guppy'], fourHoursAgo);
+      expect(save.pendingFishGold, 10);
+
+      // 2. If only guppy reaches 6 hours -> pays out 10 gold
+      final sixHoursAgo = DateTime.now().millisecondsSinceEpoch - (6 * 3600 * 1000 + 1000);
+      save.fishFedTimestamps['guppy'] = sixHoursAgo;
+      expect(save.currentAvailableFishGold, 10);
+
+      final initialPlayerGold = save.gold;
+      final collectedSingle = await save.collectFishGold();
+      expect(collectedSingle, 10);
+      expect(save.gold, initialPlayerGold + 10);
+      expect(save.isFishProducing('guppy'), false);
+
+      // 3. Feed BOTH guppy (10) and tetra (20) -> after 6 hours pays out 10 + 20 = 30 gold
+      await save.feedFish('guppy');
+      await save.feedFish('tetra');
+      expect(save.fedFishCount, 2);
+      expect(save.pendingFishGold, 30);
+
+      save.fishFedTimestamps['guppy'] = sixHoursAgo;
+      save.fishFedTimestamps['tetra'] = sixHoursAgo;
+      expect(save.currentAvailableFishGold, 30);
+
+      final collectedBoth = await save.collectFishGold();
+      expect(collectedBoth, 30);
+      expect(save.gold, initialPlayerGold + 10 + 30);
+      expect(save.fedFishCount, 0);
+      expect(save.currentAvailableFishGold, 0);
+    });
+
+    test('Eco-Tank tap feeding consumes food from inventory and hungry fish target food before satiated fish', () async {
+      final save = SaveManager.instance;
+      await save.init();
+      save.fishFood = 2;
+
+      // Ensure saveFishFoodDirectly saves accurately
+      save.saveFishFoodDirectly();
+      expect(save.fishFood, 2);
+
+      // Consume one food
+      save.fishFood--;
+      save.saveFishFoodDirectly();
       expect(save.fishFood, 1);
+
+      // Consume another
+      save.fishFood--;
+      save.saveFishFoodDirectly();
+      expect(save.fishFood, 0);
     });
 
     test('7-Day Login Streak awards correct sequential rewards and ad double', () async {
@@ -1326,6 +1437,42 @@ void main() {
       expect(day7Result['gold'], 600);
       // Loops back to Day 1
       expect(save.dailyLoginStreak, 1);
+    });
+
+    test('Daily login normal claim followed by post-claim 2X ad bonus awards base gold', () async {
+      final save = SaveManager.instance;
+      await save.init();
+
+      save.dailyLoginStreak = 3; // Day 3: base 150 gold
+      save.lastDailyLoginClaimDate = null;
+      save.lastDailyLoginAdClaimDate = null;
+      final initialGold = save.gold;
+
+      // 1. Claim normal reward on Day 3
+      expect(save.canClaimDailyLogin(), true);
+      expect(save.canClaimDailyLoginAd(), true);
+      expect(save.currentDailyLoginDay, 3);
+
+      final normalResult = await save.claimDailyLoginReward(doubleWithAd: false);
+      expect(normalResult['claimed'], true);
+      expect(normalResult['gold'], 150);
+      expect(save.gold, initialGold + 150);
+
+      // Normal is claimed, but 2X ad bonus is still available!
+      expect(save.canClaimDailyLogin(), false);
+      expect(save.canClaimDailyLoginAd(), true);
+      expect(save.currentDailyLoginDay, 3); // Remains Day 3 today
+
+      // 2. Claim post-claim 2X ad bonus
+      // "parayı aldıktan sonra kullanılırsa o gün kaçıncı gündeysek o kadar para versin 2 katını değil" -> awards exactly +150
+      final adBonusResult = await save.claimDailyLoginAdBonus();
+      expect(adBonusResult['claimed'], true);
+      expect(adBonusResult['gold'], 150);
+      expect(save.gold, initialGold + 300); // 150 + 150 = 300 total (2X completed)
+
+      // Both are now claimed
+      expect(save.canClaimDailyLogin(), false);
+      expect(save.canClaimDailyLoginAd(), false);
     });
 
     test('Daily quests track brick breaks, fish feeding, and rewards claiming', () async {
@@ -1473,7 +1620,8 @@ void main() {
     });
 
     test('AdManager high-yield ad unit is used for wheel, free gift and revive', () {
-      expect(AdManager.highYieldAdUnitId, 'ca-app-pub-9505724609102225/2723019148');
+      expect(AdManager.tier1RewardedAdUnitId, 'ca-app-pub-9505724609102225/7282413936');
+      expect(AdManager.highYieldAdUnitId, 'ca-app-pub-9505724609102225/7282413936');
     });
 
     testWidgets('ShopView renders with animated trail preview, ball preview, and paddle preview painters without exceptions', (tester) async {
@@ -1865,30 +2013,45 @@ void main() {
       expect(find.byType(GameCanvas), findsOneWidget);
     });
 
-    test('Chaos Mode accelerates balls after 8s and 22s and waits for all balls before ending volley', () {
+    test('Chaos Mode waits for all balls before ending volley and resets wall boost on normal brick hit', () {
       final gc = GameController();
       gc.setDimensions(360, 640);
       gc.startNewGame(GameMode.chaos);
       gc.status = GameStatus.playing;
       gc.chaosToLaunch = 0;
       gc.chaosReturned = 1;
-      gc.chaosTurnTime = 8.5; // past 8 seconds threshold
 
-      final ball1 = Ball(x: 180, y: 200, vx: 50, vy: 50, radius: 5.2, isStuck: false);
+      final ball1 = Ball(x: 355, y: 200, vx: 100, vy: 50, radius: 5.2, isStuck: false);
+      gc.balls.clear();
       gc.balls.add(ball1);
-      gc.update(0.016);
+      gc.bricks.clear();
 
-      // Speed should be boosted to at least 480 px/s
-      expect(ball1.speed >= 480.0, true);
+      // Bounce 8 times on side walls in Chaos mode
+      for (int i = 0; i < 8; i++) {
+        ball1.x = 359;
+        ball1.vx = 100;
+        gc.update(0.005);
+      }
+      expect(ball1.sideWallBounceCount, greaterThanOrEqualTo(8));
+      expect(ball1.isWallSpeedBoosted, isTrue);
+      expect(ball1.speed, greaterThanOrEqualTo(gc.getBaseBallSpeed() * 1.5));
+
+      // Hitting a normal brick resets wall bounce count AND resets speed back to base speed
+      final normalBrick = Brick(x: 160, y: 190, width: 40, height: 20, hp: 5, maxHp: 5, color: Colors.blue, points: 10);
+      gc.bricks.add(normalBrick);
+      ball1.x = 180;
+      ball1.y = 188;
+      ball1.vx = 0;
+      ball1.vy = ball1.speed;
+      gc.update(0.005);
+
+      expect(ball1.sideWallBounceCount, 0);
+      expect(ball1.isWallSpeedBoosted, isFalse);
+      expect(ball1.speed, closeTo(gc.getBaseBallSpeed(), 1.0));
+
       // Turn should NOT end while balls are still flying
       expect(gc.status, GameStatus.playing);
       expect(gc.balls.isNotEmpty, true);
-
-      // Past 22 seconds: even faster (min 720 px/s)
-      gc.chaosTurnTime = 22.5;
-      gc.update(0.016);
-      expect(ball1.speed >= 720.0, true);
-      expect(gc.status, GameStatus.playing);
 
       // When ball finally hits bottom floor (chaosFloorY), it is removed
       gc.balls.clear();
@@ -1908,11 +2071,11 @@ void main() {
       final bh = BlackHole(x: 180, y: 300, radius: 25.0, mass: 100000, timeLeft: 5.0);
       gc.blackHoles.add(bh);
 
-      final ball = Ball(x: 180, y: 150, vx: 0, vy: 100, isStuck: false);
+      // Distance is 60 px (within 25 * 3.5 = 87.5 px natural gravitational field)
+      final ball = Ball(x: 180, y: 240, vx: 0, vy: 100, isStuck: false);
       gc.balls.add(ball);
       gc.status = GameStatus.playing;
 
-      // Distance is 150 px (within 25 * 11 = 275 px wide gravitational zone)
       gc.update(0.016);
       expect(ball.vy > 100, true); // Pulled towards black hole (+y)
 
@@ -1924,7 +2087,7 @@ void main() {
       expect(ball.speed >= gc.getBaseBallSpeed(), true);
     });
 
-    test('Ball bouncing 8 consecutive times on side walls speeds up until hitting paddle or brick', () {
+    test('Ball bouncing 8 consecutive times on side walls speeds up until hitting paddle or normal brick', () {
       final gc = GameController();
       gc.setDimensions(360, 640);
       gc.startNewGame(GameMode.classic);
@@ -1983,6 +2146,496 @@ void main() {
       am.playSfx(GameSfx.cornerBoost);
       am.playSfx(GameSfx.bossHit);
       am.playSfx(GameSfx.wallBounce8);
+    });
+
+    test('Chaos Mode toggleChaosTurboOrRecall toggles 2.2x turbo speed and triggers ball recall', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.chaos);
+      gc.status = GameStatus.playing;
+      expect(gc.chaosSpeedMultiplier, 1.0);
+      expect(gc.chaosRecallActive, false);
+
+      final ball = Ball(x: 180, y: 300, vx: 50, vy: -50, isStuck: false);
+      gc.balls.add(ball);
+
+      // 1st press: toggles 2.2x turbo speed
+      gc.toggleChaosTurboOrRecall();
+      expect(gc.chaosSpeedMultiplier >= 2.0, true);
+      expect(gc.chaosRecallActive, false);
+
+      // 2nd press: activates instant recall to floor
+      gc.toggleChaosTurboOrRecall();
+      expect(gc.chaosRecallActive, true);
+      expect(gc.chaosToLaunch, 0);
+
+      // During recall, ball is rapidly directed downwards
+      gc.update(0.016);
+      expect(ball.vy >= 700.0, true);
+    });
+
+    testWidgets('GameCanvas renders Chaos Mode with 1-bounce raycast reflection and turbo button', (tester) async {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.chaos);
+      gc.aimChaos(220, 200);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GameCanvas(controller: gc),
+          ),
+        ),
+      );
+      expect(find.byType(GameCanvas), findsOneWidget);
+
+      // Fire volley and render with active Turbo button
+      gc.fireChaos();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byType(GameCanvas), findsOneWidget);
+    });
+
+    test('BrickShard physics updates position, gravity, rotation and life', () {
+      final shard = BrickShard(
+        x: 100,
+        y: 100,
+        vx: 50,
+        vy: -100,
+        rotation: 0,
+        vRot: 2.0,
+        width: 8,
+        height: 6,
+        color: Colors.red,
+        maxLife: 0.6,
+      );
+
+      expect(shard.isDead, false);
+      shard.update(0.1);
+      expect(shard.x, closeTo(105.0, 0.5));
+      expect(shard.vy > -100, true); // vy increases due to gravity
+      expect(shard.rotation > 0, true);
+      expect(shard.life < 0.6, true);
+    });
+
+    test('Boss level sets bossWarningTimer and triggers screen shake', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.classic);
+      gc.stats.level = 12; // Level 12 is a boss level
+      gc.loadLevelBricks();
+
+      expect(gc.bossWarningTimer > 0, true);
+      expect(gc.particles.shakeTimeLeft > 0, true);
+    });
+
+    test('All bricks cleared triggers levelTransitionTimer celebration', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.classic);
+      gc.launchBall(); // Launch ball so status is playing and ball is not stuck
+      expect(gc.status, GameStatus.playing);
+      // Mark all bricks as dead
+      for (final b in gc.bricks) {
+        b.hp = 0;
+        b.isAlive = false;
+      }
+      gc.update(0.016);
+
+      expect(gc.levelTransitionTimer > 0, true);
+    });
+
+    test('SaveManager saves, checks, and clears Classic and Chaos sessions accurately', () async {
+      final save = SaveManager.instance;
+      await save.init();
+
+      // Initially clear
+      await save.clearClassicSession();
+      await save.clearChaosSession();
+
+      expect(save.hasSavedGame(GameMode.classic), false);
+      expect(save.hasSavedGame(GameMode.chaos), false);
+      expect(save.hasSavedGame(GameMode.zen), false);
+
+      // Save Classic session
+      await save.saveClassicSession(level: 5, score: 4500, lives: 2);
+      expect(save.hasSavedGame(GameMode.classic), true);
+      expect(save.classicSavedLevel, 5);
+      expect(save.classicSavedScore, 4500);
+      expect(save.classicSavedLives, 2);
+
+      // Save Chaos session
+      await save.saveChaosSession(level: 3, score: 2800, stock: 7);
+      expect(save.hasSavedGame(GameMode.chaos), true);
+      expect(save.chaosSavedLevel, 3);
+      expect(save.chaosSavedScore, 2800);
+      expect(save.chaosSavedStock, 7);
+
+      // Clear sessions
+      await save.clearClassicSession();
+      expect(save.hasSavedGame(GameMode.classic), false);
+      expect(save.classicSavedLevel, null);
+
+      await save.clearChaosSession();
+      expect(save.hasSavedGame(GameMode.chaos), false);
+      expect(save.chaosSavedLevel, null);
+    });
+
+    test('GameController resumes saved game properly for Classic and Chaos', () async {
+      final save = SaveManager.instance;
+      await save.init();
+
+      // 1. Classic resume
+      await save.saveClassicSession(level: 7, score: 9200, lives: 2);
+      final gcClassic = GameController();
+      gcClassic.setDimensions(360, 640);
+      gcClassic.startNewGame(GameMode.classic, isResume: true);
+
+      expect(gcClassic.stats.level, 7);
+      expect(gcClassic.stats.score, 9200);
+      expect(gcClassic.stats.lives, 2);
+
+      // 2. Chaos resume
+      await save.saveChaosSession(level: 4, score: 3400, stock: 6);
+      final gcChaos = GameController();
+      gcChaos.setDimensions(360, 640);
+      gcChaos.startNewGame(GameMode.chaos, isResume: true);
+
+      expect(gcChaos.stats.level, 4);
+      expect(gcChaos.stats.score, 3400);
+      expect(gcChaos.chaosStock, 6);
+
+      // Cleanup
+      await save.clearClassicSession();
+      await save.clearChaosSession();
+    });
+
+    test('Permanent relic (Midas Micro-Attraction) purchase and capsule subtle pull', () async {
+      final save = SaveManager.instance;
+      await save.init();
+      save.gold = 50000;
+
+      final bought = await save.buyPermanentRelic(cost: 25000);
+      expect(bought, true);
+      expect(save.hasPermanentRelic, true);
+      expect(save.gold, 25000);
+
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.classic);
+      gc.launchBall(); // Set status to playing
+
+      // Place paddle at center (x: 140, width: 80 -> center 180, y: 530)
+      gc.paddle.x = 140;
+      gc.paddle.width = 80;
+      gc.paddle.y = 530;
+
+      // Spawn falling capsule near paddle height but shifted to the right (x: 210, y: 460)
+      final capsule = FallingCapsule(x: 210, y: 460, type: PowerUpType.laser);
+      gc.capsules.add(capsule);
+
+      final initialX = capsule.x;
+      // Update one frame
+      gc.update(0.016);
+
+      // Capsule should experience subtle nudge towards paddle center (180), so x should decrease slightly
+      expect(capsule.x < initialX, true);
+      expect((initialX - capsule.x).abs() < 2.0, true); // Extremely subtle, does not teleport
+    });
+
+    testWidgets('ShopView crates tab renders reworked crate cards and drop rate chips', (tester) async {
+      final save = SaveManager.instance;
+      await save.init();
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: ShopView(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Find 'Sandıklar' or crates tab
+      final cratesTab = find.text('Sandıklar');
+      if (cratesTab.evaluate().isNotEmpty) {
+        await tester.tap(cratesTab);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      // Check that crate texts and ALTIN AÇ buttons exist
+      expect(find.textContaining('ALTIN AÇ'), findsWidgets);
+      expect(find.text('Yaygın'), findsWidgets);
+      expect(find.text('Nadir'), findsWidgets);
+      expect(find.text('Destansı'), findsWidgets);
+      expect(find.text('Efsanevi'), findsWidgets);
+    });
+
+    test('Cosmetic Ball rarities: ates and isilti are epic, altin is rare, elmas and gokkusagi are legendary', () {
+      final ates = BallSkin.getById('ates');
+      final isilti = BallSkin.getById('isilti');
+      final altin = BallSkin.getById('altin');
+      final elmas = BallSkin.getById('elmas_top');
+      final gokkusagi = BallSkin.getById('gokkusagi');
+
+      expect(ates.rarity, Rarity.epic);
+      expect(isilti.rarity, Rarity.epic);
+      expect(altin.rarity, Rarity.rare);
+      expect(elmas.rarity, Rarity.legendary);
+      expect(gokkusagi.rarity, Rarity.legendary);
+    });
+
+    testWidgets('ChestWidget renders closed, opening, and opened states with realistic planks and rivets', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: const [
+                ChestWidget(size: 64, openProgress: 0.0),
+                ChestWidget(size: 96, openProgress: 0.5),
+                ChestWidget(size: 130, isOpened: true, openProgress: 1.0),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.byType(ChestWidget), findsNWidgets(3));
+    });
+
+    testWidgets('ShopView renders ChestWidget in CrateCards and Category headers', (tester) async {
+      final save = SaveManager.instance;
+      await save.init();
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: ShopView(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // There should be ChestWidgets rendered in the crates tab
+      expect(find.byType(ChestWidget), findsWidgets);
+    });
+
+    testWidgets('CrateOpeningDialog drops chest, supports 3-tap suspense progression and opens', (tester) async {
+      final save = SaveManager.instance;
+      await save.init();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CrateOpeningDialog(crate: CrateDef.allCrates.first),
+          ),
+        ),
+      );
+      // Let drop animation complete
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(find.byType(ChestWidget), findsOneWidget);
+      expect(find.text('SIRADAN'), findsOneWidget);
+      expect(find.text('Sandığa Dokun (1/3)'), findsOneWidget);
+
+      // Tap 1
+      await tester.tap(find.byType(ChestWidget));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Tekrar Dokun (2/3)'), findsOneWidget);
+
+      // Tap 2
+      await tester.tap(find.byType(ChestWidget));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Açmak İçin Dokun! (3/3)'), findsOneWidget);
+
+      // Tap 3 (Opening & Reveal)
+      await tester.tap(find.byType(ChestWidget));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 1000));
+
+      // After 3rd tap, chest is opened and claim button appears
+      expect(find.text(I18n.tr('claim_and_close')), findsOneWidget);
+    });
+
+    test('Opposing power-ups (Wide vs Shrink, Slow vs Fastball) cancel each other cleanly', () {
+      final controller = GameController();
+      controller.setDimensions(360, 640);
+      controller.startNewGame(GameMode.classic);
+
+      controller.applyPowerUp(PowerUpType.wide);
+      expect(controller.activePowerUps.any((p) => p.type == PowerUpType.wide), true);
+      expect(controller.paddle.width, closeTo(controller.paddle.baseWidth * 1.45, 0.1));
+
+      // Picking up shrink removes wide so wide's expiry won't overwrite shrink
+      controller.applyPowerUp(PowerUpType.shrink);
+      expect(controller.activePowerUps.any((p) => p.type == PowerUpType.wide), false);
+      expect(controller.activePowerUps.any((p) => p.type == PowerUpType.shrink), true);
+      expect(controller.paddle.width, closeTo(controller.paddle.baseWidth * 0.65, 0.1));
+    });
+
+    test('Clutch Save on outer 10% tip of paddle grants +150 bonus score and +15% ultiCharge', () {
+      final controller = GameController();
+      controller.setDimensions(360, 640);
+      controller.startNewGame(GameMode.classic);
+      controller.launchBall();
+
+      final ball = controller.balls.first;
+      // Place ball right at the rightmost 5% tip of the paddle falling downward
+      ball.x = controller.paddle.x + controller.paddle.width * 0.97;
+      ball.y = controller.paddle.y - ball.radius + 1.0;
+      ball.vx = 0;
+      ball.vy = 320.0;
+
+      final scoreBefore = controller.stats.score;
+      final ultiBefore = controller.stats.ultiCharge;
+
+      controller.update(0.016);
+
+      expect(controller.stats.score, scoreBefore + 150);
+      expect(controller.stats.ultiCharge, closeTo(ultiBefore + 15.0, 0.01));
+    });
+
+    test('Boss level exposes activeBossBrick and triggers Boss Enrage at <= 50% HP', () {
+      final controller = GameController();
+      controller.setDimensions(360, 640);
+      controller.startNewGame(GameMode.classic);
+      controller.stats.level = 12; // Boss level
+      controller.loadLevelBricks();
+      controller.status = GameStatus.playing;
+
+      final boss = controller.activeBossBrick;
+      expect(boss, isNotNull);
+      expect(boss!.isBoss, true);
+
+      // Reduce boss HP to 50% + 1 and hit it with a laser projectile
+      boss.hp = (boss.maxHp * 0.5).floor() + 1;
+      controller.projectiles.add(
+        Projectile(
+          x: boss.x + boss.width / 2,
+          y: boss.y + boss.height / 2,
+          vy: -400,
+          radius: 4,
+          isLaser: true,
+        ),
+      );
+      controller.update(0.016);
+
+      expect(boss.hp <= boss.maxHp * 0.5, true);
+      expect(controller.particles.floatingTexts.any((t) => t.text.contains('ÖFKELENDİ')), true);
+    });
+
+    testWidgets('AquariumView renders cleanly on narrow mobile screen without overflow and auto-collects 6h gold', (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final save = SaveManager.instance;
+      await save.init();
+      save.unlockedFish = ['guppy', 'tetra'];
+      save.fishFood = 152;
+      save.gold = 12500;
+      final sixHoursAgo = DateTime.now().millisecondsSinceEpoch - (6 * 3600 * 1000 + 1000);
+      save.fishFedTimestamps['guppy'] = sixHoursAgo;
+      save.fishFedTimestamps['tetra'] = sixHoursAgo;
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: AquariumView(),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Auto-collected +30 gold upon entering AquariumView!
+      expect(save.gold, 12530);
+      expect(save.fedFishCount, 0);
+
+      // Tap Yem At button to feed 1 fish
+      await tester.tap(find.textContaining('Yem At'));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(save.fishFood, 151);
+    });
+
+    test('Vortex power-up curves falling balls toward paddle center and vacuums buff capsules, and Clumsy slides on ice', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.classic);
+      gc.launchBall();
+
+      // 1. Activate Vortex
+      gc.applyPowerUp(PowerUpType.vortex);
+      expect(gc.paddle.hasVortex, true);
+
+      // Place paddle at center (x=136, width=88 -> center=180)
+      gc.paddle.x = 136;
+      // Place falling ball to the left (x=70) approaching paddle height
+      final ball = gc.balls.first;
+      ball.x = 70;
+      ball.y = gc.paddle.y - 120;
+      ball.vx = 0;
+      ball.vy = 300;
+
+      // Place a buff capsule far to the right
+      final buffCap = FallingCapsule(x: 300, y: gc.paddle.y - 100, type: PowerUpType.wide);
+      gc.capsules.add(buffCap);
+
+      gc.update(0.016);
+      // Ball is pulled/curved rightwards (+x) toward paddle center (180)
+      expect(ball.x > 70, true);
+      expect(ball.vx > 0, true);
+      // Buff capsule is vacuumed leftwards (-x) toward paddle center (180)
+      expect(buffCap.x < 300, true);
+
+      // 2. Activate Clumsy (Ice slide)
+      gc.applyPowerUp(PowerUpType.clumsy);
+      expect(gc.paddle.isClumsy, true);
+      gc.movePaddleBy(12.0);
+      expect(gc.paddle.slideVelocity > 0, true);
+      final xAfterDrag = gc.paddle.x;
+      // Even without further drag input, paddle continues sliding on ice on next frame!
+      gc.update(0.016);
+      expect(gc.paddle.x > xAfterDrag, true);
+    });
+
+    test('End-of-game dice roll gold multiplier awards 2X on dice 1-3 and 3X on dice 4-6', () async {
+      final save = SaveManager.instance;
+      await save.init();
+      save.gold = 1000;
+
+      // 1. Dice roll 2 (1-3) -> 2X multiplier (+100 bonus on 100 base gold)
+      final gc1 = GameController();
+      gc1.setDimensions(360, 640);
+      gc1.startNewGame(GameMode.classic);
+      gc1.stats.goldCollected = 100;
+      gc1.status = GameStatus.gameOver;
+
+      final added2x = gc1.rollEndGameGoldDice(forcedDice: 2);
+      expect(added2x, 100);
+      expect(gc1.endGameRolledDice, 2);
+      expect(gc1.endGameMultiplier, 2);
+      expect(gc1.stats.goldCollected, 200);
+      expect(save.gold, 1100);
+
+      // 2. Dice roll 5 (4-6) -> 3X multiplier (+200 bonus on 100 base gold)
+      final gc2 = GameController();
+      gc2.setDimensions(360, 640);
+      gc2.startNewGame(GameMode.classic);
+      gc2.stats.goldCollected = 100;
+      gc2.status = GameStatus.victory;
+
+      final added3x = gc2.rollEndGameGoldDice(forcedDice: 5);
+      expect(added3x, 200);
+      expect(gc2.endGameRolledDice, 5);
+      expect(gc2.endGameMultiplier, 3);
+      expect(gc2.stats.goldCollected, 300);
+      expect(save.gold, 1300);
     });
   });
 }

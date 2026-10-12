@@ -1,8 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
+import 'chest_widget.dart';
 import 'crate_opening_dialog.dart';
 import 'fortune_wheel_dialog.dart';
 import 'rewarded_ad_button.dart';
@@ -17,6 +19,14 @@ class ShopView extends StatefulWidget {
 class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
   late final TabController _tabController;
   late final AnimationController _animController;
+  late final AnimationController _purchaseAnimController;
+  final GlobalKey _appBarGoldKey = GlobalKey();
+  final List<_FlyingCoin> _flyingCoins = [];
+  final List<_ImpactSpark> _sparks = [];
+  final Set<int> _sparkedCoinIndices = {};
+  int? _displayGold;
+  bool _isPurchasing = false;
+  static const double _purchaseDurationSeconds = 0.95;
   String? _selectedPreviewTrailId;
 
   @override
@@ -27,13 +37,193 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(seconds: 4),
     )..repeat();
+    _purchaseAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 950),
+    );
   }
 
   @override
   void dispose() {
+    _purchaseAnimController.dispose();
     _animController.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _startPurchaseAnimation({
+    required BuildContext targetContext,
+    required int cost,
+    required Future<void> Function() onComplete,
+  }) async {
+    final save = SaveManager.instance;
+    if (save.gold < cost || _isPurchasing) return;
+
+    final startGold = save.gold;
+    final targetGold = max(0, startGold - cost);
+
+    // Get positions
+    Offset startPos = const Offset(300, 50);
+    final goldRender = _appBarGoldKey.currentContext?.findRenderObject() as RenderBox?;
+    if (goldRender != null && goldRender.hasSize) {
+      startPos = goldRender.localToGlobal(goldRender.size.center(Offset.zero));
+    }
+
+    Offset targetPos = Offset(
+      MediaQuery.of(context).size.width / 2,
+      MediaQuery.of(context).size.height / 2,
+    );
+    final targetRender = targetContext.findRenderObject() as RenderBox?;
+    if (targetRender != null && targetRender.hasSize) {
+      targetPos = targetRender.localToGlobal(targetRender.size.center(Offset.zero));
+    }
+
+    // Build coins
+    _flyingCoins.clear();
+    _sparks.clear();
+    _sparkedCoinIndices.clear();
+
+    final rand = Random();
+    const count = 16;
+    for (int i = 0; i < count; i++) {
+      final delay = i * 0.026;
+      final duration = 0.40 + rand.nextDouble() * 0.08;
+      final midX = (startPos.dx + targetPos.dx) / 2 + (rand.nextDouble() * 110 - 55);
+      final midY = min(startPos.dy, targetPos.dy) + (targetPos.dy - startPos.dy) * 0.38 - 35 - rand.nextDouble() * 40;
+
+      _flyingCoins.add(
+        _FlyingCoin(
+          start: startPos,
+          target: targetPos,
+          control: Offset(midX, midY),
+          delay: delay,
+          duration: duration,
+          spinSpeed: 16.0 + rand.nextDouble() * 10.0,
+          scale: 0.85 + rand.nextDouble() * 0.3,
+          initialAngle: rand.nextDouble() * pi * 2,
+        ),
+      );
+    }
+
+    setState(() {
+      _isPurchasing = true;
+      _displayGold = startGold;
+    });
+
+    void listener() {
+      if (!mounted) return;
+      final t = _purchaseAnimController.value;
+      final newDisplay = (startGold - ((startGold - targetGold) * t)).round().clamp(targetGold, startGold);
+      if (newDisplay != _displayGold) {
+        setState(() {
+          _displayGold = newDisplay;
+        });
+        HapticFeedback.selectionClick();
+      }
+
+      final elapsed = t * _purchaseDurationSeconds;
+      for (int i = 0; i < _flyingCoins.length; i++) {
+        final coin = _flyingCoins[i];
+        if (coin.progress(elapsed) >= 1.0 && !_sparkedCoinIndices.contains(i)) {
+          _sparkedCoinIndices.add(i);
+          for (int k = 0; k < 5; k++) {
+            final angle = rand.nextDouble() * pi * 2;
+            final speed = 50.0 + rand.nextDouble() * 80.0;
+            _sparks.add(
+              _ImpactSpark(
+                origin: coin.target,
+                velocity: Offset(cos(angle) * speed, sin(angle) * speed),
+                birthTime: elapsed,
+                lifeTime: 0.22 + rand.nextDouble() * 0.12,
+                color: k.isEven ? const Color(0xFFFFD54F) : const Color(0xFFFFF9C4),
+                size: 2.0 + rand.nextDouble() * 2.0,
+              ),
+            );
+          }
+          HapticFeedback.lightImpact();
+        }
+      }
+    }
+
+    _purchaseAnimController.addListener(listener);
+    _purchaseAnimController.reset();
+
+    try {
+      await _purchaseAnimController.forward();
+    } finally {
+      _purchaseAnimController.removeListener(listener);
+      if (mounted) {
+        setState(() {
+          _displayGold = null;
+          _isPurchasing = false;
+          _flyingCoins.clear();
+          _sparks.clear();
+          _sparkedCoinIndices.clear();
+        });
+      }
+    }
+
+    await onComplete();
+  }
+
+  Future<void> _onPurchaseCategoryCrate(
+    CategoryCrateInfo crateInfo,
+    int cost,
+    BuildContext btnContext,
+  ) async {
+    if (_isPurchasing) return;
+    await _startPurchaseAnimation(
+      targetContext: btnContext,
+      cost: cost,
+      onComplete: () async {
+        final ok = await SaveManager.instance.spendGold(cost);
+        if (ok && mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => CrateOpeningDialog(categoryCrate: crateInfo),
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> _onPurchaseAquariumCrate(
+    CrateDef crate,
+    BuildContext btnContext,
+  ) async {
+    if (_isPurchasing) return;
+    await _startPurchaseAnimation(
+      targetContext: btnContext,
+      cost: crate.cost,
+      onComplete: () async {
+        final ok = await SaveManager.instance.spendGold(crate.cost);
+        if (ok && mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => CrateOpeningDialog(crate: crate),
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> _onPurchaseBackground(
+    BackgroundTheme theme,
+    BuildContext btnContext,
+  ) async {
+    if (_isPurchasing) return;
+    await _startPurchaseAnimation(
+      targetContext: btnContext,
+      cost: theme.cost,
+      onComplete: () async {
+        final ok = await SaveManager.instance.unlockBackground(theme.id, theme.cost);
+        if (ok && mounted) {
+          SaveManager.instance.selectBackground(theme.id);
+        }
+      },
+    );
   }
 
   @override
@@ -43,8 +233,10 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
     return ListenableBuilder(
       listenable: save,
       builder: (context, _) {
-        return Scaffold(
-          backgroundColor: const Color(0xFF0A0C14),
+        return Stack(
+          children: [
+            Scaffold(
+              backgroundColor: const Color(0xFF0A0C14),
           appBar: AppBar(
             backgroundColor: const Color(0xFF0F121E),
             elevation: 0,
@@ -98,27 +290,44 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                   }
                 },
               ),
-              Container(
-                margin: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1C2234),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0x33FFD54F)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${save.gold}',
-                      style: const TextStyle(
-                        color: Color(0xFFFFD54F),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 14,
-                      ),
+              AnimatedScale(
+                scale: _isPurchasing ? 1.10 : 1.0,
+                duration: const Duration(milliseconds: 150),
+                child: Container(
+                  key: _appBarGoldKey,
+                  margin: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _isPurchasing ? const Color(0xFF2C2212) : const Color(0xFF1C2234),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _isPurchasing ? const Color(0xFFFFD54F) : const Color(0x33FFD54F),
+                      width: _isPurchasing ? 1.8 : 1.0,
                     ),
-                  ],
+                    boxShadow: _isPurchasing
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFFFFD54F).withValues(alpha: 0.45),
+                              blurRadius: 12,
+                              spreadRadius: 1.5,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${_displayGold ?? save.gold}',
+                        style: TextStyle(
+                          color: _isPurchasing ? const Color(0xFFFFF176) : const Color(0xFFFFD54F),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -151,10 +360,29 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
               _buildBackgroundsTab(context, save),
             ],
           ),
-        );
-      },
+        ),
+        if (_isPurchasing || _flyingCoins.isNotEmpty)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _purchaseAnimController,
+                builder: (context, _) {
+                  return CustomPaint(
+                    painter: _FlyingCoinsPainter(
+                      coins: _flyingCoins,
+                      sparks: _sparks,
+                      elapsed: _purchaseAnimController.value * _purchaseDurationSeconds,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+      ],
     );
-  }
+  },
+);
+}
 
   Widget _buildCategoryCrateHeader(BuildContext context, SaveManager save, String category) {
     final crateInfo = CategoryCrateInfo.categoryCrates[category]!;
@@ -200,15 +428,11 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
           // 1. Crate Opening Row
           Row(
             children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: crateInfo.primaryColor.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: crateInfo.primaryColor, width: 2),
-                ),
-                child: Icon(crateInfo.icon, color: crateInfo.primaryColor, size: 30),
+              ChestWidget(
+                size: 58,
+                primaryColor: crateInfo.primaryColor,
+                secondaryColor: const Color(0xFF3E2723),
+                showGlow: true,
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -235,36 +459,29 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                   ],
                 ),
               ),
-              ElevatedButton(
-                onPressed: canAfford
-                    ? () async {
-                        final ok = await save.spendGold(cost);
-                        if (ok && context.mounted) {
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (_) => CrateOpeningDialog(categoryCrate: crateInfo),
-                          );
-                        }
-                      }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: crateInfo.primaryColor,
-                  foregroundColor: Colors.black,
-                  disabledBackgroundColor: Colors.white12,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.monetization_on, size: 15),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$cost',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
-                    ),
-                  ],
+              Builder(
+                builder: (btnContext) => ElevatedButton(
+                  onPressed: (canAfford && !_isPurchasing)
+                      ? () => _onPurchaseCategoryCrate(crateInfo, cost, btnContext)
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: crateInfo.primaryColor,
+                    foregroundColor: Colors.black,
+                    disabledBackgroundColor: Colors.white12,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.monetization_on, size: 15),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$cost',
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -691,94 +908,177 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
           ),
         ),
 
-        for (final crate in CrateDef.allCrates) ...[
-          Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  crate.primaryColor.withValues(alpha: 0.15),
-                  const Color(0xFF141724),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: crate.primaryColor.withValues(alpha: 0.4)),
-            ),
-            child: Row(
+        for (final crate in CrateDef.allCrates)
+          _buildCrateCard(context, save, crate),
+      ],
+    );
+  }
+
+  Widget _buildCrateCard(BuildContext context, SaveManager save, CrateDef crate) {
+    final canAfford = save.gold >= crate.cost;
+    final color = crate.primaryColor;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            color.withValues(alpha: 0.18),
+            const Color(0xFF141724),
+            const Color(0xFF0F121E),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: color.withValues(alpha: 0.45), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.12),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Container(
-                  width: 68,
-                  height: 68,
-                  decoration: BoxDecoration(
-                    color: crate.primaryColor.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: crate.primaryColor, width: 2),
-                  ),
-                  child: Icon(Icons.inventory_2, color: crate.primaryColor, size: 36),
+                // Realistic 3D Animated Chest
+                ChestWidget(
+                  size: 64,
+                  primaryColor: color,
+                  secondaryColor: crate.tier == Rarity.common
+                      ? const Color(0xFF6D4C41)
+                      : (crate.tier == Rarity.rare
+                          ? const Color(0xFF006064)
+                          : const Color(0xFF263238)),
+                  showGlow: true,
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        crate.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              crate.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: color.withValues(alpha: 0.6)),
+                            ),
+                            child: Text(
+                              crate.tier.label.toUpperCase(),
+                              style: TextStyle(
+                                color: color,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text(
-                        '${crate.tier.label} ${I18n.tr('crate_tier_suffix')}',
+                        'Akvaryum için deniz canlıları ve nadir balıklar içerir.',
                         style: TextStyle(
-                          color: crate.primaryColor,
+                          color: Colors.white.withValues(alpha: 0.65),
                           fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          height: 1.25,
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: (save.gold >= crate.cost)
-                      ? () async {
-                          final success = await save.spendGold(crate.cost);
-                          if (success && context.mounted) {
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (_) => CrateOpeningDialog(crate: crate),
-                            );
-                          }
-                        }
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: crate.primaryColor,
-                    foregroundColor: Colors.black,
-                    disabledBackgroundColor: Colors.white12,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.monetization_on, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${crate.cost}',
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 14),
+            // Drop Rates Preview Chips
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0B0E18),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildDropRateChip('Yaygın', '${crate.weights[Rarity.common]?.toInt() ?? 0}%', Colors.white60),
+                  Container(width: 1, height: 16, color: Colors.white12),
+                  _buildDropRateChip('Nadir', '${crate.weights[Rarity.rare]?.toInt() ?? 0}%', const Color(0xFF00E5FF)),
+                  Container(width: 1, height: 16, color: Colors.white12),
+                  _buildDropRateChip('Destansı', '${crate.weights[Rarity.epic]?.toInt() ?? 0}%', const Color(0xFFE040FB)),
+                  Container(width: 1, height: 16, color: Colors.white12),
+                  _buildDropRateChip('Efsanevi', '${crate.weights[Rarity.legendary]?.toInt() ?? 0}%', const Color(0xFFFFD54F)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: Builder(
+                builder: (btnContext) => ElevatedButton(
+                  onPressed: (canAfford && !_isPurchasing)
+                      ? () => _onPurchaseAquariumCrate(crate, btnContext)
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    foregroundColor: Colors.black,
+                    disabledBackgroundColor: Colors.white12,
+                    disabledForegroundColor: Colors.white30,
+                    elevation: canAfford ? 4 : 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.monetization_on_rounded, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${crate.cost} ALTIN AÇ',
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.8),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropRateChip(String label, String pct, Color accent) {
+    return Column(
+      children: [
+        Text(
+          pct,
+          style: TextStyle(color: accent, fontSize: 12, fontWeight: FontWeight.w900),
+        ),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold),
+        ),
       ],
     );
   }
@@ -1367,25 +1667,22 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                   child: Text(I18n.tr('select')),
                 )
               else
-                ElevatedButton(
-                  onPressed: (save.gold >= theme.cost)
-                      ? () async {
-                          final ok = await save.unlockBackground(theme.id, theme.cost);
-                          if (ok) {
-                            save.selectBackground(theme.id);
-                          }
-                        }
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFD54F),
-                    foregroundColor: Colors.black,
-                    disabledBackgroundColor: Colors.white12,
-                    disabledForegroundColor: Colors.white38,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: Text(
-                    '${theme.cost} 🪙',
-                    style: const TextStyle(fontWeight: FontWeight.w900),
+                Builder(
+                  builder: (btnContext) => ElevatedButton(
+                    onPressed: (save.gold >= theme.cost && !_isPurchasing)
+                        ? () => _onPurchaseBackground(theme, btnContext)
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFD54F),
+                      foregroundColor: Colors.black,
+                      disabledBackgroundColor: Colors.white12,
+                      disabledForegroundColor: Colors.white38,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text(
+                      '${theme.cost} 🪙',
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
                   ),
                 ),
               ],
@@ -1667,221 +1964,488 @@ class _BrickPreviewPainter extends CustomPainter {
   }
 
   void _paintNeon(Canvas canvas, Rect rect, RRect rrect) {
+    // "Neon Tabela": 3D Arcade Glass Neon Tube Signboard
     const neonCyan = Color(0xFF00E5FF);
+    final darkShadow = Paint()..color = const Color(0xFF04060C);
+    canvas.drawRRect(RRect.fromRectAndRadius(rect.translate(0, 2), const Radius.circular(5.0)), darkShadow);
+
     final bgPaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0x5500E5FF), Color(0xCC07111D)],
+      ..shader = const RadialGradient(
+        center: Alignment.center,
+        radius: 0.95,
+        colors: [Color(0xFF0A485C), Color(0xFF060A14)],
       ).createShader(rect);
     canvas.drawRRect(rrect, bgPaint);
 
+    // Left & right metal electrode holders
+    final capPaint = Paint()..color = const Color(0xFF263238);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(rect.left + 3.2, rect.center.dy), width: 3.0, height: 6.5), const Radius.circular(1)),
+      capPaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(rect.right - 3.2, rect.center.dy), width: 3.0, height: 6.5), const Radius.circular(1)),
+      capPaint,
+    );
+
+    final tubeRRect = rrect.deflate(1.8);
     final glowPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..color = const Color(0x5500E5FF);
-    canvas.drawRRect(rrect, glowPaint);
+      ..strokeWidth = 4.2
+      ..color = const Color(0x5A00E5FF);
+    canvas.drawRRect(tubeRRect, glowPaint);
 
     final tubePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
+      ..strokeWidth = 2.1
       ..color = neonCyan;
-    canvas.drawRRect(rrect, tubePaint);
+    canvas.drawRRect(tubeRRect, tubePaint);
 
     final corePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8
+      ..strokeWidth = 0.85
       ..color = Colors.white;
-    canvas.drawRRect(rrect.deflate(0.4), corePaint);
+    canvas.drawRRect(tubeRRect, corePaint);
 
-    final cathPaint = Paint()
+    // Inner floating neon filament capsule
+    final innerCapsule = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: rect.center, width: rect.width - 14.0, height: rect.height - 9.5),
+      const Radius.circular(3.0),
+    );
+    final innerNeon = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..color = Colors.white;
-    canvas.drawLine(Offset(rect.left + 8, rect.center.dy), Offset(rect.right - 8, rect.center.dy), cathPaint);
-
-    final bracketPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..color = Colors.white;
-    canvas.drawLine(Offset(rect.left + 3, rect.top + 7), Offset(rect.left + 3, rect.top + 3), bracketPaint);
-    canvas.drawLine(Offset(rect.left + 3, rect.top + 3), Offset(rect.left + 7, rect.top + 3), bracketPaint);
-    canvas.drawLine(Offset(rect.right - 7, rect.bottom - 3), Offset(rect.right - 3, rect.bottom - 3), bracketPaint);
-    canvas.drawLine(Offset(rect.right - 3, rect.bottom - 3), Offset(rect.right - 3, rect.bottom - 7), bracketPaint);
+      ..strokeWidth = 1.1
+      ..color = const Color(0xAA00E5FF);
+    canvas.drawRRect(innerCapsule, innerNeon);
   }
 
   void _paintPixel(Canvas canvas, Rect rect) {
-    final borderPaint = Paint()..color = Colors.black;
+    final shadowPaint = Paint()..color = const Color(0xAA000000);
+    canvas.drawRect(rect.translate(2.0, 2.0), shadowPaint);
+
+    final borderPaint = Paint()..color = const Color(0xFF050508);
     canvas.drawRect(rect, borderPaint);
 
+    final deepDarkPaint = Paint()..color = const Color(0xFF8C3100);
+    canvas.drawRect(rect.deflate(1.8), deepDarkPaint);
+
     final bodyPaint = Paint()..color = const Color(0xFFFFD54F);
-    canvas.drawRect(rect.deflate(2), bodyPaint);
+    canvas.drawRect(rect.deflate(3.5), bodyPaint);
 
     final lightPaint = Paint()..color = const Color(0xFFFFF9C4);
-    canvas.drawRect(Rect.fromLTWH(rect.left + 2, rect.top + 2, rect.width - 5, 2.5), lightPaint);
-    canvas.drawRect(Rect.fromLTWH(rect.left + 2, rect.top + 2, 2.5, rect.height - 5), lightPaint);
+    canvas.drawRect(Rect.fromLTWH(rect.left + 2, rect.top + 2, rect.width - 5.5, 2.2), lightPaint);
+    canvas.drawRect(Rect.fromLTWH(rect.left + 2, rect.top + 2, 2.2, rect.height - 5.5), lightPaint);
 
     final darkPaint = Paint()..color = const Color(0xFFE65100);
-    canvas.drawRect(Rect.fromLTWH(rect.left + 4, rect.bottom - 4.5, rect.width - 6, 2.5), darkPaint);
-    canvas.drawRect(Rect.fromLTWH(rect.right - 4.5, rect.top + 4, 2.5, rect.height - 6), darkPaint);
+    canvas.drawRect(Rect.fromLTWH(rect.left + 3.5, rect.bottom - 4.2, rect.width - 5.5, 2.2), darkPaint);
+    canvas.drawRect(Rect.fromLTWH(rect.right - 4.2, rect.top + 3.5, 2.2, rect.height - 5.5), darkPaint);
+
+    // Diagonal 8-bit sheen steps
+    final sheenPaint = Paint()..color = const Color(0xFFFFECB3);
+    for (int step = 0; step < 3; step++) {
+      canvas.drawRect(Rect.fromLTWH(rect.left + 10 + step * 3.5, rect.top + 4.5 + step * 2.2, 4.5, 2.2), sheenPaint);
+    }
 
     final whitePaint = Paint()..color = Colors.white;
-    canvas.drawRect(Rect.fromLTWH(rect.left + 5, rect.top + 5, 3.5, 3.5), whitePaint);
-
-    final ditherPaint = Paint()..color = const Color(0x88E65100);
-    canvas.drawRect(Rect.fromLTWH(rect.left + 6, rect.bottom - 7, 2, 2), ditherPaint);
-    canvas.drawRect(Rect.fromLTWH(rect.right - 7, rect.top + 6, 2, 2), ditherPaint);
+    canvas.drawRect(Rect.fromLTWH(rect.left + 4.5, rect.top + 4.5, 3.0, 3.0), whitePaint);
   }
 
   void _paintGloss(Canvas canvas, Rect rect, RRect rrect) {
-    final shadowPaint = Paint()..color = const Color(0xFF880E4F);
-    canvas.drawRRect(RRect.fromRectAndRadius(rect.translate(0, 2), const Radius.circular(5)), shadowPaint);
+    // "Siber Cam": 5-Facet Cut Crystal Gemstone
+    final shadowPaint = Paint()..color = const Color(0xFF4A0020);
+    canvas.drawRRect(RRect.fromRectAndRadius(rect.translate(0, 2), const Radius.circular(6.5)), shadowPaint);
 
+    final gemRRect = RRect.fromRectAndRadius(rect, const Radius.circular(6.5));
     final bodyPaint = Paint()
       ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFFFF80AB), Color(0xFFFF4081), Color(0xFFC2185B)],
-        stops: [0.0, 0.5, 1.0],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFFFB2CE), Color(0xFFFF4081), Color(0xFFC2185B), Color(0xFF7B0B42)],
+        stops: [0.0, 0.30, 0.70, 1.0],
       ).createShader(rect);
-    canvas.drawRRect(rrect, bodyPaint);
+    canvas.drawRRect(gemRRect, bodyPaint);
 
-    final domeRect = Rect.fromLTWH(rect.left + 2, rect.top + 1.5, rect.width - 4, rect.height * 0.45);
-    final domePaint = Paint()
+    const insetX = 6.0;
+    const insetY = 4.2;
+
+    // Top crown facet
+    final topFacet = Path()
+      ..moveTo(rect.left + 3, rect.top + 1)
+      ..lineTo(rect.right - 3, rect.top + 1)
+      ..lineTo(rect.right - insetX, rect.top + insetY)
+      ..lineTo(rect.left + insetX, rect.top + insetY)
+      ..close();
+    canvas.drawPath(topFacet, Paint()..color = Colors.white.withValues(alpha: 0.42));
+
+    // Bottom pavilion facet
+    final bottomFacet = Path()
+      ..moveTo(rect.left + insetX, rect.bottom - insetY)
+      ..lineTo(rect.right - insetX, rect.bottom - insetY)
+      ..lineTo(rect.right - 3, rect.bottom - 1)
+      ..lineTo(rect.left + 3, rect.bottom - 1)
+      ..close();
+    canvas.drawPath(bottomFacet, Paint()..color = const Color(0x774A0020));
+
+    // Central raised jewel table
+    final tableRect = Rect.fromLTRB(rect.left + insetX, rect.top + insetY, rect.right - insetX, rect.bottom - insetY);
+    final tableRRect = RRect.fromRectAndRadius(tableRect, const Radius.circular(3.0));
+    final tablePaint = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xDDFFFFFF), Color(0x00FFFFFF)],
-      ).createShader(domeRect);
-    canvas.drawRRect(RRect.fromRectAndRadius(domeRect, const Radius.circular(3)), domePaint);
+        colors: [Color(0xFFFF9EC2), Color(0xFFFF4081), Color(0xFFC2185B)],
+      ).createShader(tableRect);
+    canvas.drawRRect(tableRRect, tablePaint);
+    canvas.drawRRect(
+      tableRRect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.9
+        ..color = Colors.white.withValues(alpha: 0.55),
+    );
 
+    // Specular 4-point diamond star sparkle on top-left facet vertex
     final starPaint = Paint()..color = Colors.white;
-    canvas.drawCircle(Offset(rect.left + 7, rect.top + 5), 1.5, starPaint);
+    final sc = Offset(rect.left + insetX + 1.5, rect.top + insetY + 1.0);
+    canvas.drawCircle(sc, 1.4, starPaint);
+    final spLine = Paint()
+      ..strokeWidth = 0.9
+      ..color = Colors.white;
+    canvas.drawLine(Offset(sc.dx - 3.5, sc.dy), Offset(sc.dx + 3.5, sc.dy), spLine);
+    canvas.drawLine(Offset(sc.dx, sc.dy - 3.5), Offset(sc.dx, sc.dy + 3.5), spLine);
 
     final rimPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0
-      ..color = const Color(0xAAFFFFFF);
-    canvas.drawRRect(rrect, rimPaint);
+      ..color = const Color(0x99FFFFFF);
+    canvas.drawRRect(gemRRect, rimPaint);
   }
 
   void _paintNeu(Canvas canvas, Rect rect, RRect rrect) {
-    canvas.save();
-    canvas.translate(-1.5, -1.5);
-    final lightGlow = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..color = const Color(0x66ECEFF1);
-    canvas.drawRRect(rrect, lightGlow);
-    canvas.restore();
+    // "Yumuşak Puf" (Stil 1): Jöle / Şeker Yastık (Plush Squishy Gummy Pillow)
+    final pillowRRect = RRect.fromRectAndRadius(rect, const Radius.circular(9.5));
 
-    canvas.save();
-    canvas.translate(2.0, 2.0);
-    final darkGlow = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..color = const Color(0x66000000);
-    canvas.drawRRect(rrect, darkGlow);
-    canvas.restore();
+    // Soft 3D base cushion shadow
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect.translate(0, 2.5), const Radius.circular(9.5)),
+      Paint()..color = const Color(0xD9003B42),
+    );
 
-    final bodyPaint = Paint()..color = const Color(0xFF78909C);
-    canvas.drawRRect(rrect, bodyPaint);
+    // Main plump radial body with warm subsurface glow & bottom bounce rim light
+    final bodyPaint = Paint()
+      ..shader = const RadialGradient(
+        center: Alignment(-0.28, -0.45),
+        radius: 1.15,
+        colors: [
+          Color(0xFFD2F8FD),
+          Color(0xFF26C6DA),
+          Color(0xFF006D7A),
+          Color(0xFF62DAE8),
+        ],
+        stops: [0.0, 0.38, 0.82, 1.0],
+      ).createShader(rect);
+    canvas.drawRRect(pillowRRect, bodyPaint);
 
-    final innerRRect = rrect.deflate(2.0);
+    // Inner warm subsurface core glow
+    final innerRect = rect.deflate(2.0);
     final innerPaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0x44263238), Color(0x44ECEFF1)],
-      ).createShader(innerRRect.outerRect);
-    canvas.drawRRect(innerRRect, innerPaint);
+      ..shader = const RadialGradient(
+        center: Alignment(0.0, 0.25),
+        radius: 0.75,
+        colors: [
+          Color(0x8CA6F1FA),
+          Colors.transparent,
+        ],
+      ).createShader(innerRect);
+    canvas.drawRRect(RRect.fromRectAndRadius(innerRect, const Radius.circular(8.0)), innerPaint);
 
-    final slotRect = Rect.fromCenter(center: rect.center, width: rect.width * 0.45, height: 3.0);
-    final slotPaint = Paint()..color = const Color(0x88263238);
-    canvas.drawRRect(RRect.fromRectAndRadius(slotRect, const Radius.circular(1.5)), slotPaint);
-    final slotHighlight = Paint()
-      ..strokeWidth = 0.8
-      ..color = const Color(0xAAECEFF1);
-    canvas.drawLine(Offset(slotRect.left + 1, slotRect.bottom), Offset(slotRect.right - 1, slotRect.bottom), slotHighlight);
+    // Thick curved liquid-jelly highlight pill along top-left shoulder
+    final jellyPill = Path()
+      ..moveTo(rect.left + 6.5, rect.top + 2.6)
+      ..quadraticBezierTo(rect.center.dx, rect.top + 1.8, rect.right - 14.0, rect.top + 3.0)
+      ..quadraticBezierTo(rect.right - 11.0, rect.top + 4.5, rect.right - 15.0, rect.top + 5.2)
+      ..quadraticBezierTo(rect.center.dx - 2.0, rect.top + 4.2, rect.left + 7.2, rect.top + 5.8)
+      ..quadraticBezierTo(rect.left + 4.5, rect.top + 4.2, rect.left + 6.5, rect.top + 2.6)
+      ..close();
+    final jellyPaint = Paint()..color = const Color(0xD1FFFFFF);
+    canvas.drawPath(jellyPill, jellyPaint);
+
+    // Secondary specular jelly dot on top-right
+    canvas.drawCircle(Offset(rect.right - 9.5, rect.top + 4.2), 1.5, jellyPaint);
+
+    // Soft glossy outer contour
+    canvas.drawRRect(
+      pillowRRect.deflate(0.5),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1
+        ..color = const Color(0x8CFFFFFF),
+    );
   }
 
   void _paintCyber(Canvas canvas, Rect rect, RRect rrect) {
-    final hullPaint = Paint()..color = const Color(0xFF0E1626);
-    canvas.drawRRect(rrect, hullPaint);
+    // "Siberpunk 2099" (Stil A): Kesik Köşeli Meka Reaktör, Yan Plazma Izgaraları (///) ve Tarayıcı Lazer
+    const cyberAccent = Color(0xFF00E5FF);
+    const lightAccent = Color(0xFF84FFFF);
+    const c = 4.5;
 
-    final innerRRect = rrect.deflate(1.2);
-    final platePaint = Paint()
+    Path chamfer(Rect r) {
+      return Path()
+        ..moveTo(r.left + c, r.top)
+        ..lineTo(r.right - c, r.top)
+        ..lineTo(r.right, r.top + c)
+        ..lineTo(r.right, r.bottom - c)
+        ..lineTo(r.right - c, r.bottom)
+        ..lineTo(r.left + c, r.bottom)
+        ..lineTo(r.left, r.bottom - c)
+        ..lineTo(r.left, r.top + c)
+        ..close();
+    }
+
+    canvas.drawPath(chamfer(rect.translate(0, 2.4)), Paint()..color = const Color(0xFF03050B));
+
+    final hullPath = chamfer(rect);
+    final hullPaint = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [Color(0xFF263248), Color(0xFF0E1626), Color(0xFF133E54)],
-      ).createShader(innerRRect.outerRect);
-    canvas.drawRRect(innerRRect, platePaint);
+        colors: [Color(0xFF144E68), Color(0xFF0F1726), Color(0xFF070B14)],
+        stops: [0.0, 0.50, 1.0],
+      ).createShader(rect);
+    canvas.drawPath(hullPath, hullPaint);
 
-    final techPaint = Paint()
-      ..strokeWidth = 0.8
-      ..color = const Color(0x3300E5FF);
-    canvas.drawLine(Offset(rect.left + 8, rect.top + 3), Offset(rect.left + 15, rect.bottom - 3), techPaint);
-    canvas.drawLine(Offset(rect.right - 15, rect.top + 3), Offset(rect.right - 8, rect.bottom - 3), techPaint);
-
-    final conduitGlow = Paint()
-      ..strokeWidth = 2.5
-      ..color = const Color(0x5500E5FF);
-    canvas.drawLine(Offset(rect.left + 8, rect.center.dy), Offset(rect.right - 8, rect.center.dy), conduitGlow);
-    final conduitCore = Paint()
-      ..strokeWidth = 1.2
-      ..color = Colors.white;
-    canvas.drawLine(Offset(rect.left + 10, rect.center.dy), Offset(rect.right - 10, rect.center.dy), conduitCore);
-
-    final rivetPaint = Paint()..color = const Color(0xFF00E5FF);
-    canvas.drawCircle(Offset(rect.left + 4, rect.top + 4), 1.2, rivetPaint);
-    canvas.drawCircle(Offset(rect.right - 4, rect.top + 4), 1.2, rivetPaint);
-    canvas.drawCircle(Offset(rect.left + 4, rect.bottom - 4), 1.2, rivetPaint);
-    canvas.drawCircle(Offset(rect.right - 4, rect.bottom - 4), 1.2, rivetPaint);
-
-    final rimPaint = Paint()
+    // Glowing Side Plasma Vents (/// gills on left & right wings)
+    final ventPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..color = const Color(0x9900E5FF);
-    canvas.drawRRect(rrect, rimPaint);
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 1.6
+      ..color = lightAccent;
+    for (int v = 0; v < 2; v++) {
+      final lx = rect.left + 6.5 + v * 4.2;
+      canvas.drawLine(Offset(lx + 1.8, rect.top + 4.5), Offset(lx, rect.bottom - 4.5), ventPaint);
+      final rx = rect.right - 6.5 - v * 4.2;
+      canvas.drawLine(Offset(rx - 1.8, rect.top + 4.5), Offset(rx, rect.bottom - 4.5), ventPaint);
+    }
+
+    // Central Hexagonal Plasma Reactor Window
+    final cx = rect.center.dx;
+    final cy = rect.center.dy;
+    const cw = 13.0;
+    final ch = rect.height / 2 - 3.0;
+    final hexPath = Path()
+      ..moveTo(cx - cw + 3.5, cy - ch)
+      ..lineTo(cx + cw - 3.5, cy - ch)
+      ..lineTo(cx + cw, cy)
+      ..lineTo(cx + cw - 3.5, cy + ch)
+      ..lineTo(cx - cw + 3.5, cy + ch)
+      ..lineTo(cx - cw, cy)
+      ..close();
+    final coreRect = Rect.fromCenter(center: rect.center, width: cw * 2, height: ch * 2);
+    canvas.drawPath(
+      hexPath,
+      Paint()
+        ..shader = const RadialGradient(
+          colors: [Colors.white, lightAccent, cyberAccent],
+          stops: [0.0, 0.45, 1.0],
+        ).createShader(coreRect),
+    );
+    canvas.drawPath(
+      hexPath,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0
+        ..color = Colors.white,
+    );
+
+    // Scanning horizontal laser beam inside reactor
+    canvas.drawLine(
+      Offset(cx - cw + 3.0, cy),
+      Offset(cx + cw - 3.0, cy),
+      Paint()
+        ..color = Colors.white
+        ..strokeWidth = 1.4,
+    );
+
+    // Top & Bottom tactical HUD notches
+    final notchPaint = Paint()..color = cyberAccent;
+    canvas.drawRect(Rect.fromLTWH(cx - 8.0, rect.top, 16.0, 1.8), notchPaint);
+    canvas.drawRect(Rect.fromLTWH(cx - 8.0, rect.bottom - 1.8, 16.0, 1.8), notchPaint);
+
+    // Chamfered Neon Armor Rim
+    canvas.drawPath(
+      hullPath,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.3
+        ..color = cyberAccent,
+    );
   }
 
   void _paintCosmic(Canvas canvas, Rect rect, RRect rrect) {
-    final nebulaPaint = Paint()
+    // "Kozmik Kristal": Organic deep space window with swirling cosmic nebula,
+    // Milky Way stardust clouds, sparkling micro-star clusters, and crystal refraction.
+    const deepVoid = Color(0xFF070114);
+    const abyss = Color(0xFF110324);
+    const magenta = Color(0xFFE040FB);
+    const cyan = Color(0xFF00E5FF);
+    const violet = Color(0xFF7C4DFF);
+
+    final dropShadow = Paint()..color = const Color(0xFF06010D);
+    canvas.drawRRect(RRect.fromRectAndRadius(rect.translate(0, 2), const Radius.circular(5)), dropShadow);
+
+    final halfW = rect.width / 2;
+    final halfH = rect.height / 2;
+    final c = rect.center;
+
+    canvas.save();
+    canvas.clipRRect(rrect);
+
+    // Deep cosmic space void background
+    final bgPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [deepVoid, abyss, deepVoid],
+        stops: [0.0, 0.55, 1.0],
+      ).createShader(rect);
+    canvas.drawRect(rect, bgPaint);
+
+    // Nebula Cloud A: Violet Galactic Halo
+    final haloRect = Rect.fromCenter(center: Offset(c.dx - halfW * 0.10, c.dy), width: halfW * 2.2, height: halfH * 2.4);
+    final haloPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          violet.withValues(alpha: 0.55),
+          violet.withValues(alpha: 0.20),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.55, 1.0],
+      ).createShader(haloRect);
+    canvas.drawOval(haloRect, haloPaint);
+
+    // Nebula Cloud B: Magenta / Rose Cosmic Gas Filament
+    final magRect = Rect.fromCenter(center: Offset(c.dx - halfW * 0.38, c.dy - halfH * 0.25), width: halfW * 1.5, height: halfH * 1.6);
+    final magPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          magenta.withValues(alpha: 0.60),
+          magenta.withValues(alpha: 0.22),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.48, 1.0],
+      ).createShader(magRect);
+    canvas.drawOval(magRect, magPaint);
+
+    // Nebula Cloud C: Celestial Cyan Gas Veil
+    final cyanRect = Rect.fromCenter(center: Offset(c.dx + halfW * 0.35, c.dy + halfH * 0.22), width: halfW * 1.6, height: halfH * 1.7);
+    final cyanPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          cyan.withValues(alpha: 0.55),
+          cyan.withValues(alpha: 0.18),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.50, 1.0],
+      ).createShader(cyanRect);
+    canvas.drawOval(cyanRect, cyanPaint);
+
+    // Nebula Cloud D: Hot Luminous Stellar Nursery Core
+    final nurseryRect = Rect.fromCenter(center: Offset(c.dx - halfW * 0.05, c.dy + halfH * 0.05), width: halfW * 0.85, height: halfH * 0.95);
+    final nurseryPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          Colors.white.withValues(alpha: 0.70),
+          cyan.withValues(alpha: 0.35),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.35, 1.0],
+      ).createShader(nurseryRect);
+    canvas.drawOval(nurseryRect, nurseryPaint);
+
+    // Milky Way Galactic Stardust Band
+    final streamPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment(-0.85, -0.9),
+        end: Alignment(0.85, 0.9),
+        colors: [
+          Colors.transparent,
+          Color(0x407C4DFF),
+          Color(0x60FFFFFF),
+          Color(0x4000E5FF),
+          Colors.transparent,
+        ],
+        stops: [0.0, 0.30, 0.50, 0.70, 1.0],
+      ).createShader(rect);
+    canvas.drawRect(rect, streamPaint);
+
+    // Natural Cosmic Micro-Star Clusters & Stardust
+    const starOffsets = [
+      Offset(-0.72, -0.42),
+      Offset(-0.54, 0.50),
+      Offset(-0.35, -0.65),
+      Offset(-0.22, 0.25),
+      Offset(-0.06, -0.28),
+      Offset(0.12, 0.58),
+      Offset(0.28, -0.48),
+      Offset(0.45, 0.15),
+      Offset(0.62, -0.35),
+      Offset(0.74, 0.42),
+      Offset(0.04, -0.10),
+    ];
+    final starPaint = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < starOffsets.length; i++) {
+      final off = Offset(c.dx + halfW * starOffsets[i].dx, c.dy + halfH * starOffsets[i].dy);
+      final r = (i == 4 || i == 10) ? 1.3 : (i.isEven ? 0.9 : 0.6);
+      starPaint.color = i % 3 == 0
+          ? Colors.white
+          : (i % 3 == 1 ? const Color(0xFFE1BEE7) : const Color(0xFFB2EBF2));
+      canvas.drawCircle(off, r, starPaint);
+    }
+
+    // Telescope Diffraction-Spike Primary Star
+    final majorStarPos = Offset(c.dx - halfW * 0.20, c.dy - halfH * 0.18);
+    starPaint.color = Colors.white;
+    canvas.drawCircle(majorStarPos, 1.6, starPaint);
+
+    final spikePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9
+      ..color = Colors.white.withValues(alpha: 0.85);
+    canvas.drawLine(Offset(majorStarPos.dx - 5.0, majorStarPos.dy), Offset(majorStarPos.dx + 5.0, majorStarPos.dy), spikePaint);
+    canvas.drawLine(Offset(majorStarPos.dx, majorStarPos.dy - 3.8), Offset(majorStarPos.dx, majorStarPos.dy + 3.8), spikePaint);
+
+    // Crystal Glass Sheen & Refraction
+    final sheenPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0x55FFFFFF),
+          Color(0x14FFFFFF),
+          Colors.transparent,
+        ],
+        stops: [0.0, 0.40, 1.0],
+      ).createShader(Rect.fromLTWH(rect.left, rect.top, rect.width, halfH * 0.85));
+    canvas.drawRect(Rect.fromLTWH(rect.left, rect.top, rect.width, halfH * 0.85), sheenPaint);
+
+    canvas.restore();
+
+    // Prismatic Iridescent Crystal Rim
+    final rimPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Color(0xFFE040FB),
-          Color(0xFF240046),
-          Color(0xFF7C4DFF),
-          Color(0xFF00E5FF),
+          Color(0xF000E5FF),
+          Color(0xE6E040FB),
+          Color(0xCC7C4DFF),
+          Color(0xE600E5FF),
         ],
-        stops: [0.0, 0.4, 0.75, 1.0],
+        stops: [0.0, 0.35, 0.70, 1.0],
       ).createShader(rect);
-    canvas.drawRRect(rrect, nebulaPaint);
-
-    final linePaint = Paint()
-      ..strokeWidth = 1.0
-      ..color = const Color(0x66FFFFFF);
-    canvas.drawLine(Offset(rect.left + 8, rect.top + 2), Offset(rect.right - 8, rect.bottom - 2), linePaint);
-
-    final c = rect.center;
-    final starPaint = Paint()
-      ..strokeWidth = 1.4
-      ..color = Colors.white;
-    canvas.drawLine(Offset(c.dx - 5, c.dy), Offset(c.dx + 5, c.dy), starPaint);
-    canvas.drawLine(Offset(c.dx, c.dy - 5), Offset(c.dx, c.dy + 5), starPaint);
-
-    final dotPaint = Paint()..color = Colors.white;
-    canvas.drawCircle(Offset(c.dx - 18, c.dy - 3), 1.0, dotPaint);
-    canvas.drawCircle(Offset(c.dx + 18, c.dy + 3), 1.0, dotPaint);
-
-    final auraPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..color = const Color(0xCC18FFFF);
-    canvas.drawRRect(rrect, auraPaint);
+    canvas.drawRRect(rrect, rimPaint);
   }
 
   @override
@@ -2298,6 +2862,38 @@ class _BallPreviewPainter extends CustomPainter {
         canvas.drawCircle(Offset(center.dx + r * 0.35, center.dy - r * 0.35), 1.5, fill);
         break;
 
+      case 'isilti':
+        // Epic Celestial Starlight Preview
+        final sa = time * 2.2;
+        final pulse = 0.85 + sin(time * 6.0) * 0.15;
+        // Halo
+        stroke
+          ..strokeWidth = 1.2
+          ..color = const Color(0xFFFFE082).withValues(alpha: 0.70 * pulse);
+        canvas.drawCircle(center, r * 1.15, stroke);
+        // Primary 4-point flare
+        final rayLen1 = r * 1.5 * pulse;
+        stroke
+          ..strokeWidth = 1.8
+          ..color = const Color(0xFFFFFDE7);
+        canvas.drawLine(Offset(center.dx - cos(sa) * rayLen1, center.dy - sin(sa) * rayLen1), Offset(center.dx + cos(sa) * rayLen1, center.dy + sin(sa) * rayLen1), stroke);
+        canvas.drawLine(Offset(center.dx - cos(sa + pi / 2) * rayLen1, center.dy - sin(sa + pi / 2) * rayLen1), Offset(center.dx + cos(sa + pi / 2) * rayLen1, center.dy + sin(sa + pi / 2) * rayLen1), stroke);
+        // Diagonal 4-point flare
+        final rayLen2 = r * 0.85 * pulse;
+        stroke
+          ..strokeWidth = 1.1
+          ..color = const Color(0xFFFFD54F);
+        canvas.drawLine(Offset(center.dx - cos(sa + pi / 4) * rayLen2, center.dy - sin(sa + pi / 4) * rayLen2), Offset(center.dx + cos(sa + pi / 4) * rayLen2, center.dy + sin(sa + pi / 4) * rayLen2), stroke);
+        canvas.drawLine(Offset(center.dx - cos(sa + 3 * pi / 4) * rayLen2, center.dy - sin(sa + 3 * pi / 4) * rayLen2), Offset(center.dx + cos(sa + 3 * pi / 4) * rayLen2, center.dy + sin(sa + 3 * pi / 4) * rayLen2), stroke);
+        // Orbiting stardust
+        for (int i = 0; i < 4; i++) {
+          final oa = -time * 3.0 + i * (pi / 2);
+          final od = r * (0.65 + 0.15 * sin(time * 4.0 + i));
+          fill.color = (i.isEven) ? const Color(0xFFFFF9C4) : const Color(0xFFFFCA28);
+          canvas.drawCircle(Offset(center.dx + cos(oa) * od, center.dy + sin(oa) * od), 1.2, fill);
+        }
+        break;
+
       case 'ates':
         stroke
           ..strokeWidth = 1.5
@@ -2380,4 +2976,128 @@ class _PaddlePreviewPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PaddlePreviewPainter oldDelegate) => false;
+}
+
+/// Particle model representing a flying gold coin in the purchase stream.
+class _FlyingCoin {
+  final Offset start;
+  final Offset target;
+  final Offset control;
+  final double delay; // seconds
+  final double duration; // seconds
+  final double spinSpeed;
+  final double scale;
+  final double initialAngle;
+
+  _FlyingCoin({
+    required this.start,
+    required this.target,
+    required this.control,
+    required this.delay,
+    required this.duration,
+    required this.spinSpeed,
+    required this.scale,
+    required this.initialAngle,
+  });
+
+  double progress(double elapsed) {
+    if (elapsed < delay) return -1.0;
+    return ((elapsed - delay) / duration).clamp(0.0, 1.0);
+  }
+
+  Offset position(double t) {
+    final inv = 1.0 - t;
+    return start * (inv * inv) + control * (2.0 * inv * t) + target * (t * t);
+  }
+}
+
+/// Burst spark particle spawned when a coin strikes the destination chest/button.
+class _ImpactSpark {
+  final Offset origin;
+  final Offset velocity;
+  final double birthTime;
+  final double lifeTime;
+  final Color color;
+  final double size;
+
+  _ImpactSpark({
+    required this.origin,
+    required this.velocity,
+    required this.birthTime,
+    required this.lifeTime,
+    required this.color,
+    required this.size,
+  });
+}
+
+/// CustomPainter rendering smooth curved flying coins and impact spark bursts.
+class _FlyingCoinsPainter extends CustomPainter {
+  final List<_FlyingCoin> coins;
+  final List<_ImpactSpark> sparks;
+  final double elapsed;
+
+  _FlyingCoinsPainter({
+    required this.coins,
+    required this.sparks,
+    required this.elapsed,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 1. Draw impact sparks
+    for (final s in sparks) {
+      final sparkAge = elapsed - s.birthTime;
+      if (sparkAge < 0 || sparkAge > s.lifeTime) continue;
+      final progress = sparkAge / s.lifeTime;
+      final pos = s.origin + s.velocity * sparkAge;
+      final alpha = (1.0 - progress).clamp(0.0, 1.0);
+      final r = s.size * (1.0 - progress * 0.5);
+      final paint = Paint()..color = s.color.withValues(alpha: alpha);
+      canvas.drawCircle(pos, r, paint);
+    }
+
+    // 2. Draw flying coins
+    final coinPaint = Paint()..style = PaintingStyle.fill;
+    final rimPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+
+    for (final coin in coins) {
+      final t = coin.progress(elapsed);
+      if (t < 0.0 || t >= 1.0) continue;
+
+      final pos = coin.position(t);
+      final coinScale = coin.scale * (sin(t * pi) * 0.4 + 0.85);
+      final spin = coin.initialAngle + elapsed * coin.spinSpeed;
+      final spinCos = cos(spin);
+
+      canvas.save();
+      canvas.translate(pos.dx, pos.dy);
+      canvas.scale(spinCos.abs().clamp(0.12, 1.0) * coinScale, coinScale);
+
+      const radius = 10.0;
+      final rect = Rect.fromCircle(center: Offset.zero, radius: radius);
+
+      // Gold base fill
+      coinPaint.shader = const LinearGradient(
+        colors: [Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFFF8F00)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ).createShader(rect);
+      canvas.drawCircle(Offset.zero, radius, coinPaint);
+
+      // Outer rim
+      rimPaint.color = const Color(0xFFFFF59D).withValues(alpha: 0.95);
+      canvas.drawCircle(Offset.zero, radius - 1.2, rimPaint);
+
+      // Center embossed star/circle emblem
+      final centerPaint = Paint()..color = const Color(0xFFFFF8E1);
+      canvas.drawCircle(Offset.zero, 3.2, centerPaint);
+
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _FlyingCoinsPainter oldDelegate) => true;
 }

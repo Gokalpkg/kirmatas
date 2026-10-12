@@ -349,12 +349,19 @@ class _RewardedGoldAdButtonState extends State<RewardedGoldAdButton> with Single
       ),
     );
 
+    Widget activeContent = isEnabled
+        ? ScaleTransition(
+            scale: _pulseScale,
+            child: buttonContent,
+          )
+        : buttonContent;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: isEnabled ? _onWatchAdPressed : null,
-        child: buttonContent,
+        child: activeContent,
       ),
     );
   }

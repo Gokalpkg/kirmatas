@@ -221,7 +221,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       return;
     }
 
-    AdManager.instance.watchHighYieldAd(
+    AdManager.instance.watchSkippableAd(
       context,
       onSuccess: () async {
         if (!mounted) return;
@@ -240,7 +240,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Şans çarkını çevirmek için reklamı sonuna kadar izlemelisiniz.',
+                    'Şans çarkını çevirmek için reklamı tamamlamalısınız.',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -328,7 +328,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
         builder: (context, _) {
           final spinsLeft = save.remainingWheelSpins;
           final canSpin = save.canSpinFortuneWheel;
-          final isLoading = adManager.isLoadingHighYield || _isSpinning;
+          final isLoading = adManager.isShowing || _isSpinning;
 
           return Container(
             padding: const EdgeInsets.all(20),
@@ -466,7 +466,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                 ),
                 const SizedBox(height: 20),
 
-                // Action Button: Watch High-Yield Ad & Spin
+                // Action Button: Watch Skippable Ad & Spin
                 Container(
                   decoration: BoxDecoration(
                     gradient: (!canSpin)
@@ -562,7 +562,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                     ),
                                   ],
                                 ),
-                                child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFFFD54F), size: 18),
+                                child: const Icon(Icons.fast_forward_rounded, color: Color(0xFFFFD54F), size: 18),
                               ),
                               const SizedBox(width: 10),
                               Column(
@@ -579,7 +579,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                     ),
                                   ),
                                   const Text(
-                                    'Reklam İzle & Çarkı Çevir',
+                                    '⚡ Geçilebilir Kısa Reklam İzle & Çevir',
                                     style: TextStyle(
                                       color: Color(0xFF4E342E),
                                       fontWeight: FontWeight.w700,

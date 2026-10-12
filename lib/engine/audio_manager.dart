@@ -16,22 +16,28 @@ class AudioManager {
   AudioManager._internal();
 
   final Map<String, List<AudioPlayer>> _pools = {};
+  final Map<String, String> _poolAssets = {};
   final Map<String, int> _poolIndices = {};
+  final Map<AudioPlayer, int> _playToken = {};
+  final Map<GameSfx, int> _lastSfxAt = {};
   final AudioPlayer _bgmPlayer = AudioPlayer();
 
   bool _hasVib = false;
   bool _hasAmp = false;
   int _lastVibTime = 0;
-  int _lastSfxTime = 0;
   bool appInForeground = true;
+  bool isBgmAllowed = true;
 
   Future<void> _loadPool(String key, String path, int count) async {
     try {
+      final asset = path.replaceFirst('assets/', '');
+      _poolAssets[key] = asset;
       final list = <AudioPlayer>[];
       for (int i = 0; i < count; i++) {
         final p = AudioPlayer();
-        p.setReleaseMode(ReleaseMode.stop);
-        p.setSource(AssetSource(path.replaceFirst('assets/', '')));
+        await p.setPlayerMode(PlayerMode.lowLatency);
+        await p.setReleaseMode(ReleaseMode.stop);
+        await p.setSource(AssetSource(asset));
         list.add(p);
       }
       _pools[key] = list;
@@ -40,15 +46,32 @@ class AudioManager {
   }
 
   Future<void> init() async {
-    await _loadPool('bounce', 'assets/audio/custom_bounce.wav', 3);
-    await _loadPool('brick_neon', 'assets/audio/glass_neon1.mp3', 1);
-    await _loadPool('brick_pixel', 'assets/audio/chip1.mp3', 1);
-    await _loadPool('brick_gloss', 'assets/audio/y2k_digital1.mp3', 1);
-    await _loadPool('brick_neu', 'assets/audio/pop2.mp3', 1);
-    await _loadPool('brick_cyber', 'assets/audio/glass_shatter.mp3', 1);
-    await _loadPool('laser', 'assets/audio/custom_laser.wav', 1);
+    try {
+      final mix = AudioContext(
+        android: AudioContextAndroid(
+          isSpeakerphoneOn: false,
+          stayAwake: false,
+          contentType: AndroidContentType.sonification,
+          usageType: AndroidUsageType.game,
+          audioFocus: AndroidAudioFocus.none,
+        ),
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.ambient,
+          options: {AVAudioSessionOptions.mixWithOthers},
+        ),
+      );
+      await AudioPlayer.global.setAudioContext(mix);
+    } catch (_) {}
+
+    await _loadPool('bounce', 'assets/audio/custom_bounce.wav', 4);
+    await _loadPool('brick_neon', 'assets/audio/glass_neon1.mp3', 2);
+    await _loadPool('brick_pixel', 'assets/audio/chip1.mp3', 2);
+    await _loadPool('brick_gloss', 'assets/audio/y2k_digital1.mp3', 2);
+    await _loadPool('brick_neu', 'assets/audio/pop2.mp3', 2);
+    await _loadPool('brick_cyber', 'assets/audio/glass_shatter.mp3', 2);
+    await _loadPool('laser', 'assets/audio/custom_laser.wav', 2);
     await _loadPool('explosion', 'assets/audio/custom_explosion.wav', 2);
-    await _loadPool('ulti', 'assets/audio/ui_fx1.mp3', 1);
+    await _loadPool('ulti', 'assets/audio/ui_fx1.mp3', 2);
     try {
       _hasVib = await Vibration.hasVibrator();
       if (_hasVib) {
@@ -58,8 +81,16 @@ class AudioManager {
       _hasVib = false;
     }
     try {
-      _bgmPlayer.setReleaseMode(ReleaseMode.loop);
-      _bgmPlayer.play(AssetSource('audio/bgm.wav'), volume: SaveManager.instance.bgmVolume / 8.0 * 0.5);
+      await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
+      if (isBgmAllowed && appInForeground && SaveManager.instance.bgmVolume > 0) {
+        await _bgmPlayer.play(
+          AssetSource('audio/bgm.wav'),
+          volume: SaveManager.instance.bgmVolume / 8.0 * 0.5,
+        );
+        if (!isBgmAllowed || !appInForeground) {
+          await _bgmPlayer.pause();
+        }
+      }
     } catch (_) {}
   }
 
@@ -80,27 +111,64 @@ class AudioManager {
       } catch (_) {}
     }
   }
+  Future<void> pauseBgm() async {
+    try {
+      await _bgmPlayer.pause();
+    } catch (_) {}
+  }
 
-  bool isBgmAllowed = true;
-  Future<void> pauseBgm() async { try { await _bgmPlayer.pause(); } catch (_) {} }
-  Future<void> resumeBgm() async { if (!isBgmAllowed) return; try { await _bgmPlayer.resume(); } catch (_) {} }
+  Future<void> resumeBgm() async {
+    if (!isBgmAllowed || !appInForeground) return;
+    final vol = SaveManager.instance.bgmVolume;
+    if (vol <= 0) {
+      await pauseBgm();
+      return;
+    }
+    final targetVolume = (vol / 8.0) * 0.5;
+    try {
+      if (_bgmPlayer.state == PlayerState.playing) {
+        await _bgmPlayer.setVolume(targetVolume);
+        return;
+      }
+      if (_bgmPlayer.state == PlayerState.paused) {
+        await _bgmPlayer.setVolume(targetVolume);
+        await _bgmPlayer.resume();
+      } else {
+        await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
+        await _bgmPlayer.play(
+          AssetSource('audio/bgm.wav'),
+          volume: targetVolume,
+        );
+      }
+    } catch (_) {}
+  }
 
   void updateBgmVolume() {
-    _bgmPlayer.setVolume(SaveManager.instance.bgmVolume / 8.0 * 0.5);
+    final vol = SaveManager.instance.bgmVolume;
+    if (vol <= 0) {
+      pauseBgm();
+    } else {
+      final targetVolume = (vol / 8.0) * 0.5;
+      _bgmPlayer.setVolume(targetVolume);
+      if (_bgmPlayer.state != PlayerState.playing && appInForeground && isBgmAllowed) {
+        resumeBgm();
+      }
+    }
   }
 
   void playSfx(GameSfx sfx) {
     if (!appInForeground) return;
 
     final now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastSfxTime < 40) {
+    final lastSame = _lastSfxAt[sfx] ?? 0;
+    if (now - lastSame < 28) {
       _maybeVibrate(sfx, now);
       return;
     }
+    _lastSfxAt[sfx] = now;
 
     final volLevel = SaveManager.instance.sfxVolume;
     if (volLevel > 0) {
-      _lastSfxTime = now;
       
       String soundKey = 'bounce';
       double gain = 0.4;
@@ -157,19 +225,34 @@ class AudioManager {
       if (!_pools.containsKey(soundKey) || _pools[soundKey]!.isEmpty) soundKey = 'bounce';
       
       final pool = _pools[soundKey];
+      final asset = _poolAssets[soundKey] ?? 'audio/custom_bounce.wav';
       if (pool != null && pool.isNotEmpty) {
         final volume = (volLevel / 8.0) * gain;
         int idx = _poolIndices[soundKey] ?? 0;
         final p = pool[idx];
         _poolIndices[soundKey] = (idx + 1) % pool.length;
         
-        p.setVolume(volume);
-        p.seek(Duration.zero);
-        p.resume();
+        final token = (_playToken[p] ?? 0) + 1;
+        _playToken[p] = token;
+        _restart(p, asset, volume, token);
       }
     }
 
     _maybeVibrate(sfx, now);
+  }
+
+  Future<void> _restart(AudioPlayer player, String asset, double volume, int token) async {
+    try {
+      await player.stop();
+    } catch (_) {}
+    if (_playToken[player] != token) return;
+    try {
+      await player.play(
+        AssetSource(asset),
+        volume: volume,
+        mode: PlayerMode.lowLatency,
+      );
+    } catch (_) {}
   }
 
   void _maybeVibrate(GameSfx sfx, int now) {

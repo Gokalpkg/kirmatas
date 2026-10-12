@@ -23,8 +23,8 @@ void writeWav(String filename, List<double> samples, {int sampleRate = 44100}) {
     int s = (sample * 32767).clamp(-32768, 32767).toInt();
     builder.add(_int16ToBytes(s));
   }
-  File('assets/audio/' + filename).writeAsBytesSync(builder.toBytes());
-  print('Generated ' + filename);
+  File('assets/audio/$filename').writeAsBytesSync(builder.toBytes());
+  stdout.writeln('Generated $filename');
 }
 
 List<int> _int32ToBytes(int value) => [value & 0xff, (value >> 8) & 0xff, (value >> 16) & 0xff, (value >> 24) & 0xff];

@@ -16,6 +16,7 @@ void main() async {
 
   // Initialize offline storage, audio, ads and image assets
   await SaveManager.instance.init();
+  SaveManager.instance.noteAppOpen();
   await AudioManager.instance.init();
   await AssetCache.instance.init();
   await AdManager.instance.init();
@@ -45,7 +46,8 @@ class _KirmatasAppState extends State<KirmatasApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final buried = state == AppLifecycleState.paused ||
+    final buried = state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached;
     AudioManager.instance.appInForeground = !buried;

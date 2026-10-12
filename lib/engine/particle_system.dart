@@ -82,10 +82,49 @@ class FloatingText {
   }
 }
 
+class BrickShard {
+  double x;
+  double y;
+  double vx;
+  double vy;
+  double rotation;
+  double vRot;
+  double width;
+  double height;
+  Color color;
+  double life;
+  final double maxLife;
+
+  BrickShard({
+    required this.x,
+    required this.y,
+    required this.vx,
+    required this.vy,
+    required this.rotation,
+    required this.vRot,
+    required this.width,
+    required this.height,
+    required this.color,
+    required this.maxLife,
+  }) : life = maxLife;
+
+  bool get isDead => life <= 0;
+
+  void update(double dt) {
+    x += vx * dt;
+    y += vy * dt;
+    vy += 380.0 * dt; // Gravity
+    vx *= 0.98; // Air resistance
+    rotation += vRot * dt;
+    life -= dt;
+  }
+}
+
 class ParticleSystem {
   final List<Particle> particles = [];
   final List<Shockwave> shockwaves = [];
   final List<FloatingText> floatingTexts = [];
+  final List<BrickShard> shards = [];
   final Random _rand = Random();
 
   double shakeTimeLeft = 0.0;
@@ -106,6 +145,7 @@ class ParticleSystem {
   static const int maxParticles = 50;
   static const int maxShockwaves = 6;
   static const int maxFloatingTexts = 5;
+  static const int maxShards = 24;
 
   void spawnBurst(double x, double y, Color color, {int count = 10, double speed = 150.0}) {
     final toAdd = min(count, maxParticles - particles.length + 8);
@@ -183,6 +223,31 @@ class ParticleSystem {
     );
   }
 
+  void spawnBrickShards(double bx, double by, double bw, double bh, Color color, {int count = 6}) {
+    if (shards.length + count > maxShards) {
+      final overflow = (shards.length + count) - maxShards;
+      shards.removeRange(0, min(overflow, shards.length));
+    }
+    for (int i = 0; i < count; i++) {
+      final angle = -pi * 0.85 + _rand.nextDouble() * pi * 0.7; // Spread upwards and outwards
+      final speed = 80.0 + _rand.nextDouble() * 140.0;
+      shards.add(
+        BrickShard(
+          x: bx + (_rand.nextDouble() * 0.8 + 0.1) * bw,
+          y: by + (_rand.nextDouble() * 0.8 + 0.1) * bh,
+          vx: cos(angle) * speed,
+          vy: sin(angle) * speed,
+          rotation: _rand.nextDouble() * 2 * pi,
+          vRot: (_rand.nextDouble() * 10.0 - 5.0),
+          width: 5.5 + _rand.nextDouble() * 6.5,
+          height: 3.5 + _rand.nextDouble() * 4.5,
+          color: color,
+          maxLife: 0.50 + _rand.nextDouble() * 0.30,
+        ),
+      );
+    }
+  }
+
   void update(double dt) {
     if (shakeTimeLeft > 0) {
       shakeTimeLeft -= dt;
@@ -203,12 +268,18 @@ class ParticleSystem {
       floatingTexts[i].update(dt);
     }
     floatingTexts.removeWhere((f) => f.isDead);
+
+    for (int i = 0; i < shards.length; i++) {
+      shards[i].update(dt);
+    }
+    shards.removeWhere((s) => s.isDead);
   }
 
   void clear() {
     particles.clear();
     shockwaves.clear();
     floatingTexts.clear();
+    shards.clear();
     shakeTimeLeft = 0.0;
   }
 }

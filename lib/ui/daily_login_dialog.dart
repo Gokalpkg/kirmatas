@@ -42,42 +42,20 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
     super.dispose();
   }
 
-  int _getBaseGoldForDay(int day) {
-    switch (day) {
-      case 1:
-        return 50;
-      case 2:
-        return 100;
-      case 3:
-        return 150;
-      case 4:
-        return 200;
-      case 5:
-        return 300;
-      case 6:
-        return 400;
-      case 7:
-        return 600;
-      default:
-        return 50;
-    }
-  }
-
-  void _claimReward({bool doubleWithAd = false}) async {
-    final result = await _save.claimDailyLoginReward(doubleWithAd: doubleWithAd);
+  void _claimNormalReward() async {
+    if (!_save.canClaimDailyLogin()) return;
+    final result = await _save.claimDailyLoginReward(doubleWithAd: false);
     if (!mounted) return;
 
     if (result['claimed'] == true) {
       AudioManager.instance.playSfx(GameSfx.victory);
       final gold = result['gold'];
       final food = result['food'] as int? ?? 0;
-      final isDoubled = result['isDoubled'] == true;
 
       String message = '🎉 +$gold Altın';
       if (food > 0) message += ', +$food Balık Yemi 🌾';
       if (result['bonusItem'] != null) message += ' ve Özel Parça';
-      message += ' Kazandınız!';
-      if (isDoubled) message += ' (2X KATLANDI!)';
+      message += ' Kazandınız! (Alttan 2X\'e katlayabilirsiniz)';
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -98,17 +76,53 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
     }
   }
 
-  void _watchAdToDouble() {
-    AdManager.instance.watchAdForGold(
+  void _watchAdToClaim() {
+    AdManager.instance.watchSkippableAd(
       context,
-      onSuccess: (_) {
-        _claimReward(doubleWithAd: true);
+      onSuccess: () async {
+        if (!mounted) return;
+        Map<String, dynamic> result;
+        final alreadyClaimedBase = !_save.canClaimDailyLogin();
+        if (alreadyClaimedBase) {
+          result = await _save.claimDailyLoginAdBonus();
+        } else {
+          result = await _save.claimDailyLoginReward(doubleWithAd: true);
+        }
+
+        if (!mounted) return;
+        if (result['claimed'] == true) {
+          AudioManager.instance.playSfx(GameSfx.victory);
+          final gold = result['gold'];
+          final food = result['food'] as int? ?? 0;
+
+          String message = '🎉 +$gold Altın';
+          if (food > 0) message += ', +$food Balık Yemi 🌾';
+          if (result['bonusItem'] != null) message += ' ve Özel Parça';
+          message += alreadyClaimedBase ? ' Kazandınız! (2X Tamamlandı!)' : ' Kazandınız! (2X KATLANDI!)';
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                message,
+                style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFFD54F)),
+              ),
+              backgroundColor: const Color(0xFF161A29),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: Color(0xFFFFD54F), width: 1.5),
+              ),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+          setState(() {});
+        }
       },
       onDismissedEarly: () {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('2X ödülü almak için videoyu sonuna kadar izlemelisiniz.'),
+            content: Text('2X ödülü almak için reklamı tamamlamalısınız.'),
             backgroundColor: Color(0xFF1E2438),
           ),
         );
@@ -121,8 +135,9 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
     return ListenableBuilder(
       listenable: _save,
       builder: (context, _) {
-        final canClaim = _save.canClaimDailyLogin();
-        final currentDay = _save.dailyLoginStreak.clamp(1, 7);
+        final canClaimBase = _save.canClaimDailyLogin();
+        final canClaimAd = _save.canClaimDailyLoginAd();
+        final currentDay = _save.currentDailyLoginDay;
 
         return Dialog(
           backgroundColor: Colors.transparent,
@@ -190,23 +205,47 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                   childAspectRatio: 0.95,
                   children: List.generate(6, (index) {
                     final dayNum = index + 1;
-                    return _buildDayCard(dayNum, currentDay, canClaim);
+                    return _buildDayCard(dayNum, currentDay, canClaimBase);
                   }),
                 ),
 
                 const SizedBox(height: 8),
 
                 // Day 7 Grand Reward Card
-                _buildDay7Card(currentDay, canClaim),
+                _buildDay7Card(currentDay, canClaimBase),
 
-                const SizedBox(height: 18),
+                const SizedBox(height: 10),
 
-                // Action Buttons
-                if (canClaim) ...[
+                // Helpful Tap Tip when normal reward is available
+                if (canClaimBase)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.touch_app_rounded, size: 14, color: Color(0xFFFFD54F)),
+                        SizedBox(width: 4),
+                        Text(
+                          'Normal almak için bugünkü gün kutusuna dokunun',
+                          style: TextStyle(color: Color(0xFFFFD54F), fontSize: 11, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                const SizedBox(height: 8),
+
+                // Action Buttons Area
+                if (canClaimAd) ...[
                   Builder(
                     builder: (context) {
-                      final baseGold = _getBaseGoldForDay(currentDay);
-                      final doubledGold = baseGold * 2;
+                      final baseGold = _save.getBaseGoldForDailyDay(currentDay);
+                      final isComplementing = !canClaimBase; // already claimed base, now getting remaining 1x
+                      final buttonGoldText = isComplementing ? '+$baseGold 🪙' : '${baseGold * 2} 🪙';
+                      final buttonTitle = isComplementing ? '🔥 2X ÖDÜL AL: $buttonGoldText' : '🔥 2X KATLA & AL: $buttonGoldText';
+                      final buttonSubtitle = isComplementing
+                          ? 'Kısa Video İzle, Bugünkü Ödülü 2X\'e Tamamla!'
+                          : 'Kısa Video İzle, Bugünkü Ödülü 2\'ye Katla!';
 
                       return Column(
                         children: [
@@ -235,7 +274,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                                 color: Colors.transparent,
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(20),
-                                  onTap: _watchAdToDouble,
+                                  onTap: _watchAdToClaim,
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                     child: Column(
@@ -253,7 +292,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
-                                              '🔥 2X KATLA & AL: $doubledGold 🪙',
+                                              buttonTitle,
                                               style: const TextStyle(
                                                 color: Color(0xFF2E1C00),
                                                 fontWeight: FontWeight.w900,
@@ -276,48 +315,19 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                                           ],
                                         ),
                                         const SizedBox(height: 3),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              '$baseGold 🪙',
-                                              style: const TextStyle(
-                                                color: Color(0xFF5D4037),
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                                decoration: TextDecoration.lineThrough,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            const Text(
-                                              '➔',
-                                              style: TextStyle(color: Color(0xFF2E1C00), fontSize: 11, fontWeight: FontWeight.w900),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              'Kısa Video İzle, Bugünkü Ödülü 2\'ye Katla! (Günde 1 Kez)',
-                                              style: const TextStyle(
-                                                color: Color(0xFF3E2723),
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w800,
-                                              ),
-                                            ),
-                                          ],
+                                        Text(
+                                          buttonSubtitle,
+                                          style: const TextStyle(
+                                            color: Color(0xFF3E2723),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                          ),
                                         ),
                                       ],
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          // Normal 1X Claim Button
-                          TextButton(
-                            onPressed: () => _claimReward(doubleWithAd: false),
-                            child: Text(
-                              'Normal Al ($baseGold 🪙 - Katlamadan)',
-                              style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w700),
                             ),
                           ),
                         ],
@@ -354,9 +364,9 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
     );
   }
 
-  Widget _buildDayCard(int dayNum, int currentDay, bool canClaim) {
-    final isPast = (dayNum < currentDay) || (dayNum == currentDay && !canClaim);
-    final isToday = (dayNum == currentDay && canClaim);
+  Widget _buildDayCard(int dayNum, int currentDay, bool canClaimBase) {
+    final isPast = (dayNum < currentDay) || (dayNum == currentDay && !canClaimBase);
+    final isToday = (dayNum == currentDay && canClaimBase);
 
     String rewardText = '';
     IconData icon = Icons.monetization_on;
@@ -393,7 +403,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
         break;
     }
 
-    return Container(
+    final cardContent = Container(
       decoration: BoxDecoration(
         color: isToday
             ? const Color(0xFF261D00)
@@ -408,7 +418,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
         boxShadow: isToday
             ? [
                 BoxShadow(
-                  color: const Color(0xFFFFD54F).withValues(alpha: 0.3),
+                  color: const Color(0xFFFFD54F).withValues(alpha: 0.35),
                   blurRadius: 10,
                   spreadRadius: 1,
                 ),
@@ -418,13 +428,29 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            '$dayNum. GÜN',
-            style: TextStyle(
-              color: isToday ? const Color(0xFFFFD54F) : Colors.white54,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '$dayNum. GÜN',
+                style: TextStyle(
+                  color: isToday ? const Color(0xFFFFD54F) : Colors.white54,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              if (isToday) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF8F00),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text('AL', style: TextStyle(color: Colors.black, fontSize: 8, fontWeight: FontWeight.w900)),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 4),
           if (isPast)
@@ -435,7 +461,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
           Text(
             isPast ? 'Alındı' : rewardText,
             style: TextStyle(
-              color: isPast ? const Color(0xFF69F0AE) : Colors.white,
+              color: isPast ? const Color(0xFF69F0AE) : (isToday ? const Color(0xFFFFD54F) : Colors.white),
               fontSize: 11,
               fontWeight: FontWeight.w800,
             ),
@@ -444,13 +470,25 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
         ],
       ),
     );
+
+    if (isToday) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _claimNormalReward,
+          child: cardContent,
+        ),
+      );
+    }
+    return cardContent;
   }
 
-  Widget _buildDay7Card(int currentDay, bool canClaim) {
-    final isPast = (7 < currentDay) || (7 == currentDay && !canClaim);
-    final isToday = (7 == currentDay && canClaim);
+  Widget _buildDay7Card(int currentDay, bool canClaimBase) {
+    final isPast = (7 < currentDay) || (7 == currentDay && !canClaimBase);
+    final isToday = (7 == currentDay && canClaimBase);
 
-    return Container(
+    final cardContent = Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -532,9 +570,34 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
             ),
           ),
           if (isPast)
-            const Icon(Icons.check_circle, color: Color(0xFF69F0AE), size: 22),
+            const Icon(Icons.check_circle, color: Color(0xFF69F0AE), size: 22)
+          else if (isToday)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+              ),
+              child: const Text(
+                'AL 👑',
+                style: TextStyle(color: Color(0xFFE65100), fontWeight: FontWeight.w900, fontSize: 11),
+              ),
+            ),
         ],
       ),
     );
+
+    if (isToday) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: _claimNormalReward,
+          child: cardContent,
+        ),
+      );
+    }
+    return cardContent;
   }
 }

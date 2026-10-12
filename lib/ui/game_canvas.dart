@@ -1,9 +1,11 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import '../engine/ad_manager.dart';
 import '../engine/asset_cache.dart';
 import '../engine/audio_manager.dart';
 import '../engine/game_controller.dart';
+import '../engine/i18n.dart';
 import '../models/brick.dart';
 import '../models/game_state.dart';
 import '../models/ball.dart';
@@ -25,6 +27,9 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
   Duration _lastElapsed = Duration.zero;
   double _pointerStartX = 0;
   bool _pointerMoved = false;
+  Offset? _chaosPointerDownPos;
+  int? _touchStartLevel;
+  bool _canLaunchOnUp = false;
 
   @override
   void initState() {
@@ -34,7 +39,10 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
         _lastElapsed = elapsed;
         return;
       }
-      if (!AudioManager.instance.appInForeground) {
+      if (!AudioManager.instance.appInForeground || AdManager.instance.isShowing) {
+        if (widget.controller.status == GameStatus.playing) {
+          widget.controller.pause();
+        }
         _lastElapsed = Duration.zero;
         return;
       }
@@ -60,35 +68,105 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
         return Listener(
           behavior: HitTestBehavior.opaque,
           onPointerDown: (event) {
-            if (widget.controller.currentMode == GameMode.chaos) {
-              widget.controller.aimChaos(event.localPosition.dx, event.localPosition.dy);
+            final c = widget.controller;
+            if (c.levelTransitionTimer > 0) {
+              _canLaunchOnUp = false;
+              _touchStartLevel = null;
+              return;
+            }
+            _touchStartLevel = c.stats.level;
+            _canLaunchOnUp = true;
+
+            if (c.currentMode == GameMode.chaos) {
+              if (c.status == GameStatus.playing) {
+                // Check if Turbo / Recall button was tapped
+                const btnW = 96.0;
+                const btnH = 36.0;
+                final btnX = c.screenWidth - btnW - 12.0;
+                final btnY = c.screenHeight - btnH - 12.0;
+                final btnRect = Rect.fromLTWH(btnX, btnY, btnW, btnH);
+                if (btnRect.contains(event.localPosition)) {
+                  c.toggleChaosTurboOrRecall();
+                  return;
+                }
+              }
+
+              if (c.status == GameStatus.ready) {
+                _chaosPointerDownPos = event.localPosition;
+                if (event.localPosition.dy >= c.chaosFloorY - 24.0) {
+                  c.aimChaos(c.chaosHomeX, c.chaosFloorY - 120.0);
+                } else {
+                  c.aimChaos(event.localPosition.dx, event.localPosition.dy);
+                }
+              }
               return;
             }
             _pointerStartX = event.localPosition.dx;
             _pointerMoved = false;
           },
           onPointerMove: (event) {
-            if (widget.controller.currentMode == GameMode.chaos) {
-              widget.controller.aimChaos(event.localPosition.dx, event.localPosition.dy);
+            final c = widget.controller;
+            if (c.levelTransitionTimer > 0) {
+              _canLaunchOnUp = false;
               return;
+            }
+            if (c.currentMode == GameMode.chaos) {
+              if (c.status == GameStatus.ready) {
+                _chaosPointerDownPos ??= event.localPosition;
+                _touchStartLevel = c.stats.level;
+                _canLaunchOnUp = true;
+                _pointerMoved = false;
+                if (_chaosPointerDownPos!.dy >= c.chaosFloorY - 24.0) {
+                  // Ergonomic Slingshot drag from bottom
+                  final dragX = event.localPosition.dx - _chaosPointerDownPos!.dx;
+                  final dragY = event.localPosition.dy - _chaosPointerDownPos!.dy;
+                  final aimX = c.chaosHomeX - dragX * 1.6;
+                  final aimY = c.chaosFloorY - max(dragY.abs() * 1.8, 60.0);
+                  c.aimChaos(aimX, aimY);
+                } else {
+                  // Direct field aim
+                  c.aimChaos(event.localPosition.dx, event.localPosition.dy);
+                }
+              }
+              return;
+            }
+            if (_touchStartLevel != c.stats.level) {
+              _canLaunchOnUp = false;
+              _pointerMoved = true;
             }
             final dx = event.delta.dx;
             if (!_pointerMoved && (event.localPosition.dx - _pointerStartX).abs() < 8) {
               return;
             }
             _pointerMoved = true;
-            widget.controller.movePaddleBy(dx);
+            c.movePaddleBy(dx);
           },
           onPointerUp: (_) {
             final controller = widget.controller;
+            final isEligible = _canLaunchOnUp &&
+                !_pointerMoved &&
+                controller.levelTransitionTimer <= 0 &&
+                _touchStartLevel == controller.stats.level;
+            _canLaunchOnUp = false;
+            _touchStartLevel = null;
+
             if (controller.currentMode == GameMode.chaos) {
-              controller.fireChaos();
+              _chaosPointerDownPos = null;
+              if (isEligible && controller.status == GameStatus.ready) {
+                controller.fireChaos();
+              }
               return;
             }
-            if (!_pointerMoved &&
+            if (isEligible &&
                 (controller.status == GameStatus.ready || controller.hasStuckBall)) {
               controller.launchBall();
             }
+          },
+          onPointerCancel: (_) {
+            _canLaunchOnUp = false;
+            _touchStartLevel = null;
+            _pointerMoved = false;
+            _chaosPointerDownPos = null;
           },
           child: CustomPaint(
             size: Size(constraints.maxWidth, constraints.maxHeight),
@@ -111,7 +189,6 @@ class _GameWorldPainter extends CustomPainter {
   static final Paint _paddlePaint = Paint()..style = PaintingStyle.fill;
   static final Paint _imgPaint = Paint()..filterQuality = FilterQuality.medium;
   static final Path _crackPath = Path();
-  static final Path _sparkPath = Path();
   static final Path _tempPath = Path();
   static final TextPainter _tp = TextPainter(textDirection: TextDirection.ltr);
 
@@ -176,9 +253,11 @@ class _GameWorldPainter extends CustomPainter {
     canvas.translate(shake.dx, shake.dy);
 
     _drawBackground(canvas, size);
+    _drawAmbientPointLight(canvas, size);
     _drawBlackHoles(canvas);
     _drawPortals(canvas);
     _drawBricks(canvas);
+    _drawShards(canvas);
     _drawNet(canvas, size);
     _drawPaddle(canvas);
     _drawChaosAim(canvas);
@@ -189,6 +268,9 @@ class _GameWorldPainter extends CustomPainter {
     _drawDrone(canvas);
     _drawDice(canvas);
     _drawParticles(canvas);
+
+    _drawBossWarningBanner(canvas, size);
+    _drawLevelClearCelebration(canvas, size);
 
     canvas.restore();
 
@@ -221,6 +303,28 @@ class _GameWorldPainter extends CustomPainter {
     }
   }
 
+  void _drawAmbientPointLight(Canvas canvas, Size size) {
+    if (c.balls.isEmpty) return;
+    for (final ball in c.balls) {
+      if (ball.isStuck) continue;
+      final ballColor = ball.isFireball
+          ? const Color(0xFFFF1744)
+          : (ball.isPurple ? const Color(0xFFD500F9) : c.activeBallSkin.glowColor);
+      final glowRadius = (ball.radius * 3.5).clamp(24.0, 52.0);
+      final glowShader = RadialGradient(
+        colors: [
+          _ca(ballColor, 0.18),
+          _ca(ballColor, 0.06),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset(ball.x, ball.y), radius: glowRadius));
+      _fill.shader = glowShader;
+      canvas.drawCircle(Offset(ball.x, ball.y), glowRadius, _fill);
+      _fill.shader = null;
+    }
+  }
+
   void _drawDefaultBackground(Canvas canvas, Size size) {
     if (_cachedBgShader == null || _cachedBgTheme != 'bg_default' || _cachedBgSize != size) {
       _cachedBgTheme = 'bg_default';
@@ -234,9 +338,15 @@ class _GameWorldPainter extends CustomPainter {
     _bgPaint.shader = _cachedBgShader;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _bgPaint);
 
+    // Subtle paddle parallax offset (-1.0 to 1.0 based on center)
+    final paddleNorm = size.width > 0 ? ((c.paddle.x + c.paddle.width / 2) / size.width - 0.5) * 2.0 : 0.0;
+
     for (int i = 0; i < 36; i++) {
       final speed = 10.0 + (i % 4) * 4.0;
-      final x = ((i * 97 + 23) % size.width.toInt()).toDouble();
+      final parallaxDepth = 0.5 + (i % 4) * 0.4;
+      final parallaxDx = paddleNorm * 14.0 * parallaxDepth;
+      final rawX = ((i * 97 + 23) % size.width.toInt()).toDouble() - parallaxDx;
+      final x = (rawX % size.width + size.width) % size.width;
       final y = ((i * 139 + time * speed) % size.height);
       final twinkle = 0.15 * sin(time * 2.5 + i);
       final alpha = (0.25 + (i % 4) * 0.15 + twinkle).clamp(0.1, 0.85);
@@ -260,8 +370,11 @@ class _GameWorldPainter extends CustomPainter {
     _bgPaint.shader = _cachedBgShader;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _bgPaint);
 
+    final paddleNorm = size.width > 0 ? ((c.paddle.x + c.paddle.width / 2) / size.width - 0.5) * 2.0 : 0.0;
+
     for (int i = 0; i < 3; i++) {
-      final cloudX = size.width * (0.25 + 0.5 * sin(time * 0.15 + i * 1.5));
+      final cloudParallax = paddleNorm * (6.0 + i * 4.0);
+      final cloudX = size.width * (0.25 + 0.5 * sin(time * 0.15 + i * 1.5)) - cloudParallax;
       final cloudY = size.height * (0.2 + 0.3 * cos(time * 0.12 + i * 2.0));
       _fill.color = _ca((i % 2 == 0 ? const Color(0xFFC084FC) : const Color(0xFFF472B6)), 0.1);
       canvas.drawCircle(Offset(cloudX, cloudY), 65.0 + 10 * sin(time + i), _fill);
@@ -269,7 +382,10 @@ class _GameWorldPainter extends CustomPainter {
 
     for (int i = 0; i < 38; i++) {
       final speed = 12.0 + (i % 3) * 5.0;
-      final x = ((i * 113 + 17) % size.width.toInt()).toDouble();
+      final parallaxDepth = 0.4 + (i % 3) * 0.5;
+      final parallaxDx = paddleNorm * 16.0 * parallaxDepth;
+      final rawX = ((i * 113 + 17) % size.width.toInt()).toDouble() - parallaxDx;
+      final x = (rawX % size.width + size.width) % size.width;
       final y = ((i * 157 + time * speed) % size.height);
       final twinkle = 0.2 * sin(time * 3.0 + i);
       final alpha = (0.3 + (i % 4) * 0.15 + twinkle).clamp(0.1, 0.9);
@@ -468,75 +584,47 @@ class _GameWorldPainter extends CustomPainter {
       final rect = Rect.fromCenter(center: Offset.zero, width: b.width, height: b.height);
       final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(6.0));
 
-      if (c.currentMode == GameMode.chaos) {
-        if (b.isBallPickup) {
-          // Collectible +1 Ball Orb
-          final pulse = sin(time * 6.0) * 1.5;
-          final orbR = (b.height * 0.40 + pulse).clamp(7.0, 13.0);
+      if (c.currentMode == GameMode.chaos && b.isBallPickup) {
+        // Collectible +1 Ball Orb
+        final pulse = sin(time * 6.0) * 1.5;
+        final orbR = (b.height * 0.40 + pulse).clamp(7.0, 13.0);
 
-          // Glowing aura
-          _fill
-            ..shader = null
-            ..maskFilter = null
-            ..color = _ca(const Color(0xFF00E5FF), 0.35);
-          canvas.drawCircle(Offset.zero, orbR * 1.6, _fill);
-
-          // Inner orb fill
-          _fill.color = const Color(0xFF00E5FF);
-          canvas.drawCircle(Offset.zero, orbR, _fill);
-          _fill.color = Colors.white;
-          canvas.drawCircle(Offset.zero, orbR * 0.45, _fill);
-
-          // Specular glint
-          _fill.color = Colors.white;
-          canvas.drawCircle(Offset(-orbR * 0.35, -orbR * 0.35), orbR * 0.22, _fill);
-
-          // Pulsating outer ring
-          _stroke
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.4
-            ..color = _ca(Colors.white, 0.85);
-          canvas.drawCircle(Offset.zero, orbR * 1.35, _stroke);
-
-          // Center "+1" text
-          _tp.text = const TextSpan(
-            text: '+1',
-            style: TextStyle(
-              color: Color(0xFF004D40),
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-            ),
-          );
-          _tp.layout();
-          _tp.paint(canvas, Offset(-_tp.width / 2, -_tp.height / 2));
-
-          canvas.restore();
-          continue;
-        }
-
+        // Glowing aura
         _fill
           ..shader = null
           ..maskFilter = null
-          ..color = b.color;
-        canvas.drawRRect(rrect, _fill);
+          ..color = _ca(const Color(0xFF00E5FF), 0.35);
+        canvas.drawCircle(Offset.zero, orbR * 1.6, _fill);
+
+        // Inner orb fill
+        _fill.color = const Color(0xFF00E5FF);
+        canvas.drawCircle(Offset.zero, orbR, _fill);
+        _fill.color = Colors.white;
+        canvas.drawCircle(Offset.zero, orbR * 0.45, _fill);
+
+        // Specular glint
+        _fill.color = Colors.white;
+        canvas.drawCircle(Offset(-orbR * 0.35, -orbR * 0.35), orbR * 0.22, _fill);
+
+        // Pulsating outer ring
         _stroke
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.2
-          ..color = const Color(0x88FFFFFF);
-        canvas.drawRRect(rrect.deflate(0.5), _stroke);
-        _tp.text = TextSpan(
-          text: '${b.hp}',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
+          ..strokeWidth = 1.4
+          ..color = _ca(Colors.white, 0.85);
+        canvas.drawCircle(Offset.zero, orbR * 1.35, _stroke);
+
+        // Center "+1" text
+        _tp.text = const TextSpan(
+          text: '+1',
+          style: TextStyle(
+            color: Color(0xFF004D40),
+            fontSize: 10,
             fontWeight: FontWeight.w900,
-            shadows: [
-              Shadow(color: Colors.black, offset: Offset(0, 1), blurRadius: 2.0),
-            ],
           ),
         );
         _tp.layout();
         _tp.paint(canvas, Offset(-_tp.width / 2, -_tp.height / 2));
+
         canvas.restore();
         continue;
       }
@@ -559,115 +647,95 @@ class _GameWorldPainter extends CustomPainter {
         canvas.drawRRect(rrect, _stroke);
 
       } else if (b.isSteel) {
-        // Heavy Industrial Titanium Plate
-        _fill.color = const Color(0xFF37474F);
-        canvas.drawRRect(rrect, _fill);
-
-        // 3D Bevel highlight and shadow
-        _stroke
-          ..color = const Color(0xFF78909C)
-          ..strokeWidth = 2.0;
-        canvas.drawLine(Offset(-halfW + 2, -halfH + 1), Offset(halfW - 2, -halfH + 1), _stroke);
-        _stroke.color = const Color(0xFF1C2833);
-        canvas.drawLine(Offset(-halfW + 2, halfH - 1), Offset(halfW - 2, halfH - 1), _stroke);
-
-        // Heavy steel diagonal hazard pattern
-        _stroke
-          ..color = const Color(0x33CFD8DC)
-          ..strokeWidth = 3.0;
-        for (double sx = -halfW + 4; sx < halfW; sx += 12) {
-          canvas.drawLine(Offset(sx, halfH - 3), Offset(sx + 8, -halfH + 3), _stroke);
-        }
-
-        // Heavy corner rivets
-        _fill.color = Colors.white70;
-        canvas.drawCircle(Offset(-halfW + 4, -halfH + 4), 1.5, _fill);
-        canvas.drawCircle(Offset(halfW - 4, -halfH + 4), 1.5, _fill);
-        canvas.drawCircle(Offset(-halfW + 4, halfH - 4), 1.5, _fill);
-        canvas.drawCircle(Offset(halfW - 4, halfH - 4), 1.5, _fill);
-
+        _drawSteelBrick(canvas, rect, halfW, halfH);
       } else if (b.isBoss) {
         _drawBoss(canvas, b, time, halfW, halfH);
       } else {
-        switch (c.activeBrickStyle) {
-          case 'brick_gloss':
-            _drawGlossBrick(canvas, b, rect, rrect, halfW, halfH);
-            break;
-          case 'brick_neu':
-            _drawNeuBrick(canvas, b, rrect);
-            break;
-          case 'brick_pixel':
-            _drawPixelBrick(canvas, b, rect, halfW, halfH);
-            break;
-          case 'brick_cyber':
-            _drawCyberBrick(canvas, b, rrect, halfW, halfH);
-            break;
-          case 'brick_cosmic':
-            _drawCosmicBrick(canvas, b, rrect, halfW, halfH);
-            break;
-          default:
-            _drawNeonBrick(canvas, b, rrect);
-            break;
+        if (b.isDynamite) {
+          _drawDynamiteBrick(canvas, b, rect, halfW, halfH);
+        } else if (b.isIce) {
+          _drawIceBrick(canvas, rect, rrect, halfW, halfH, c.activeIceVariant);
+        } else {
+          switch (c.activeBrickStyle) {
+            case 'brick_gloss':
+              _drawGlossBrick(canvas, b, rect, rrect, halfW, halfH);
+              break;
+            case 'brick_neu':
+              _drawNeuBrick(canvas, b, rrect);
+              break;
+            case 'brick_pixel':
+              _drawPixelBrick(canvas, b, rect, halfW, halfH);
+              break;
+            case 'brick_cyber':
+              _drawCyberBrick(canvas, b, rrect, halfW, halfH);
+              break;
+            case 'brick_cosmic':
+              _drawCosmicBrick(canvas, b, rrect, halfW, halfH);
+              break;
+            default:
+              _drawNeonBrick(canvas, b, rrect);
+              break;
+          }
         }
 
-        // Damage Cracks (drawn on top of the base brick, without numbers or dots)
+        // Organic Crystalline Damage Cracks (tactile fractures that match brick depth)
         if (b.hp < b.maxHp && b.maxHp > 1 && b.hp > 0) {
           _crackPath.reset();
-          _crackPath.moveTo(0, -halfH + 2);
-          _crackPath.lineTo(-halfW * 0.3, -halfH * 0.2);
-          _crackPath.lineTo(halfW * 0.2, halfH * 0.1);
-          _crackPath.lineTo(-halfW * 0.1, halfH - 2);
-          if (b.hp <= b.maxHp - 2) {
-            _crackPath.moveTo(-halfW + 2, 0);
-            _crackPath.lineTo(-halfW * 0.2, -halfH * 0.3);
-            _crackPath.lineTo(halfW - 2, -halfH * 0.1);
+          _crackPath.moveTo(halfW * 0.1, -halfH + 2);
+          _crackPath.lineTo(-halfW * 0.15, -halfH * 0.3);
+          _crackPath.lineTo(halfW * 0.25, halfH * 0.05);
+          _crackPath.lineTo(-halfW * 0.05, halfH - 2);
+
+          // Secondary fracture branch for more damage
+          if (b.hp <= b.maxHp - 1) {
+            _crackPath.moveTo(-halfW * 0.15, -halfH * 0.3);
+            _crackPath.lineTo(-halfW * 0.55, -halfH * 0.1);
           }
-          // Ambient depth underlayer
+          if (b.hp <= b.maxHp - 2) {
+            _crackPath.moveTo(halfW * 0.25, halfH * 0.05);
+            _crackPath.lineTo(halfW * 0.7, halfH * 0.35);
+            _crackPath.moveTo(-halfW + 3, -halfH * 0.2);
+            _crackPath.lineTo(-halfW * 0.4, 0);
+          }
+
+          // 1. Deep shadow underlayer giving genuine 3D crevice depth
           _stroke
             ..style = PaintingStyle.stroke
-            ..color = const Color(0x88000000)
-            ..strokeWidth = 2.8;
+            ..color = const Color(0x99000000)
+            ..strokeWidth = 2.4;
           canvas.drawPath(_crackPath, _stroke);
-          // Crisp luminous fracture core
+
+          // 2. High-contrast luminous glass fracture core
           _stroke
-            ..color = _ca(Colors.white, 0.95)
-            ..strokeWidth = 1.3;
+            ..color = _ca(Colors.white, 0.92)
+            ..strokeWidth = 1.1;
           canvas.drawPath(_crackPath, _stroke);
-        }
 
-        if (b.isDynamite) {
-          final pulse = sin(time * 8) * 0.5 + 0.5;
-          _fill.color = Color.lerp(Colors.redAccent, Colors.orangeAccent, pulse)!;
-          canvas.drawCircle(Offset.zero, 6.0 + pulse * 2.0, _fill);
-          _fill.color = Colors.yellow;
-          canvas.drawCircle(Offset.zero, 3.0, _fill);
-          _stroke..color = Colors.black54..strokeWidth = 2.0;
-          _tempPath
-            ..reset()
-            ..moveTo(0, -6)
-            ..quadraticBezierTo(5, -12, -4, -16);
-          canvas.drawPath(_tempPath, _stroke);
-          _fill.color = Colors.redAccent;
-          canvas.drawCircle(const Offset(-4, -16), 1.5, _fill);
-        }
-
-        if (b.isIce) {
-          _stroke..color = _ca(Colors.cyanAccent, 0.6)..strokeWidth = 2.0;
-          canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: b.width - 6, height: b.height - 6), _stroke);
-          _fill.color = _ca(Colors.white, 0.3);
-          canvas.drawCircle(Offset.zero, 4.0, _fill);
-          canvas.drawLine(const Offset(-6, -6), const Offset(6, 6), _stroke);
-          canvas.drawLine(const Offset(6, -6), const Offset(-6, 6), _stroke);
+          // 3. Stress impact micro-glint at primary fracture vertex
+          _fill
+            ..style = PaintingStyle.fill
+            ..color = _ca(Colors.white, 0.95);
+          canvas.drawCircle(Offset(-halfW * 0.15, -halfH * 0.3), 1.2, _fill);
         }
 
         if (b.isFrozen) {
-          _fill.color = const Color(0x6680D8FF);
-          canvas.drawRRect(rrect, _fill);
-          _stroke..color = Colors.white..strokeWidth = 2.0;
-          canvas.drawRRect(rrect, _stroke);
-          _stroke..color = const Color(0xFFE0F7FA)..strokeWidth = 1.0;
-          canvas.drawLine(Offset(-halfW + 4, -halfH + 2), Offset(halfW - 4, -halfH + 2), _stroke);
-          canvas.drawLine(Offset(halfW - 2, -halfH + 4), Offset(halfW - 2, halfH - 4), _stroke);
+          _drawFrozenOverlay(canvas, rect, rrect, halfW, halfH, c.activeIceVariant);
+        }
+
+        if (c.currentMode == GameMode.chaos) {
+          _tp.text = TextSpan(
+            text: '${b.hp}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              shadows: [
+                Shadow(color: Colors.black, offset: Offset(0, 1), blurRadius: 3.0),
+              ],
+            ),
+          );
+          _tp.layout();
+          _tp.paint(canvas, Offset(-_tp.width / 2, -_tp.height / 2));
         }
       }
 
@@ -675,112 +743,631 @@ class _GameWorldPainter extends CustomPainter {
     }
   }
 
+  void _addChamferRect(Path path, double x, double y, double w, double h, double c) {
+    path
+      ..reset()
+      ..moveTo(x + c, y)
+      ..lineTo(x + w - c, y)
+      ..lineTo(x + w, y + c)
+      ..lineTo(x + w, y + h - c)
+      ..lineTo(x + w - c, y + h)
+      ..lineTo(x + c, y + h)
+      ..lineTo(x, y + h - c)
+      ..lineTo(x, y + c)
+      ..close();
+  }
+
+  void _drawSteelBrick(Canvas canvas, Rect rect, double halfW, double halfH) {
+    // === STİL A: Ağır Kasa Zırhı (Çapraz X-Kiriş + Krom Çerçeve + Sarı/Siyah Tehlike Bantları) ===
+    final w = rect.width;
+    final h = rect.height;
+
+    // 1. 3D heavy drop shadow
+    _addChamferRect(_tempPath, -halfW, -halfH + 2.6, w, h, 4.0);
+    _fill
+      ..style = PaintingStyle.fill
+      ..shader = null
+      ..color = const Color(0xFF070A0E);
+    canvas.drawPath(_tempPath, _fill);
+
+    // 2. Outer Brushed Chrome Bevel
+    _addChamferRect(_tempPath, -halfW, -halfH, w, h, 4.0);
+    final steelOuterKey = Object.hash('steel_a_outer', w.round(), h.round());
+    _fill.shader = _brickShaders.putIfAbsent(steelOuterKey, () {
+      return const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFFECEFF1),
+          Color(0xFF90A4AE),
+          Color(0xFF455A64),
+          Color(0xFF1C262B),
+        ],
+        stops: [0.0, 0.35, 0.70, 1.0],
+      ).createShader(rect);
+    });
+    canvas.drawPath(_tempPath, _fill);
+    _fill.shader = null;
+
+    // 3. Recessed Dark Gunmetal Vault Core
+    _addChamferRect(_tempPath, -halfW + 3.0, -halfH + 3.0, w - 6.0, h - 6.0, 2.5);
+    _fill.color = const Color(0xFF161F24);
+    canvas.drawPath(_tempPath, _fill);
+
+    // 4. Left & Right Yellow/Black Industrial Hazard Bars
+    _fill.color = const Color(0xFFFFB300);
+    canvas.drawRect(Rect.fromLTWH(-halfW + 4.2, -halfH + 4.2, 4.2, h - 8.4), _fill);
+    canvas.drawRect(Rect.fromLTWH(halfW - 8.4, -halfH + 4.2, 4.2, h - 8.4), _fill);
+    _fill.color = const Color(0xFF161F24);
+    for (double y = -halfH + 4.8; y < halfH - 4.8; y += 4.2) {
+      canvas.drawRect(Rect.fromLTWH(-halfW + 4.2, y, 4.2, 1.9), _fill);
+      canvas.drawRect(Rect.fromLTWH(halfW - 8.4, y, 4.2, 1.9), _fill);
+    }
+
+    // 5. Raised Steel X-Cross Bracing Girder in Center
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFF10161A)
+      ..strokeWidth = 3.8;
+    canvas.drawLine(Offset(-halfW + 11.0, -halfH + 4.0), Offset(halfW - 11.0, halfH - 4.0), _stroke);
+    canvas.drawLine(Offset(-halfW + 11.0, halfH - 4.0), Offset(halfW - 11.0, -halfH + 4.0), _stroke);
+
+    _stroke
+      ..color = const Color(0xFF90A4AE)
+      ..strokeWidth = 2.1;
+    canvas.drawLine(Offset(-halfW + 11.0, -halfH + 4.0), Offset(halfW - 11.0, halfH - 4.0), _stroke);
+    canvas.drawLine(Offset(-halfW + 11.0, halfH - 4.0), Offset(halfW - 11.0, -halfH + 4.0), _stroke);
+
+    // 6. Center Titanium Lock Hub
+    _fill.color = const Color(0xFF263238);
+    canvas.drawCircle(Offset.zero, 4.0, _fill);
+    _stroke
+      ..color = const Color(0xFFCFD8DC)
+      ..strokeWidth = 1.1;
+    canvas.drawCircle(Offset.zero, 4.0, _stroke);
+    _fill.color = const Color(0xFFECEFF1);
+    canvas.drawCircle(Offset.zero, 1.5, _fill);
+
+    // 7. Top Specular Chrome Edge
+    _stroke
+      ..color = Colors.white
+      ..strokeWidth = 1.1;
+    canvas.drawLine(Offset(-halfW + 4.0, -halfH + 1.1), Offset(halfW - 4.0, -halfH + 1.1), _stroke);
+  }
+
+  void _drawDynamiteBrick(Canvas canvas, Brick b, Rect rect, double halfW, double halfH) {
+    // === STİL A: Üçlü Bağlanmış Kırmızı Dinamit Lokumu + Sarı/Siyah Kemer + TNT Rozeti + Kıvılcımlı Fitil ===
+    final w = rect.width;
+    final h = rect.height;
+    final pulse = sin(time * 10.0) * 0.5 + 0.5;
+
+    // 1. 3D Drop Shadow
+    _fill
+      ..style = PaintingStyle.fill
+      ..shader = null
+      ..color = const Color(0xFF240404);
+    canvas.drawRRect(RRect.fromRectAndRadius(rect.translate(0, 2.5), const Radius.circular(5.5)), _fill);
+
+    // 2. 3 Horizontal Crimson Dynamite Cylinders
+    final stickH = h / 3.0;
+    for (int s = 0; s < 3; s++) {
+      final sy = -halfH + s * stickH;
+      final stickRect = Rect.fromLTWH(-halfW, sy + 0.3, w, stickH - 0.6);
+      final stickKey = Object.hash('dyn_stick', s, w.round(), h.round());
+      _fill.shader = _brickShaders.putIfAbsent(stickKey, () {
+        return const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFFF5252),
+            Color(0xFFD50000),
+            Color(0xFF7F0000),
+          ],
+          stops: [0.0, 0.45, 1.0],
+        ).createShader(stickRect);
+      });
+      canvas.drawRRect(RRect.fromRectAndRadius(stickRect, const Radius.circular(3.2)), _fill);
+    }
+    _fill.shader = null;
+
+    // 3. Vertical Black & Yellow Binding Straps on Left and Right
+    for (final bx in [-halfW * 0.55, halfW * 0.55]) {
+      _fill.color = const Color(0xFF1A1A1A);
+      canvas.drawRect(Rect.fromLTWH(bx - 2.8, -halfH, 5.6, h), _fill);
+      _fill.color = const Color(0xFFFFD600);
+      canvas.drawRect(Rect.fromLTWH(bx - 2.8, -halfH + 1.8, 5.6, 2.6), _fill);
+      canvas.drawRect(Rect.fromLTWH(bx - 2.8, halfH - 4.4, 5.6, 2.6), _fill);
+    }
+
+    // 4. Center Glowing Detonator Core Badge
+    final badgeRect = Rect.fromCenter(center: Offset.zero, width: 22.0, height: h - 4.0);
+    final badgeRRect = RRect.fromRectAndRadius(badgeRect, const Radius.circular(3.8));
+    _fill.color = const Color(0xFF140404);
+    canvas.drawRRect(badgeRRect, _fill);
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.3
+      ..color = pulse > 0.5 ? const Color(0xFFFFD600) : const Color(0xFFFF3D00);
+    canvas.drawRRect(badgeRRect, _stroke);
+
+    // Crisp vector "TNT" micro-glyph inside badge
+    _stroke
+      ..color = pulse > 0.5 ? const Color(0xFFFFEA00) : const Color(0xFFFF1744)
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.square;
+    // Left 'T'
+    canvas.drawLine(const Offset(-7.2, -2.5), const Offset(-3.8, -2.5), _stroke);
+    canvas.drawLine(const Offset(-5.5, -2.5), const Offset(-5.5, 2.6), _stroke);
+    // Middle 'N'
+    canvas.drawLine(const Offset(-1.8, 2.6), const Offset(-1.8, -2.5), _stroke);
+    canvas.drawLine(const Offset(-1.8, -2.5), const Offset(1.8, 2.6), _stroke);
+    canvas.drawLine(const Offset(1.8, 2.6), const Offset(1.8, -2.5), _stroke);
+    // Right 'T'
+    canvas.drawLine(const Offset(3.8, -2.5), const Offset(7.2, -2.5), _stroke);
+    canvas.drawLine(const Offset(5.5, -2.5), const Offset(5.5, 2.6), _stroke);
+
+    // 5. Sizzling Fuse & Star Spark on Right/Top
+    _stroke
+      ..color = const Color(0xFFD7CCC8)
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 1.6;
+    _tempPath
+      ..reset()
+      ..moveTo(0, -halfH + 1.5)
+      ..quadraticBezierTo(5.5, -halfH - 4.5, 11.0, -halfH - 2.5);
+    canvas.drawPath(_tempPath, _stroke);
+
+    final sparkPos = Offset(11.0, -halfH - 2.5);
+    _fill.color = const Color(0xFFFF6D00);
+    canvas.drawCircle(sparkPos, 2.8 + pulse * 1.3, _fill);
+    _fill.color = const Color(0xFFFFFF00);
+    canvas.drawCircle(sparkPos, 1.8, _fill);
+    _fill.color = Colors.white;
+    canvas.drawCircle(sparkPos, 0.9, _fill);
+  }
+
+  void _drawCornerFrost(Canvas canvas, double w, double h, double halfW, double halfH, double lengthScale) {
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 1.3
+      ..color = const Color(0xEBFFFFFF);
+
+    final l1 = w * 0.22 * lengthScale;
+    final l2 = w * 0.15 * lengthScale;
+    const corners = [
+      [-1.0, -1.0, 1.0, 1.0],
+      [1.0, -1.0, -1.0, 1.0],
+      [-1.0, 1.0, 1.0, -1.0],
+      [1.0, 1.0, -1.0, -1.0],
+    ];
+    for (final c in corners) {
+      final cx = c[0] * (halfW - 2.2);
+      final cy = c[1] * (halfH - 2.2);
+      final dx = c[2];
+      final dy = c[3];
+      // Horizontal-ish spike
+      canvas.drawLine(Offset(cx, cy), Offset(cx + dx * l1, cy + dy * (h * 0.14)), _stroke);
+      // Diagonal main spike towards center
+      canvas.drawLine(Offset(cx, cy), Offset(cx + dx * l2, cy + dy * (h * 0.36 * lengthScale)), _stroke);
+      // Side barb on diagonal spike
+      canvas.drawLine(
+        Offset(cx + dx * (l2 * 0.55), cy + dy * (h * 0.20 * lengthScale)),
+        Offset(cx + dx * (l2 * 0.95), cy + dy * (h * 0.12 * lengthScale)),
+        _stroke,
+      );
+      // Vertical-ish spike
+      canvas.drawLine(Offset(cx, cy), Offset(cx + dx * (w * 0.06), cy + dy * (h * 0.40 * lengthScale)), _stroke);
+    }
+  }
+
+  void _drawIceBrick(Canvas canvas, Rect rect, RRect rrect, double halfW, double halfH, int variant) {
+    // === STİL 3 (3A / 3B / 3C / 3D): Köşe Kırağı & Ayna Buz (Randomly chosen per level!) ===
+    final w = rect.width;
+    final h = rect.height;
+
+    // 1. Cold Arctic Glow Shadow
+    _fill
+      ..style = PaintingStyle.fill
+      ..shader = null
+      ..color = const Color(0x6600E5FF);
+    canvas.drawRRect(rrect.inflate(1.2), _fill);
+
+    // 2. Deep Frozen Arctic Mirror Gradient Base
+    final iceBaseKey = Object.hash('ice_base_3', w.round(), h.round());
+    _fill.shader = _brickShaders.putIfAbsent(iceBaseKey, () {
+      return const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFFFFFFFF),
+          Color(0xFFB8F2FF),
+          Color(0xFF1AD1FF),
+          Color(0xFF005B8E),
+        ],
+        stops: [0.0, 0.22, 0.62, 1.0],
+      ).createShader(rect);
+    });
+    canvas.drawRRect(rrect, _fill);
+    _fill.shader = null;
+
+    // Inner dark-blue cold depth rim
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1
+      ..color = const Color(0x73002D55);
+    canvas.drawRRect(rrect.deflate(1.4), _stroke);
+
+    // Clipped interior for mirror shine bands + variant frost geometry
+    canvas.save();
+    canvas.clipRRect(rrect.deflate(1.0));
+
+    // Double diagonal mirror shine bands
+    final s = sin(time * 2.2) * 2.5;
+    _tempPath
+      ..reset()
+      ..moveTo(-halfW + w * 0.16 + s, -halfH)
+      ..lineTo(-halfW + w * 0.31 + s, -halfH)
+      ..lineTo(-halfW + w * 0.13 + s, halfH)
+      ..lineTo(-halfW - w * 0.02 + s, halfH)
+      ..close();
+    _fill.color = const Color(0x75FFFFFF);
+    canvas.drawPath(_tempPath, _fill);
+
+    _tempPath
+      ..reset()
+      ..moveTo(-halfW + w * 0.37 + s, -halfH)
+      ..lineTo(-halfW + w * 0.44 + s, -halfH)
+      ..lineTo(-halfW + w * 0.26 + s, halfH)
+      ..lineTo(-halfW + w * 0.19 + s, halfH)
+      ..close();
+    _fill.color = const Color(0x3DFFFFFF);
+    canvas.drawPath(_tempPath, _fill);
+
+    final v = variant % 4;
+    if (v == 0) {
+      // === 3A: Kutup Kırağısı & Buz Sarkıtları (Hanging Icicles + Bottom Frost Teeth) ===
+      _tempPath
+        ..reset()
+        ..moveTo(-halfW, -halfH);
+      const icicles = [
+        [0.06, 0.45], [0.13, 0.22], [0.20, 0.58], [0.28, 0.25],
+        [0.36, 0.42], [0.44, 0.20], [0.52, 0.52], [0.60, 0.24],
+        [0.68, 0.48], [0.76, 0.22], [0.84, 0.55], [0.92, 0.28], [1.0, 0.40],
+      ];
+      for (final pt in icicles) {
+        _tempPath.lineTo(-halfW + w * pt[0], -halfH + h * pt[1]);
+      }
+      _tempPath
+        ..lineTo(halfW, -halfH)
+        ..close();
+      _fill.color = const Color(0xEBF0FCFF);
+      canvas.drawPath(_tempPath, _fill);
+
+      // Bottom upward frost teeth
+      _tempPath
+        ..reset()
+        ..moveTo(-halfW, halfH);
+      for (int i = 0; i <= 10; i++) {
+        final px = -halfW + (w * i) / 10.0;
+        final py = (i.isOdd) ? halfH - h * 0.24 : halfH;
+        _tempPath.lineTo(px, py);
+      }
+      _tempPath.close();
+      _fill.color = const Color(0xA6D2F5FF);
+      canvas.drawPath(_tempPath, _fill);
+    } else if (v == 1) {
+      // === 3B: Derin Donmuş Çatlak & Kristal Mühür (Deep Freeze Fracture + Diamond Seal) ===
+      _stroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = const Color(0xD9E0F7FA);
+      _tempPath
+        ..reset()
+        ..moveTo(-halfW + w * 0.08, -halfH + h * 0.75)
+        ..lineTo(-halfW + w * 0.28, -halfH + h * 0.42)
+        ..lineTo(-halfW + w * 0.50, -halfH + h * 0.55)
+        ..lineTo(-halfW + w * 0.72, -halfH + h * 0.28)
+        ..lineTo(-halfW + w * 0.92, -halfH + h * 0.62)
+        ..moveTo(-halfW + w * 0.28, -halfH + h * 0.42)
+        ..lineTo(-halfW + w * 0.38, -halfH + h * 0.15)
+        ..moveTo(-halfW + w * 0.72, -halfH + h * 0.28)
+        ..lineTo(-halfW + w * 0.64, -halfH + h * 0.82);
+      canvas.drawPath(_tempPath, _stroke);
+
+      // Central frozen diamond-hex ice crystal core
+      final cr = h * 0.30;
+      _tempPath
+        ..reset()
+        ..moveTo(0, -cr)
+        ..lineTo(cr * 1.2, 0)
+        ..lineTo(0, cr)
+        ..lineTo(-cr * 1.2, 0)
+        ..close();
+      _fill.color = const Color(0x59FFFFFF);
+      canvas.drawPath(_tempPath, _fill);
+      _stroke
+        ..color = Colors.white
+        ..strokeWidth = 1.2;
+      canvas.drawPath(_tempPath, _stroke);
+    } else if (v == 2) {
+      // === 3C: Ağır Kar Kabuğu & Buzul Kütlesi (Heavy Snowcap & Trapped Bubbles) ===
+      _tempPath
+        ..reset()
+        ..moveTo(-halfW, -halfH + h * 0.48)
+        ..quadraticBezierTo(-halfW + w * 0.12, -halfH + h * 0.18, -halfW + w * 0.26, -halfH + h * 0.30)
+        ..quadraticBezierTo(-halfW + w * 0.40, -halfH + h * 0.40, -halfW + w * 0.52, -halfH + h * 0.22)
+        ..quadraticBezierTo(-halfW + w * 0.68, -halfH + h * 0.36, -halfW + w * 0.82, -halfH + h * 0.20)
+        ..quadraticBezierTo(-halfW + w * 0.92, -halfH + h * 0.28, halfW, -halfH + h * 0.45)
+        ..lineTo(halfW, -halfH)
+        ..lineTo(-halfW, -halfH)
+        ..close();
+      _fill.color = const Color(0xF2FFFFFF);
+      canvas.drawPath(_tempPath, _fill);
+
+      // Trapped frozen bubbles
+      _fill.color = const Color(0xD9FFFFFF);
+      const bubbles = [
+        [0.22, 0.65, 1.6],
+        [0.38, 0.72, 1.2],
+        [0.55, 0.58, 1.9],
+        [0.74, 0.68, 1.4],
+        [0.62, 0.78, 1.0],
+      ];
+      for (final b in bubbles) {
+        canvas.drawCircle(Offset(-halfW + w * b[0], -halfH + h * b[1]), b[2], _fill);
+      }
+    } else {
+      // === 3D: Mutlak Sıfır Testere Kristal (Corner Spears + 4-Point Polar Star) ===
+      _fill.color = const Color(0xC7FFFFFF);
+      const spears = [
+        [[0.0, 0.0], [0.28, 0.0], [0.16, 0.38], [0.0, 0.45]],
+        [[1.0, 0.0], [0.72, 0.0], [0.84, 0.38], [1.0, 0.45]],
+        [[0.0, 1.0], [0.28, 1.0], [0.16, 0.62], [0.0, 0.55]],
+        [[1.0, 1.0], [0.72, 1.0], [0.84, 0.62], [1.0, 0.55]],
+      ];
+      for (final pts in spears) {
+        _tempPath.reset();
+        for (int i = 0; i < pts.length; i++) {
+          final px = -halfW + w * pts[i][0];
+          final py = -halfH + h * pts[i][1];
+          if (i == 0) {
+            _tempPath.moveTo(px, py);
+          } else {
+            _tempPath.lineTo(px, py);
+          }
+        }
+        _tempPath.close();
+        canvas.drawPath(_tempPath, _fill);
+      }
+
+      // Central 4-point polar star glint
+      _tempPath
+        ..reset()
+        ..moveTo(0, -h * 0.34)
+        ..lineTo(h * 0.08, -h * 0.08)
+        ..lineTo(h * 0.34, 0)
+        ..lineTo(h * 0.08, h * 0.08)
+        ..lineTo(0, h * 0.34)
+        ..lineTo(-h * 0.08, h * 0.08)
+        ..lineTo(-h * 0.34, 0)
+        ..lineTo(-h * 0.08, -h * 0.08)
+        ..close();
+      _fill.color = Colors.white;
+      canvas.drawPath(_tempPath, _fill);
+    }
+
+    canvas.restore();
+
+    // Branched corner frost signature
+    _drawCornerFrost(canvas, w, h, halfW, halfH, v == 3 ? 1.22 : 1.08);
+
+    // Outer crisp frost border
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..color = Colors.white
+      ..strokeWidth = 1.6;
+    canvas.drawRRect(rrect, _stroke);
+  }
+
+  void _drawFrozenOverlay(Canvas canvas, Rect rect, RRect rrect, double halfW, double halfH, int variant) {
+    // === STİL 3 (3A / 3B / 3C / 3D) FROZEN NEIGHBOR OVERLAY ===
+    final w = rect.width;
+    final h = rect.height;
+    final v = variant % 4;
+
+    // 1. Translucent Ice Encasement Coat
+    final frozenCoatKey = Object.hash('frozen_coat_3', w.round(), h.round());
+    _fill
+      ..style = PaintingStyle.fill
+      ..shader = _brickShaders.putIfAbsent(frozenCoatKey, () {
+        return const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xC7E0F7FA),
+            Color(0x7A00E5FF),
+            Color(0xAD0091EA),
+          ],
+          stops: [0.0, 0.5, 1.0],
+        ).createShader(rect);
+      });
+    canvas.drawRRect(rrect, _fill);
+    _fill.shader = null;
+
+    // 2. Variant-specific frost details on frozen neighbor bricks
+    canvas.save();
+    canvas.clipRRect(rrect.deflate(1.0));
+    if (v == 0) {
+      // 3A icicle fringe
+      _tempPath
+        ..reset()
+        ..moveTo(-halfW, -halfH);
+      const icicles = [
+        [0.10, 0.42], [0.22, 0.20], [0.35, 0.50], [0.50, 0.22],
+        [0.65, 0.48], [0.80, 0.20], [0.90, 0.42], [1.0, 0.25],
+      ];
+      for (final pt in icicles) {
+        _tempPath.lineTo(-halfW + w * pt[0], -halfH + h * pt[1]);
+      }
+      _tempPath
+        ..lineTo(halfW, -halfH)
+        ..close();
+      _fill.color = const Color(0xE0FFFFFF);
+      canvas.drawPath(_tempPath, _fill);
+    } else if (v == 1) {
+      // 3B deep fracture line
+      _stroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = const Color(0xD9FFFFFF);
+      _tempPath
+        ..reset()
+        ..moveTo(-halfW + w * 0.10, -halfH + h * 0.70)
+        ..lineTo(-halfW + w * 0.40, -halfH + h * 0.35)
+        ..lineTo(-halfW + w * 0.70, -halfH + h * 0.60)
+        ..lineTo(-halfW + w * 0.90, -halfH + h * 0.25);
+      canvas.drawPath(_tempPath, _stroke);
+    } else if (v == 2) {
+      // 3C snowcap crust
+      _tempPath
+        ..reset()
+        ..moveTo(-halfW, -halfH + h * 0.42)
+        ..quadraticBezierTo(-halfW + w * 0.25, -halfH + h * 0.18, -halfW + w * 0.50, -halfH + h * 0.28)
+        ..quadraticBezierTo(-halfW + w * 0.75, -halfH + h * 0.16, halfW, -halfH + h * 0.40)
+        ..lineTo(halfW, -halfH)
+        ..lineTo(-halfW, -halfH)
+        ..close();
+      _fill.color = const Color(0xE6FFFFFF);
+      canvas.drawPath(_tempPath, _fill);
+    } else {
+      // 3D corner crystal triangles
+      _fill.color = const Color(0xB8FFFFFF);
+      const tris = [
+        [[0.0, 0.0], [0.24, 0.0], [0.0, 0.42]],
+        [[1.0, 0.0], [0.76, 0.0], [1.0, 0.42]],
+        [[0.0, 1.0], [0.24, 1.0], [0.0, 0.58]],
+        [[1.0, 1.0], [0.76, 1.0], [1.0, 0.58]],
+      ];
+      for (final pts in tris) {
+        _tempPath
+          ..reset()
+          ..moveTo(-halfW + w * pts[0][0], -halfH + h * pts[0][1])
+          ..lineTo(-halfW + w * pts[1][0], -halfH + h * pts[1][1])
+          ..lineTo(-halfW + w * pts[2][0], -halfH + h * pts[2][1])
+          ..close();
+        canvas.drawPath(_tempPath, _fill);
+      }
+    }
+    canvas.restore();
+
+    _drawCornerFrost(canvas, w, h, halfW, halfH, 0.95);
+
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..color = Colors.white
+      ..strokeWidth = 1.6;
+    canvas.drawRRect(rrect, _stroke);
+  }
+
   void _drawNeonBrick(Canvas canvas, Brick b, RRect rrect) {
+    // === 1. "NEON TABELA": 3D Arcade Glass Neon Tube Signboard ===
     final base = b.color;
     final rect = rrect.outerRect;
+    final halfW = rect.width / 2;
     final halfH = rect.height / 2;
 
-    // 1. 3D Bottom extrusion drop shadow for floating arcade presence
+    // 1. 3D dark arcade shadow underneath
     final darkShadowKey = Object.hash(base.toARGB32(), 101);
-    final darkShadow = _hslDerivedColors.putIfAbsent(darkShadowKey, () => Color.lerp(base, const Color(0xFF04060C), 0.82)!);
-    final dropRRect = RRect.fromRectAndRadius(rect.translate(0, 2.5), const Radius.circular(6.0));
+    final darkShadow = _hslDerivedColors.putIfAbsent(darkShadowKey, () => Color.lerp(base, const Color(0xFF04060C), 0.85)!);
+    final dropRRect = RRect.fromRectAndRadius(rect.translate(0, 2.6), const Radius.circular(6.0));
     _fill
       ..style = PaintingStyle.fill
       ..shader = null
       ..color = darkShadow;
     canvas.drawRRect(dropRRect, _fill);
 
-    // 2. Rich luminous jewel-neon glass backing (cached shader)
-    final shaderKey = Object.hash(base.toARGB32(), rect.width.round(), rect.height.round(), 102);
-    _fill.shader = _brickShaders.putIfAbsent(shaderKey, () {
-      final topNeon = Color.lerp(base, Colors.white, 0.42)!;
-      final bottomNeon = Color.lerp(base, const Color(0xFF080D1A), 0.55)!;
-      return LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
+    // 2. Dark obsidian glass backing plate with rich inner neon ambient reflection
+    final acrylicKey = Object.hash(base.toARGB32(), rect.width.round(), rect.height.round(), 102);
+    _fill.shader = _brickShaders.putIfAbsent(acrylicKey, () {
+      final centerGlow = Color.lerp(base, const Color(0xFF0A1020), 0.58)!;
+      final deepEdge = Color.lerp(base, const Color(0xFF050811), 0.88)!;
+      return RadialGradient(
+        center: Alignment.center,
+        radius: 0.95,
         colors: [
-          topNeon.withValues(alpha: 0.75),
-          base.withValues(alpha: 0.90),
-          bottomNeon.withValues(alpha: 0.96),
+          centerGlow,
+          deepEdge,
         ],
-        stops: const [0.0, 0.5, 1.0],
       ).createShader(rect);
     });
     canvas.drawRRect(rrect, _fill);
     _fill.shader = null;
 
-    // 3. Curved specular glass dome reflection on upper half (cached shader)
-    final glassRect = Rect.fromLTWH(rect.left + 3, rect.top + 1.5, rect.width - 6, rect.height * 0.44);
-    final glassRRect = RRect.fromRectAndRadius(glassRect, const Radius.circular(4.0));
-    final glassKey = Object.hash(rect.width.round(), rect.height.round(), 103);
-    _fill.shader = _brickShaders.putIfAbsent(glassKey, () {
-      return LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.white.withValues(alpha: 0.55),
-          Colors.white.withValues(alpha: 0.08),
-        ],
-      ).createShader(glassRect);
-    });
-    canvas.drawRRect(glassRRect, _fill);
-    _fill.shader = null;
+    // 3. Diagonal smoky glass reflection slash across housing
+    _tempPath
+      ..reset()
+      ..moveTo(-halfW + 8, -halfH + 2)
+      ..lineTo(-halfW + 20, -halfH + 2)
+      ..lineTo(-halfW + 10, halfH - 2)
+      ..lineTo(-halfW + 2, halfH - 2)
+      ..close();
+    _fill.color = Colors.white.withValues(alpha: 0.07);
+    canvas.drawPath(_tempPath, _fill);
 
-    // 4. Broad outer neon tube bloom
+    // 4. Left & right metal electrode tube holders (authentic neon hardware)
+    _fill.color = const Color(0xFF263238);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(-halfW + 3.2, 0), width: 3.2, height: 7.0), const Radius.circular(1.2)),
+      _fill,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(halfW - 3.2, 0), width: 3.2, height: 7.0), const Radius.circular(1.2)),
+      _fill,
+    );
+
+    // 5. Subtle neon gas tube flicker
+    final flicker = 0.95 + 0.05 * sin(time * 16.0 + halfW);
+
+    // 6. Outer & Inner Bent Neon Gas Tubes
+    final tubeRRect = rrect.deflate(1.8);
+    // Outer gas glow bloom
     _stroke
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5.0
-      ..color = _ca(base, 0.40);
-    canvas.drawRRect(rrect, _stroke);
+      ..strokeWidth = 4.6
+      ..color = _ca(base, 0.38 * flicker);
+    canvas.drawRRect(tubeRRect, _stroke);
 
-    // 5. Main vibrant neon tube
+    // Main vibrant neon phosphor tube
     _stroke
-      ..strokeWidth = 2.4
-      ..color = _ca(base, 0.98);
-    canvas.drawRRect(rrect, _stroke);
+      ..strokeWidth = 2.2
+      ..color = _ca(base, 0.98 * flicker);
+    canvas.drawRRect(tubeRRect, _stroke);
 
-    // 6. Ultra-bright white neon cathode core
-    _stroke
-      ..strokeWidth = 1.0
-      ..color = _ca(Colors.white, 0.92);
-    canvas.drawRRect(rrect.deflate(0.5), _stroke);
-
-    // 7. Center horizontal cathode filament with glowing center node
-    _stroke
-      ..strokeWidth = 1.6
-      ..color = _ca(base, 0.85);
-    canvas.drawLine(
-      Offset(rect.left + 8, rect.top + halfH),
-      Offset(rect.right - 8, rect.top + halfH),
-      _stroke,
-    );
+    // Pure incandescent cathode white core
     _stroke
       ..strokeWidth = 0.9
-      ..color = _ca(Colors.white, 0.95);
-    canvas.drawLine(
-      Offset(rect.left + 12, rect.top + halfH),
-      Offset(rect.right - 12, rect.top + halfH),
-      _stroke,
+      ..color = _ca(Colors.white, 0.94 * flicker);
+    canvas.drawRRect(tubeRRect, _stroke);
+
+    // 7. Inner floating neon filament capsule
+    final innerCapsule = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset.zero, width: rect.width - 14.0, height: rect.height - 10.0),
+      const Radius.circular(3.5),
     );
-
-    // Center cathode diamond node
-    _fill.color = Colors.white;
-    canvas.drawCircle(Offset(rect.center.dx, rect.top + halfH), 1.5, _fill);
-
-    // 8. Neon corner bracket accents & specular corner glint
-    final bracketLen = min(rect.width * 0.18, 7.0);
     _stroke
-      ..strokeWidth = 1.8
-      ..color = Colors.white;
-    // Top-left bracket
-    canvas.drawLine(Offset(rect.left + 3, rect.top + 3 + bracketLen), Offset(rect.left + 3, rect.top + 3), _stroke);
-    canvas.drawLine(Offset(rect.left + 3, rect.top + 3), Offset(rect.left + 3 + bracketLen, rect.top + 3), _stroke);
-    // Bottom-right bracket
-    canvas.drawLine(Offset(rect.right - 3 - bracketLen, rect.bottom - 3), Offset(rect.right - 3, rect.bottom - 3), _stroke);
-    canvas.drawLine(Offset(rect.right - 3, rect.bottom - 3), Offset(rect.right - 3, rect.bottom - 3 - bracketLen), _stroke);
+      ..strokeWidth = 1.2
+      ..color = _ca(base, 0.65 * flicker);
+    canvas.drawRRect(innerCapsule, _stroke);
+    _stroke
+      ..strokeWidth = 0.5
+      ..color = _ca(Colors.white, 0.55 * flicker);
+    canvas.drawRRect(innerCapsule, _stroke);
   }
 
   void _drawGlossBrick(Canvas canvas, Brick b, Rect rect, RRect rrect, double halfW, double halfH) {
+    // === 2. "SİBER CAM": 5-Facet Cut Crystal Gemstone & Liquid Candy Glass ===
     final darkKey = Object.hash(b.color.toARGB32(), 201);
     final dark = _hslDerivedColors.putIfAbsent(darkKey, () {
       final hsl = HSLColor.fromColor(b.color);
@@ -789,353 +1376,544 @@ class _GameWorldPainter extends CustomPainter {
     final brightKey = Object.hash(b.color.toARGB32(), 202);
     final bright = _hslDerivedColors.putIfAbsent(brightKey, () {
       final hsl = HSLColor.fromColor(b.color);
-      return hsl.withLightness((hsl.lightness * 1.40).clamp(0.70, 0.98)).toColor();
+      return hsl.withLightness((hsl.lightness * 1.35).clamp(0.68, 0.96)).toColor();
     });
 
-    // 1. 3D bottom extrusion drop shadow
-    final bottomRRect = RRect.fromRectAndRadius(rect.translate(0, 2.5), const Radius.circular(6.0));
+    // 1. 3D bottom drop shadow
+    final bottomRRect = RRect.fromRectAndRadius(rect.translate(0, 2.6), const Radius.circular(6.5));
     _fill
       ..style = PaintingStyle.fill
       ..shader = null
       ..color = dark;
     canvas.drawRRect(bottomRRect, _fill);
 
-    // 2. Main vibrant 4-stop candy jewel body gradient (cached shader)
+    // 2. Main Gemstone Outer Body
+    final gemRRect = RRect.fromRectAndRadius(rect, const Radius.circular(6.5));
     final bodyKey = Object.hash(b.color.toARGB32(), rect.width.round(), rect.height.round(), 203);
     _fill.shader = _brickShaders.putIfAbsent(bodyKey, () {
       final hsl = HSLColor.fromColor(b.color);
-      final midDark = hsl.withLightness((hsl.lightness * 0.70).clamp(0.20, 0.60)).toColor();
+      final deepEnd = hsl.withLightness((hsl.lightness * 0.48).clamp(0.12, 0.42)).toColor();
+      return LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color.lerp(bright, Colors.white, 0.50)!,
+          bright,
+          b.color,
+          deepEnd,
+        ],
+        stops: const [0.0, 0.28, 0.68, 1.0],
+      ).createShader(rect);
+    });
+    canvas.drawRRect(gemRRect, _fill);
+    _fill.shader = null;
+
+    // 3. Cut Gemstone Facets (Top Crown Bevel, Bottom Pavilion Shadow, Central Jewel Table)
+    const insetX = 6.0;
+    const insetY = 4.2;
+
+    // Top Trapezoid Crown Facet (Catching overhead light)
+    _tempPath
+      ..reset()
+      ..moveTo(-halfW + 3, -halfH + 1)
+      ..lineTo(halfW - 3, -halfH + 1)
+      ..lineTo(halfW - insetX, -halfH + insetY)
+      ..lineTo(-halfW + insetX, -halfH + insetY)
+      ..close();
+    _fill.color = Colors.white.withValues(alpha: 0.42);
+    canvas.drawPath(_tempPath, _fill);
+
+    // Bottom Trapezoid Facet (Deep internal refraction)
+    _tempPath
+      ..reset()
+      ..moveTo(-halfW + insetX, halfH - insetY)
+      ..lineTo(halfW - insetX, halfH - insetY)
+      ..lineTo(halfW - 3, halfH - 1)
+      ..lineTo(-halfW + 3, halfH - 1)
+      ..close();
+    _fill.color = dark.withValues(alpha: 0.48);
+    canvas.drawPath(_tempPath, _fill);
+
+    // Left Facet (Light-facing bevel)
+    _tempPath
+      ..reset()
+      ..moveTo(-halfW + 1, -halfH + 3)
+      ..lineTo(-halfW + insetX, -halfH + insetY)
+      ..lineTo(-halfW + insetX, halfH - insetY)
+      ..lineTo(-halfW + 1, halfH - 3)
+      ..close();
+    _fill.color = Colors.white.withValues(alpha: 0.24);
+    canvas.drawPath(_tempPath, _fill);
+
+    // Central Raised Jewel Table with Specular Glass Sweep
+    final tableRect = Rect.fromLTRB(-halfW + insetX, -halfH + insetY, halfW - insetX, halfH - insetY);
+    final tableRRect = RRect.fromRectAndRadius(tableRect, const Radius.circular(3.0));
+    final tableKey = Object.hash(b.color.toARGB32(), rect.width.round(), rect.height.round(), 205);
+    _fill.shader = _brickShaders.putIfAbsent(tableKey, () {
       return LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          Color.lerp(bright, Colors.white, 0.35)!,
-          bright,
+          Color.lerp(bright, Colors.white, 0.32)!,
           b.color,
-          midDark,
+          Color.lerp(b.color, dark, 0.25)!,
         ],
-        stops: const [0.0, 0.25, 0.65, 1.0],
-      ).createShader(rect);
+      ).createShader(tableRect);
     });
-    canvas.drawRRect(rrect, _fill);
+    canvas.drawRRect(tableRRect, _fill);
     _fill.shader = null;
 
-    // 3. Curved convex glassy reflection dome on upper half (cached shader)
-    final glossRect = Rect.fromLTWH(rect.left + 3, rect.top + 1.5, rect.width - 6, rect.height * 0.44);
-    final glossRRect = RRect.fromRectAndRadius(glossRect, const Radius.circular(4.0));
-    final glossShaderKey = Object.hash(rect.width.round(), rect.height.round(), 204);
-    _fill.shader = _brickShaders.putIfAbsent(glossShaderKey, () {
-      return const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xEEFFFFFF), Color(0x10FFFFFF)],
-      ).createShader(glossRect);
-    });
-    canvas.drawRRect(glossRRect, _fill);
-    _fill.shader = null;
-
-    // 4. Specular 4-point star glint at top-left
-    final glintCenter = Offset(rect.left + 7, rect.top + 5);
-    _fill.color = Colors.white;
-    canvas.drawCircle(glintCenter, 1.6, _fill);
+    // Crisp facet ridge lines
     _stroke
       ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9
+      ..color = Colors.white.withValues(alpha: 0.55);
+    canvas.drawRRect(tableRRect, _stroke);
+
+    // 4. Specular 4-point diamond star glint on top-left facet vertex
+    final glintCenter = Offset(-halfW + insetX + 1.5, -halfH + insetY + 1.0);
+    _fill.color = Colors.white;
+    canvas.drawCircle(glintCenter, 1.5, _fill);
+    _stroke
       ..strokeWidth = 1.0
       ..color = Colors.white;
-    canvas.drawLine(Offset(glintCenter.dx - 3.5, glintCenter.dy), Offset(glintCenter.dx + 3.5, glintCenter.dy), _stroke);
-    canvas.drawLine(Offset(glintCenter.dx, glintCenter.dy - 3.5), Offset(glintCenter.dx, glintCenter.dy + 3.5), _stroke);
+    canvas.drawLine(Offset(glintCenter.dx - 3.8, glintCenter.dy), Offset(glintCenter.dx + 3.8, glintCenter.dy), _stroke);
+    canvas.drawLine(Offset(glintCenter.dx, glintCenter.dy - 3.8), Offset(glintCenter.dx, glintCenter.dy + 3.8), _stroke);
 
-    // Secondary micro-sparkle
-    canvas.drawCircle(Offset(rect.left + 14, rect.top + 3.5), 0.8, _fill);
-
-    // 5. Specular rim shine with ambient top-left lighting
+    // 5. Outer crystal rim shine
     _stroke
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4
-      ..color = _ca(Colors.white, 0.75);
-    canvas.drawRRect(rrect, _stroke);
-
-    // 6. Subtle bottom bounce highlight
-    _stroke
-      ..strokeWidth = 1.2
-      ..color = _ca(bright, 0.7);
-    canvas.drawLine(Offset(rect.left + 6, rect.bottom - 2), Offset(rect.right - 6, rect.bottom - 2), _stroke);
+      ..strokeWidth = 1.1
+      ..color = _ca(Colors.white, 0.65);
+    canvas.drawRRect(gemRRect, _stroke);
   }
 
   void _drawNeuBrick(Canvas canvas, Brick b, RRect rrect) {
-    // Neumorphic soft embossed stone/clay button
-    final lightKey = Object.hash(b.color.toARGB32(), 301);
-    final softLight = _hslDerivedColors.putIfAbsent(lightKey, () {
-      final hsl = HSLColor.fromColor(b.color);
-      return hsl.withLightness((hsl.lightness * 1.35).clamp(0.6, 0.95)).toColor();
-    });
-    final darkKey = Object.hash(b.color.toARGB32(), 302);
-    final softDark = _hslDerivedColors.putIfAbsent(darkKey, () {
-      final hsl = HSLColor.fromColor(b.color);
-      return hsl.withLightness((hsl.lightness * 0.55).clamp(0.12, 0.45)).toColor();
-    });
+    // === 3. "YUMUŞAK PUF" (STİL 1): Jöle / Şeker Yastık (Plush Squishy Gummy Pillow) ===
+    final base = b.color;
+    final rect = rrect.outerRect;
+    final halfW = rect.width / 2;
+    final halfH = rect.height / 2;
 
-    // 3D bottom extrusion drop shadow
-    final dropRRect = RRect.fromRectAndRadius(rrect.outerRect.translate(0, 2.5), const Radius.circular(6.0));
+    final lightKey = Object.hash(base.toARGB32(), 311);
+    final light = _hslDerivedColors.putIfAbsent(lightKey, () => Color.lerp(base, Colors.white, 0.55)!);
+    final ultraLightKey = Object.hash(base.toARGB32(), 312);
+    final ultraLight = _hslDerivedColors.putIfAbsent(ultraLightKey, () => Color.lerp(base, Colors.white, 0.80)!);
+    final darkKey = Object.hash(base.toARGB32(), 313);
+    final dark = _hslDerivedColors.putIfAbsent(darkKey, () => Color.lerp(base, Colors.black, 0.50)!);
+    final deepDarkKey = Object.hash(base.toARGB32(), 314);
+    final deepDark = _hslDerivedColors.putIfAbsent(deepDarkKey, () => Color.lerp(base, Colors.black, 0.75)!);
+
+    final pillowRRect = RRect.fromRectAndRadius(rect, const Radius.circular(9.5));
+
+    // 1. Soft 3D base cushion shadow
     _fill
       ..style = PaintingStyle.fill
       ..shader = null
-      ..color = const Color(0x66000000);
-    canvas.drawRRect(dropRRect, _fill);
+      ..color = _ca(deepDark, 0.85);
+    canvas.drawRRect(RRect.fromRectAndRadius(rect.translate(0, 2.8), const Radius.circular(9.5)), _fill);
 
-    // Upper-left soft light bloom
-    canvas.save();
-    canvas.translate(-2.0, -2.0);
-    _stroke
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..color = _ca(softLight, 0.45);
-    canvas.drawRRect(rrect, _stroke);
-    canvas.restore();
-
-    // Lower-right deep soft shadow
-    canvas.save();
-    canvas.translate(2.5, 2.5);
-    _stroke.color = _ca(Colors.black, 0.35);
-    canvas.drawRRect(rrect, _stroke);
-    canvas.restore();
-
-    // Main tactile bevel body
-    _fill.color = b.color;
-    canvas.drawRRect(rrect, _fill);
-
-    // Recessed matte inner face plate (cached shader)
-    final innerRRect = rrect.deflate(2.5);
-    final innerKey = Object.hash(b.color.toARGB32(), rrect.outerRect.width.round(), rrect.outerRect.height.round(), 303);
-    _fill.shader = _brickShaders.putIfAbsent(innerKey, () {
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [_ca(softDark, 0.35), _ca(softLight, 0.25)],
-      ).createShader(innerRRect.outerRect);
+    // 2. Main plump radial body with warm subsurface glow & bottom bounce rim light
+    final bodyKey = Object.hash('neu_stil1_body', base.toARGB32(), rect.width.round(), rect.height.round());
+    _fill.shader = _brickShaders.putIfAbsent(bodyKey, () {
+      return RadialGradient(
+        center: const Alignment(-0.28, -0.45),
+        radius: 1.15,
+        colors: [
+          ultraLight,
+          base,
+          dark,
+          Color.lerp(base, Colors.white, 0.25)!,
+        ],
+        stops: const [0.0, 0.38, 0.82, 1.0],
+      ).createShader(rect);
     });
-    canvas.drawRRect(innerRRect, _fill);
+    canvas.drawRRect(pillowRRect, _fill);
+
+    // 3. Inner warm subsurface core glow
+    final innerRect = rect.deflate(2.0);
+    final innerKey = Object.hash('neu_stil1_inner', base.toARGB32(), rect.width.round(), rect.height.round());
+    _fill.shader = _brickShaders.putIfAbsent(innerKey, () {
+      return RadialGradient(
+        center: const Alignment(0.0, 0.25),
+        radius: 0.75,
+        colors: [
+          light.withValues(alpha: 0.55),
+          Colors.transparent,
+        ],
+      ).createShader(innerRect);
+    });
+    canvas.drawRRect(RRect.fromRectAndRadius(innerRect, const Radius.circular(8.0)), _fill);
     _fill.shader = null;
 
-    // Tactile embossed horizontal grip slot in center
-    final rect = innerRRect.outerRect;
-    final slotW = rect.width * 0.45;
-    final slotRect = Rect.fromCenter(center: rect.center, width: slotW, height: 3.5);
-    final slotRRect = RRect.fromRectAndRadius(slotRect, const Radius.circular(2.0));
-    _fill.color = _ca(softDark, 0.6);
-    canvas.drawRRect(slotRRect, _fill);
-    _stroke
-      ..strokeWidth = 1.0
-      ..color = _ca(softLight, 0.6);
-    canvas.drawLine(Offset(slotRect.left + 1, slotRect.bottom), Offset(slotRect.right - 1, slotRect.bottom), _stroke);
+    // 4. Thick curved liquid-jelly highlight pill along top-left shoulder
+    _tempPath
+      ..reset()
+      ..moveTo(-halfW + 6.5, -halfH + 2.6)
+      ..quadraticBezierTo(0, -halfH + 1.8, halfW - 14.0, -halfH + 3.0)
+      ..quadraticBezierTo(halfW - 11.0, -halfH + 4.5, halfW - 15.0, -halfH + 5.2)
+      ..quadraticBezierTo(-2.0, -halfH + 4.2, -halfW + 7.2, -halfH + 5.8)
+      ..quadraticBezierTo(-halfW + 4.5, -halfH + 4.2, -halfW + 6.5, -halfH + 2.6)
+      ..close();
+    _fill.color = const Color(0xD1FFFFFF);
+    canvas.drawPath(_tempPath, _fill);
 
-    // Subtle crisp tactile rim
+    // 5. Cute secondary specular jelly dot on top-right
+    canvas.drawCircle(Offset(halfW - 9.5, -halfH + 4.2), 1.5, _fill);
+
+    // 6. Soft glossy outer contour
     _stroke
-      ..strokeWidth = 1.0
-      ..color = _ca(softLight, 0.45);
-    canvas.drawRRect(innerRRect, _stroke);
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1
+      ..color = const Color(0x8CFFFFFF);
+    canvas.drawRRect(pillowRRect.deflate(0.5), _stroke);
   }
 
   void _drawPixelBrick(Canvas canvas, Brick b, Rect rect, double halfW, double halfH) {
+    // === 4. "8-BİT PİKSEL": Authentic 16-Bit SNES Arcade Treasure Block ===
     _fill.isAntiAlias = false;
     _stroke.isAntiAlias = false;
 
-    // Authentic retro 8-bit chunky block!
-    final light = Color.lerp(b.color, Colors.white, 0.55)!;
-    final dark = Color.lerp(b.color, Colors.black, 0.55)!;
+    final light = Color.lerp(b.color, Colors.white, 0.58)!;
+    final midLight = Color.lerp(b.color, Colors.white, 0.25)!;
+    final dark = Color.lerp(b.color, Colors.black, 0.52)!;
+    final deepDark = Color.lerp(b.color, Colors.black, 0.75)!;
 
-    // 1. Black outer retro border (2px) with 3D drop shadow
-    _fill.color = const Color(0x99000000);
+    // 1. Pixel-stepped 3D drop shadow
+    _fill
+      ..style = PaintingStyle.fill
+      ..shader = null
+      ..color = const Color(0xAA000000);
     canvas.drawRect(rect.translate(2.0, 2.5), _fill);
 
-    _fill.color = const Color(0xFF000000);
+    // 2. Crisp 2px jet-black pixel outer frame with notched arcade corners
+    _fill.color = const Color(0xFF050508);
     canvas.drawRect(rect, _fill);
 
-    // 2. Main color body
+    // 3. Deep shadow inner border (bottom & right stepped bevel)
+    _fill.color = deepDark;
+    canvas.drawRect(rect.deflate(1.8), _fill);
+
+    // 4. Main vibrant 16-bit body
     _fill.color = b.color;
-    canvas.drawRect(rect.deflate(2), _fill);
+    canvas.drawRect(Rect.fromLTRB(-halfW + 3.6, -halfH + 3.6, halfW - 3.6, halfH - 3.6), _fill);
 
-    // 3. Stepped 8-bit bevels:
-    // Top highlight line (2.5px thick)
+    // 5. Stepped 16-Bit Top & Left Highlight Bevels
     _fill.color = light;
-    canvas.drawRect(Rect.fromLTWH(-halfW + 2, -halfH + 2, b.width - 6, 2.5), _fill);
-    // Left highlight line (2.5px thick)
-    canvas.drawRect(Rect.fromLTWH(-halfW + 2, -halfH + 2, 2.5, b.height - 6), _fill);
+    canvas.drawRect(Rect.fromLTWH(-halfW + 2.0, -halfH + 2.0, b.width - 5.6, 2.2), _fill);
+    canvas.drawRect(Rect.fromLTWH(-halfW + 2.0, -halfH + 2.0, 2.2, b.height - 5.6), _fill);
 
-    // Bottom shadow line (2.5px thick)
+    // Bottom & Right Shadow Bevels
     _fill.color = dark;
-    canvas.drawRect(Rect.fromLTWH(-halfW + 4, halfH - 4.5, b.width - 6, 2.5), _fill);
-    // Right shadow line (2.5px thick)
-    canvas.drawRect(Rect.fromLTWH(halfW - 4.5, -halfH + 4, 2.5, b.height - 6), _fill);
+    canvas.drawRect(Rect.fromLTWH(-halfW + 3.6, halfH - 4.2, b.width - 5.6, 2.2), _fill);
+    canvas.drawRect(Rect.fromLTWH(halfW - 4.2, -halfH + 3.6, 2.2, b.height - 5.6), _fill);
 
-    // 4. Retro 3x3 pixel specular glint at top-left
+    // 6. Diagonal 8-Bit Pixel Sheen Stripe across the block face
+    _fill.color = midLight;
+    for (int step = 0; step < 4; step++) {
+      final px = -halfW + 8.0 + step * 3.0;
+      final py = -halfH + 4.2 + step * 2.4;
+      if (px + 4.0 < halfW - 5.0 && py + 2.4 < halfH - 4.5) {
+        canvas.drawRect(Rect.fromLTWH(px, py, 4.5, 2.4), _fill);
+      }
+    }
+
+    // 7. Crisp White Pixel Specular Glint (top-left) + 4 Retro Corner Rivet Pixels
     _fill.color = Colors.white;
-    canvas.drawRect(Rect.fromLTWH(-halfW + 5, -halfH + 5, 3.5, 3.5), _fill);
+    canvas.drawRect(Rect.fromLTWH(-halfW + 4.5, -halfH + 4.5, 3.0, 3.0), _fill);
 
-    // 5. Classic 2x2 retro dither blocks in corners
-    _fill.color = _ca(dark, 0.6);
-    canvas.drawRect(Rect.fromLTWH(-halfW + 6, halfH - 8, 2.5, 2.5), _fill);
-    canvas.drawRect(Rect.fromLTWH(halfW - 8, -halfH + 6, 2.5, 2.5), _fill);
+    _fill.color = deepDark;
+    canvas.drawRect(Rect.fromLTWH(halfW - 6.8, -halfH + 4.5, 2.2, 2.2), _fill);
+    canvas.drawRect(Rect.fromLTWH(-halfW + 4.5, halfH - 6.8, 2.2, 2.2), _fill);
+    canvas.drawRect(Rect.fromLTWH(halfW - 6.8, halfH - 6.8, 2.2, 2.2), _fill);
 
     _fill.isAntiAlias = true;
     _stroke.isAntiAlias = true;
   }
 
   void _drawCyberBrick(Canvas canvas, Brick b, RRect rrect, double halfW, double halfH) {
-    // High-tech cybernetic armor block
+    // === 5. "SİBERPUNK 2099" (STİL A): Kesik Köşeli Meka Reaktör, Yan Plazma Izgaraları (///) ve Tarayıcı Lazer ===
     final base = b.color;
-    final darkKey = Object.hash(base.toARGB32(), 401);
-    final darkTitanium = _hslDerivedColors.putIfAbsent(darkKey, () => Color.lerp(base, const Color(0xFF0E1626), 0.6)!);
-    const cyberAccent = Color(0xFF00E5FF);
+    final rect = rrect.outerRect;
+    final w = rect.width;
+    final h = rect.height;
+    final brightKey = Object.hash(base.toARGB32(), 411);
+    final light = _hslDerivedColors.putIfAbsent(brightKey, () => Color.lerp(base, Colors.white, 0.50)!);
+    final pulse = 0.75 + 0.25 * sin(time * 7.0);
 
-    // 1. 3D Titanium drop shadow extrusion
-    final dropRRect = RRect.fromRectAndRadius(rrect.outerRect.translate(0, 2.5), const Radius.circular(6.0));
+    // 1. Chamfered 3D Drop Shadow
+    _addChamferRect(_tempPath, -halfW, -halfH + 2.6, w, h, 4.5);
     _fill
       ..style = PaintingStyle.fill
       ..shader = null
-      ..color = const Color(0xFF040810);
-    canvas.drawRRect(dropRRect, _fill);
+      ..color = const Color(0xFF03050B);
+    canvas.drawPath(_tempPath, _fill);
 
-    // 2. Titanium hull backing
-    _fill.color = darkTitanium;
-    canvas.drawRRect(rrect, _fill);
-
-    // 3. High-tech cyber plate gradient (cached shader)
-    final innerRRect = rrect.deflate(1.5);
-    final plateKey = Object.hash(base.toARGB32(), rrect.outerRect.width.round(), rrect.outerRect.height.round(), 402);
+    // 2. Gunmetal + Brick-tinted Mecha Armor Body
+    _addChamferRect(_tempPath, -halfW, -halfH, w, h, 4.5);
+    final plateKey = Object.hash('cyber_stil_a_plate', base.toARGB32(), w.round(), h.round());
     _fill.shader = _brickShaders.putIfAbsent(plateKey, () {
       return LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Color.lerp(base, Colors.white, 0.35)!.withValues(alpha: 0.6),
-          darkTitanium,
-          Color.lerp(cyberAccent, darkTitanium, 0.7)!,
+          Color.lerp(base, const Color(0xFF1C2638), 0.55)!,
+          const Color(0xFF0F1726),
+          const Color(0xFF070B14),
         ],
-        stops: const [0.0, 0.6, 1.0],
-      ).createShader(innerRRect.outerRect);
+        stops: const [0.0, 0.50, 1.0],
+      ).createShader(rect);
     });
-    canvas.drawRRect(innerRRect, _fill);
+    canvas.drawPath(_tempPath, _fill);
     _fill.shader = null;
 
-    // Tech grid lines
+    // 3. Glowing Side Plasma Vents (/// gills on left & right wings)
     _stroke
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8
-      ..color = _ca(cyberAccent, 0.3);
-    canvas.drawLine(Offset(-halfW + 6, -halfH + 4), Offset(-halfW + 14, halfH - 4), _stroke);
-    canvas.drawLine(Offset(halfW - 14, -halfH + 4), Offset(halfW - 6, halfH - 4), _stroke);
-
-    // 4. Central glowing energy conduit with animated pulse
-    final conduitPulse = 0.65 + 0.35 * sin(time * 5.0);
-    _stroke
-      ..strokeWidth = 3.0
-      ..strokeCap = StrokeCap.square
-      ..color = _ca(cyberAccent, conduitPulse * 0.5);
-    canvas.drawLine(Offset(-halfW + 10, 0), Offset(halfW - 10, 0), _stroke);
-    _stroke
-      ..strokeWidth = 1.3
-      ..color = _ca(Colors.white, conduitPulse);
-    canvas.drawLine(Offset(-halfW + 12, 0), Offset(halfW - 12, 0), _stroke);
-
-    // 5. Corner cyber circuit traces
-    _stroke
-      ..strokeWidth = 1.5
-      ..color = _ca(cyberAccent, 0.9);
-    // Top-left circuit trace
-    canvas.drawLine(Offset(-halfW + 4, -halfH + 8), Offset(-halfW + 4, -halfH + 4), _stroke);
-    canvas.drawLine(Offset(-halfW + 4, -halfH + 4), Offset(-halfW + 8, -halfH + 4), _stroke);
-    // Bottom-right circuit trace
-    canvas.drawLine(Offset(halfW - 8, halfH - 4), Offset(halfW - 4, halfH - 4), _stroke);
-    canvas.drawLine(Offset(halfW - 4, halfH - 4), Offset(halfW - 4, halfH - 8), _stroke);
-
-    // 6. Corner hex rivets with cyan LED center
-    final hexPositions = [
-      Offset(-halfW + 5, -halfH + 5),
-      Offset(halfW - 5, -halfH + 5),
-      Offset(-halfW + 5, halfH - 5),
-      Offset(halfW - 5, halfH - 5),
-    ];
-    for (final p in hexPositions) {
-      _fill.color = const Color(0xFF1E2836);
-      canvas.drawCircle(p, 2.0, _fill);
-      _fill.color = _ca(cyberAccent, conduitPulse);
-      canvas.drawCircle(p, 1.0, _fill);
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 1.6
+      ..color = _ca(light, 0.90 * pulse);
+    for (int v = 0; v < 2; v++) {
+      final lx = -halfW + 6.2 + v * 3.8;
+      canvas.drawLine(Offset(lx + 1.8, -halfH + 4.5), Offset(lx, halfH - 4.5), _stroke);
+      final rx = halfW - 6.2 - v * 3.8;
+      canvas.drawLine(Offset(rx - 1.8, -halfH + 4.5), Offset(rx, halfH - 4.5), _stroke);
     }
 
-    // Outer cybernetic armor border
+    // 4. Central Hexagonal Plasma Reactor Window
+    final cw = (w * 0.25).clamp(9.5, 13.0);
+    final ch = halfH - 3.0;
+    _tempPath
+      ..reset()
+      ..moveTo(-cw + 3.5, -ch)
+      ..lineTo(cw - 3.5, -ch)
+      ..lineTo(cw, 0)
+      ..lineTo(cw - 3.5, ch)
+      ..lineTo(-cw + 3.5, ch)
+      ..lineTo(-cw, 0)
+      ..close();
+    final coreKey = Object.hash('cyber_stil_a_core', base.toARGB32(), w.round(), h.round());
+    final coreRect = Rect.fromCenter(center: Offset.zero, width: cw * 2, height: ch * 2);
+    _fill.shader = _brickShaders.putIfAbsent(coreKey, () {
+      return RadialGradient(
+        colors: [
+          Colors.white,
+          light,
+          base.withValues(alpha: 0.95),
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(coreRect);
+    });
+    canvas.drawPath(_tempPath, _fill);
+    _fill.shader = null;
+
     _stroke
-      ..strokeWidth = 1.2
-      ..color = _ca(cyberAccent, 0.85);
-    canvas.drawRRect(rrect, _stroke);
+      ..color = Colors.white
+      ..strokeWidth = 1.0;
+    canvas.drawPath(_tempPath, _stroke);
+
+    // 5. Scanning horizontal laser beam inside reactor
+    final scanY = sin(time * 5.0) * (ch - 2.2);
+    _stroke
+      ..color = Colors.white
+      ..strokeWidth = 1.4;
+    canvas.drawLine(Offset(-cw + 3.0, scanY), Offset(cw - 3.0, scanY), _stroke);
+
+    // 6. Top & Bottom tactical HUD notches
+    _fill.color = _ca(base, 0.95);
+    canvas.drawRect(Rect.fromLTWH(-7.5, -halfH, 15.0, 1.8), _fill);
+    canvas.drawRect(Rect.fromLTWH(-7.5, halfH - 1.8, 15.0, 1.8), _fill);
+
+    // 7. Chamfered Neon Armor Rim
+    _addChamferRect(_tempPath, -halfW, -halfH, w, h, 4.5);
+    _stroke
+      ..color = _ca(base, 0.95)
+      ..strokeWidth = 1.3;
+    canvas.drawPath(_tempPath, _stroke);
   }
 
   void _drawCosmicBrick(Canvas canvas, Brick b, RRect rrect, double halfW, double halfH) {
-    // Legendary Cosmic Nebula Gemstone
+    // === 6. "KOZMİK KRİSTAL": Legendary Astral Galaxy Prism & Deep Space Nebula ===
     final base = b.color;
-    const deepCosmic = Color(0xFF240046);
-    const electricCyan = Color(0xFF00E5FF);
-    const magenta = Color(0xFFE040FB);
+    final rect = rrect.outerRect;
+    const deepVoid = Color(0xFF070114);
+    const abyss = Color(0xFF130429);
+    final magenta = Color.lerp(base, const Color(0xFFE040FB), 0.55)!;
+    final cyan = Color.lerp(base, const Color(0xFF00E5FF), 0.55)!;
+    final violet = Color.lerp(base, const Color(0xFF7C4DFF), 0.60)!;
 
-    // 1. 3D Cosmic drop shadow extrusion
-    final dropRRect = RRect.fromRectAndRadius(rrect.outerRect.translate(0, 2.5), const Radius.circular(6.0));
+    // 1. 3D astral void drop shadow
+    final dropRRect = RRect.fromRectAndRadius(rect.translate(0, 2.6), const Radius.circular(6.0));
     _fill
       ..style = PaintingStyle.fill
       ..shader = null
-      ..color = const Color(0xFF0C0216);
+      ..color = const Color(0xFF06010D);
     canvas.drawRRect(dropRRect, _fill);
 
-    // 2. Prismatic nebula crystal body (cached shader)
-    final crystalKey = Object.hash(base.toARGB32(), rrect.outerRect.width.round(), rrect.outerRect.height.round(), 501);
-    _fill.shader = _brickShaders.putIfAbsent(crystalKey, () {
-      return LinearGradient(
+    // 2. Encapsulate cosmic nebulae, stardust, and gas clouds inside the crystal body
+    canvas.save();
+    canvas.clipRRect(rrect);
+
+    // 3. Deep Space Void background (cached shader)
+    final wKey = rect.width.round();
+    final hKey = rect.height.round();
+    final colKey = base.toARGB32();
+    _fill.shader = _brickShaders.putIfAbsent(
+      Object.hash('cosmic_void', wKey, hKey),
+      () => const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
+        colors: [deepVoid, abyss, deepVoid],
+        stops: [0.0, 0.55, 1.0],
+      ).createShader(rect),
+    );
+    canvas.drawRect(rect, _fill);
+
+    // 4. Volumetric Space Nebula Clouds (cached per brick color & size)
+    final haloRect = Rect.fromCenter(center: Offset(-halfW * 0.08, 0), width: halfW * 2.3, height: halfH * 2.5);
+    _fill.shader = _brickShaders.putIfAbsent(
+      Object.hash('cosmic_halo', colKey, wKey, hKey),
+      () => RadialGradient(
         colors: [
-          Color.lerp(base, Colors.white, 0.45)!,
-          Color.lerp(base, deepCosmic, 0.45)!,
-          deepCosmic,
-          magenta,
-          electricCyan,
+          base.withValues(alpha: 0.65),
+          violet.withValues(alpha: 0.26),
+          Colors.transparent,
         ],
-        stops: const [0.0, 0.3, 0.6, 0.85, 1.0],
-      ).createShader(rrect.outerRect);
-    });
-    canvas.drawRRect(rrect, _fill);
+        stops: const [0.0, 0.55, 1.0],
+      ).createShader(haloRect),
+    );
+    canvas.drawOval(haloRect, _fill);
+
+    // Cloud B: Glowing Magenta / Cosmic Rose Filament
+    final magRect = Rect.fromCenter(center: Offset(-halfW * 0.38, -halfH * 0.25), width: halfW * 1.5, height: halfH * 1.6);
+    _fill.shader = _brickShaders.putIfAbsent(
+      Object.hash('cosmic_mag', wKey, hKey),
+      () => RadialGradient(
+        colors: [
+          magenta.withValues(alpha: 0.62),
+          magenta.withValues(alpha: 0.20),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.48, 1.0],
+      ).createShader(magRect),
+    );
+    canvas.drawOval(magRect, _fill);
+
+    // Cloud C: Celestial Cyan Interstellar Gas Veil
+    final cyanRect = Rect.fromCenter(center: Offset(halfW * 0.35, halfH * 0.22), width: halfW * 1.6, height: halfH * 1.7);
+    _fill.shader = _brickShaders.putIfAbsent(
+      Object.hash('cosmic_cyan', wKey, hKey),
+      () => RadialGradient(
+        colors: [
+          cyan.withValues(alpha: 0.58),
+          cyan.withValues(alpha: 0.17),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.50, 1.0],
+      ).createShader(cyanRect),
+    );
+    canvas.drawOval(cyanRect, _fill);
+
+    // 5. Milky Way Galactic Stardust Band
+    _fill.shader = _brickShaders.putIfAbsent(
+      Object.hash('cosmic_band', wKey, hKey),
+      () => LinearGradient(
+        begin: const Alignment(-0.85, -0.9),
+        end: const Alignment(0.85, 0.9),
+        colors: [
+          Colors.transparent,
+          violet.withValues(alpha: 0.28),
+          Colors.white.withValues(alpha: 0.40),
+          cyan.withValues(alpha: 0.28),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.30, 0.50, 0.70, 1.0],
+      ).createShader(rect),
+    );
+    canvas.drawRect(rect, _fill);
     _fill.shader = null;
 
-    // 2. Faceted crystal cleavage lines
+    // 6. Twinkling Micro-Star Clusters
+    const starOffsets = [
+      Offset(-0.72, -0.42),
+      Offset(-0.54, 0.50),
+      Offset(-0.35, -0.65),
+      Offset(-0.22, 0.25),
+      Offset(-0.06, -0.28),
+      Offset(0.12, 0.58),
+      Offset(0.28, -0.48),
+      Offset(0.45, 0.15),
+      Offset(0.62, -0.35),
+      Offset(0.74, 0.42),
+      Offset(0.04, -0.10),
+    ];
+
+    for (int i = 0; i < starOffsets.length; i++) {
+      final off = Offset(halfW * starOffsets[i].dx, halfH * starOffsets[i].dy);
+      final phase = i * 0.85;
+      final twinkle = 0.45 + 0.55 * sin(time * 5.0 + phase);
+      final r = (i == 4 || i == 10) ? 1.4 : (i.isEven ? 1.0 : 0.75);
+      final starCol = i % 3 == 0
+          ? Colors.white
+          : (i % 3 == 1 ? const Color(0xFFE1BEE7) : const Color(0xFFB2EBF2));
+      _fill.color = starCol.withValues(alpha: twinkle.clamp(0.2, 1.0));
+      canvas.drawCircle(off, r, _fill);
+    }
+
+    // 7. Brilliant 4-Point JWST Diamond Star Flare
+    final majorStarPos = Offset(-halfW * 0.20, -halfH * 0.18);
+    final majorTwinkle = 0.78 + 0.22 * sin(time * 3.5);
+    _fill.color = Colors.white.withValues(alpha: majorTwinkle);
+    canvas.drawCircle(majorStarPos, 1.9, _fill);
+
     _stroke
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..color = _ca(Colors.white, 0.45);
-    canvas.drawLine(Offset(-halfW + 6, -halfH + 3), Offset(halfW - 6, halfH - 3), _stroke);
-    canvas.drawLine(Offset(-halfW + 12, halfH - 3), Offset(halfW - 12, -halfH + 3), _stroke);
+      ..strokeWidth = 1.0
+      ..color = Colors.white.withValues(alpha: 0.90 * majorTwinkle);
+    const spikeH = 6.0;
+    const spikeV = 4.5;
+    canvas.drawLine(Offset(majorStarPos.dx - spikeH, majorStarPos.dy), Offset(majorStarPos.dx + spikeH, majorStarPos.dy), _stroke);
+    canvas.drawLine(Offset(majorStarPos.dx, majorStarPos.dy - spikeV), Offset(majorStarPos.dx, majorStarPos.dy + spikeV), _stroke);
 
-    // 3. Glowing chromatic crystal rim with animated pulse
-    final pulse = 0.75 + 0.25 * sin(time * 6.0);
-    _stroke
-      ..strokeWidth = 1.8
-      ..color = _ca(electricCyan, pulse);
-    canvas.drawRRect(rrect, _stroke);
-
-    // 4. Pulsating celestial starburst glint at center
-    final sa = time * 2.5;
-    final slen = min(halfH * 0.75, 7.0);
-    _stroke
-      ..strokeWidth = 1.5
-      ..color = _ca(Colors.white, 0.95);
-    canvas.drawLine(Offset(-cos(sa) * slen, -sin(sa) * slen), Offset(cos(sa) * slen, sin(sa) * slen), _stroke);
-    canvas.drawLine(
-      Offset(-cos(sa + pi / 2) * slen * 0.6, -sin(sa + pi / 2) * slen * 0.6),
-      Offset(cos(sa + pi / 2) * slen * 0.6, sin(sa + pi / 2) * slen * 0.6),
-      _stroke,
+    // 8. Crystal Prism Facet Sheen
+    final sheenRect = Rect.fromLTWH(-halfW, -halfH, rect.width, halfH * 0.85);
+    _fill.shader = _brickShaders.putIfAbsent(
+      Object.hash('cosmic_sheen', wKey, hKey),
+      () => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withValues(alpha: 0.38),
+          Colors.white.withValues(alpha: 0.08),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.40, 1.0],
+      ).createShader(sheenRect),
     );
+    canvas.drawRect(sheenRect, _fill);
+    _fill.shader = null;
 
-    // Mini star sparkle pips
-    _fill.color = Colors.white;
-    canvas.drawCircle(Offset(-halfW * 0.55, -halfH * 0.25), 1.2, _fill);
-    canvas.drawCircle(Offset(halfW * 0.55, halfH * 0.25), 1.2, _fill);
+    canvas.restore(); // end clip
+
+    // 9. Prismatic Iridescent Crystal Rim + Inner Facet Frame
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.7
+      ..shader = _brickShaders.putIfAbsent(
+        Object.hash('cosmic_rim', colKey, wKey, hKey),
+        () => LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            cyan.withValues(alpha: 0.98),
+            Colors.white.withValues(alpha: 0.85),
+            magenta.withValues(alpha: 0.95),
+            base.withValues(alpha: 0.95),
+          ],
+          stops: const [0.0, 0.32, 0.68, 1.0],
+        ).createShader(rect),
+      );
+    canvas.drawRRect(rrect, _stroke);
+    _stroke.shader = null;
   }
 
   void _drawBoss(Canvas canvas, Brick b, double time, double halfW, double halfH) {
@@ -1261,6 +2039,35 @@ class _GameWorldPainter extends CustomPainter {
       final divX = -halfW + (barW * d / 5);
       canvas.drawLine(Offset(divX, barY), Offset(divX, barY + barH), _stroke);
     }
+
+    // 9. Boss Critical Damage: Electric Crack Arcs & Smoke Flicker (When HP < 55%)
+    if (hpPct < 0.55) {
+      final crackCycle = (time * 16.0).floor();
+      final rSeed = (crackCycle % 7);
+      _stroke
+        ..color = _ca(rSeed % 2 == 0 ? const Color(0xFF00E5FF) : const Color(0xFFFF5252), 0.85)
+        ..strokeWidth = 1.6;
+
+      // Arc 1
+      _tempPath
+        ..reset()
+        ..moveTo(-halfW * 0.4, -halfH * 0.2)
+        ..lineTo(-halfW * 0.15 + (rSeed * 2.0 - 6.0), 2.0)
+        ..lineTo(-halfW * 0.35, halfH * 0.4);
+      canvas.drawPath(_tempPath, _stroke);
+
+      // Arc 2
+      _tempPath
+        ..reset()
+        ..moveTo(halfW * 0.3, -halfH * 0.3)
+        ..lineTo(halfW * 0.1 - (rSeed * 2.0 - 5.0), 0.0)
+        ..lineTo(halfW * 0.45, halfH * 0.3);
+      canvas.drawPath(_tempPath, _stroke);
+
+      // Central core electrical spark pip
+      _fill.color = Colors.white;
+      canvas.drawCircle(Offset((rSeed - 3) * 4.0, (rSeed % 3 - 1) * 3.0), 1.8, _fill);
+    }
   }
 
   void _drawNet(Canvas canvas, Size size) {
@@ -1335,23 +2142,196 @@ class _GameWorldPainter extends CustomPainter {
     _tp.layout();
     _tp.paint(canvas, Offset(ox - _tp.width / 2, oy + 8.0));
 
-    // 4. Aiming trajectory dotted line when ready to launch
+    // 4. Floating ⚡ 2X Turbo / ⏬ Recall Button during active volley
+    if (c.status == GameStatus.playing) {
+      const btnW = 96.0;
+      const btnH = 36.0;
+      final btnX = c.screenWidth - btnW - 12.0;
+      final btnY = c.screenHeight - btnH - 12.0;
+      final btnRRect = RRect.fromRectAndRadius(Rect.fromLTWH(btnX, btnY, btnW, btnH), const Radius.circular(18.0));
+
+      final isTurbo = c.chaosSpeedMultiplier > 1.05;
+      final isRecall = c.chaosRecallActive;
+
+      _fill
+        ..style = PaintingStyle.fill
+        ..shader = null
+        ..color = isRecall
+            ? const Color(0xDD00E5FF)
+            : (isTurbo ? const Color(0xDDFF6D00) : const Color(0xCC0D47A1));
+      canvas.drawRRect(btnRRect, _fill);
+
+      _stroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8
+        ..color = isRecall
+            ? Colors.white
+            : (isTurbo ? const Color(0xFFFFD54F) : const Color(0xFF40C4FF));
+      canvas.drawRRect(btnRRect, _stroke);
+
+      final btnLabel = isRecall
+          ? '⏬ TOPLANIYOR'
+          : (isTurbo ? '⏬ ÇAĞIR' : '⚡ 2X HIZ');
+
+      _tp.text = TextSpan(
+        text: btnLabel,
+        style: TextStyle(
+          color: isRecall ? Colors.black87 : Colors.white,
+          fontSize: 11.0,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.6,
+        ),
+      );
+      _tp.layout();
+      _tp.paint(canvas, Offset(btnX + (btnW - _tp.width) / 2, btnY + (btnH - _tp.height) / 2));
+      return;
+    }
+
     if (c.status != GameStatus.ready) return;
+
+    // 5. Raycast Trajectory with 1st Bounce Reflection
     var dx = c.chaosAimX - ox;
     var dy = c.chaosAimY - oy;
-    if (!c.chaosAiming || dy > -12) {
+    if (!c.chaosAiming || dy >= -10) {
       dx = 0;
-      dy = -140;
+      dy = -1;
     }
-    final len = sqrt(dx * dx + dy * dy);
-    if (len < 1) return;
-    dx /= len;
-    dy /= len;
+    final angle = atan2(dy, dx);
+    final clampedAngle = angle.clamp(-pi + 0.16, -0.16);
+    final rayDirX = cos(clampedAngle);
+    final rayDirY = sin(clampedAngle);
 
-    for (double t = 16; t < 220; t += 14) {
-      final pulse = (sin(time * 12.0 - t * 0.1) * 0.3 + 0.7);
-      _fill.color = _ca(const Color(0xFF00E5FF), pulse);
-      canvas.drawCircle(Offset(ox + dx * t, oy + dy * t), 2.2, _fill);
+    const ballR = 5.2;
+    final leftWallX = ballR;
+    final rightWallX = c.screenWidth - ballR;
+    const ceilingY = 36.0 + ballR;
+
+    double closestT = double.infinity;
+    double hitNormX = 0.0;
+    double hitNormY = 1.0;
+
+    // Ray vs Left Wall
+    if (rayDirX < 0) {
+      final t = (leftWallX - ox) / rayDirX;
+      if (t > 1.0 && t < closestT) {
+        closestT = t;
+        hitNormX = 1.0;
+        hitNormY = 0.0;
+      }
+    }
+    // Ray vs Right Wall
+    if (rayDirX > 0) {
+      final t = (rightWallX - ox) / rayDirX;
+      if (t > 1.0 && t < closestT) {
+        closestT = t;
+        hitNormX = -1.0;
+        hitNormY = 0.0;
+      }
+    }
+    // Ray vs Ceiling
+    if (rayDirY < 0) {
+      final t = (ceilingY - oy) / rayDirY;
+      if (t > 1.0 && t < closestT) {
+        closestT = t;
+        hitNormX = 0.0;
+        hitNormY = 1.0;
+      }
+    }
+
+    // Ray vs Bricks
+    for (final b in c.bricks) {
+      if (!b.isAlive || b.isBallPickup) continue;
+      final minX = b.x - ballR;
+      final maxX = b.x + b.width + ballR;
+      final minY = b.y - ballR;
+      final maxY = b.y + b.height + ballR;
+
+      double tNear = -double.infinity;
+      double tFar = double.infinity;
+      double nx = 0, ny = 0;
+
+      // X-slab
+      if (rayDirX.abs() > 0.0001) {
+        double tx1 = (minX - ox) / rayDirX;
+        double tx2 = (maxX - ox) / rayDirX;
+        double normX1 = -1.0;
+        if (tx1 > tx2) {
+          final temp = tx1; tx1 = tx2; tx2 = temp;
+          normX1 = 1.0;
+        }
+        if (tx1 > tNear) {
+          tNear = tx1;
+          nx = normX1;
+          ny = 0;
+        }
+        tFar = min(tFar, tx2);
+      } else if (ox < minX || ox > maxX) {
+        continue;
+      }
+
+      // Y-slab
+      if (rayDirY.abs() > 0.0001) {
+        double ty1 = (minY - oy) / rayDirY;
+        double ty2 = (maxY - oy) / rayDirY;
+        double normY1 = -1.0;
+        if (ty1 > ty2) {
+          final temp = ty1; ty1 = ty2; ty2 = temp;
+          normY1 = 1.0;
+        }
+        if (ty1 > tNear) {
+          tNear = ty1;
+          nx = 0;
+          ny = normY1;
+        }
+        tFar = min(tFar, ty2);
+      } else if (oy < minY || oy > maxY) {
+        continue;
+      }
+
+      if (tFar >= tNear && tNear > 2.0 && tNear < closestT) {
+        closestT = tNear;
+        hitNormX = nx;
+        hitNormY = ny;
+      }
+    }
+
+    if (closestT.isInfinite || closestT <= 0) return;
+
+    final hitX = ox + rayDirX * closestT;
+    final hitY = oy + rayDirY * closestT;
+
+    // Reflected ray direction: v' = v - 2*(v.n)*n
+    final dot = rayDirX * hitNormX + rayDirY * hitNormY;
+    final bounceDirX = rayDirX - 2.0 * dot * hitNormX;
+    final bounceDirY = rayDirY - 2.0 * dot * hitNormY;
+
+    // A) Draw Primary Aim Laser (Origin -> Hit)
+    for (double t = 16.0; t < closestT; t += 13.0) {
+      final p = (t / closestT).clamp(0.0, 1.0);
+      final alpha = (0.95 - p * 0.20).clamp(0.3, 0.95);
+      _fill.color = _ca(const Color(0xFF00E5FF), alpha);
+      canvas.drawCircle(Offset(ox + rayDirX * t, oy + rayDirY * t), 2.2, _fill);
+    }
+
+    // B) Glowing Impact Reticle at Hit Point
+    final reticlePulse = 1.0 + 0.18 * sin(time * 16.0);
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..color = const Color(0xFF00E5FF);
+    canvas.drawCircle(Offset(hitX, hitY), 6.0 * reticlePulse, _stroke);
+    _fill
+      ..style = PaintingStyle.fill
+      ..color = Colors.white;
+    canvas.drawCircle(Offset(hitX, hitY), 2.2, _fill);
+
+    // C) Draw Secondary Reflected Beam (Hit -> Bounce Direction)
+    const bounceLength = 135.0;
+    for (double t = 10.0; t < bounceLength; t += 12.0) {
+      final p = (t / bounceLength).clamp(0.0, 1.0);
+      final alpha = (0.75 * (1.0 - p)).clamp(0.08, 0.75);
+      _fill.color = _ca(const Color(0xFFFFD54F), alpha);
+      canvas.drawCircle(Offset(hitX + bounceDirX * t, hitY + bounceDirY * t), 1.7 * (1.0 - p * 0.4), _fill);
     }
   }
 
@@ -1511,6 +2491,40 @@ class _GameWorldPainter extends CustomPainter {
       _fill.color = const Color(0xFFFFD740);
       canvas.drawRect(Rect.fromLTWH(rect.left + 2, rect.top - 5, 5, 5), _fill);
       canvas.drawRect(Rect.fromLTWH(rect.right - 7, rect.top - 5, 5, 5), _fill);
+    }
+
+    // Swirling Purple/Cyan Gravitational Vortex Funnel above paddle
+    if (p.hasVortex) {
+      final vx = rect.center.dx;
+      final vy = rect.top - 8.0;
+      // 3 Concentric tilted vortex rings narrowing towards the paddle
+      for (int ring = 0; ring < 3; ring++) {
+        final ringY = vy - ring * 5.5;
+        final rw = (rect.width * (0.48 + ring * 0.22)).clamp(28.0, 120.0);
+        final rh = 7.0 + ring * 2.2;
+        final pulse = 0.65 + 0.35 * sin(p.vortexAngle * 1.4 - ring * 0.9);
+        _stroke
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.8 - ring * 0.3
+          ..color = _ca(ring.isEven ? const Color(0xFFE040FB) : const Color(0xFF00E5FF), 0.78 * pulse);
+        canvas.drawOval(Rect.fromCenter(center: Offset(vx, ringY), width: rw, height: rh), _stroke);
+
+        // Orbiting vortex energy nodes along each ring
+        final a1 = p.vortexAngle * (1.2 + ring * 0.3) + ring * 1.1;
+        final a2 = a1 + pi;
+        _fill
+          ..style = PaintingStyle.fill
+          ..shader = null
+          ..color = ring.isEven ? const Color(0xFF18FFFF) : const Color(0xFFEA80FC);
+        canvas.drawCircle(Offset(vx + cos(a1) * (rw / 2), ringY + sin(a1) * (rh / 2)), 2.0, _fill);
+        canvas.drawCircle(Offset(vx + cos(a2) * (rw / 2), ringY + sin(a2) * (rh / 2)), 2.0, _fill);
+      }
+
+      // Central vortex core singularity on top of paddle
+      _fill.color = const Color(0x99E040FB);
+      canvas.drawCircle(Offset(vx, rect.top - 2.0), 5.5, _fill);
+      _fill.color = Colors.white;
+      canvas.drawCircle(Offset(vx, rect.top - 2.0), 2.4, _fill);
     }
 
     canvas.restore();
@@ -1683,75 +2697,122 @@ class _GameWorldPainter extends CustomPainter {
     for (final bh in c.blackHoles) {
       canvas.save();
       canvas.translate(bh.x, bh.y);
+
+      // 0. Outer Gravitational Influence Boundary Ring & Inward-Spiraling Waves
+      final maxDist = bh.maxInfluenceDist;
+      final Color fieldColor = bh.isVortexTrap
+          ? const Color(0xFFFF1744)
+          : (bh.isSupercharged ? const Color(0xFF00E5FF) : const Color(0xFFB388FF));
+      _stroke
+        ..style = PaintingStyle.stroke
+        ..maskFilter = null
+        ..strokeWidth = 1.2
+        ..color = _ca(fieldColor, 0.22 + 0.08 * sin(time * 4.0));
+      canvas.drawCircle(Offset.zero, maxDist, _stroke);
+
+      // Animated inward-contracting gravity wave rings
+      for (int w = 0; w < 3; w++) {
+        final phase = ((time * 0.85 + w / 3.0) % 1.0);
+        final waveR = maxDist * (1.0 - phase * 0.72);
+        final waveAlpha = (sin(phase * pi) * 0.28).clamp(0.0, 0.35);
+        _stroke
+          ..strokeWidth = 1.4
+          ..color = _ca(fieldColor, waveAlpha);
+        canvas.drawCircle(Offset.zero, waveR, _stroke);
+      }
+
       canvas.rotate(bh.rotation);
 
       // 1. Broad Gravitational Lensing & Warped Photon Halo
-      final holeKey = Object.hash(bh.isVortexTrap, (bh.radius * 2).round());
+      final typeIndex = bh.isVortexTrap ? 1 : (bh.isSupercharged ? 2 : 0);
+      final holeKey = Object.hash(typeIndex, (bh.radius * 2).round());
+      final haloRadiusMult = bh.isVortexTrap ? 3.4 : (bh.isSupercharged ? 3.2 : 2.8);
+
       _fill
         ..style = PaintingStyle.fill
         ..maskFilter = null
         ..shader = _holeShaders.putIfAbsent(holeKey, () {
-          final vortexColors = bh.isVortexTrap
-              ? [
-                  Colors.black,
-                  const Color(0xFF1A0000),
-                  _ca(const Color(0xFFB71C1C), 0.95),
-                  _ca(const Color(0xFFFF1744), 0.75),
-                  _ca(const Color(0xFFFF80AB), 0.35),
-                  Colors.transparent,
-                ]
-              : [
-                  Colors.black,
-                  const Color(0xFF0D0318),
-                  _ca(const Color(0xFF4A148C), 0.95),
-                  _ca(const Color(0xFF7C4DFF), 0.6),
-                  _ca(const Color(0xFFE040FB), 0.25),
-                  Colors.transparent,
-                ];
+          List<Color> vortexColors;
+          if (bh.isVortexTrap) {
+            vortexColors = [
+              Colors.black,
+              const Color(0xFF1A0000),
+              _ca(const Color(0xFFB71C1C), 0.95),
+              _ca(const Color(0xFFFF1744), 0.75),
+              _ca(const Color(0xFFFF80AB), 0.35),
+              Colors.transparent,
+            ];
+          } else if (bh.isSupercharged) {
+            // Egzotik Karadelik: Akkor Plazma Çekirdek & Elektrik Amber/Turkuaz Aura
+            vortexColors = [
+              Colors.black,
+              const Color(0xFF120700),
+              _ca(const Color(0xFFFF6D00), 0.95),
+              _ca(const Color(0xFFFFAB00), 0.80),
+              _ca(const Color(0xFF00E5FF), 0.40),
+              Colors.transparent,
+            ];
+          } else {
+            // Standart Karadelik: Sakin Kozmik Derin Mor & Eflatun Sis
+            vortexColors = [
+              Colors.black,
+              const Color(0xFF0D0318),
+              _ca(const Color(0xFF4A148C), 0.95),
+              _ca(const Color(0xFF7C4DFF), 0.6),
+              _ca(const Color(0xFFE040FB), 0.25),
+              Colors.transparent,
+            ];
+          }
           return RadialGradient(
             colors: vortexColors,
             stops: const [0.25, 0.42, 0.60, 0.78, 0.92, 1.0],
           ).createShader(Rect.fromCircle(
             center: Offset.zero,
-            radius: bh.radius * (bh.isVortexTrap ? 3.4 : 2.8),
+            radius: bh.radius * haloRadiusMult,
           ));
         });
       
-      canvas.drawCircle(Offset.zero, bh.radius * (bh.isVortexTrap ? 3.4 : 2.8), _fill);
+      canvas.drawCircle(Offset.zero, bh.radius * haloRadiusMult, _fill);
       _fill.shader = null;
 
       // 2. Swirling Relativistic Accretion Disk Arms (Infalling stellar matter)
-      final armCount = bh.isVortexTrap ? 8 : 5;
+      final armCount = bh.isVortexTrap ? 8 : (bh.isSupercharged ? 7 : 5);
       for (int i = 0; i < armCount; i++) {
         final angleOffset = (pi * 2 / armCount) * i + sin(time * 3.0 + i) * 0.15;
         final r = bh.radius * (0.55 + 0.35 * (i % 5));
-        final armColor = bh.isVortexTrap
-            ? ((i % 2 == 0) ? const Color(0xFFFF1744) : const Color(0xFFFF80AB))
-            : ((i % 2 == 0) ? const Color(0xFFE040FB) : const Color(0xFF7C4DFF));
+        Color armColor;
+        if (bh.isVortexTrap) {
+          armColor = (i % 2 == 0) ? const Color(0xFFFF1744) : const Color(0xFFFF80AB);
+        } else if (bh.isSupercharged) {
+          armColor = (i % 2 == 0) ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF);
+        } else {
+          armColor = (i % 2 == 0) ? const Color(0xFFE040FB) : const Color(0xFF7C4DFF);
+        }
         _stroke
           ..style = PaintingStyle.stroke
           ..strokeCap = StrokeCap.round
           ..maskFilter = null
-          ..color = _ca(armColor, 0.65 - (i * 0.05))
-          ..strokeWidth = 2.2 - (i * 0.15);
+          ..color = _ca(armColor, 0.70 - (i * 0.05))
+          ..strokeWidth = 2.4 - (i * 0.15);
         canvas.drawArc(
           Rect.fromCircle(center: Offset.zero, radius: r),
           angleOffset,
-          pi * (bh.isVortexTrap ? 1.6 : 1.35),
+          pi * (bh.isVortexTrap ? 1.6 : (bh.isSupercharged ? 1.5 : 1.35)),
           false,
           _stroke,
         );
       }
 
       // 3. Photon Sphere Incandescent Border (Relativistic light ring)
+      final rimColor = bh.isSupercharged ? const Color(0xFF00E5FF) : const Color(0xFFB388FF);
       _stroke
         ..strokeWidth = 3.2
         ..maskFilter = null
-        ..color = _ca(const Color(0xFFB388FF), 0.45);
+        ..color = _ca(rimColor, 0.55);
       canvas.drawCircle(Offset.zero, bh.radius * 0.48, _stroke);
 
       _stroke
-        ..strokeWidth = 1.2
+        ..strokeWidth = 1.3
         ..color = _ca(Colors.white, 0.95);
       canvas.drawCircle(Offset.zero, bh.radius * 0.48, _stroke);
 
@@ -1803,10 +2864,47 @@ class _GameWorldPainter extends CustomPainter {
       final isCornerBoost = ball.cornerBoostTimer > 0;
       final skinGlow = c.activeBallSkin.glowColor;
       final skinMain = c.activeBallSkin.mainColor;
+      final isLegendaryBall = c.activeBallSkin.rarity == Rarity.legendary;
+      final ballSkinId = c.activeBallSkin.id;
+      final isRainbowBall = ballSkinId == 'gokkusagi';
 
-      // Köşe vuruşu alev renkleri: Kullanıcı isteği: Köşe vuruşunda izler değil DAİMA seçili topun rengi olsun!
-      final Color cbFlameBase = c.activeBallSkin.mainColor;
-      final Color cbFlameGlow = c.activeBallSkin.glowColor;
+      // Trail Skin Colors (User's equipped trail skin)
+      final trailPrimary = c.activeTrailSkin.primaryColor;
+      final trailGlow = c.activeTrailSkin.glowColor;
+
+      // Normal trail color provider: User rule:
+      // "efsanevi toplar sadece köşe vuruşu olduğunda kendi renkleri ile gitsin, onun dışındaki diğer toplar normal hangi iz seçildiyse onu kullansın."
+      // Normal trail uses equipped trail skin colors (with subtle animated shimmer)
+      Color getBallTrailColor(int index, int total, {bool isGlow = false}) {
+        return isGlow ? trailGlow : trailPrimary;
+      }
+
+      // Corner boost flame colors:
+      // Only legendary balls use their own ball colors on corner boost!
+      // Other balls use their equipped trail skin color on corner boost!
+      final Color cbFlameBase = isLegendaryBall
+          ? (isRainbowBall
+              ? HSLColor.fromAHSL(1.0, (time * 24.0) % 360.0, 0.70, 0.58).toColor()
+              : skinMain)
+          : trailPrimary;
+      final Color cbFlameGlow = isLegendaryBall
+          ? (isRainbowBall
+              ? HSLColor.fromAHSL(1.0, (time * 24.0 + 40.0) % 360.0, 0.65, 0.62).toColor()
+              : skinGlow)
+          : trailGlow;
+
+      Color getCornerBoostColor(int index, int total) {
+        if (isLegendaryBall) {
+          if (isRainbowBall) {
+            // Smooth, soft spectrum gradient along the length without blinding strobe
+            final progress = total > 1 ? index / (total - 1) : 0.0;
+            final hue = ((time * 20.0) + progress * 160.0) % 360.0;
+            return HSLColor.fromAHSL(1.0, hue, 0.68, 0.60).toColor();
+          }
+          return cbFlameBase;
+        }
+        return (index % 2 == 0) ? trailPrimary : trailGlow;
+      }
 
       final cbFlameDeepKey = Object.hash(cbFlameBase.toARGB32(), 301);
       final cbFlameDeep = _hslDerivedColors.putIfAbsent(cbFlameDeepKey, () {
@@ -1819,20 +2917,17 @@ class _GameWorldPainter extends CustomPainter {
       if (ball.trail.length > 1) {
         final trailStyle = c.activeTrailSkin.style;
         final trailCount = ball.trail.length;
-        if (trailStyle == TrailStyle.dot) {
-          // === ELEVATED DOT TRAIL: Celestial Starlight Constellation (Tapering to needle tip) ===
-          final dotColor = isFireball
-              ? const Color(0xFFFF1744)
-              : (isCornerBoost ? cbFlameBase : skinGlow);
-          final coreColor = isFireball
-              ? const Color(0xFFFF8A80)
-              : (isCornerBoost ? cbFlameCore : skinMain);
+        // Full-bodied majestic taper: keeps rich thickness along the body and tapers smoothly at the tail
+        double majesticTaper(double progress) =>
+            (0.36 + 0.64 * pow((1.0 - progress).clamp(0.0, 1.0), 0.52).toDouble()).clamp(0.0, 1.0);
 
-          // Precompute undulating positions along transverse wave
+        if (trailStyle == TrailStyle.dot) {
+          // === ELEVATED DOT TRAIL: Celestial Starlight Constellation (Full-bodied & Majestic) ===
           final dotPositions = <Offset>[];
           for (int i = 0; i < trailCount; i++) {
             final progress = trailCount > 1 ? i / (trailCount - 1) : 0.0;
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
+            final headPin = (i / 4.0).clamp(0.0, 1.0);
             double nx = 0.0, ny = 1.0;
             if (i < trailCount - 1) {
               final dx = ball.trail[i + 1].position.dx - ball.trail[i].position.dx;
@@ -1851,11 +2946,11 @@ class _GameWorldPainter extends CustomPainter {
                 ny = dx / segLen;
               }
             }
-            final wave = sin(time * 12.0 + i * 0.8) * (ball.radius * 0.5 * taper);
+            final wave = sin(time * 12.0 + i * 0.8) * (ball.radius * 0.30 * taper * headPin);
             dotPositions.add(Offset(ball.trail[i].position.dx + nx * wave, ball.trail[i].position.dy + ny * wave));
           }
 
-          // 1. Connecting undulating starlight filament between dots (tapering)
+          // 1. Connecting undulating starlight filament between dots (thick & luminous)
           _stroke
             ..style = PaintingStyle.stroke
             ..strokeCap = StrokeCap.round
@@ -1863,44 +2958,54 @@ class _GameWorldPainter extends CustomPainter {
             ..maskFilter = null;
           for (int i = 0; i < dotPositions.length - 1; i++) {
             final progress = (i + 0.5) / (dotPositions.length - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
+            final segColor = isFireball
+                ? const Color(0xFFFFAB00)
+                : (isCornerBoost ? getCornerBoostColor(i, dotPositions.length) : getBallTrailColor(i, dotPositions.length, isGlow: true));
             _stroke
-              ..strokeWidth = (ball.radius * 0.55 * taper).clamp(0.4, ball.radius)
-              ..color = _ca(dotColor, 0.45 * taper);
+              ..strokeWidth = (ball.radius * 1.15 * taper).clamp(1.2, ball.radius * 1.5)
+              ..color = _ca(segColor, 0.58 * taper);
             canvas.drawLine(dotPositions[i], dotPositions[i + 1], _stroke);
           }
 
-          // 2. Shimmering Starlight Orbs (smoothly tapering down to 0 at the tail, NO blur lag)
+          // 2. Shimmering Starlight Orbs
           _fill
             ..style = PaintingStyle.fill
             ..maskFilter = null;
-          for (int i = 0; i < dotPositions.length; i++) {
+          for (int i = 1; i < dotPositions.length; i++) {
             final progress = dotPositions.length > 1 ? i / (dotPositions.length - 1) : 0.0;
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
-            final shimmer = 0.82 + 0.18 * sin(time * 10 + i * 0.7);
-            final baseR = ball.radius * taper * shimmer;
-            if (baseR <= 0.2) continue;
+            final taper = majesticTaper(progress);
+            final shimmer = 0.85 + 0.15 * sin(time * 10 + i * 0.7);
+            final baseR = ball.radius * 0.78 * taper * shimmer;
+            if (baseR <= 0.3) continue;
             final pos = dotPositions[i];
 
-            // Soft diffuse halo (2-pass alpha, zero blur overhead)
-            _fill.color = _ca(dotColor, 0.22 * taper);
-            canvas.drawCircle(pos, baseR * 1.6, _fill);
+            final dotColor = isFireball
+                ? const Color(0xFFFF6D00)
+                : (isCornerBoost ? getCornerBoostColor(i, dotPositions.length) : getBallTrailColor(i, dotPositions.length, isGlow: true));
+            final coreColor = isFireball
+                ? const Color(0xFFFFD700)
+                : (isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, dotPositions.length) : cbFlameCore) : getBallTrailColor(i, dotPositions.length));
+
+            // Soft diffuse halo
+            _fill.color = _ca(dotColor, 0.34 * taper);
+            canvas.drawCircle(pos, baseR * 1.55, _fill);
 
             // Luminous bead
-            _fill.color = _ca(coreColor, 0.85 * taper);
+            _fill.color = _ca(coreColor, 0.90 * taper);
             canvas.drawCircle(pos, baseR, _fill);
 
-            // Starlight white core
-            _fill.color = _ca(Colors.white, 0.95 * taper);
-            canvas.drawCircle(pos, baseR * 0.4, _fill);
+            // Starlight core
+            _fill.color = _ca(isCornerBoost ? cbFlameCore : Colors.white, 0.96 * taper);
+            canvas.drawCircle(pos, baseR * 0.45, _fill);
 
             // Rotating 4-point micro-glint star on alternating beads
             if (i % 3 == 0 && baseR > 2.0) {
               final spAngle = time * 3.5 + i * 1.2;
-              final spLen = baseR * 1.6;
+              final spLen = baseR * 1.75;
               _stroke
-                ..strokeWidth = 1.0
-                ..color = _ca(Colors.white, 0.75 * taper);
+                ..strokeWidth = 1.5
+                ..color = _ca(isCornerBoost ? cbFlameBright : Colors.white, 0.85 * taper);
               canvas.drawLine(
                 Offset(pos.dx - cos(spAngle) * spLen, pos.dy - sin(spAngle) * spLen),
                 Offset(pos.dx + cos(spAngle) * spLen, pos.dy + sin(spAngle) * spLen),
@@ -1914,20 +3019,14 @@ class _GameWorldPainter extends CustomPainter {
             }
           }
         } else if (trailStyle == TrailStyle.spark) {
-          // === ELEVATED SPARK TRAIL: High-Voltage Lightning & Charged Sparks (Tapering to needle tip) ===
-          final sparkBaseColor = isFireball
-              ? const Color(0xFFFF3D00)
-              : (isCornerBoost ? cbFlameBase : skinMain);
-          final sparkGlowColor = isFireball
-              ? const Color(0xFFFF1744)
-              : (isCornerBoost ? cbFlameGlow : skinGlow);
-
+          // === ELEVATED SPARK TRAIL: High-Voltage Lightning & Charged Sparks (Full-Bodied) ===
           final sparkPositions = <Offset>[Offset(ball.x, ball.y)];
           for (int i = 0; i < trailCount - 1; i++) {
             final p1 = ball.trail[i].position;
             final p2 = ball.trail[i + 1].position;
             final progress = i / (trailCount - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
+            final headPin = (i / 3.0).clamp(0.0, 1.0);
 
             final dx = p2.dx - p1.dx;
             final dy = p2.dy - p1.dy;
@@ -1935,7 +3034,7 @@ class _GameWorldPainter extends CustomPainter {
             if (segLen > 0.001) {
               final nx = -dy / segLen;
               final ny = dx / segLen;
-              final jitter = sin(time * 38 + i * 4.3) * (ball.radius * 0.65 * taper);
+              final jitter = sin(time * 12.0 + i * 1.5) * (ball.radius * 0.38 * taper * headPin);
               final mid = Offset((p1.dx + p2.dx) * 0.5 + nx * jitter, (p1.dy + p2.dy) * 0.5 + ny * jitter);
               sparkPositions.add(mid);
             }
@@ -1948,47 +3047,53 @@ class _GameWorldPainter extends CustomPainter {
             ..strokeJoin = StrokeJoin.round
             ..maskFilter = null;
 
-          // Layer 1: Electric outer bloom segments (tapering, NO blur)
+          // Layer 1: Electric outer bloom segments
           for (int i = 0; i < sparkPositions.length - 1; i++) {
             final progress = (i + 0.5) / (sparkPositions.length - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
+            final segGlowColor = isFireball
+                ? const Color(0xFFFF6D00)
+                : (isCornerBoost ? getCornerBoostColor(i, sparkPositions.length) : getBallTrailColor(i, sparkPositions.length, isGlow: true));
             _stroke
-              ..strokeWidth = (ball.radius * 2.2 * taper).clamp(0.8, ball.radius * 2.2)
-              ..color = _ca(sparkGlowColor, 0.28 * taper);
+              ..strokeWidth = (ball.radius * 3.1 * taper).clamp(1.6, ball.radius * 3.1)
+              ..color = _ca(segGlowColor, 0.36 * taper);
             canvas.drawLine(sparkPositions[i], sparkPositions[i + 1], _stroke);
           }
 
-          // Layer 2: Main energetic lightning bolt segments (tapering)
+          // Layer 2: Main energetic lightning bolt segments
           for (int i = 0; i < sparkPositions.length - 1; i++) {
             final progress = (i + 0.5) / (sparkPositions.length - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
+            final segBaseColor = isFireball
+                ? const Color(0xFFFFAB00)
+                : (isCornerBoost ? getCornerBoostColor(i, sparkPositions.length) : getBallTrailColor(i, sparkPositions.length));
             _stroke
-              ..strokeWidth = (ball.radius * 1.1 * taper).clamp(0.6, ball.radius * 1.1)
-              ..color = _ca(sparkBaseColor, 0.88 * taper);
+              ..strokeWidth = (ball.radius * 1.65 * taper).clamp(1.0, ball.radius * 1.65)
+              ..color = _ca(segBaseColor, 0.92 * taper);
             canvas.drawLine(sparkPositions[i], sparkPositions[i + 1], _stroke);
           }
 
-          // Layer 3: Blinding white electric core (tapering)
+          // Layer 3: Blinding electric core
           for (int i = 0; i < sparkPositions.length - 1; i++) {
             final progress = (i + 0.5) / (sparkPositions.length - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
             _stroke
-              ..strokeWidth = (ball.radius * 0.42 * taper).clamp(0.4, ball.radius * 0.42)
-              ..color = _ca(Colors.white, 0.95 * taper);
+              ..strokeWidth = (ball.radius * 0.72 * taper).clamp(0.8, ball.radius * 0.72)
+              ..color = _ca(isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, sparkPositions.length) : cbFlameCore) : Colors.white, 0.96 * taper);
             canvas.drawLine(sparkPositions[i], sparkPositions[i + 1], _stroke);
           }
 
-          // Layer 4: Electric spark cross glints along the path (scaling down with taper)
+          // Layer 4: Electric spark cross glints along the path
           for (int i = 0; i < trailCount; i += 2) {
             final progress = trailCount > 1 ? i / (trailCount - 1) : 0.0;
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
             final pt = ball.trail[i].position;
-            final sparkSize = ball.radius * (0.8 + 0.3 * sin(time * 24 + i)) * taper;
+            final sparkSize = ball.radius * (1.05 + 0.35 * sin(time * 24 + i)) * taper;
             if (sparkSize <= 0.5) continue;
             final a = time * 8 + i * 2;
             _stroke
-              ..strokeWidth = 1.0
-              ..color = _ca(Colors.white, 0.85 * taper);
+              ..strokeWidth = 1.4
+              ..color = _ca(isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameBright) : Colors.white, 0.88 * taper);
             canvas.drawLine(
               Offset(pt.dx - cos(a) * sparkSize, pt.dy - sin(a) * sparkSize),
               Offset(pt.dx + cos(a) * sparkSize, pt.dy + sin(a) * sparkSize),
@@ -2001,127 +3106,130 @@ class _GameWorldPainter extends CustomPainter {
             );
           }
         } else if (trailStyle == TrailStyle.ghost) {
-          // === ELEVATED GHOST TRAIL: Ethereal Phantom Echoes (Tapering to fine spirit tip) ===
-          final ghostBaseColor = isFireball
-              ? const Color(0xFFFF5252)
-              : (isCornerBoost ? const Color(0xFFFFE082) : skinMain);
-          final ghostGlowColor = isFireball
-              ? const Color(0xFFFF1744)
-              : (isCornerBoost ? const Color(0xFFFFD600) : skinGlow);
-
+          // === ELEVATED GHOST TRAIL: Ethereal Phantom Echoes (Full-Bodied) ===
           _stroke
             ..style = PaintingStyle.stroke
             ..strokeCap = StrokeCap.round
             ..strokeJoin = StrokeJoin.round
             ..maskFilter = null;
 
-          // 1. Flowing ethereal spirit ribbon segments (tapering smoothly)
+          // 1. Flowing ethereal spirit ribbon segments
           for (int i = 0; i < trailCount - 1; i++) {
             final progress = (i + 0.5) / (trailCount - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
             final p1 = ball.trail[i].position;
             final p2 = ball.trail[i + 1].position;
+            final ghostGlow = isFireball
+                ? const Color(0xFFFF6D00)
+                : (isCornerBoost ? getCornerBoostColor(i, trailCount) : getBallTrailColor(i, trailCount, isGlow: true));
+            final ghostBase = isFireball
+                ? const Color(0xFFFFD700)
+                : (isCornerBoost ? getCornerBoostColor(i, trailCount) : getBallTrailColor(i, trailCount));
 
             // Outer mist
             _stroke
-              ..strokeWidth = (ball.radius * 1.5 * taper).clamp(0.6, ball.radius * 1.5)
-              ..color = _ca(ghostGlowColor, 0.22 * taper);
+              ..strokeWidth = (ball.radius * 2.35 * taper).clamp(1.2, ball.radius * 2.35)
+              ..color = _ca(ghostGlow, 0.32 * taper);
             canvas.drawLine(p1, p2, _stroke);
 
             // Inner core ribbon
             _stroke
-              ..strokeWidth = (ball.radius * 0.7 * taper).clamp(0.4, ball.radius * 0.7)
-              ..color = _ca(ghostBaseColor, 0.45 * taper);
+              ..strokeWidth = (ball.radius * 1.15 * taper).clamp(0.8, ball.radius * 1.15)
+              ..color = _ca(ghostBase, 0.62 * taper);
             canvas.drawLine(p1, p2, _stroke);
           }
 
-          // 2. Spectral Phantom Clones (tapering smoothly down to 0)
+          // 2. Spectral Phantom Clones
           _fill
             ..style = PaintingStyle.fill
             ..maskFilter = null;
-          for (int i = 1; i < trailCount; i += 2) {
+          for (int i = 2; i < trailCount; i += 2) {
             final progress = i / (trailCount - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
-            final wave = sin(time * 8.0 + i * 0.7) * (2.0 * taper);
+            final taper = majesticTaper(progress);
+            final headPin = (i / 4.0).clamp(0.0, 1.0);
+            final wave = sin(time * 8.0 + i * 0.7) * (2.2 * taper * headPin);
             final pt = Offset(ball.trail[i].position.dx + wave, ball.trail[i].position.dy - wave * 0.5);
-            final ghostRadius = ball.radius * taper;
+            final ghostRadius = ball.radius * 0.85 * taper;
             if (ghostRadius <= 0.4) continue;
+            final ghostGlow = isFireball
+                ? const Color(0xFFFF6D00)
+                : (isCornerBoost ? getCornerBoostColor(i, trailCount) : getBallTrailColor(i, trailCount, isGlow: true));
+            final ghostBase = isFireball
+                ? const Color(0xFFFFD700)
+                : (isCornerBoost ? getCornerBoostColor(i, trailCount) : getBallTrailColor(i, trailCount));
 
-            // Ethereal diffuse mist aura (NO blur lag)
-            _fill.color = _ca(ghostGlowColor, 0.20 * taper);
-            canvas.drawCircle(pt, ghostRadius * 1.4, _fill);
+            // Ethereal diffuse mist aura
+            _fill.color = _ca(ghostGlow, 0.28 * taper);
+            canvas.drawCircle(pt, ghostRadius * 1.45, _fill);
 
             // Spectral body
-            _fill.color = _ca(ghostBaseColor, 0.35 * taper);
+            _fill.color = _ca(ghostBase, 0.48 * taper);
             canvas.drawCircle(pt, ghostRadius, _fill);
 
             // Spectral rim ring
             _stroke
-              ..strokeWidth = 1.0
-              ..color = _ca(Colors.white, 0.55 * taper);
+              ..strokeWidth = 1.4
+              ..color = _ca(isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameBright) : Colors.white, 0.68 * taper);
             canvas.drawCircle(pt, ghostRadius, _stroke);
 
             // Specular reflection echo
-            _fill.color = _ca(Colors.white, 0.7 * taper);
-            canvas.drawCircle(Offset(pt.dx - ghostRadius * 0.3, pt.dy - ghostRadius * 0.3), ghostRadius * 0.25, _fill);
+            _fill.color = _ca(isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameCore) : Colors.white, 0.80 * taper);
+            canvas.drawCircle(Offset(pt.dx - ghostRadius * 0.3, pt.dy - ghostRadius * 0.3), ghostRadius * 0.28, _fill);
           }
         } else if (trailStyle == TrailStyle.rainbow) {
-          // === ELEVATED RAINBOW TRAIL: Prismatic Aurora Borealis Ribbon (Tapering to needle tip) ===
+          // === GENTLE PRISMATIC AURORA (Full-Bodied Smooth Rainbow Ribbon) ===
           _stroke
             ..style = PaintingStyle.stroke
             ..strokeCap = StrokeCap.round
             ..strokeJoin = StrokeJoin.round
             ..maskFilter = null;
 
+          final baseHue = (time * 18.0) % 360.0;
+
           for (int i = 0; i < trailCount - 1; i++) {
             final progress = (i + 0.5) / (trailCount - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
-            final hue = (time * 120 + i * 16) % 360;
-            final color = HSLColor.fromAHSL(1.0, hue, 1.0, 0.55).toColor();
-            final wave = sin(time * 9.0 + i * 0.45) * (1.5 * taper);
+            final taper = majesticTaper(progress);
+            
+            final hue = (baseHue + progress * 240.0) % 360.0;
+            final sereneRainbowColor = HSLColor.fromAHSL(1.0, hue, 0.72, 0.60).toColor();
 
+            final color = isCornerBoost
+                ? getCornerBoostColor(i, trailCount)
+                : sereneRainbowColor;
+
+            final headPin = (i / 3.0).clamp(0.0, 1.0);
+            final wave = sin(time * 3.0 + i * 0.25) * (1.1 * taper * headPin);
             final p1 = Offset(ball.trail[i].position.dx + wave, ball.trail[i].position.dy);
             final p2 = Offset(ball.trail[i + 1].position.dx, ball.trail[i + 1].position.dy);
 
-            // Outer chromatic bloom (tapering, NO blur)
+            // Layer 1: Soft, soothing ambient glow
             _stroke
-              ..strokeWidth = (ball.radius * 2.5 * taper).clamp(0.8, ball.radius * 2.5)
-              ..color = _ca(color, 0.22 * taper);
+              ..strokeWidth = (ball.radius * 2.9 * taper).clamp(1.4, ball.radius * 2.9)
+              ..color = _ca(isCornerBoost ? cbFlameDeep : color, 0.26 * taper);
             canvas.drawLine(p1, p2, _stroke);
 
-            // Vibrant aurora ribbon (tapering)
+            // Layer 2: Main harmonious pastel ribbon
             _stroke
-              ..strokeWidth = (ball.radius * 1.3 * taper).clamp(0.6, ball.radius * 1.3)
-              ..color = _ca(color, 0.85 * taper);
+              ..strokeWidth = (ball.radius * 1.65 * taper).clamp(1.0, ball.radius * 1.65)
+              ..color = _ca(color, 0.88 * taper);
             canvas.drawLine(p1, p2, _stroke);
 
-            // Pure luminous core filament (tapering)
+            // Layer 3: Soft silk core
             _stroke
-              ..strokeWidth = (ball.radius * 0.42 * taper).clamp(0.4, ball.radius * 0.42)
-              ..color = _ca(Colors.white, 0.90 * taper);
+              ..strokeWidth = (ball.radius * 0.65 * taper).clamp(0.6, ball.radius * 0.65)
+              ..color = _ca(isCornerBoost ? cbFlameCore : Colors.white, 0.90 * taper);
             canvas.drawLine(p1, p2, _stroke);
 
-            // Prismatic star sparkle on crests
-            if (i % 5 == 0 && taper > 0.3) {
-              final spSize = ball.radius * (0.85 + 0.25 * sin(time * 16 + i)) * taper;
-              final a = time * 4 + i;
-              _stroke
-                ..strokeWidth = 1.0
-                ..color = _ca(Colors.white, 0.8 * taper);
-              canvas.drawLine(
-                Offset(p1.dx - cos(a) * spSize, p1.dy - sin(a) * spSize),
-                Offset(p1.dx + cos(a) * spSize, p1.dy + sin(a) * spSize),
-                _stroke,
-              );
-              canvas.drawLine(
-                Offset(p1.dx - cos(a + pi / 2) * (spSize * 0.6), p1.dy - sin(a + pi / 2) * (spSize * 0.6)),
-                Offset(p1.dx + cos(a + pi / 2) * (spSize * 0.6), p1.dy - sin(a + pi / 2) * (spSize * 0.6)),
-                _stroke,
-              );
+            if (i % 5 == 0 && taper > 0.35) {
+              final spSize = ball.radius * 0.85 * taper;
+              _fill
+                ..style = PaintingStyle.fill
+                ..color = _ca(Colors.white, 0.72 * taper);
+              canvas.drawCircle(p1, spSize * 0.45, _fill);
             }
           }
         } else if (trailStyle == TrailStyle.plasma) {
-          // === ELEVATED PLASMA TRAIL: Quantum Plasma Vortex & Cosmic Beam (Tapering to needle tip) ===
+          // === ELEVATED PLASMA TRAIL: Quantum Plasma Vortex & Cosmic Beam (Full-Bodied) ===
           _stroke
             ..style = PaintingStyle.stroke
             ..strokeCap = StrokeCap.round
@@ -2134,7 +3242,8 @@ class _GameWorldPainter extends CustomPainter {
             final p1 = ball.trail[i].position;
             final p2 = ball.trail[i + 1].position;
             final progress = i / (trailCount - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
+            final headPin = (i / 3.0).clamp(0.0, 1.0);
 
             final dx = p2.dx - p1.dx;
             final dy = p2.dy - p1.dy;
@@ -2142,7 +3251,7 @@ class _GameWorldPainter extends CustomPainter {
             if (segLen > 0.001) {
               final nx = -dy / segLen;
               final ny = dx / segLen;
-              final helix = sin(time * 18.0 + i * 0.8) * (ball.radius * 0.95 * taper);
+              final helix = sin(time * 6.0 + i * 0.4) * (ball.radius * 0.58 * taper * headPin);
               helix1Pts.add(Offset(p2.dx + nx * helix, p2.dy + ny * helix));
               helix2Pts.add(Offset(p2.dx - nx * helix, p2.dy - ny * helix));
             } else {
@@ -2151,64 +3260,80 @@ class _GameWorldPainter extends CustomPainter {
             }
           }
 
-          // 1. Deep cosmic cyan coronal glow segments (tapering, NO blur)
+          // 1. Deep coronal glow segments
           for (int i = 0; i < trailCount - 1; i++) {
             final progress = (i + 0.5) / (trailCount - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
+            final deepGlow = isFireball
+                ? const Color(0xFFFF6D00)
+                : (isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameDeep) : trailGlow);
             _stroke
-              ..strokeWidth = (ball.radius * 2.8 * taper).clamp(0.8, ball.radius * 2.8)
-              ..color = _ca(const Color(0xFF00E5FF), 0.25 * taper);
+              ..strokeWidth = (ball.radius * 3.5 * taper).clamp(1.6, ball.radius * 3.5)
+              ..color = _ca(deepGlow, 0.34 * taper);
             canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
           }
 
-          // 2. Twin helical plasma streamers (tapering)
+          // 2. Twin helical plasma streamers
           for (int i = 0; i < helix1Pts.length - 1; i++) {
             final progress = (i + 0.5) / (helix1Pts.length - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
+            final h1Color = isFireball
+                ? const Color(0xFFFFD700)
+                : (isCornerBoost ? getCornerBoostColor(i, helix1Pts.length) : trailPrimary);
+            final h2Color = isFireball
+                ? const Color(0xFFFF6D00)
+                : (isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i + 3, helix1Pts.length) : cbFlameGlow) : trailGlow);
             _stroke
-              ..strokeWidth = (ball.radius * 0.55 * taper).clamp(0.4, ball.radius * 0.55)
-              ..color = _ca(const Color(0xFF18FFFF), 0.85 * taper);
+              ..strokeWidth = (ball.radius * 0.90 * taper).clamp(0.7, ball.radius * 0.90)
+              ..color = _ca(h1Color, 0.90 * taper);
             canvas.drawLine(helix1Pts[i], helix1Pts[i + 1], _stroke);
 
-            _stroke.color = _ca(const Color(0xFFB388FF), 0.85 * taper);
+            _stroke.color = _ca(h2Color, 0.90 * taper);
             canvas.drawLine(helix2Pts[i], helix2Pts[i + 1], _stroke);
           }
 
-          // 3. High-intensity focused plasma core beam segments (tapering)
+          // 3. High-intensity focused plasma core beam segments
           for (int i = 0; i < trailCount - 1; i++) {
             final progress = (i + 0.5) / (trailCount - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
+            final beamCore = isFireball
+                ? const Color(0xFFFFF9C4)
+                : (isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameBright) : trailPrimary);
             _stroke
-              ..strokeWidth = (ball.radius * 1.0 * taper).clamp(0.6, ball.radius * 1.0)
-              ..color = _ca(const Color(0xFFE0F7FA), 0.90 * taper);
+              ..strokeWidth = (ball.radius * 1.55 * taper).clamp(1.0, ball.radius * 1.55)
+              ..color = _ca(beamCore, 0.94 * taper);
             canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
 
             _stroke
-              ..strokeWidth = (ball.radius * 0.45 * taper).clamp(0.4, ball.radius * 0.45)
-              ..color = _ca(Colors.white, 0.95 * taper);
+              ..strokeWidth = (ball.radius * 0.72 * taper).clamp(0.6, ball.radius * 0.72)
+              ..color = _ca(isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameCore) : Colors.white, 0.96 * taper);
             canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
           }
 
-          // 4. Quantum containment rings along the beam (scaling down with taper)
+          // 4. Quantum containment rings along the beam
           for (int i = 2; i < trailCount; i += 4) {
             final progress = i / (trailCount - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
             final pt = ball.trail[i].position;
-            final r = ball.radius * (1.1 + 0.3 * sin(time * 14 + i)) * taper;
+            final r = ball.radius * (1.28 + 0.32 * sin(time * 14 + i)) * taper;
             if (r <= 0.5) continue;
+            final ringColor = isFireball
+                ? const Color(0xFFFFD700)
+                : (isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameGlow) : trailGlow);
             _stroke
-              ..strokeWidth = 1.2
-              ..color = _ca(const Color(0xFF00E5FF), 0.75 * taper);
+              ..strokeWidth = 1.6
+              ..color = _ca(ringColor, 0.82 * taper);
             canvas.drawCircle(pt, r, _stroke);
           }
         } else if (trailStyle == TrailStyle.fire) {
-          // === ELEVATED FIRE TRAIL: Blazing Inferno Wake (Tapering to flickering tips) ===
+          // === ELEVATED FIRE TRAIL: Blazing Inferno Wake (Full-Bodied) ===
           final firePts = <Offset>[Offset(ball.x, ball.y)];
           for (int i = 0; i < trailCount - 1; i++) {
             final p1 = ball.trail[i].position;
             final p2 = ball.trail[i + 1].position;
             final progress = i / (trailCount - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
+            final headPin = (i / 3.0).clamp(0.0, 1.0);
 
             final dx = p2.dx - p1.dx;
             final dy = p2.dy - p1.dy;
@@ -2216,7 +3341,7 @@ class _GameWorldPainter extends CustomPainter {
             if (segLen > 0.001) {
               final nx = -dy / segLen;
               final ny = dx / segLen;
-              final wave = sin(time * 16.0 + i * 0.9) * (ball.radius * 0.65 * taper);
+              final wave = sin(time * 16.0 + i * 0.9) * (ball.radius * 0.62 * taper * headPin);
               firePts.add(Offset((p1.dx + p2.dx) * 0.5 + nx * wave, (p1.dy + p2.dy) * 0.5 + ny * wave));
             }
             firePts.add(p2);
@@ -2228,101 +3353,110 @@ class _GameWorldPainter extends CustomPainter {
             ..strokeJoin = StrokeJoin.round
             ..maskFilter = null;
 
-          // Layer 1: Outer billowing heat haze (tapering, NO blur)
+          // Layer 1: Outer billowing heat haze
           for (int i = 0; i < firePts.length - 1; i++) {
             final progress = (i + 0.5) / (firePts.length - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
+            final hazeColor = isCornerBoost
+                ? (isRainbowBall ? getCornerBoostColor(i, firePts.length) : cbFlameDeep)
+                : trailGlow;
             _stroke
-              ..strokeWidth = (ball.radius * 2.8 * taper).clamp(0.8, ball.radius * 2.8)
-              ..color = _ca(const Color(0xFFFF1744), 0.28 * taper);
+              ..strokeWidth = (ball.radius * 3.6 * taper).clamp(1.6, ball.radius * 3.6)
+              ..color = _ca(hazeColor, 0.36 * taper);
             canvas.drawLine(firePts[i], firePts[i + 1], _stroke);
           }
 
-          // Layer 2: Roaring orange/amber flame ribbon (tapering)
+          // Layer 2: Roaring flame ribbon
           for (int i = 0; i < firePts.length - 1; i++) {
             final progress = (i + 0.5) / (firePts.length - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
+            final ribbonColor = isCornerBoost
+                ? (isRainbowBall ? getCornerBoostColor(i, firePts.length) : cbFlameBase)
+                : trailPrimary;
             _stroke
-              ..strokeWidth = (ball.radius * 1.5 * taper).clamp(0.6, ball.radius * 1.5)
-              ..color = _ca(const Color(0xFFFF6D00), 0.85 * taper);
+              ..strokeWidth = (ball.radius * 2.1 * taper).clamp(1.1, ball.radius * 2.1)
+              ..color = _ca(ribbonColor, 0.90 * taper);
             canvas.drawLine(firePts[i], firePts[i + 1], _stroke);
           }
 
-          // Layer 3: Blinding incandescent yellow-white core (tapering)
+          // Layer 3: Blinding incandescent core
           for (int i = 0; i < firePts.length - 1; i++) {
             final progress = (i + 0.5) / (firePts.length - 1);
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
             _stroke
-              ..strokeWidth = (ball.radius * 0.6 * taper).clamp(0.4, ball.radius * 0.6)
-              ..color = _ca(const Color(0xFFFFF9C4), 0.95 * taper);
+              ..strokeWidth = (ball.radius * 0.95 * taper).clamp(0.7, ball.radius * 0.95)
+              ..color = _ca(isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, firePts.length) : cbFlameCore) : Color.lerp(trailPrimary, Colors.white, 0.75)!, 0.96 * taper);
             canvas.drawLine(firePts[i], firePts[i + 1], _stroke);
           }
 
-          // Layer 4: Fiery ember sparks (scaling down with taper)
+          // Layer 4: Fiery ember sparks
           _fill
             ..style = PaintingStyle.fill
             ..maskFilter = null;
-          for (int i = 0; i < trailCount; i += 2) {
+          for (int i = 2; i < trailCount; i += 2) {
             final progress = trailCount > 1 ? i / (trailCount - 1) : 0.0;
-            final taper = (1.0 - progress).clamp(0.0, 1.0);
+            final taper = majesticTaper(progress);
             final pt = ball.trail[i].position;
-            final emberPulse = sin(time * 22.0 + i * 1.8) * (ball.radius * 0.5 * taper);
-            final emberSize = ball.radius * (0.55 + 0.3 * sin(time * 14 + i)) * taper;
+            final emberPulse = sin(time * 22.0 + i * 1.8) * (ball.radius * 0.50 * taper);
+            final emberSize = ball.radius * (0.58 + 0.28 * sin(time * 14 + i)) * taper;
             if (emberSize <= 0.4) continue;
-            _fill.color = _ca((i % 4 == 0 ? const Color(0xFFFFEB3B) : const Color(0xFFFF3D00)), 0.9 * taper);
+            final emberColor = isCornerBoost
+                ? (isRainbowBall ? getCornerBoostColor(i, trailCount) : (i % 4 == 0 ? cbFlameBright : cbFlameBase))
+                : (i % 4 == 0 ? trailPrimary : trailGlow);
+            _fill.color = _ca(emberColor, 0.92 * taper);
             canvas.drawCircle(Offset(pt.dx + emberPulse, pt.dy - emberPulse), emberSize, _fill);
           }
         } else {
-          // Standard / Fireball / CornerBoost trail (Tapering to aerodynamic tip)
+          // Standard / Fireball / CornerBoost trail (Full-bodied & Majestic)
           if (isFireball) {
-            // Intense blazing multi-stage inferno (layered tapering passes, NO blur)
+            // Golden-Flame Searing Ball ("Yakıcı Top") multi-stage inferno trail
             _stroke
               ..style = PaintingStyle.stroke
               ..strokeCap = StrokeCap.round
               ..strokeJoin = StrokeJoin.round
               ..maskFilter = null;
 
-            // Pass 1: Outer scarlet flame
+            // Pass 1: Outer blazing orange-amber heat wake
             for (int i = 0; i < trailCount - 1; i++) {
               final progress = (i + 0.5) / (trailCount - 1);
-              final taper = (1.0 - progress).clamp(0.0, 1.0);
+              final taper = majesticTaper(progress);
               _stroke
-                ..strokeWidth = (ball.radius * 3.0 * taper).clamp(0.8, ball.radius * 3.0)
-                ..color = _ca(const Color(0xFFFF1744), 0.28 * taper);
+                ..strokeWidth = (ball.radius * 3.6 * taper).clamp(1.6, ball.radius * 3.6)
+                ..color = _ca(const Color(0xFFFF6D00), 0.36 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
-            // Pass 2: Mid amber flame
+            // Pass 2: Mid rich golden-amber flame
             for (int i = 0; i < trailCount - 1; i++) {
               final progress = (i + 0.5) / (trailCount - 1);
-              final taper = (1.0 - progress).clamp(0.0, 1.0);
+              final taper = majesticTaper(progress);
               _stroke
-                ..strokeWidth = (ball.radius * 1.7 * taper).clamp(0.6, ball.radius * 1.7)
-                ..color = _ca(const Color(0xFFFF6D00), 0.85 * taper);
+                ..strokeWidth = (ball.radius * 2.2 * taper).clamp(1.2, ball.radius * 2.2)
+                ..color = _ca(const Color(0xFFFFAB00), 0.88 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
-            // Pass 3: Incandescent yellow core
+            // Pass 3: Incandescent pure gold core
             for (int i = 0; i < trailCount - 1; i++) {
               final progress = (i + 0.5) / (trailCount - 1);
-              final taper = (1.0 - progress).clamp(0.0, 1.0);
+              final taper = majesticTaper(progress);
               _stroke
-                ..strokeWidth = (ball.radius * 0.75 * taper).clamp(0.4, ball.radius * 0.75)
-                ..color = _ca(const Color(0xFFFFEB3B), 0.95 * taper);
+                ..strokeWidth = (ball.radius * 1.15 * taper).clamp(0.8, ball.radius * 1.15)
+                ..color = _ca(const Color(0xFFFFD700), 0.96 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
-            // Pass 4: White core needle
+            // Pass 4: White-gold core filament
             for (int i = 0; i < trailCount - 1; i++) {
               final progress = (i + 0.5) / (trailCount - 1);
-              final taper = (1.0 - progress).clamp(0.0, 1.0);
+              final taper = majesticTaper(progress);
               _stroke
-                ..strokeWidth = (ball.radius * 0.35 * taper).clamp(0.4, ball.radius * 0.35)
+                ..strokeWidth = (ball.radius * 0.55 * taper).clamp(0.6, ball.radius * 0.55)
                 ..color = _ca(Colors.white, 0.98 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
           } else if (isCornerBoost) {
-            // Supersonic Mach wake (layered tapering passes, NO blur!)
+            // Supersonic Mach wake (Full-bodied, NO blur!)
             _stroke
               ..style = PaintingStyle.stroke
               ..strokeCap = StrokeCap.round
@@ -2332,42 +3466,45 @@ class _GameWorldPainter extends CustomPainter {
             // Pass 1: Outer jet haze
             for (int i = 0; i < trailCount - 1; i++) {
               final progress = (i + 0.5) / (trailCount - 1);
-              final taper = (1.0 - progress).clamp(0.0, 1.0);
+              final taper = majesticTaper(progress);
+              final hazeColor = isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameDeep;
               _stroke
-                ..strokeWidth = (ball.radius * 2.6 * taper).clamp(0.8, ball.radius * 2.6)
-                ..color = _ca(cbFlameDeep, 0.26 * taper);
+                ..strokeWidth = (ball.radius * 3.4 * taper).clamp(1.6, ball.radius * 3.4)
+                ..color = _ca(hazeColor, 0.34 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
             // Pass 2: Mid plasma thrust ribbon
             for (int i = 0; i < trailCount - 1; i++) {
               final progress = (i + 0.5) / (trailCount - 1);
-              final taper = (1.0 - progress).clamp(0.0, 1.0);
+              final taper = majesticTaper(progress);
+              final thrustColor = isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameBase;
               _stroke
-                ..strokeWidth = (ball.radius * 1.4 * taper).clamp(0.6, ball.radius * 1.4)
-                ..color = _ca(cbFlameBase, 0.85 * taper);
+                ..strokeWidth = (ball.radius * 1.95 * taper).clamp(1.1, ball.radius * 1.95)
+                ..color = _ca(thrustColor, 0.90 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
             // Pass 3: Blinding core needle
             for (int i = 0; i < trailCount - 1; i++) {
               final progress = (i + 0.5) / (trailCount - 1);
-              final taper = (1.0 - progress).clamp(0.0, 1.0);
+              final taper = majesticTaper(progress);
+              final needleColor = isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameCore;
               _stroke
-                ..strokeWidth = (ball.radius * 0.55 * taper).clamp(0.4, ball.radius * 0.55)
-                ..color = _ca(cbFlameCore, 0.96 * taper);
+                ..strokeWidth = (ball.radius * 0.85 * taper).clamp(0.7, ball.radius * 0.85)
+                ..color = _ca(needleColor, 0.98 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
-            // Embedded Mach shock diamond pulses along the trail (tapering)
+            // Embedded Mach shock diamond pulses along the trail
             _fill
               ..style = PaintingStyle.fill
               ..maskFilter = null;
             for (int i = 2; i < trailCount; i += 3) {
               final progress = i / (trailCount - 1);
-              final taper = (1.0 - progress).clamp(0.0, 1.0);
+              final taper = majesticTaper(progress);
               final pt = ball.trail[i].position;
-              final dSize = ball.radius * (0.8 + 0.25 * sin(time * 30 + i)) * taper;
+              final dSize = ball.radius * (0.95 + 0.28 * sin(time * 30 + i)) * taper;
               if (dSize <= 0.5) continue;
 
               _tempPath.reset();
@@ -2377,20 +3514,22 @@ class _GameWorldPainter extends CustomPainter {
               _tempPath.lineTo(pt.dx - dSize * 0.7, pt.dy);
               _tempPath.close();
 
-              _fill.color = _ca(cbFlameBase, 0.85 * taper);
+              final dColor = isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameBase;
+              _fill.color = _ca(dColor, 0.88 * taper);
               canvas.drawPath(_tempPath, _fill);
 
-              _fill.color = _ca(Colors.white, 0.95 * taper);
-              canvas.drawCircle(pt, dSize * 0.35, _fill);
+              _fill.color = _ca(Colors.white, 0.96 * taper);
+              canvas.drawCircle(pt, dSize * 0.38, _fill);
             }
           } else {
-            // === VIBRANT UNDULATING ENERGY RIBBON (Default / Standard Trail, Tapering to fine tip) ===
+            // === VIBRANT UNDULATING ENERGY RIBBON (Default / Standard Trail, Full-Bodied & Majestic) ===
             final wavePts = <Offset>[Offset(ball.x, ball.y)];
             for (int i = 0; i < trailCount - 1; i++) {
               final p1 = ball.trail[i].position;
               final p2 = ball.trail[i + 1].position;
               final progress = i / (trailCount - 1);
-              final taper = (1.0 - progress).clamp(0.0, 1.0);
+              final taper = majesticTaper(progress);
+              final headPin = (i / 3.0).clamp(0.0, 1.0);
 
               final dx = p2.dx - p1.dx;
               final dy = p2.dy - p1.dy;
@@ -2398,7 +3537,7 @@ class _GameWorldPainter extends CustomPainter {
               if (segLen > 0.001) {
                 final nx = -dy / segLen;
                 final ny = dx / segLen;
-                final wave = sin(time * 12.0 + i * 0.75) * (ball.radius * 0.38 * taper);
+                final wave = sin(time * 12.0 + i * 0.75) * (ball.radius * 0.36 * taper * headPin);
                 wavePts.add(Offset((p1.dx + p2.dx) * 0.5 + nx * wave, (p1.dy + p2.dy) * 0.5 + ny * wave));
               }
               wavePts.add(p2);
@@ -2410,47 +3549,50 @@ class _GameWorldPainter extends CustomPainter {
               ..strokeJoin = StrokeJoin.round
               ..maskFilter = null;
 
-            // Layer 1: Outer pulsating luminous bloom segments (tapering, NO blur)
+            // Layer 1: Outer pulsating luminous bloom segments (thick & rich)
             for (int i = 0; i < wavePts.length - 1; i++) {
               final progress = (i + 0.5) / (wavePts.length - 1);
-              final taper = (1.0 - progress).clamp(0.0, 1.0);
+              final taper = majesticTaper(progress);
+              final bloomColor = getBallTrailColor(i, wavePts.length, isGlow: true);
               _stroke
-                ..strokeWidth = (ball.radius * 2.2 * taper).clamp(0.8, ball.radius * 2.2)
-                ..color = _ca(skinGlow, 0.25 * taper);
+                ..strokeWidth = (ball.radius * 3.1 * taper).clamp(1.5, ball.radius * 3.1)
+                ..color = _ca(bloomColor, 0.36 * taper);
               canvas.drawLine(wavePts[i], wavePts[i + 1], _stroke);
             }
 
-            // Layer 2: Main energetic fluid ribbon segments (tapering)
+            // Layer 2: Main energetic fluid ribbon segments (bold & vibrant)
             for (int i = 0; i < wavePts.length - 1; i++) {
               final progress = (i + 0.5) / (wavePts.length - 1);
-              final taper = (1.0 - progress).clamp(0.0, 1.0);
+              final taper = majesticTaper(progress);
+              final coreColor = getBallTrailColor(i, wavePts.length);
               _stroke
-                ..strokeWidth = (ball.radius * 1.1 * taper).clamp(0.6, ball.radius * 1.1)
-                ..color = _ca(skinMain, 0.85 * taper);
+                ..strokeWidth = (ball.radius * 1.75 * taper).clamp(1.1, ball.radius * 1.75)
+                ..color = _ca(coreColor, 0.92 * taper);
               canvas.drawLine(wavePts[i], wavePts[i + 1], _stroke);
             }
 
-            // Layer 3: Pure starlight white core filament segments (tapering)
+            // Layer 3: Pure starlight white core filament segments
             for (int i = 0; i < wavePts.length - 1; i++) {
               final progress = (i + 0.5) / (wavePts.length - 1);
-              final taper = (1.0 - progress).clamp(0.0, 1.0);
+              final taper = majesticTaper(progress);
               _stroke
-                ..strokeWidth = (ball.radius * 0.4 * taper).clamp(0.4, ball.radius * 0.4)
-                ..color = _ca(Colors.white, 0.85 * taper);
+                ..strokeWidth = (ball.radius * 0.75 * taper).clamp(0.6, ball.radius * 0.75)
+                ..color = _ca(Colors.white, 0.92 * taper);
               canvas.drawLine(wavePts[i], wavePts[i + 1], _stroke);
             }
 
-            // Drifting stardust sparkles along the undulating trail (scaling down with taper)
+            // Drifting stardust sparkles along the undulating trail
             _fill
               ..style = PaintingStyle.fill
               ..maskFilter = null;
             for (int i = 0; i < trailCount; i += 3) {
               final progress = trailCount > 1 ? i / (trailCount - 1) : 0.0;
-              final taper = (1.0 - progress).clamp(0.0, 1.0);
+              final taper = majesticTaper(progress);
               final pt = ball.trail[i].position;
-              final sparkSize = ball.radius * (0.4 + 0.25 * sin(time * 18 + i)) * taper;
+              final sparkSize = ball.radius * (0.52 + 0.28 * sin(time * 18 + i)) * taper;
               if (sparkSize <= 0.4) continue;
-              _fill.color = _ca(Colors.white, 0.8 * taper);
+              final sparkColor = isRainbowBall ? getBallTrailColor(i, trailCount) : Colors.white;
+              _fill.color = _ca(sparkColor, 0.88 * taper);
               canvas.drawCircle(pt, sparkSize, _fill);
             }
           }
@@ -2468,94 +3610,92 @@ class _GameWorldPainter extends CustomPainter {
       }
 
       if (isFireball) {
-        // === CAPSULE FIREBALL: Radiant Claude-Style Starburst & Molten Star Flare (ZERO BLUR LAG) ===
-        final flick = 0.72 + 0.28 * sin(time * 26);
-        final starRot1 = time * 3.8;
-        final starRot2 = -time * 4.6;
+        // === CAPSULE SEARING BALL ("YAKICI TOP"): High-FPS Golden-Flame Inferno & Solar Crest (ZERO BLUR LAG) ===
+        final flick = 0.78 + 0.22 * sin(time * 28);
+        final spd = ball.speed;
+        final backAngle = (spd > 15.0) ? atan2(-ball.vy, -ball.vx) : (pi / 2);
+        final backX = cos(backAngle);
+        final backY = sin(backAngle);
+        final perpX = -backY;
+        final perpY = backX;
 
-        // 1. Deep scarlet & amber outer heat corona (multi-ring radiant glow)
+        // 1. Multi-ring Golden-Amber-Orange Heat Corona
         _fill
           ..style = PaintingStyle.fill
           ..maskFilter = null
-          ..color = _ca(const Color(0xFFFF1744), 0.24 * flick);
-        canvas.drawCircle(Offset.zero, ball.radius + 15 + flick * 4, _fill);
+          ..color = _ca(const Color(0xFFFF6D00), 0.28 * flick);
+        canvas.drawCircle(Offset.zero, ball.radius * 2.35 + flick * 3.0, _fill);
 
-        _fill.color = _ca(const Color(0xFFFF6D00), 0.38 * flick);
-        canvas.drawCircle(Offset.zero, ball.radius + 8 + flick * 2, _fill);
+        _fill.color = _ca(const Color(0xFFFFAB00), 0.42 * flick);
+        canvas.drawCircle(Offset.zero, ball.radius * 1.75 + flick * 2.0, _fill);
 
-        // 2. Rotating 6-Point Claude Starburst Polygon (Outer Fiery Geometry)
-        const int starPoints = 6;
-        final double outerR = ball.radius * (2.25 + 0.35 * flick);
-        final double innerR = ball.radius * (0.95 + 0.15 * flick);
+        // 2. Opposite-Curling Golden Flame Plume (Trailing Behind Velocity Vector)
+        final plumeLen = ball.radius * (3.2 + 0.9 * flick);
+        final plumeSpread = ball.radius * 1.15;
+        final curlWave = sin(time * 32.0) * (ball.radius * 0.45);
 
-        final Path claudeStar = Path();
-        for (int i = 0; i < starPoints * 2; i++) {
-          final double angle = starRot1 + i * (pi / starPoints);
-          final double r = (i % 2 == 0) ? outerR : innerR;
-          final double px = cos(angle) * r;
-          final double py = sin(angle) * r;
-          if (i == 0) {
-            claudeStar.moveTo(px, py);
-          } else {
-            claudeStar.lineTo(px, py);
-          }
-        }
-        claudeStar.close();
+        _tempPath.reset();
+        _tempPath.moveTo(perpX * plumeSpread, perpY * plumeSpread);
+        _tempPath.quadraticBezierTo(
+          backX * (plumeLen * 0.55) + perpX * (plumeSpread * 0.65 + curlWave),
+          backY * (plumeLen * 0.55) + perpY * (plumeSpread * 0.65 + curlWave),
+          backX * plumeLen + perpX * curlWave,
+          backY * plumeLen + perpY * curlWave,
+        );
+        _tempPath.quadraticBezierTo(
+          backX * (plumeLen * 0.55) - perpX * (plumeSpread * 0.65 - curlWave),
+          backY * (plumeLen * 0.55) - perpY * (plumeSpread * 0.65 - curlWave),
+          -perpX * plumeSpread,
+          -perpY * plumeSpread,
+        );
+        _tempPath.close();
 
-        // Fill Claude starburst with blazing solar crimson-orange
-        _fill.color = _ca(const Color(0xFFFF3D00), 0.52 * flick);
-        canvas.drawPath(claudeStar, _fill);
+        _fill.color = _ca(const Color(0xFFFF6D00), 0.58 * flick);
+        canvas.drawPath(_tempPath, _fill);
 
-        // Stroke Claude starburst with intense bright gold
+        // Inner golden tongue
+        _tempPath.reset();
+        _tempPath.moveTo(perpX * (plumeSpread * 0.65), perpY * (plumeSpread * 0.65));
+        _tempPath.lineTo(
+          backX * (plumeLen * 0.72) - perpX * (curlWave * 0.5),
+          backY * (plumeLen * 0.72) - perpY * (curlWave * 0.5),
+        );
+        _tempPath.lineTo(-perpX * (plumeSpread * 0.65), -perpY * (plumeSpread * 0.65));
+        _tempPath.close();
+
+        _fill.color = _ca(const Color(0xFFFFD700), 0.88 * flick);
+        canvas.drawPath(_tempPath, _fill);
+
+        // 3. Rotating Solar Core Crest (8 Curling Flame Tongues Around Ball)
+        const int crestCount = 8;
+        final double crestRot = time * 4.2;
         _stroke
           ..style = PaintingStyle.stroke
           ..maskFilter = null
           ..strokeCap = StrokeCap.round
           ..strokeJoin = StrokeJoin.round
-          ..strokeWidth = 2.2
-          ..color = _ca(const Color(0xFFFFD54F), 0.95 * flick);
-        canvas.drawPath(claudeStar, _stroke);
+          ..strokeWidth = 2.2;
 
-        // 3. Counter-Rotating Inner 6-Point Claude Starburst Glint (Pure White-Gold Shimmer)
-        final double innerOuterR = ball.radius * (1.55 + 0.22 * flick);
-        final double innerInnerR = ball.radius * 0.65;
-        final Path innerStar = Path();
-        for (int i = 0; i < starPoints * 2; i++) {
-          final double angle = starRot2 + i * (pi / starPoints);
-          final double r = (i % 2 == 0) ? innerOuterR : innerInnerR;
-          final double px = cos(angle) * r;
-          final double py = sin(angle) * r;
-          if (i == 0) {
-            innerStar.moveTo(px, py);
-          } else {
-            innerStar.lineTo(px, py);
-          }
+        for (int i = 0; i < crestCount; i++) {
+          final double a = crestRot + i * (2 * pi / crestCount);
+          final double tongueR = ball.radius * (1.42 + 0.22 * sin(time * 24.0 + i * 1.5));
+          final double baseA1 = a - 0.22;
+          final double baseA2 = a + 0.22;
+          final double tipA = a + 0.18 * sin(time * 18.0 + i);
+
+          _tempPath.reset();
+          _tempPath.moveTo(cos(baseA1) * (ball.radius * 0.92), sin(baseA1) * (ball.radius * 0.92));
+          _tempPath.lineTo(cos(tipA) * tongueR, sin(tipA) * tongueR);
+          _tempPath.lineTo(cos(baseA2) * (ball.radius * 0.92), sin(baseA2) * (ball.radius * 0.92));
+          _tempPath.close();
+
+          _fill.color = _ca(i.isEven ? const Color(0xFFFFD700) : const Color(0xFFFFAB00), 0.82 * flick);
+          canvas.drawPath(_tempPath, _fill);
         }
-        innerStar.close();
 
-        _fill.color = _ca(const Color(0xFFFFF9C4), 0.78 * flick);
-        canvas.drawPath(innerStar, _fill);
-
-        _stroke
-          ..strokeWidth = 1.6
-          ..color = _ca(Colors.white, 0.92 * flick);
-        canvas.drawPath(innerStar, _stroke);
-
-        // 4. Sparkling Stellar Pips on Star Vertices & Claude Rays
-        _fill.color = Colors.white;
-        for (int i = 0; i < starPoints; i++) {
-          final double angle = starRot1 + (i * 2) * (pi / starPoints);
-          final double tipX = cos(angle) * outerR;
-          final double tipY = sin(angle) * outerR;
-
-          // Diamond glints on each starburst tip
-          _stroke
-            ..strokeWidth = 1.2
-            ..color = _ca(const Color(0xFFFFFDE7), 0.9 * flick);
-          canvas.drawLine(Offset(tipX - 3.5, tipY), Offset(tipX + 3.5, tipY), _stroke);
-          canvas.drawLine(Offset(tipX, tipY - 3.5), Offset(tipX, tipY + 3.5), _stroke);
-          canvas.drawCircle(Offset(tipX, tipY), 1.6, _fill);
-        }
+        // Solar crest ring
+        _stroke.color = _ca(const Color(0xFFFFD700), 0.95 * flick);
+        canvas.drawCircle(Offset.zero, ball.radius * 1.18, _stroke);
       } else if (isCornerBoost) {
         // === CORNER SHOT (Köşe Vuruşu): Supersonic Jet Afterburners & Electric Mach Wake (ZERO BLUR LAG) ===
         // Supersonic jet alevleri, bow shock arc ve mach shock diamonds:
@@ -2834,13 +3974,13 @@ class _GameWorldPainter extends CustomPainter {
         final glowColor = ball.isPurple
             ? const Color(0xFFE040FB)
             : (isFireball
-                ? const Color(0xFFFF1744)
+                ? const Color(0xFFFFAB00)
                 : (isCornerBoost ? cbFlameGlow : skinGlow));
         _fill
           ..style = PaintingStyle.fill
           ..maskFilter = null
-          ..color = _ca(glowColor, 0.32);
-        canvas.drawCircle(Offset.zero, ball.radius + 3.5, _fill);
+          ..color = _ca(glowColor, 0.42);
+        canvas.drawCircle(Offset.zero, ball.radius + 4.8, _fill);
 
         // Ball Core
         final coreColor = ball.isPurple
@@ -2854,11 +3994,13 @@ class _GameWorldPainter extends CustomPainter {
         canvas.drawCircle(Offset.zero, ball.radius, _fill);
 
         if (isFireball) {
-          // Blazing white-gold molten star center
+          // Blazing golden-solar center
+          _fill.color = const Color(0xFFFFD700);
+          canvas.drawCircle(Offset.zero, ball.radius * 0.68, _fill);
           _fill.color = const Color(0xFFFFF9C4);
-          canvas.drawCircle(Offset.zero, ball.radius * 0.55, _fill);
+          canvas.drawCircle(Offset.zero, ball.radius * 0.45, _fill);
           _fill.color = Colors.white;
-          canvas.drawCircle(Offset.zero, ball.radius * 0.30, _fill);
+          canvas.drawCircle(Offset.zero, ball.radius * 0.25, _fill);
         } else if (isCornerBoost) {
           // Luminous flame core glint
           _fill.color = _ca(cbFlameCore, 0.85);
@@ -2881,12 +4023,12 @@ class _GameWorldPainter extends CustomPainter {
   void _drawBallSkinDetails(Canvas canvas, Ball ball, BallSkin skin, double time) {
     final r = ball.radius;
 
-    // Outer glow halo
+    // Outer glow halo (rich & prominent)
     _fill
       ..style = PaintingStyle.fill
       ..maskFilter = null
-      ..color = _ca(skin.glowColor, 0.35);
-    canvas.drawCircle(Offset.zero, r + 3.5, _fill);
+      ..color = _ca(skin.glowColor, 0.45);
+    canvas.drawCircle(Offset.zero, r + 4.8, _fill);
 
     // 1. Skin-specific base body with radial gradient
     final skinKey = Object.hash(skin.id, (r * 2).round());
@@ -2899,6 +4041,14 @@ class _GameWorldPainter extends CustomPainter {
     });
     canvas.drawCircle(Offset.zero, r, _fill);
     _fill.shader = null;
+
+    // Crisp luminous outer rim stroke for majestic ball presence
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..maskFilter = null
+      ..strokeWidth = 1.6
+      ..color = _ca(skin.glowColor, 0.85);
+    canvas.drawCircle(Offset.zero, r, _stroke);
 
     // 2. Specific Signature Effects for each Ball Skin
     switch (skin.id) {
@@ -2979,15 +4129,44 @@ class _GameWorldPainter extends CustomPainter {
         break;
 
       case 'isilti':
-        // Yıldız Işıltısı: Rotating 4-point golden starlight cross glint
-        final sa = time * 2.5;
-        final slen = r * 1.35;
+        // Yıldız Işıltısı (Epic): Radiant celestial starlight core, 8-point rotating crystalline flare & orbiting stardust
+        final sa = time * 2.2;
+        final pulse = 0.85 + sin(time * 6.0) * 0.15;
+        
+        // 1. Radiant celestial starlight halo corona
         _stroke
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.4
-          ..color = const Color(0xFFFFF9C4);
-        canvas.drawLine(Offset(-cos(sa) * slen, -sin(sa) * slen), Offset(cos(sa) * slen, sin(sa) * slen), _stroke);
-        canvas.drawLine(Offset(-cos(sa + pi / 2) * slen * 0.65, -sin(sa + pi / 2) * slen * 0.65), Offset(cos(sa + pi / 2) * slen * 0.65, sin(sa + pi / 2) * slen * 0.65), _stroke);
+          ..strokeWidth = 1.6
+          ..color = _ca(const Color(0xFFFFE082), 0.70 * pulse);
+        canvas.drawCircle(Offset.zero, r * 1.15, _stroke);
+
+        // 2. Primary 4-point radiant stellar flare rays
+        final rayLen1 = r * 1.55 * pulse;
+        _stroke
+          ..strokeWidth = 2.2
+          ..color = const Color(0xFFFFFDE7);
+        canvas.drawLine(Offset(-cos(sa) * rayLen1, -sin(sa) * rayLen1), Offset(cos(sa) * rayLen1, sin(sa) * rayLen1), _stroke);
+        canvas.drawLine(Offset(-cos(sa + pi / 2) * rayLen1, -sin(sa + pi / 2) * rayLen1), Offset(cos(sa + pi / 2) * rayLen1, sin(sa + pi / 2) * rayLen1), _stroke);
+
+        // 3. Secondary 4-point diagonal diamond glint rays (offset by 45 degrees)
+        final rayLen2 = r * 0.90 * pulse;
+        _stroke
+          ..strokeWidth = 1.3
+          ..color = const Color(0xFFFFD54F);
+        canvas.drawLine(Offset(-cos(sa + pi / 4) * rayLen2, -sin(sa + pi / 4) * rayLen2), Offset(cos(sa + pi / 4) * rayLen2, sin(sa + pi / 4) * rayLen2), _stroke);
+        canvas.drawLine(Offset(-cos(sa + 3 * pi / 4) * rayLen2, -sin(sa + 3 * pi / 4) * rayLen2), Offset(cos(sa + 3 * pi / 4) * rayLen2, sin(sa + 3 * pi / 4) * rayLen2), _stroke);
+
+        // 4. Brilliant center diamond core glint
+        _fill.color = Colors.white;
+        canvas.drawCircle(Offset.zero, 2.2 * pulse, _fill);
+
+        // 5. Four orbiting celestial stardust embers
+        for (int i = 0; i < 4; i++) {
+          final oa = -time * 3.0 + i * (pi / 2);
+          final od = r * (0.65 + 0.15 * sin(time * 4.0 + i));
+          _fill.color = (i.isEven) ? const Color(0xFFFFF9C4) : const Color(0xFFFFCA28);
+          canvas.drawCircle(Offset(cos(oa) * od, sin(oa) * od), 1.2, _fill);
+        }
         break;
 
       case 'altin':
@@ -3029,7 +4208,11 @@ class _GameWorldPainter extends CustomPainter {
           final a = i * (2 * pi / numSides);
           final px = cos(a) * (r * 0.88);
           final py = sin(a) * (r * 0.88);
-          if (i == 0) outerHex.moveTo(px, py); else outerHex.lineTo(px, py);
+          if (i == 0) {
+            outerHex.moveTo(px, py);
+          } else {
+            outerHex.lineTo(px, py);
+          }
         }
         outerHex.close();
 
@@ -3045,7 +4228,11 @@ class _GameWorldPainter extends CustomPainter {
           final a = i * (2 * pi / numSides) + (pi / numSides);
           final px = cos(a) * (r * 0.48);
           final py = sin(a) * (r * 0.48);
-          if (i == 0) innerHex.moveTo(px, py); else innerHex.lineTo(px, py);
+          if (i == 0) {
+            innerHex.moveTo(px, py);
+          } else {
+            innerHex.lineTo(px, py);
+          }
         }
         innerHex.close();
 
@@ -3091,43 +4278,43 @@ class _GameWorldPainter extends CustomPainter {
         break;
 
       case 'gokkusagi':
-        // === GÖKKUŞAĞI TOPU (Dynamic Spectrum Rainbow Prismatic Ball) ===
-        // 1. Dinamik renk değiştiren aurora spektrom halkası
-        final rainbowHue = (time * 160) % 360;
-        final rColor1 = HSLColor.fromAHSL(1.0, rainbowHue, 1.0, 0.60).toColor();
-        final rColor2 = HSLColor.fromAHSL(1.0, (rainbowHue + 120) % 360, 1.0, 0.65).toColor();
-        final rColor3 = HSLColor.fromAHSL(1.0, (rainbowHue + 240) % 360, 1.0, 0.65).toColor();
+        // === GÖKKUŞAĞI TOPU (Smooth Celestial Pastel Spectrum Ball - Eye-Friendly) ===
+        // 1. Dingin, yumuşak renk geçişli dış aura halkası (15 deg/s yavaş ve göz yormayan geçiş)
+        final rainbowHue = (time * 15.0) % 360.0;
+        final rColor1 = HSLColor.fromAHSL(1.0, rainbowHue, 0.65, 0.60).toColor();
+        final rColor2 = HSLColor.fromAHSL(1.0, (rainbowHue + 120) % 360, 0.60, 0.62).toColor();
+        final rColor3 = HSLColor.fromAHSL(1.0, (rainbowHue + 240) % 360, 0.60, 0.62).toColor();
 
         _stroke
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.6
-          ..color = _ca(rColor1, 0.90);
+          ..strokeWidth = 1.4
+          ..color = _ca(rColor1, 0.80);
         canvas.drawCircle(Offset.zero, r * 0.82, _stroke);
 
-        // 2. Dönen ikili spektrum elipsleri
+        // 2. Yavaş, sakin dönen çift spektrum yörünge halkası (0.6 rad/s huzurlu salınım)
         canvas.save();
-        canvas.rotate(time * 3.0);
+        canvas.rotate(time * 0.6);
         _stroke
-          ..strokeWidth = 1.3
-          ..color = _ca(rColor2, 0.85);
-        canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: r * 1.8, height: r * 0.55), _stroke);
+          ..strokeWidth = 1.1
+          ..color = _ca(rColor2, 0.70);
+        canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: r * 1.6, height: r * 0.50), _stroke);
 
         canvas.rotate(pi / 3);
-        _stroke.color = _ca(rColor3, 0.85);
-        canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: r * 1.8, height: r * 0.55), _stroke);
+        _stroke.color = _ca(rColor3, 0.70);
+        canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: r * 1.6, height: r * 0.50), _stroke);
         canvas.restore();
 
-        // 3. Parlak beyaz prizma çekirdek parıltısı & yıldız pırıltısı
+        // 3. Dingin sedefli inci çekirdeği (göz almayan saf beyaz-pastel ışıltı)
         _fill
           ..style = PaintingStyle.fill
-          ..color = Colors.white;
+          ..color = const Color(0xFFF8F9FA);
         canvas.drawCircle(Offset.zero, r * 0.28, _fill);
 
-        final rStarAngle = -time * 2.2;
-        final rStarLen = r * 1.15;
+        final rStarAngle = -time * 0.5;
+        final rStarLen = r * 0.90;
         _stroke
-          ..strokeWidth = 1.2
-          ..color = Colors.white;
+          ..strokeWidth = 1.0
+          ..color = _ca(Colors.white, 0.80);
         canvas.drawLine(Offset(-cos(rStarAngle) * rStarLen, -sin(rStarAngle) * rStarLen), Offset(cos(rStarAngle) * rStarLen, sin(rStarAngle) * rStarLen), _stroke);
         canvas.drawLine(Offset(-cos(rStarAngle + pi / 2) * rStarLen, -sin(rStarAngle + pi / 2) * rStarLen), Offset(cos(rStarAngle + pi / 2) * rStarLen, sin(rStarAngle + pi / 2) * rStarLen), _stroke);
         break;
@@ -3419,6 +4606,139 @@ class _GameWorldPainter extends CustomPainter {
       _tp.layout();
       _tp.paint(canvas, Offset(f.x - _tp.width / 2, f.y));
     }
+  }
+
+  void _drawShards(Canvas canvas) {
+    if (c.particles.shards.isEmpty) return;
+    for (final s in c.particles.shards) {
+      final alpha = (s.life / s.maxLife).clamp(0.0, 1.0);
+      if (alpha <= 0) continue;
+
+      canvas.save();
+      canvas.translate(s.x, s.y);
+      canvas.rotate(s.rotation);
+
+      // Shard faceted crystal geometry
+      final hw = s.width / 2;
+      final hh = s.height / 2;
+      _tempPath
+        ..reset()
+        ..moveTo(-hw, 0)
+        ..lineTo(0, -hh)
+        ..lineTo(hw, 0)
+        ..lineTo(0, hh)
+        ..close();
+
+      _fill.color = _ca(s.color, alpha * 0.85);
+      canvas.drawPath(_tempPath, _fill);
+
+      _stroke
+        ..strokeWidth = 1.0
+        ..color = _ca(Colors.white, alpha * 0.9);
+      canvas.drawPath(_tempPath, _stroke);
+
+      canvas.restore();
+    }
+  }
+
+  void _drawBossWarningBanner(Canvas canvas, Size size) {
+    if (c.bossWarningTimer <= 0) return;
+    final timer = c.bossWarningTimer;
+    // Fade in during first 0.3s, fade out in last 0.3s
+    final alpha = (timer < 0.3 ? timer / 0.3 : (2.2 - timer < 0.3 ? (2.2 - timer) / 0.3 : 1.0)).clamp(0.0, 1.0);
+
+    final bannerH = 54.0;
+    final bannerY = size.height * 0.32;
+    final bannerRect = Rect.fromLTWH(0, bannerY - bannerH / 2, size.width, bannerH);
+
+    // Dark translucent backdrop
+    _fill.color = _ca(const Color(0xDD0B0D18), alpha);
+    canvas.drawRect(bannerRect, _fill);
+
+    // Animated hazard stripes along top and bottom border
+    final stripeOffset = (time * 48.0) % 24.0;
+    _stroke
+      ..strokeWidth = 3.0
+      ..color = _ca(const Color(0xFFFFD54F), alpha * 0.9);
+
+    for (double sx = -24.0 + stripeOffset; sx < size.width + 24.0; sx += 24.0) {
+      canvas.drawLine(Offset(sx, bannerRect.top), Offset(sx + 10, bannerRect.top + 5), _stroke);
+      canvas.drawLine(Offset(sx, bannerRect.bottom - 5), Offset(sx + 10, bannerRect.bottom), _stroke);
+    }
+
+    // Glowing border lines
+    _stroke
+      ..strokeWidth = 2.0
+      ..color = _ca(const Color(0xFFFF1744), alpha);
+    canvas.drawLine(Offset(0, bannerRect.top), Offset(size.width, bannerRect.top), _stroke);
+    canvas.drawLine(Offset(0, bannerRect.bottom), Offset(size.width, bannerRect.bottom), _stroke);
+
+    // Pulsating Warning Text
+    final textPulse = 1.0 + 0.06 * sin(time * 12.0);
+    _tp.text = TextSpan(
+      text: I18n.tr('boss_incoming_warning'),
+      style: TextStyle(
+        color: _ca(const Color(0xFFFF1744), alpha),
+        fontSize: 16.0 * textPulse,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 2.0,
+        shadows: [
+          Shadow(color: _ca(const Color(0xFFFF1744), alpha * 0.7), blurRadius: 12.0),
+          const Shadow(color: Colors.black, offset: Offset(0, 2), blurRadius: 4.0),
+        ],
+      ),
+    );
+    _tp.layout();
+    _tp.paint(canvas, Offset((size.width - _tp.width) / 2, bannerY - _tp.height / 2));
+  }
+
+  void _drawLevelClearCelebration(Canvas canvas, Size size) {
+    if (c.levelTransitionTimer <= 0) return;
+    final timer = c.levelTransitionTimer;
+    final progress = (1.0 - timer / 0.95).clamp(0.0, 1.0);
+    final alpha = (progress < 0.2 ? progress / 0.2 : (progress > 0.8 ? (1.0 - progress) / 0.2 : 1.0)).clamp(0.0, 1.0);
+
+    final bannerH = 60.0;
+    final bannerY = size.height * 0.38;
+    final bannerRect = Rect.fromLTWH(0, bannerY - bannerH / 2, size.width, bannerH);
+
+    // Holographic celebration container
+    _fill.color = _ca(const Color(0xEE0B1A24), alpha * 0.95);
+    canvas.drawRect(bannerRect, _fill);
+
+    // Glowing cyan / gold celebratory border lines
+    _stroke
+      ..strokeWidth = 2.5
+      ..color = _ca(const Color(0xFF00E5FF), alpha);
+    canvas.drawLine(Offset(0, bannerRect.top), Offset(size.width, bannerRect.top), _stroke);
+    _stroke.color = _ca(const Color(0xFFFFD54F), alpha);
+    canvas.drawLine(Offset(0, bannerRect.bottom), Offset(size.width, bannerRect.bottom), _stroke);
+
+    // Sparkling confetti particles across banner
+    for (int i = 0; i < 16; i++) {
+      final cx = (i * 47.0 + time * 60.0) % size.width;
+      final cy = bannerRect.top + 8.0 + (i * 17.0) % (bannerH - 16.0);
+      final cColor = (i % 3 == 0) ? const Color(0xFFFFD54F) : ((i % 3 == 1) ? const Color(0xFF00E5FF) : const Color(0xFFFF4081));
+      _fill.color = _ca(cColor, alpha * (0.6 + 0.4 * sin(time * 8.0 + i)));
+      canvas.drawCircle(Offset(cx, cy), 2.2, _fill);
+    }
+
+    // Celebration Text
+    _tp.text = TextSpan(
+      text: I18n.tr('level_clear_banner'),
+      style: TextStyle(
+        color: _ca(const Color(0xFFFFD54F), alpha),
+        fontSize: 18.0,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 2.2,
+        shadows: [
+          Shadow(color: _ca(const Color(0xFFFFD54F), alpha * 0.8), blurRadius: 14.0),
+          const Shadow(color: Colors.black, offset: Offset(0, 2), blurRadius: 4.0),
+        ],
+      ),
+    );
+    _tp.layout();
+    _tp.paint(canvas, Offset((size.width - _tp.width) / 2, bannerY - _tp.height / 2));
   }
 
   void _drawBee(Canvas canvas) {

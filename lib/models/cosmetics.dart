@@ -41,6 +41,7 @@ class BallSkin {
   }
 
   static const List<BallSkin> allSkins = [
+    // --- Common (Yaygın) ---
     BallSkin(
       id: 'classic',
       name: 'Klasik Beyaz',
@@ -50,6 +51,8 @@ class BallSkin {
       glowColor: Color(0xCCFFFFFF),
       darkColor: Color(0xFF90A4AE),
     ),
+
+    // --- Rare (Nadir) ---
     BallSkin(
       id: 'pembe',
       name: 'Neon Pembe',
@@ -80,42 +83,44 @@ class BallSkin {
       darkColor: Color(0xFF1B5E20),
     ),
     BallSkin(
+      id: 'altin',
+      name: 'Saf Altın',
+      cost: 2400,
+      rarity: Rarity.rare,
+      mainColor: Color(0xFFFFEA00),
+      glowColor: Color(0xFFFFD600),
+      darkColor: Color(0xFFFF8F00),
+      hasAura: true,
+    ),
+
+    // --- Epic (Destansı) ---
+    BallSkin(
       id: 'golge',
       name: 'Gölge Mor',
-      cost: 2400,
+      cost: 2800,
       rarity: Rarity.epic,
       mainColor: Color(0xFFB388FF),
       glowColor: Color(0xE6B388FF),
       darkColor: Color(0xFF311B92),
     ),
     BallSkin(
-      id: 'ates',
-      name: 'Ateş Topu',
-      cost: 2800,
-      rarity: Rarity.epic,
-      mainColor: Color(0xFFFF6D00),
-      glowColor: Color(0xE6FF6D00),
-      darkColor: Color(0xFFBF360C),
-      hasAura: true,
-    ),
-    BallSkin(
       id: 'isilti',
       name: 'Yıldız Işıltısı',
-      cost: 3200,
-      rarity: Rarity.legendary,
+      cost: 3400,
+      rarity: Rarity.epic,
       mainColor: Color(0xFFFFD54F),
       glowColor: Color(0xE6FFD54F),
       darkColor: Color(0xFFF57F17),
       hasAura: true,
     ),
     BallSkin(
-      id: 'altin',
-      name: 'Saf Altın',
-      cost: 4500,
-      rarity: Rarity.legendary,
-      mainColor: Color(0xFFFFEA00),
-      glowColor: Color(0xFFFFD600),
-      darkColor: Color(0xFFFF8F00),
+      id: 'ates',
+      name: 'Ateş Topu',
+      cost: 4200,
+      rarity: Rarity.epic,
+      mainColor: Color(0xFFFF6D00),
+      glowColor: Color(0xE6FF6D00),
+      darkColor: Color(0xFFBF360C),
       hasAura: true,
     ),
     BallSkin(
@@ -128,16 +133,8 @@ class BallSkin {
       darkColor: Color(0xFF000000),
       hasAura: true,
     ),
-    BallSkin(
-      id: 'elmas_top',
-      name: 'Prizmatik Elmas',
-      cost: 9500,
-      rarity: Rarity.legendary,
-      mainColor: Color(0xFFE0F7FA),
-      glowColor: Color(0xFF18FFFF),
-      darkColor: Color(0xFF00B8D4),
-      hasAura: true,
-    ),
+
+    // --- Legendary (Efsanevi) ---
     BallSkin(
       id: 'gokkusagi',
       name: 'Gökkuşağı Topu',
@@ -146,6 +143,16 @@ class BallSkin {
       mainColor: Color(0xFFFF4081),
       glowColor: Color(0xFF00E5FF),
       darkColor: Color(0xFF7C4DFF),
+      hasAura: true,
+    ),
+    BallSkin(
+      id: 'elmas_top',
+      name: 'Prizmatik Elmas',
+      cost: 9500,
+      rarity: Rarity.legendary,
+      mainColor: Color(0xFFE0F7FA),
+      glowColor: Color(0xFF18FFFF),
+      darkColor: Color(0xFF00B8D4),
       hasAura: true,
     ),
   ];
@@ -180,6 +187,7 @@ class PaddleSkin {
   }
 
   static const List<PaddleSkin> allSkins = [
+    // --- Common (Yaygın) ---
     PaddleSkin(
       id: 'pclassic',
       name: 'Siber Klasik',
@@ -189,6 +197,8 @@ class PaddleSkin {
       color2: Color(0xFF7C4DFF),
       glowColor: Color(0x6640C4FF),
     ),
+
+    // --- Rare (Nadir) ---
     PaddleSkin(
       id: 'ppink',
       name: 'Neon Pembe',
@@ -207,6 +217,8 @@ class PaddleSkin {
       color2: Color(0xFF00ACC1),
       glowColor: Color(0x66B2EBF2),
     ),
+
+    // --- Epic (Destansı) ---
     PaddleSkin(
       id: 'pbat',
       name: 'Gece Yarasa',
@@ -219,29 +231,31 @@ class PaddleSkin {
     PaddleSkin(
       id: 'pcyber',
       name: 'Siberpunk 2099',
-      cost: 3200,
+      cost: 3400,
       rarity: Rarity.epic,
       color1: Color(0xFF00E5FF),
       color2: Color(0xFFD500F9),
       glowColor: Color(0x9900E5FF),
     ),
     PaddleSkin(
-      id: 'pgold',
-      name: 'Kraliyet Altını',
-      cost: 4200,
-      rarity: Rarity.legendary,
-      color1: Color(0xFFFFE082),
-      color2: Color(0xFFFF8F00),
-      glowColor: Color(0x99FFD54F),
-    ),
-    PaddleSkin(
       id: 'pdark',
       name: 'Zehirli Sarmaşık',
-      cost: 5000,
+      cost: 4800,
       rarity: Rarity.epic,
       color1: Color(0xFF00E676),
       color2: Color(0xFF1B5E20),
       glowColor: Color(0x6600E676),
+    ),
+
+    // --- Legendary (Efsanevi) ---
+    PaddleSkin(
+      id: 'pgold',
+      name: 'Kraliyet Altını',
+      cost: 6500,
+      rarity: Rarity.legendary,
+      color1: Color(0xFFFFE082),
+      color2: Color(0xFFFF8F00),
+      glowColor: Color(0x99FFD54F),
     ),
     PaddleSkin(
       id: 'pnebula',
@@ -294,7 +308,7 @@ class TrailSkin {
       cost: 0,
       rarity: Rarity.common,
       style: TrailStyle.dot,
-      length: 22,
+      length: 48,
       primaryColor: Color(0xFF80D8FF),
       glowColor: Color(0xFF40C4FF),
     ),
@@ -304,7 +318,7 @@ class TrailSkin {
       cost: 4800,
       rarity: Rarity.rare,
       style: TrailStyle.dot,
-      length: 32,
+      length: 64,
       primaryColor: Color(0xFF00E5FF),
       glowColor: Color(0xFF69F0AE),
     ),
@@ -314,7 +328,7 @@ class TrailSkin {
       cost: 7200,
       rarity: Rarity.rare,
       style: TrailStyle.spark,
-      length: 36,
+      length: 72,
       primaryColor: Color(0xFFFFD54F),
       glowColor: Color(0xFFFF9100),
     ),
@@ -324,7 +338,7 @@ class TrailSkin {
       cost: 9800,
       rarity: Rarity.epic,
       style: TrailStyle.fire,
-      length: 50,
+      length: 85,
       primaryColor: Color(0xFFFF3D00),
       glowColor: Color(0xFFFF9100),
     ),
@@ -334,7 +348,7 @@ class TrailSkin {
       cost: 14500,
       rarity: Rarity.epic,
       style: TrailStyle.rainbow,
-      length: 56,
+      length: 95,
       primaryColor: Color(0xFFFF4081),
       glowColor: Color(0xFF00E5FF),
     ),
@@ -344,7 +358,7 @@ class TrailSkin {
       cost: 18500,
       rarity: Rarity.epic,
       style: TrailStyle.ghost,
-      length: 46,
+      length: 80,
       primaryColor: Color(0xFFB388FF),
       glowColor: Color(0xFF7C4DFF),
     ),
@@ -354,7 +368,7 @@ class TrailSkin {
       cost: 25000,
       rarity: Rarity.legendary,
       style: TrailStyle.plasma,
-      length: 70,
+      length: 100,
       primaryColor: Color(0xFF18FFFF),
       glowColor: Color(0xFFB388FF),
     ),
@@ -384,6 +398,21 @@ class FishItem {
 
   String get name => _name != null ? I18n.tr(id) : I18n.tr(id);
   String get assetPath => 'assets/images/fishes/$id.png';
+
+  /// Gold awarded by this fish 6 hours after being fed
+  int get goldReward {
+    if (id == 'tetra') return 20;
+    switch (rarity) {
+      case Rarity.common:
+        return 10;
+      case Rarity.rare:
+        return 20;
+      case Rarity.epic:
+        return 40;
+      case Rarity.legendary:
+        return 80;
+    }
+  }
 
   static const List<FishItem> allFish = [
     // 1. Guppy Species

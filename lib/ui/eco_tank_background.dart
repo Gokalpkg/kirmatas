@@ -83,47 +83,77 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
 
   @override
   void dispose() {
+    // If user leaves screen while dropped pellets are still falling, apply them to eligible fish
+    final save = SaveManager.instance;
+    for (int i = 0; i < _foodPellets.length; i++) {
+      _SimFish? target;
+      for (final f in _simFish) {
+        if (!save.isFishProducing(f.item.id)) {
+          target = f;
+          break;
+        }
+      }
+      target ??= _simFish.cast<_SimFish?>().firstWhere(
+            (f) => f != null && !save.isFishInSatietyCooldown(f.item.id),
+            orElse: () => null,
+          );
+      if (target != null) {
+        save.onFishAtePellet(target.item.id);
+      }
+    }
+    _foodPellets.clear();
     _ticker.dispose();
     _frame.dispose();
     super.dispose();
   }
 
   void spawnFeast() {
-    for (int i = 0; i < 12; i++) {
-      _foodPellets.add(
-        _FoodPellet(
-          x: 40.0 + _rand.nextDouble() * 300.0,
-          y: 60.0 + _rand.nextDouble() * 80.0,
-          vy: 28.0 + _rand.nextDouble() * 20.0,
-          swayPhase: _rand.nextDouble() * pi * 2,
-        ),
-      );
+    dropSinglePellet();
+  }
+
+  /// Drops 1 pellet from the top of the tank (used by the bottom button)
+  bool dropSinglePellet() {
+    final save = SaveManager.instance;
+    if (!save.consumeFishFoodOne()) {
+      AudioManager.instance.playSfx(GameSfx.hitWall);
+      return false;
     }
+    _foodPellets.add(
+      _FoodPellet(
+        x: 60.0 + _rand.nextDouble() * 260.0,
+        y: 90.0 + _rand.nextDouble() * 40.0,
+        vy: 30.0 + _rand.nextDouble() * 16.0,
+        swayPhase: _rand.nextDouble() * pi * 2,
+      ),
+    );
     AudioManager.instance.playSfx(GameSfx.bubble);
+    return true;
   }
 
   void _addFood(Offset pos) {
     if (!widget.interactive) return;
+    final save = SaveManager.instance;
     // Yem yoksa yem atılma animasyonu olmasın
-    if (SaveManager.instance.fishFood <= 0) return;
-
-    // Spawn 2 food pellets near tap
-    for (int i = 0; i < 2; i++) {
-      final offsetX = (_rand.nextDouble() * 2 - 1) * 12.0;
-      final offsetY = (_rand.nextDouble() * 2 - 1) * 8.0;
-      _foodPellets.add(
-        _FoodPellet(
-          x: pos.dx + offsetX,
-          y: pos.dy + offsetY,
-          vy: 32.0 + _rand.nextDouble() * 18.0,
-          swayPhase: _rand.nextDouble() * pi * 2,
-        ),
-      );
+    if (!save.consumeFishFoodOne()) {
+      AudioManager.instance.playSfx(GameSfx.hitWall);
+      return;
     }
+
+    // Spawn 1 food pellet exactly at tap position
+    _foodPellets.add(
+      _FoodPellet(
+        x: pos.dx,
+        y: pos.dy,
+        vy: 30.0 + _rand.nextDouble() * 16.0,
+        swayPhase: _rand.nextDouble() * pi * 2,
+      ),
+    );
     AudioManager.instance.playSfx(GameSfx.click);
   }
 
   void _updateSimulation(double dt) {
+    final save = SaveManager.instance;
+
     // 1. Update bubbles (gentle rising)
     for (final b in _bubbles) {
       b.y -= b.speed * dt * 0.75;
@@ -152,41 +182,61 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       }
     }
 
-    // 4. Assign each pellet to the single closest fish
-    final Map<_SimFish, _FoodPellet> fishTargetPellet = {};
-    for (final pellet in _foodPellets) {
-      _SimFish? closestFish;
-      double minDist = 999999.0;
-      for (final f in _simFish) {
-        final dist = sqrt((pellet.x - f.x) * (pellet.x - f.x) + (pellet.y - f.y) * (pellet.y - f.y));
-        if (dist < minDist) {
-          minDist = dist;
-          closestFish = f;
-        }
-      }
-      if (closestFish != null) {
-        if (!fishTargetPellet.containsKey(closestFish)) {
-          fishTargetPellet[closestFish] = pellet;
-        } else {
-          final existing = fishTargetPellet[closestFish]!;
-          final existingDist = sqrt((existing.x - closestFish.x) * (existing.x - closestFish.x) + (existing.y - closestFish.y) * (existing.y - closestFish.y));
-          if (minDist < existingDist) {
-            fishTargetPellet[closestFish] = pellet;
-          }
-        }
-      }
-    }
-
-    // 5. Update fish swimming
+    // 4. Update fish tail animation and short bite cooldowns
     for (final f in _simFish) {
       f.tailPhase += dt * 4.5;
       if (f.eatCooldown > 0) {
         f.eatCooldown -= dt;
       }
+      if (f.satiatedTimer > 0) {
+        f.satiatedTimer -= dt;
+      }
+    }
 
+    // 5. Assign each pellet to an eligible fish:
+    // Rule: Fish fed within the last 3 hours NEVER eat ("beslenen balık 3 saat boyunca bişi yemesin").
+    // Priority 1: Unfed fish (not yet in 6h production cycle).
+    // Priority 2: Fish whose 3-hour satiety cooldown has expired ("3 saat sonra istediği kadar yesin ama bişi değişmesin").
+    final Map<_SimFish, _FoodPellet> fishTargetPellet = {};
+    for (final pellet in _foodPellets) {
+      _SimFish? chosenFish;
+      double minDist = 999999.0;
+
+      // Priority 1: Unfed fish not yet assigned to another pellet
+      for (final f in _simFish) {
+        if (f.eatCooldown > 0 || f.isSatiated) continue;
+        if (save.isFishProducing(f.item.id)) continue;
+        if (fishTargetPellet.containsKey(f)) continue;
+        final dist = sqrt((pellet.x - f.x) * (pellet.x - f.x) + (pellet.y - f.y) * (pellet.y - f.y));
+        if (dist < minDist) {
+          minDist = dist;
+          chosenFish = f;
+        }
+      }
+
+      // Priority 2: Any fish past its 3-hour satiety cooldown not yet assigned to another pellet
+      if (chosenFish == null) {
+        for (final f in _simFish) {
+          if (f.eatCooldown > 0 || f.isSatiated) continue;
+          if (fishTargetPellet.containsKey(f)) continue;
+          final dist = sqrt((pellet.x - f.x) * (pellet.x - f.x) + (pellet.y - f.y) * (pellet.y - f.y));
+          if (dist < minDist) {
+            minDist = dist;
+            chosenFish = f;
+          }
+        }
+      }
+
+      if (chosenFish != null) {
+        fishTargetPellet[chosenFish] = pellet;
+      }
+    }
+
+    // 6. Update fish swimming towards target or ambient patrol
+    for (final f in _simFish) {
       final targetPellet = fishTargetPellet[f];
 
-      if (targetPellet != null) {
+      if (targetPellet != null && !f.isSatiated) {
         // Eagerly swim towards assigned food pellet
         final dx = targetPellet.x - f.x;
         final dy = targetPellet.y - f.y;
@@ -195,30 +245,33 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
         if (dist < 22.0) {
           // Eat pellet!
           _foodPellets.remove(targetPellet);
-          f.eatCooldown = 0.5;
+          f.eatCooldown = 1.0;
+          f.satiatedTimer = 14.0;
+          save.onFishAtePellet(f.item.id);
 
           // Spawn eat sparkles
-          for (int k = 0; k < 4; k++) {
+          for (int k = 0; k < 5; k++) {
             _eatParticles.add(
               _EatParticle(
                 x: f.x + (_rand.nextDouble() * 2 - 1) * 8.0,
                 y: f.y - 6.0,
-                maxLife: 0.8 + _rand.nextDouble() * 0.4,
+                maxLife: 0.9 + _rand.nextDouble() * 0.4,
                 color: const Color(0xFFFFD54F),
               ),
             );
           }
           AudioManager.instance.playSfx(GameSfx.bubble);
         } else {
-          final swimSpeed = (dist > 140 ? 105.0 : 80.0) * (1.0 + f.item.size * 0.1);
+          final swimSpeed = (dist > 140 ? 115.0 : 88.0) * (1.0 + f.item.size * 0.1);
           f.x += (dx / dist) * swimSpeed * dt;
           f.y += (dy / dist) * swimSpeed * dt;
           f.facingRight = dx >= 0;
           f.pitchAngle = (dy / dist * 0.4).clamp(-0.45, 0.45);
         }
       } else {
-        // Calm ambient swimming
-        final speed = f.vx.abs();
+        // Calm ambient swimming (satiated fish swim slower and happier)
+        final speedMult = f.isSatiated ? 0.8 : 1.0;
+        final speed = f.vx.abs() * speedMult;
         f.x += (f.facingRight ? speed : -speed) * dt;
         f.y += sin(_animTime * 1.5 + f.tailPhase) * 12.0 * dt;
         f.pitchAngle = sin(_animTime * 1.6 + f.tailPhase) * 0.08;
@@ -306,6 +359,11 @@ class _SimFish {
   bool facingRight;
   double tailPhase;
   double eatCooldown = 0.0;
+  double satiatedTimer = 0.0;
+
+  /// True while the fish is in its 3-hour post-feeding satiety window
+  bool get isSatiated => SaveManager.instance.isFishInSatietyCooldown(item.id);
+  bool get isProducing => SaveManager.instance.isFishProducing(item.id);
 
   _SimFish({
     required this.item,
@@ -493,6 +551,16 @@ class _TankPainter extends CustomPainter {
 
         canvas.drawCircle(const Offset(7, -2), 2.0, _eyeWhite);
         canvas.drawCircle(const Offset(8, -2), 0.9, _eyeBlack);
+      }
+
+      // 8. Golden sparkle indicator above fed/producing fish
+      if (f.isProducing || f.satiatedTimer > 0) {
+        final floatY = -18.0 + sin(time * 3.5 + f.tailPhase) * 2.5;
+        final pulse = 0.65 + 0.35 * sin(time * 4.0 + f.tailPhase);
+        _sparkPaint.color = const Color(0xFFFFD54F).withValues(alpha: 0.65 * pulse);
+        canvas.drawCircle(Offset(0, floatY), 2.2, _sparkPaint);
+        _sparkPaint.color = Colors.white.withValues(alpha: 0.85 * pulse);
+        canvas.drawCircle(Offset(0, floatY), 1.0, _sparkPaint);
       }
 
       canvas.restore();

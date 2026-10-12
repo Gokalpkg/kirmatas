@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
@@ -33,276 +35,278 @@ class PauseGameOverOverlay extends StatelessWidget {
         final isVictory = controller.status == GameStatus.victory;
         final isGameOver = controller.status == GameStatus.gameOver;
 
-    final stats = controller.stats;
-    final save = SaveManager.instance;
-    final bestScore = save.getHighScore(controller.currentMode);
-    final isNewRecord = stats.score > bestScore;
+        final stats = controller.stats;
+        final save = SaveManager.instance;
+        final bestScore = save.getHighScore(controller.currentMode);
+        final isNewRecord = stats.score > bestScore;
 
-    return Container(
-      color: const Color(0xCC05060A),
-      child: Center(
-        child: Container(
-          width: 320,
-          margin: const EdgeInsets.symmetric(horizontal: 24),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: const Color(0xF0101320),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-              color: isVictory
-                  ? const Color(0xFFFFD54F)
-                  : (isGameOver ? const Color(0xFFFF5252) : Colors.white24),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: (isVictory
+        return Container(
+          color: const Color(0xCC05060A),
+          child: Center(
+            child: SingleChildScrollView(
+              child: Container(
+                width: 320,
+                margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: const Color(0xF0101320),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: isVictory
                         ? const Color(0xFFFFD54F)
-                        : (isGameOver ? const Color(0xFFFF5252) : Colors.black))
-                    .withValues(alpha: 0.35),
-                blurRadius: 36,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Title
-              Text(
-                isPaused
-                    ? I18n.tr('paused')
-                    : (isVictory ? I18n.tr('victory') : I18n.tr('game_over')),
-                style: TextStyle(
-                  color: isVictory
-                      ? const Color(0xFFFFD54F)
-                      : (isGameOver ? const Color(0xFFFF5252) : Colors.white),
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.0,
-                ),
-              ),
-              const SizedBox(height: 18),
-
-              if (!isPaused) ...[
-                // Stats card
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0x66181C2E),
-                    borderRadius: BorderRadius.circular(18),
+                        : (isGameOver ? const Color(0xFFFF5252) : Colors.white24),
+                    width: 1.5,
                   ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(I18n.tr('score'), style: const TextStyle(color: Colors.white70)),
-                          Text(
-                            '${stats.score}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 18,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(I18n.tr('high_score'), style: const TextStyle(color: Colors.white70)),
-                          Text(
-                            '$bestScore',
-                            style: const TextStyle(
-                              color: Color(0xFFFFD54F),
-                              fontWeight: FontWeight.w900,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(I18n.tr('max_combo'), style: const TextStyle(color: Colors.white70)),
-                          Text(
-                            'x${stats.maxCombo}',
-                            style: const TextStyle(
-                              color: Color(0xFF00E5FF),
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(I18n.tr('bricks_broken'), style: const TextStyle(color: Colors.white70)),
-                          Text(
-                            '${stats.bricksBroken}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Kazanılan Altın', style: TextStyle(color: Colors.white70)),
-                          Row(
-                            children: [
-                              const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
-                              const SizedBox(width: 4),
-                              Text(
-                                '+${stats.goldCollected}',
-                                style: const TextStyle(
-                                  color: Color(0xFFFFD54F),
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                if (isNewRecord) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    I18n.tr('new_record'),
-                    style: const TextStyle(
-                      color: Color(0xFFFFD54F),
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.0,
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isVictory
+                              ? const Color(0xFFFFD54F)
+                              : (isGameOver ? const Color(0xFFFF5252) : Colors.black))
+                          .withValues(alpha: 0.35),
+                      blurRadius: 36,
                     ),
-                  ),
-                ],
-                const SizedBox(height: 20),
-              ],
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Title
+                    Text(
+                      isPaused
+                          ? I18n.tr('paused')
+                          : (isVictory ? I18n.tr('victory') : I18n.tr('game_over')),
+                      style: TextStyle(
+                        color: isVictory
+                            ? const Color(0xFFFFD54F)
+                            : (isGameOver ? const Color(0xFFFF5252) : Colors.white),
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
-              if (isPaused)
-                ListenableBuilder(
-                  listenable: save,
-                  builder: (context, _) {
-                    return Column(
-                      children: [
+                    if (!isPaused) ...[
+                      // Stats card
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0x66181C2E),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(I18n.tr('score'), style: const TextStyle(color: Colors.white70)),
+                                Text(
+                                  '${stats.score}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(I18n.tr('high_score'), style: const TextStyle(color: Colors.white70)),
+                                Text(
+                                  '$bestScore',
+                                  style: const TextStyle(
+                                    color: Color(0xFFFFD54F),
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(I18n.tr('max_combo'), style: const TextStyle(color: Colors.white70)),
+                                Text(
+                                  'x${stats.maxCombo}',
+                                  style: const TextStyle(
+                                    color: Color(0xFF00E5FF),
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(I18n.tr('bricks_broken'), style: const TextStyle(color: Colors.white70)),
+                                Text(
+                                  '${stats.bricksBroken}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(I18n.tr('gold_earned'), style: const TextStyle(color: Colors.white70)),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '+${stats.goldCollected}',
+                                      style: const TextStyle(
+                                        color: Color(0xFFFFD54F),
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (isNewRecord) ...[
+                        const SizedBox(height: 10),
                         Text(
-                          '${I18n.tr('sfx')}: ${save.sfxVolume}',
-                          style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
-                        ),
-                        Slider(
-                          value: save.sfxVolume.toDouble(),
-                          min: 0,
-                          max: 8,
-                          divisions: 8,
-                          activeColor: const Color(0xFFFFD54F),
-                          onChanged: (v) {
-                            save.setSfxVolume(v.toInt());
-                            AudioManager.instance.playSfx(GameSfx.hitBrick);
-                          },
-                        ),
-                        Text(
-                          'Müzik (BGM): ${save.bgmVolume}',
-                          style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
-                        ),
-                        Slider(
-                          value: save.bgmVolume.toDouble(),
-                          min: 0,
-                          max: 8,
-                          divisions: 8,
-                          activeColor: const Color(0xFFFFD54F),
-                          onChanged: (v) {
-                            save.setBgmVolume(v.toInt());
-                            AudioManager.instance.updateBgmVolume();
-                          },
-                        ),
-                        Text(
-                          '${I18n.tr('haptics')}: ${save.vibrationLevel}',
-                          style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
-                        ),
-                        Slider(
-                          value: save.vibrationLevel.toDouble(),
-                          min: 0,
-                          max: 8,
-                          divisions: 8,
-                          activeColor: const Color(0xFFFFD54F),
-                          onChanged: (v) {
-                            save.setVibrationLevel(v.toInt());
-                            AudioManager.instance.playSfx(GameSfx.hitBrick);
-                          },
+                          I18n.tr('new_record'),
+                          style: const TextStyle(
+                            color: Color(0xFFFFD54F),
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                          ),
                         ),
                       ],
-                    );
-                  },
-                ),
-              if (isPaused) const SizedBox(height: 16),
-              // Actions
-              if (isPaused)
-                ElevatedButton.icon(
-                  onPressed: onResume,
-                  icon: const Icon(Icons.play_arrow),
-                  label: Text(I18n.tr('resume')),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00E5FF),
-                    foregroundColor: Colors.black,
-                    minimumSize: const Size.fromHeight(48),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                ),
-              const SizedBox(height: 10),
-              // Revive / Second Chance Ad Button (Only on Game Over and once per game)
-              if (isGameOver && !controller.hasUsedRevive) ...[
-                _buildReviveButton(context),
-                const SizedBox(height: 12),
-              ],
-              // Victory 3X Multiplier High-Yield Ad Button
-              if (isVictory) ...[
-                _buildVictoryBonusSection(context),
-                const SizedBox(height: 12),
-              ],
-              ElevatedButton.icon(
-                onPressed: onRestart,
-                icon: const Icon(Icons.replay),
-                label: Text(I18n.tr('restart')),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFD54F),
-                  foregroundColor: Colors.black,
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      const SizedBox(height: 16),
+                    ],
+
+                    if (isPaused)
+                      ListenableBuilder(
+                        listenable: save,
+                        builder: (context, _) {
+                          return Column(
+                            children: [
+                              Text(
+                                '${I18n.tr('sfx')}: ${save.sfxVolume}',
+                                style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+                              ),
+                              Slider(
+                                value: save.sfxVolume.toDouble(),
+                                min: 0,
+                                max: 8,
+                                divisions: 8,
+                                activeColor: const Color(0xFFFFD54F),
+                                onChanged: (v) {
+                                  save.setSfxVolume(v.toInt());
+                                  AudioManager.instance.playSfx(GameSfx.hitBrick);
+                                },
+                              ),
+                              Text(
+                                '${I18n.tr('music_bgm')}: ${save.bgmVolume}',
+                                style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+                              ),
+                              Slider(
+                                value: save.bgmVolume.toDouble(),
+                                min: 0,
+                                max: 8,
+                                divisions: 8,
+                                activeColor: const Color(0xFFFFD54F),
+                                onChanged: (v) {
+                                  save.setBgmVolume(v.toInt());
+                                  AudioManager.instance.updateBgmVolume();
+                                },
+                              ),
+                              Text(
+                                '${I18n.tr('haptics')}: ${save.vibrationLevel}',
+                                style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+                              ),
+                              Slider(
+                                value: save.vibrationLevel.toDouble(),
+                                min: 0,
+                                max: 8,
+                                divisions: 8,
+                                activeColor: const Color(0xFFFFD54F),
+                                onChanged: (v) {
+                                  save.setVibrationLevel(v.toInt());
+                                  AudioManager.instance.playSfx(GameSfx.hitBrick);
+                                },
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    if (isPaused) const SizedBox(height: 16),
+                    // Actions
+                    if (isPaused)
+                      ElevatedButton.icon(
+                        onPressed: onResume,
+                        icon: const Icon(Icons.play_arrow),
+                        label: Text(I18n.tr('resume')),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00E5FF),
+                          foregroundColor: Colors.black,
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    // 1. Revive / Second Chance Long Ad Button (Only on Game Over and once per game)
+                    if (isGameOver && !controller.hasUsedRevive) ...[
+                      _buildReviveButton(context),
+                      const SizedBox(height: 10),
+                    ],
+                    // 2. End-of-Game Dice Roll 2X-3X Gold Multiplier Long Ad Button (On BOTH Game Over & Victory!)
+                    if (isGameOver || isVictory) ...[
+                      _EndGameDiceMultiplierCard(controller: controller),
+                      const SizedBox(height: 12),
+                    ],
+                    ElevatedButton.icon(
+                      onPressed: onRestart,
+                      icon: const Icon(Icons.replay),
+                      label: Text(I18n.tr('restart')),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFD54F),
+                        foregroundColor: Colors.black,
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: onMainMenu,
+                      icon: const Icon(Icons.home),
+                      label: Text(I18n.tr('main_menu')),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white70,
+                        minimumSize: const Size.fromHeight(48),
+                        side: const BorderSide(color: Colors.white24),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: onMainMenu,
-                icon: const Icon(Icons.home),
-                label: Text(I18n.tr('main_menu')),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white70,
-                  minimumSize: const Size.fromHeight(48),
-                  side: const BorderSide(color: Colors.white24),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
-    );
+        );
       },
     );
   }
 
   Widget _buildReviveButton(BuildContext context) {
     final adManager = AdManager.instance;
-    final isLoading = adManager.isLoadingHighYield || adManager.isShowing;
+    final isLoading = adManager.isShowing;
 
     return Container(
       decoration: BoxDecoration(
@@ -336,14 +340,14 @@ class PauseGameOverOverlay extends StatelessWidget {
                     onDismissedEarly: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: const Row(
+                          content: Row(
                             children: [
-                              Icon(Icons.info_outline, color: Color(0xFFFF8A80), size: 22),
-                              SizedBox(width: 10),
+                              const Icon(Icons.info_outline, color: Color(0xFFFF8A80), size: 22),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  'Ödülü kazanmak ve yeniden doğmak için reklamı sonuna kadar izlemelisiniz.',
-                                  style: TextStyle(
+                                  I18n.tr('watch_ad_to_revive_hint'),
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
                                     fontSize: 13,
@@ -376,9 +380,9 @@ class PauseGameOverOverlay extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                   ),
                   const SizedBox(width: 10),
-                  const Text(
-                    'Reklam Hazırlanıyor...',
-                    style: TextStyle(
+                  Text(
+                    I18n.tr('ad_preparing'),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
                       fontSize: 14,
@@ -400,25 +404,25 @@ class PauseGameOverOverlay extends StatelessWidget {
                     child: const Icon(Icons.favorite, color: Color(0xFFFF1744), size: 18),
                   ),
                   const SizedBox(width: 12),
-                  const Column(
+                  Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
                           Text(
-                            '❤️ REKORU KURTAR!',
-                            style: TextStyle(
+                            '❤️ ${I18n.tr('save_record_title')}',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w900,
                               fontSize: 14,
                               letterSpacing: 0.5,
                             ),
                           ),
-                          SizedBox(width: 6),
+                          const SizedBox(width: 6),
                           Text(
-                            '(+1 CAN)',
-                            style: TextStyle(
+                            I18n.tr('extra_life_badge'),
+                            style: const TextStyle(
                               color: Color(0xFFFFEB3B),
                               fontWeight: FontWeight.w900,
                               fontSize: 13,
@@ -427,8 +431,8 @@ class PauseGameOverOverlay extends StatelessWidget {
                         ],
                       ),
                       Text(
-                        'Kaldığın Yerden Rekoruna Devam Et',
-                        style: TextStyle(
+                        I18n.tr('save_record_sub'),
+                        style: const TextStyle(
                           color: Colors.white70,
                           fontWeight: FontWeight.w600,
                           fontSize: 11,
@@ -444,31 +448,99 @@ class PauseGameOverOverlay extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildVictoryBonusSection(BuildContext context) {
+class _EndGameDiceMultiplierCard extends StatefulWidget {
+  final GameController controller;
+
+  const _EndGameDiceMultiplierCard({required this.controller});
+
+  @override
+  State<_EndGameDiceMultiplierCard> createState() => _EndGameDiceMultiplierCardState();
+}
+
+class _EndGameDiceMultiplierCardState extends State<_EndGameDiceMultiplierCard> {
+  static const List<String> _diceGlyphs = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+  bool _isRolling = false;
+  int _previewFace = 6;
+  Timer? _rollTimer;
+
+  @override
+  void dispose() {
+    _rollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startDiceRollSequence() {
+    if (_isRolling || widget.controller.hasClaimedVictoryBonus) return;
+    setState(() {
+      _isRolling = true;
+    });
+
+    final rand = Random();
+    int ticks = 0;
+    _rollTimer = Timer.periodic(const Duration(milliseconds: 95), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      ticks++;
+      if (ticks < 10) {
+        setState(() {
+          _previewFace = 1 + rand.nextInt(6);
+        });
+        AudioManager.instance.playSfx(GameSfx.hitBrick);
+      } else {
+        timer.cancel();
+        widget.controller.rollEndGameGoldDice();
+        if (mounted) {
+          setState(() {
+            _isRolling = false;
+          });
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.controller;
     final adManager = AdManager.instance;
-    final isLoading = adManager.isLoadingHighYield || adManager.isShowing;
+    final isAdBusy = adManager.isShowing;
 
-    if (controller.hasClaimedVictoryBonus) {
+    if (c.hasClaimedVictoryBonus) {
+      final rolled = c.endGameRolledDice.clamp(1, 6);
+      final glyph = _diceGlyphs[rolled - 1];
+      final mult = c.endGameMultiplier > 0 ? c.endGameMultiplier : 3;
+      final bonus = c.endGameBonusGoldAdded > 0 ? c.endGameBonusGoldAdded : 200;
+
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0x334CAF50),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF4CAF50), width: 1.5),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1B5E20), Color(0xFF0D3312)],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFF69F0AE), width: 1.5),
+          boxShadow: const [
+            BoxShadow(color: Color(0x4400E676), blurRadius: 12),
+          ],
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 20),
-            SizedBox(width: 8),
-            Text(
-              '3X ZAFER BONUSU ALINDI! (+200 🪙)',
-              style: TextStyle(
-                color: Color(0xFF81C784),
-                fontWeight: FontWeight.w900,
-                fontSize: 12,
-                letterSpacing: 0.5,
+            Text(glyph, style: const TextStyle(fontSize: 24, color: Color(0xFFFFD54F))),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                'ZAR $rolled GELDİ ➔ ${mult}X ALTIN (+$bonus 🪙 EKLENDİ!)',
+                style: const TextStyle(
+                  color: Color(0xFFB9F6CA),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 11.5,
+                  letterSpacing: 0.3,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
           ],
@@ -476,10 +548,14 @@ class PauseGameOverOverlay extends StatelessWidget {
       );
     }
 
+    final baseGold = c.endGameMultiplierBaseGold;
+    final gold2x = baseGold * 2;
+    final gold3x = baseGold * 3;
+
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFFFA000), Color(0xFFFF8F00), Color(0xFFFF6F00)],
+          colors: [Color(0xFFFFB300), Color(0xFFFF8F00), Color(0xFFE65100)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -487,8 +563,8 @@ class PauseGameOverOverlay extends StatelessWidget {
         border: Border.all(color: const Color(0xFFFFF9C4), width: 1.8),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x88FF8F00),
-            blurRadius: 20,
+            color: Color(0x77FF8F00),
+            blurRadius: 18,
             offset: Offset(0, 4),
           ),
         ],
@@ -497,25 +573,23 @@ class PauseGameOverOverlay extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
-          onTap: isLoading
+          onTap: (isAdBusy || _isRolling)
               ? null
               : () {
                   adManager.watchHighYieldAd(
                     context,
-                    onSuccess: () {
-                      controller.claimVictoryBonus();
-                    },
+                    onSuccess: _startDiceRollSequence,
                     onDismissedEarly: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: const Row(
+                          content: Row(
                             children: [
-                              Icon(Icons.info_outline, color: Color(0xFFFFD54F), size: 22),
-                              SizedBox(width: 10),
+                              const Icon(Icons.info_outline, color: Color(0xFFFFD54F), size: 22),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  '3X Zafer ödülünü (+200 🪙) kazanmak için reklamı sonuna kadar izlemelisiniz.',
-                                  style: TextStyle(
+                                  I18n.tr('watch_ad_for_victory_hint'),
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
                                     fontSize: 13,
@@ -537,7 +611,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                   );
                 },
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -545,44 +619,68 @@ class PauseGameOverOverlay extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0x33000000),
+                    color: const Color(0x44000000),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.white24),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.local_fire_department, color: Color(0xFFFFEB3B), size: 14),
+                      Icon(Icons.casino_rounded, color: Color(0xFFFFEB3B), size: 13),
                       SizedBox(width: 4),
                       Text(
-                        'ÖDÜLÜ KATLAMA FIRSATI',
+                        'ŞANS ZARINI AT: 2X VEYA 3X ALTIN!',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
-                          fontSize: 10,
-                          letterSpacing: 0.5,
+                          fontSize: 9.5,
+                          letterSpacing: 0.4,
                         ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 6),
-                // Main Multiplier Row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (isLoading) ...[
+                if (_isRolling)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _diceGlyphs[_previewFace - 1],
+                        style: const TextStyle(fontSize: 28, color: Colors.white),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        '🎲 ZAR ATILIYOR...',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
+                  )
+                else if (isAdBusy)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
                       const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                       ),
                       const SizedBox(width: 10),
-                      const Text(
-                        'Reklam Hazırlanıyor...',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
+                      Text(
+                        I18n.tr('ad_preparing'),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
                       ),
-                    ] else ...[
+                    ],
+                  )
+                else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
@@ -595,63 +693,55 @@ class PauseGameOverOverlay extends StatelessWidget {
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.stars_rounded, color: Color(0xFFFF8F00), size: 20),
+                        child: const Icon(Icons.casino, color: Color(0xFFE65100), size: 20),
                       ),
                       const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                '100 🪙 ➔ ',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12,
-                                  decoration: TextDecoration.lineThrough,
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '$baseGold 🪙 ➔ ',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 11.5,
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
                                 ),
-                              ),
-                              const Text(
-                                '👑 300 🪙',
-                                style: TextStyle(
-                                  color: Color(0xFFFFFDE7),
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 15,
-                                  letterSpacing: 0.5,
-                                  shadows: [
-                                    Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
-                                  ],
+                                Flexible(
+                                  child: Text(
+                                    '🎲 $gold2x - $gold3x 🪙',
+                                    style: const TextStyle(
+                                      color: Color(0xFFFFFDE7),
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 14,
+                                      shadows: [
+                                        Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
+                                      ],
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFD50000),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: const Text(
-                                  '+200 BONUS',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 9),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Kısa Reklam İzle & 3 Kat Fazla Kazan!',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 11,
+                              ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Reklam İzle & Zar At (1-3: 2X | 4-6: 3X)',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10.5,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
-                  ],
-                ),
+                  ),
               ],
             ),
           ),

@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import '../engine/audio_manager.dart';
+import '../engine/i18n.dart';
 import '../storage/save_manager.dart';
 
 class DailyQuestsDialog extends StatefulWidget {
-  const DailyQuestsDialog({super.key});
+  final VoidCallback? onPlayToday;
 
-  static Future<void> show(BuildContext context) {
+  const DailyQuestsDialog({super.key, this.onPlayToday});
+
+  static Future<void> show(BuildContext context, {VoidCallback? onPlayToday}) {
     return showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (_) => const DailyQuestsDialog(),
+      builder: (_) => DailyQuestsDialog(onPlayToday: onPlayToday),
     );
   }
 
@@ -28,7 +31,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '🎉 +$reward Altın Hesabınıza Eklendi!',
+            '🎉 +$reward ${I18n.tr('quest_gold')}',
             style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFFD54F)),
           ),
           backgroundColor: const Color(0xFF161A29),
@@ -75,13 +78,13 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.assignment_turned_in, color: Color(0xFF00E5FF), size: 24),
-                        SizedBox(width: 8),
+                        const Icon(Icons.assignment_turned_in, color: Color(0xFF00E5FF), size: 24),
+                        const SizedBox(width: 8),
                         Text(
-                          'GÜNLÜK GÖREVLER',
-                          style: TextStyle(
+                          I18n.tr('quests_title'),
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
@@ -98,18 +101,18 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                   ],
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Her gece yenilenen görevleri tamamla, kasana ekstra altın ve yem ekle!',
-                  style: TextStyle(color: Colors.white60, fontSize: 12),
+                Text(
+                  I18n.tr('quests_desc'),
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
 
                 // Quest 1: Feed Fish
                 _buildQuestCard(
                   id: 'feed_fish',
-                  title: 'Akvaryum Balıklarını Besle',
-                  rewardText: '+60 🪙 + 1 Yem 🌾',
+                  title: I18n.tr('quest_feed'),
+                  rewardText: '+60 🪙 + 1 ${I18n.tr('food_word')} 🌾',
                   current: _save.questFishFed ? 1 : 0,
                   target: 1,
                   icon: Icons.set_meal,
@@ -120,7 +123,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                 // Quest 2: Break 100 Bricks
                 _buildQuestCard(
                   id: 'break_bricks',
-                  title: '100 Adet Tuğla Kır',
+                  title: I18n.tr('quest_bricks'),
                   rewardText: '+120 🪙',
                   current: _save.questBricksBroken,
                   target: 100,
@@ -132,7 +135,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                 // Quest 3: Ad or Victory
                 _buildQuestCard(
                   id: 'ad_or_win',
-                  title: 'Reklam İzle veya Bölüm Kazan',
+                  title: I18n.tr('quest_win'),
                   rewardText: '+150 🪙',
                   current: _save.questAdOrWinDone ? 1 : 0,
                   target: 1,
@@ -143,7 +146,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Kapat', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+                  child: Text(I18n.tr('close'), style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -222,9 +225,9 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                     color: Colors.white10,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text(
-                    'ALINDI',
-                    style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w900, fontSize: 11),
+                  child: Text(
+                    I18n.tr('quest_claimed'),
+                    style: const TextStyle(color: Colors.white38, fontWeight: FontWeight.w900, fontSize: 11),
                   ),
                 ),
               ] else if (isCompleted) ...[
@@ -237,9 +240,9 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     visualDensity: VisualDensity.compact,
                   ),
-                  child: const Text(
-                    'ÖDÜLÜ AL',
-                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                  child: Text(
+                    I18n.tr('quest_claim'),
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
                   ),
                 ),
               ] else ...[
