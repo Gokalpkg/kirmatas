@@ -1200,24 +1200,24 @@ class GameController extends ChangeNotifier {
         }
 
         final minY = lowestAliveBrickY + 45.0;
-        final maxY = paddle.y - 75.0;
+        final maxY = paddle.y - 170.0;
 
         _blackHoleTimer = 0.0;
-        final r = 22.0 + _rand.nextDouble() * 12.0;
+        final r = 13.0 + _rand.nextDouble() * 4.0;
         final roll = _rand.nextDouble();
         final isVortexTrap = roll < 0.02; // 2% rare ultra vortex
         final isSupercharged = !isVortexTrap && (roll < 0.30); // ~28% exotic supercharged black hole
         final double spawnY = (maxY > minY + 20.0)
             ? (minY + _rand.nextDouble() * (maxY - minY))
-            : (paddle.y - 150.0).clamp(180.0, paddle.y - 80.0);
-        final spawnX = (screenWidth * 0.20 + _rand.nextDouble() * (screenWidth * 0.60)).clamp(r + 20.0, screenWidth - r - 20.0);
+            : (paddle.y - 200.0).clamp(160.0, paddle.y - 170.0);
+        final spawnX = (screenWidth * 0.22 + _rand.nextDouble() * (screenWidth * 0.56)).clamp(r + 20.0, screenWidth - r - 20.0);
 
         blackHoles.add(
           BlackHole(
             x: spawnX,
             y: spawnY,
             radius: r,
-            mass: r * 4500.0,
+            mass: r * 8000.0,
             timeLeft: isVortexTrap ? 7.5 : (isSupercharged ? 6.5 : (5.5 + _rand.nextDouble() * 2.0)),
             isVortexTrap: isVortexTrap,
             isSupercharged: isSupercharged,
@@ -1288,9 +1288,12 @@ class GameController extends ChangeNotifier {
         }
       }
 
-      // Anti-softlock: prevent ball from getting stuck horizontally forever
+      // Anti-softlock: prevent ball from getting stuck horizontally or vertically forever
       if (!ball.isStuck && ball.vy.abs() < 28.0) {
         ball.vy = ball.vy >= 0 ? 35.0 : -35.0;
+      }
+      if (!ball.isStuck && ball.vx != 0.0 && ball.vx.abs() < 8.0) {
+        ball.vx = ball.vx >= 0 ? 8.0 : -8.0;
       }
 
       // Black Hole gravity pull & trajectory deflection:
@@ -1325,14 +1328,14 @@ class GameController extends ChangeNotifier {
               bh.ballOrbitLaps[ballKey] = currentLaps;
               final currentSpd = ball.speed;
               if (bh.isSupercharged || bh.isVortexTrap) {
-                final boostedSpeed = (currentSpd * 1.25).clamp(getBaseBallSpeed(), 740.0);
+                final boostedSpeed = (currentSpd * 1.30).clamp(getBaseBallSpeed(), 760.0);
                 ball.setSpeed(boostedSpeed);
-                particles.spawnBurst(ball.x, ball.y, const Color(0xFFFF9100), count: 6, speed: 120.0);
+                particles.spawnBurst(ball.x, ball.y, const Color(0xFFFF9100), count: 8, speed: 130.0);
                 audio.playSfx(GameSfx.laser);
               } else {
-                final boostedSpeed = (currentSpd * 1.08).clamp(getBaseBallSpeed(), 620.0);
+                final boostedSpeed = (currentSpd * 1.15).clamp(getBaseBallSpeed(), 660.0);
                 ball.setSpeed(boostedSpeed);
-                particles.spawnBurst(ball.x, ball.y, const Color(0xFFE040FB), count: 3, speed: 60.0);
+                particles.spawnBurst(ball.x, ball.y, const Color(0xFFE040FB), count: 5, speed: 80.0);
               }
             }
           }
@@ -1340,16 +1343,17 @@ class GameController extends ChangeNotifier {
 
           final normalizedDist = (dist / maxInfluenceDist).clamp(0.0, 1.0);
           final proximity = 1.0 - normalizedDist;
-          final falloff = pow(proximity, 0.85).toDouble();
+          final falloff = pow(proximity, 0.65).toDouble();
 
-          // Güçlü ve hissedilir kütleçekim ivmesi (tüm karadelik boyları için dengeli ve etkili)
-          final basePull = (bh.isVortexTrap ? 1550.0 : (bh.isSupercharged ? 1250.0 : 980.0)) * (bh.radius / 24.0);
+          // Güçlü ve hissedilir kütleçekim ivmesi (etkileri fullenmiş dramatik arcade çekimi)
+          final sizeMult = (bh.radius / 20.0).clamp(1.0, 2.0);
+          final basePull = (bh.isVortexTrap ? 5400.0 : (bh.isSupercharged ? 4400.0 : 3400.0)) * sizeMult;
           final pull = basePull * falloff;
 
           final nx = dx / dist;
           final ny = dy / dist;
 
-          // Merkeze doğru kütleçekim ivmesi
+          // Merkeze doğru kuvvetli kütleçekim ivmesi
           ball.vx += nx * pull * dt;
           ball.vy += ny * pull * dt;
 
@@ -1358,14 +1362,29 @@ class GameController extends ChangeNotifier {
           final tangentY = nx;
           final dotTangent = ball.vx * tangentX + ball.vy * tangentY;
           final dragDirection = dotTangent >= 0 ? 1.0 : -1.0;
-          final spinDrag = (bh.isVortexTrap ? 380.0 : (bh.isSupercharged ? 300.0 : 210.0)) * falloff;
+          final spinDrag = (bh.isVortexTrap ? 1400.0 : (bh.isSupercharged ? 1100.0 : 850.0)) * falloff;
           ball.vx += tangentX * spinDrag * dragDirection * dt;
           ball.vy += tangentY * spinDrag * dragDirection * dt;
 
-          // Supercharged / Vortex karadelikte yakın mesafede ek teğetsel fırlatma itkisi
-          if ((bh.isSupercharged || bh.isVortexTrap) && proximity > 0.40) {
-            ball.vx += tangentX * 95.0 * dragDirection * dt;
-            ball.vy += tangentY * 95.0 * dragDirection * dt;
+          // Yakın mesafede güçlü sapan hızlandırması ve görsel enerji kıvılcımları
+          if (proximity > 0.45 || dist < bh.radius * 3.5) {
+            ball.vx += tangentX * 280.0 * dragDirection * dt;
+            ball.vy += tangentY * 280.0 * dragDirection * dt;
+            if (_rand.nextDouble() < 0.25) {
+              particles.spawnBurnEmber(ball.x, ball.y, color: bh.isSupercharged ? const Color(0xFF00E5FF) : const Color(0xFFE040FB));
+            }
+          }
+
+          // Olay Ufku (Event Horizon) Teğet Sapanı & Anti-stuck:
+          // Top olay ufku çekirdeğine çok yaklaştığında asla tekillikte yutulup kalmaz;
+          // şiddetli bir kütleçekim sapanı ile dışarıya doğru fırlatılır!
+          if (dist <= bh.radius * 0.48 + ball.radius) {
+            final exitSpeed = max(ball.speed * 1.15, getBaseBallSpeed() * 1.25).clamp(getBaseBallSpeed(), 820.0);
+            ball.vx = tangentX * exitSpeed * dragDirection;
+            ball.vy = tangentY * exitSpeed * dragDirection;
+            particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD54F), count: 12, speed: 160.0);
+            particles.spawnShockwave(bh.x, bh.y, const Color(0xFFE040FB), maxRadius: 45.0);
+            audio.playSfx(GameSfx.cornerBoost);
           }
 
           // Asgari taban hız koruması
@@ -1373,7 +1392,7 @@ class GameController extends ChangeNotifier {
           if (ball.speed < minSpeed) {
             ball.setSpeed(minSpeed);
           }
-          final maxAllowedSpeed = (bh.isSupercharged || bh.isVortexTrap || ball.isWallSpeedBoosted) ? 760.0 : 650.0;
+          final maxAllowedSpeed = (bh.isSupercharged || bh.isVortexTrap || ball.isWallSpeedBoosted) ? 800.0 : 700.0;
           if (ball.speed > maxAllowedSpeed) {
             ball.setSpeed(maxAllowedSpeed);
           }
@@ -2107,7 +2126,7 @@ class GameController extends ChangeNotifier {
           }
         }
         final minY = lowestAliveBrickY + 45.0;
-        final maxY = paddle.y - 75.0;
+        final maxY = paddle.y - 170.0;
         final spawnY = maxY > minY ? (minY + (maxY - minY) * 0.5) : maxY;
         final spawnX = (paddle.x + paddle.width / 2).clamp(48.0, screenWidth - 48.0);
         for (final bh in blackHoles) {

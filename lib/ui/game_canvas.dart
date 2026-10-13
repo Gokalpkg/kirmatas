@@ -2919,7 +2919,7 @@ class _GameWorldPainter extends CustomPainter {
         final trailCount = ball.trail.length;
         // Full-bodied majestic taper: keeps rich thickness along the body and tapers smoothly at the tail
         double majesticTaper(double progress) =>
-            (0.36 + 0.64 * pow((1.0 - progress).clamp(0.0, 1.0), 0.52).toDouble()).clamp(0.0, 1.0);
+            (0.48 + 0.52 * pow((1.0 - progress).clamp(0.0, 1.0), 0.48).toDouble()).clamp(0.0, 1.0);
 
         if (trailStyle == TrailStyle.dot) {
           // === ELEVATED DOT TRAIL: Celestial Starlight Constellation (Full-bodied & Majestic) ===
@@ -2963,8 +2963,8 @@ class _GameWorldPainter extends CustomPainter {
                 ? const Color(0xFFFFAB00)
                 : (isCornerBoost ? getCornerBoostColor(i, dotPositions.length) : getBallTrailColor(i, dotPositions.length, isGlow: true));
             _stroke
-              ..strokeWidth = (ball.radius * 1.15 * taper).clamp(1.2, ball.radius * 1.5)
-              ..color = _ca(segColor, 0.58 * taper);
+              ..strokeWidth = (ball.radius * 1.50 * taper).clamp(1.6, ball.radius * 2.0)
+              ..color = _ca(segColor, 0.65 * taper);
             canvas.drawLine(dotPositions[i], dotPositions[i + 1], _stroke);
           }
 
@@ -2976,7 +2976,7 @@ class _GameWorldPainter extends CustomPainter {
             final progress = dotPositions.length > 1 ? i / (dotPositions.length - 1) : 0.0;
             final taper = majesticTaper(progress);
             final shimmer = 0.85 + 0.15 * sin(time * 10 + i * 0.7);
-            final baseR = ball.radius * 0.78 * taper * shimmer;
+            final baseR = ball.radius * 0.95 * taper * shimmer;
             if (baseR <= 0.3) continue;
             final pos = dotPositions[i];
 
@@ -3055,8 +3055,8 @@ class _GameWorldPainter extends CustomPainter {
                 ? const Color(0xFFFF6D00)
                 : (isCornerBoost ? getCornerBoostColor(i, sparkPositions.length) : getBallTrailColor(i, sparkPositions.length, isGlow: true));
             _stroke
-              ..strokeWidth = (ball.radius * 3.1 * taper).clamp(1.6, ball.radius * 3.1)
-              ..color = _ca(segGlowColor, 0.36 * taper);
+              ..strokeWidth = (ball.radius * 3.8 * taper).clamp(2.0, ball.radius * 3.8)
+              ..color = _ca(segGlowColor, 0.40 * taper);
             canvas.drawLine(sparkPositions[i], sparkPositions[i + 1], _stroke);
           }
 
@@ -3068,8 +3068,8 @@ class _GameWorldPainter extends CustomPainter {
                 ? const Color(0xFFFFAB00)
                 : (isCornerBoost ? getCornerBoostColor(i, sparkPositions.length) : getBallTrailColor(i, sparkPositions.length));
             _stroke
-              ..strokeWidth = (ball.radius * 1.65 * taper).clamp(1.0, ball.radius * 1.65)
-              ..color = _ca(segBaseColor, 0.92 * taper);
+              ..strokeWidth = (ball.radius * 2.15 * taper).clamp(1.3, ball.radius * 2.15)
+              ..color = _ca(segBaseColor, 0.94 * taper);
             canvas.drawLine(sparkPositions[i], sparkPositions[i + 1], _stroke);
           }
 
@@ -3078,8 +3078,8 @@ class _GameWorldPainter extends CustomPainter {
             final progress = (i + 0.5) / (sparkPositions.length - 1);
             final taper = majesticTaper(progress);
             _stroke
-              ..strokeWidth = (ball.radius * 0.72 * taper).clamp(0.8, ball.radius * 0.72)
-              ..color = _ca(isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, sparkPositions.length) : cbFlameCore) : Colors.white, 0.96 * taper);
+              ..strokeWidth = (ball.radius * 0.95 * taper).clamp(1.0, ball.radius * 0.95)
+              ..color = _ca(isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, sparkPositions.length) : cbFlameCore) : Colors.white, 0.98 * taper);
             canvas.drawLine(sparkPositions[i], sparkPositions[i + 1], _stroke);
           }
 
@@ -3128,14 +3128,14 @@ class _GameWorldPainter extends CustomPainter {
 
             // Outer mist
             _stroke
-              ..strokeWidth = (ball.radius * 2.35 * taper).clamp(1.2, ball.radius * 2.35)
-              ..color = _ca(ghostGlow, 0.32 * taper);
+              ..strokeWidth = (ball.radius * 2.85 * taper).clamp(1.5, ball.radius * 2.85)
+              ..color = _ca(ghostGlow, 0.36 * taper);
             canvas.drawLine(p1, p2, _stroke);
 
             // Inner core ribbon
             _stroke
-              ..strokeWidth = (ball.radius * 1.15 * taper).clamp(0.8, ball.radius * 1.15)
-              ..color = _ca(ghostBase, 0.62 * taper);
+              ..strokeWidth = (ball.radius * 1.45 * taper).clamp(1.0, ball.radius * 1.45)
+              ..color = _ca(ghostBase, 0.68 * taper);
             canvas.drawLine(p1, p2, _stroke);
           }
 
@@ -3204,20 +3204,20 @@ class _GameWorldPainter extends CustomPainter {
 
             // Layer 1: Soft, soothing ambient glow
             _stroke
-              ..strokeWidth = (ball.radius * 2.9 * taper).clamp(1.4, ball.radius * 2.9)
-              ..color = _ca(isCornerBoost ? cbFlameDeep : color, 0.26 * taper);
+              ..strokeWidth = (ball.radius * 3.6 * taper).clamp(1.8, ball.radius * 3.6)
+              ..color = _ca(isCornerBoost ? cbFlameDeep : color, 0.32 * taper);
             canvas.drawLine(p1, p2, _stroke);
 
             // Layer 2: Main harmonious pastel ribbon
             _stroke
-              ..strokeWidth = (ball.radius * 1.65 * taper).clamp(1.0, ball.radius * 1.65)
-              ..color = _ca(color, 0.88 * taper);
+              ..strokeWidth = (ball.radius * 2.15 * taper).clamp(1.3, ball.radius * 2.15)
+              ..color = _ca(color, 0.92 * taper);
             canvas.drawLine(p1, p2, _stroke);
 
             // Layer 3: Soft silk core
             _stroke
-              ..strokeWidth = (ball.radius * 0.65 * taper).clamp(0.6, ball.radius * 0.65)
-              ..color = _ca(isCornerBoost ? cbFlameCore : Colors.white, 0.90 * taper);
+              ..strokeWidth = (ball.radius * 0.90 * taper).clamp(0.8, ball.radius * 0.90)
+              ..color = _ca(isCornerBoost ? cbFlameCore : Colors.white, 0.94 * taper);
             canvas.drawLine(p1, p2, _stroke);
 
             if (i % 5 == 0 && taper > 0.35) {
@@ -3268,8 +3268,8 @@ class _GameWorldPainter extends CustomPainter {
                 ? const Color(0xFFFF6D00)
                 : (isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameDeep) : trailGlow);
             _stroke
-              ..strokeWidth = (ball.radius * 3.5 * taper).clamp(1.6, ball.radius * 3.5)
-              ..color = _ca(deepGlow, 0.34 * taper);
+              ..strokeWidth = (ball.radius * 4.2 * taper).clamp(2.0, ball.radius * 4.2)
+              ..color = _ca(deepGlow, 0.38 * taper);
             canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
           }
 
@@ -3284,11 +3284,11 @@ class _GameWorldPainter extends CustomPainter {
                 ? const Color(0xFFFF6D00)
                 : (isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i + 3, helix1Pts.length) : cbFlameGlow) : trailGlow);
             _stroke
-              ..strokeWidth = (ball.radius * 0.90 * taper).clamp(0.7, ball.radius * 0.90)
-              ..color = _ca(h1Color, 0.90 * taper);
+              ..strokeWidth = (ball.radius * 1.20 * taper).clamp(0.9, ball.radius * 1.20)
+              ..color = _ca(h1Color, 0.92 * taper);
             canvas.drawLine(helix1Pts[i], helix1Pts[i + 1], _stroke);
 
-            _stroke.color = _ca(h2Color, 0.90 * taper);
+            _stroke.color = _ca(h2Color, 0.92 * taper);
             canvas.drawLine(helix2Pts[i], helix2Pts[i + 1], _stroke);
           }
 
@@ -3300,13 +3300,13 @@ class _GameWorldPainter extends CustomPainter {
                 ? const Color(0xFFFFF9C4)
                 : (isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameBright) : trailPrimary);
             _stroke
-              ..strokeWidth = (ball.radius * 1.55 * taper).clamp(1.0, ball.radius * 1.55)
-              ..color = _ca(beamCore, 0.94 * taper);
+              ..strokeWidth = (ball.radius * 2.05 * taper).clamp(1.3, ball.radius * 2.05)
+              ..color = _ca(beamCore, 0.95 * taper);
             canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
 
             _stroke
-              ..strokeWidth = (ball.radius * 0.72 * taper).clamp(0.6, ball.radius * 0.72)
-              ..color = _ca(isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameCore) : Colors.white, 0.96 * taper);
+              ..strokeWidth = (ball.radius * 0.95 * taper).clamp(0.8, ball.radius * 0.95)
+              ..color = _ca(isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameCore) : Colors.white, 0.98 * taper);
             canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
           }
 
@@ -3361,8 +3361,8 @@ class _GameWorldPainter extends CustomPainter {
                 ? (isRainbowBall ? getCornerBoostColor(i, firePts.length) : cbFlameDeep)
                 : trailGlow;
             _stroke
-              ..strokeWidth = (ball.radius * 3.6 * taper).clamp(1.6, ball.radius * 3.6)
-              ..color = _ca(hazeColor, 0.36 * taper);
+              ..strokeWidth = (ball.radius * 4.4 * taper).clamp(2.0, ball.radius * 4.4)
+              ..color = _ca(hazeColor, 0.40 * taper);
             canvas.drawLine(firePts[i], firePts[i + 1], _stroke);
           }
 
@@ -3374,8 +3374,8 @@ class _GameWorldPainter extends CustomPainter {
                 ? (isRainbowBall ? getCornerBoostColor(i, firePts.length) : cbFlameBase)
                 : trailPrimary;
             _stroke
-              ..strokeWidth = (ball.radius * 2.1 * taper).clamp(1.1, ball.radius * 2.1)
-              ..color = _ca(ribbonColor, 0.90 * taper);
+              ..strokeWidth = (ball.radius * 2.65 * taper).clamp(1.4, ball.radius * 2.65)
+              ..color = _ca(ribbonColor, 0.92 * taper);
             canvas.drawLine(firePts[i], firePts[i + 1], _stroke);
           }
 
@@ -3384,8 +3384,8 @@ class _GameWorldPainter extends CustomPainter {
             final progress = (i + 0.5) / (firePts.length - 1);
             final taper = majesticTaper(progress);
             _stroke
-              ..strokeWidth = (ball.radius * 0.95 * taper).clamp(0.7, ball.radius * 0.95)
-              ..color = _ca(isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, firePts.length) : cbFlameCore) : Color.lerp(trailPrimary, Colors.white, 0.75)!, 0.96 * taper);
+              ..strokeWidth = (ball.radius * 1.25 * taper).clamp(0.9, ball.radius * 1.25)
+              ..color = _ca(isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, firePts.length) : cbFlameCore) : Color.lerp(trailPrimary, Colors.white, 0.75)!, 0.98 * taper);
             canvas.drawLine(firePts[i], firePts[i + 1], _stroke);
           }
 
@@ -3421,8 +3421,8 @@ class _GameWorldPainter extends CustomPainter {
               final progress = (i + 0.5) / (trailCount - 1);
               final taper = majesticTaper(progress);
               _stroke
-                ..strokeWidth = (ball.radius * 3.6 * taper).clamp(1.6, ball.radius * 3.6)
-                ..color = _ca(const Color(0xFFFF6D00), 0.36 * taper);
+                ..strokeWidth = (ball.radius * 4.4 * taper).clamp(2.0, ball.radius * 4.4)
+                ..color = _ca(const Color(0xFFFF6D00), 0.40 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
@@ -3431,8 +3431,8 @@ class _GameWorldPainter extends CustomPainter {
               final progress = (i + 0.5) / (trailCount - 1);
               final taper = majesticTaper(progress);
               _stroke
-                ..strokeWidth = (ball.radius * 2.2 * taper).clamp(1.2, ball.radius * 2.2)
-                ..color = _ca(const Color(0xFFFFAB00), 0.88 * taper);
+                ..strokeWidth = (ball.radius * 2.75 * taper).clamp(1.4, ball.radius * 2.75)
+                ..color = _ca(const Color(0xFFFFAB00), 0.92 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
@@ -3441,8 +3441,8 @@ class _GameWorldPainter extends CustomPainter {
               final progress = (i + 0.5) / (trailCount - 1);
               final taper = majesticTaper(progress);
               _stroke
-                ..strokeWidth = (ball.radius * 1.15 * taper).clamp(0.8, ball.radius * 1.15)
-                ..color = _ca(const Color(0xFFFFD700), 0.96 * taper);
+                ..strokeWidth = (ball.radius * 1.45 * taper).clamp(1.0, ball.radius * 1.45)
+                ..color = _ca(const Color(0xFFFFD700), 0.98 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
@@ -3451,7 +3451,7 @@ class _GameWorldPainter extends CustomPainter {
               final progress = (i + 0.5) / (trailCount - 1);
               final taper = majesticTaper(progress);
               _stroke
-                ..strokeWidth = (ball.radius * 0.55 * taper).clamp(0.6, ball.radius * 0.55)
+                ..strokeWidth = (ball.radius * 0.75 * taper).clamp(0.7, ball.radius * 0.75)
                 ..color = _ca(Colors.white, 0.98 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
@@ -3469,8 +3469,8 @@ class _GameWorldPainter extends CustomPainter {
               final taper = majesticTaper(progress);
               final hazeColor = isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameDeep;
               _stroke
-                ..strokeWidth = (ball.radius * 3.4 * taper).clamp(1.6, ball.radius * 3.4)
-                ..color = _ca(hazeColor, 0.34 * taper);
+                ..strokeWidth = (ball.radius * 4.2 * taper).clamp(2.0, ball.radius * 4.2)
+                ..color = _ca(hazeColor, 0.38 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
@@ -3480,8 +3480,8 @@ class _GameWorldPainter extends CustomPainter {
               final taper = majesticTaper(progress);
               final thrustColor = isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameBase;
               _stroke
-                ..strokeWidth = (ball.radius * 1.95 * taper).clamp(1.1, ball.radius * 1.95)
-                ..color = _ca(thrustColor, 0.90 * taper);
+                ..strokeWidth = (ball.radius * 2.45 * taper).clamp(1.3, ball.radius * 2.45)
+                ..color = _ca(thrustColor, 0.92 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
 
@@ -3491,7 +3491,7 @@ class _GameWorldPainter extends CustomPainter {
               final taper = majesticTaper(progress);
               final needleColor = isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameCore;
               _stroke
-                ..strokeWidth = (ball.radius * 0.85 * taper).clamp(0.7, ball.radius * 0.85)
+                ..strokeWidth = (ball.radius * 1.15 * taper).clamp(0.8, ball.radius * 1.15)
                 ..color = _ca(needleColor, 0.98 * taper);
               canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
             }
@@ -3504,7 +3504,7 @@ class _GameWorldPainter extends CustomPainter {
               final progress = i / (trailCount - 1);
               final taper = majesticTaper(progress);
               final pt = ball.trail[i].position;
-              final dSize = ball.radius * (0.95 + 0.28 * sin(time * 30 + i)) * taper;
+              final dSize = ball.radius * (1.15 + 0.35 * sin(time * 30 + i)) * taper;
               if (dSize <= 0.5) continue;
 
               _tempPath.reset();
@@ -3555,8 +3555,8 @@ class _GameWorldPainter extends CustomPainter {
               final taper = majesticTaper(progress);
               final bloomColor = getBallTrailColor(i, wavePts.length, isGlow: true);
               _stroke
-                ..strokeWidth = (ball.radius * 3.1 * taper).clamp(1.5, ball.radius * 3.1)
-                ..color = _ca(bloomColor, 0.36 * taper);
+                ..strokeWidth = (ball.radius * 3.9 * taper).clamp(1.8, ball.radius * 3.9)
+                ..color = _ca(bloomColor, 0.40 * taper);
               canvas.drawLine(wavePts[i], wavePts[i + 1], _stroke);
             }
 
@@ -3566,8 +3566,8 @@ class _GameWorldPainter extends CustomPainter {
               final taper = majesticTaper(progress);
               final coreColor = getBallTrailColor(i, wavePts.length);
               _stroke
-                ..strokeWidth = (ball.radius * 1.75 * taper).clamp(1.1, ball.radius * 1.75)
-                ..color = _ca(coreColor, 0.92 * taper);
+                ..strokeWidth = (ball.radius * 2.25 * taper).clamp(1.3, ball.radius * 2.25)
+                ..color = _ca(coreColor, 0.94 * taper);
               canvas.drawLine(wavePts[i], wavePts[i + 1], _stroke);
             }
 
@@ -3576,8 +3576,8 @@ class _GameWorldPainter extends CustomPainter {
               final progress = (i + 0.5) / (wavePts.length - 1);
               final taper = majesticTaper(progress);
               _stroke
-                ..strokeWidth = (ball.radius * 0.75 * taper).clamp(0.6, ball.radius * 0.75)
-                ..color = _ca(Colors.white, 0.92 * taper);
+                ..strokeWidth = (ball.radius * 0.95 * taper).clamp(0.7, ball.radius * 0.95)
+                ..color = _ca(Colors.white, 0.96 * taper);
               canvas.drawLine(wavePts[i], wavePts[i + 1], _stroke);
             }
 
