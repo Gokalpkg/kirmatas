@@ -31,6 +31,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   late final AnimationController _shakeController;
   late final AnimationController _openController;
   late final AnimationController _flashController;
+  late final AnimationController _auraController;
+  late final AnimationController _shockwaveController;
+  late final AnimationController _revealController;
 
   int _tapCount = 0; // 0 (start), 1, 2, 3 (open)
   Rarity _currentRarity = Rarity.common;
@@ -45,6 +48,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   bool _isDuplicate = false;
   int _duplicateGold = 0;
   bool _isShardReward = false;
+  bool _isFoodBonus = false;
 
   double get _chestScale {
     switch (_currentRarity) {
@@ -94,7 +98,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       case Rarity.epic:
         return 'DESTANSI';
       case Rarity.legendary:
-        return '✨ EFSANEVİ ✨';
+        return ' EFSANEVİ ';
     }
   }
 
@@ -131,6 +135,21 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       duration: const Duration(milliseconds: 450),
     );
 
+    _auraController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 12),
+    )..repeat();
+
+    _shockwaveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    _revealController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 750),
+    );
+
     _rollReward();
 
     _dropController.forward().then((_) {
@@ -147,6 +166,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     _shakeController.dispose();
     _openController.dispose();
     _flashController.dispose();
+    _auraController.dispose();
+    _shockwaveController.dispose();
+    _revealController.dispose();
     super.dispose();
   }
 
@@ -157,6 +179,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       // 1. Dokunuş: Sıradan -> Ender kontrolü
       _isShaking = true;
       _tapCount = 1;
+      _shockwaveController.forward(from: 0.0);
       final willUpgrade = _rewardRarity.index >= Rarity.rare.index;
       await _shakeController.forward(from: 0.0);
       if (willUpgrade) {
@@ -175,6 +198,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       // 2. Dokunuş: Ender -> Destansı kontrolü
       _isShaking = true;
       _tapCount = 2;
+      _shockwaveController.forward(from: 0.0);
       final willUpgrade = _rewardRarity.index >= Rarity.epic.index;
       await _shakeController.forward(from: 0.0);
       if (willUpgrade) {
@@ -193,6 +217,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       // 3. Dokunuş: Destansı -> Efsanevi kontrolü & AÇILIŞ!
       _tapCount = 3;
       _isOpening = true;
+      _shockwaveController.forward(from: 0.0);
       final isLegendary = _rewardRarity == Rarity.legendary;
       if (isLegendary) {
         setState(() {
@@ -210,6 +235,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         _opened = true;
         _isOpening = false;
       });
+      _revealController.forward(from: 0.0);
       AudioManager.instance.playSfx(GameSfx.victory);
       HapticFeedback.heavyImpact();
     }
@@ -254,18 +280,35 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
     // ONLY Aquarium Fish drop from the general crates tab
     final available = FishItem.allFish.where((f) => f.rarity == rolledRarity).toList();
-    final fish = available.isNotEmpty ? available[rand.nextInt(available.length)] : FishItem.allFish.first;
+    final unownedInRarity = available.where((f) => !save.unlockedFish.contains(f.id)).toList();
+    final allUnowned = FishItem.allFish.where((f) => !save.unlockedFish.contains(f.id)).toList();
+
+    FishItem fish;
+    if (unownedInRarity.isNotEmpty) {
+      fish = unownedInRarity[rand.nextInt(unownedInRarity.length)];
+    } else if (allUnowned.isNotEmpty && rand.nextDouble() < 0.75) {
+      // 75% chance to roll an unowned fish species from another tier to prioritize discovering new fish
+      fish = allUnowned[rand.nextInt(allUnowned.length)];
+      _rewardRarity = fish.rarity;
+    } else {
+      fish = available.isNotEmpty ? available[rand.nextInt(available.length)] : FishItem.allFish.first;
+    }
+
     _reward = fish;
     _rewardTitle = fish.name;
 
-    if (save.unlockedFish.contains(fish.id)) {
-      _isDuplicate = true;
-      _duplicateGold = 120 + rand.nextInt(160);
-      save.addGold(_duplicateGold);
-      _rewardSubtitle = I18n.tr('duplicate_reward').replaceAll('{gold}', '$_duplicateGold');
-    } else {
+    final isNewSpecies = !save.unlockedFish.contains(fish.id);
+    save.addFish(fish.id); // ALWAYS adds the fish to the player's aquarium!
+    _isDuplicate = false;
+    _duplicateGold = 0;
+
+    if (isNewSpecies) {
+      _isFoodBonus = false;
       _rewardSubtitle = I18n.tr('new_fish_unlocked');
-      save.addFish(fish.id);
+    } else {
+      _isFoodBonus = true;
+      save.addFishFood(3);
+      _rewardSubtitle = 'Akvaryumuna bir ${fish.name} daha katıldı! (+3 Yem Hediye)';
     }
   }
 
@@ -373,8 +416,8 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         break;
 
       case 'bricks':
-        // Unlockable bricks pool (excludes free default starter 'brick_neon')
-        final unlockables = BrickStyle.all.where((s) => s.id != 'brick_neon').toList();
+        // Unlockable bricks pool (excludes free default starter 'brick_gloss')
+        final unlockables = BrickStyle.all.where((s) => s.id != 'brick_gloss').toList();
         var pool = unlockables.where((s) => s.rarity == rolledRarity).toList();
         if (pool.isEmpty) {
           pool = unlockables.where((s) => s.rarity == Rarity.rare).toList();
@@ -487,6 +530,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
           _shakeController,
           _openController,
           _flashController,
+          _auraController,
+          _shockwaveController,
+          _revealController,
         ]),
         builder: (context, _) {
           final activeColor = _opened ? _rewardRarity.primaryColor : _currentPrimaryColor;
@@ -541,7 +587,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                     ),
                     const SizedBox(height: 20),
 
-                    // Unopened Chest View with Drop, Shake, Scale, and Tap Prompt
+                    // Unopened Chest View with Drop, Shake, Scale, Aura, Shockwave, and Tap Prompt
                     if (!_opened)
                       Transform.translate(
                         offset: Offset(0, (1.0 - _dropAnimation.value) * -280),
@@ -551,19 +597,63 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Transform.rotate(
-                                angle: sin(_shakeController.value * pi * 8) * (0.09 + _tapCount * 0.02) * (1.0 - _shakeController.value),
-                                child: AnimatedScale(
-                                  scale: _chestScale,
-                                  duration: const Duration(milliseconds: 320),
-                                  curve: Curves.elasticOut,
-                                  child: ChestWidget(
-                                    size: 118,
-                                    primaryColor: _currentPrimaryColor,
-                                    secondaryColor: _currentSecondaryColor,
-                                    openProgress: _openController.value,
-                                    showGlow: true,
-                                  ),
+                              SizedBox(
+                                width: 170,
+                                height: 140,
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // Rotating Sunburst Aura behind chest
+                                    Positioned(
+                                      top: -15,
+                                      child: Transform.rotate(
+                                        angle: _auraController.value * 2 * pi,
+                                        child: CustomPaint(
+                                          size: const Size(190, 170),
+                                          painter: _CrateSunburstPainter(
+                                            color: activeColor,
+                                            intensity: 0.35 + _tapCount * 0.20,
+                                            spokeCount: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    // Expanding Tap Shockwave
+                                    if (_shockwaveController.isAnimating)
+                                      Positioned(
+                                        top: 0,
+                                        child: CustomPaint(
+                                          size: const Size(170, 140),
+                                          painter: _CrateShockwavePainter(
+                                            progress: _shockwaveController.value,
+                                            color: activeColor,
+                                          ),
+                                        ),
+                                      ),
+                                    // Animated Floating & Shaking Chest
+                                    Transform.translate(
+                                      offset: Offset(
+                                        sin(_shakeController.value * pi * 8) * 3,
+                                        sin(_auraController.value * 2 * pi) * 2.5,
+                                      ),
+                                      child: Transform.rotate(
+                                        angle: sin(_shakeController.value * pi * 8) * (0.09 + _tapCount * 0.02) * (1.0 - _shakeController.value),
+                                        child: AnimatedScale(
+                                          scale: _chestScale,
+                                          duration: const Duration(milliseconds: 320),
+                                          curve: Curves.elasticOut,
+                                          child: ChestWidget(
+                                            size: 118,
+                                            primaryColor: _currentPrimaryColor,
+                                            secondaryColor: _currentSecondaryColor,
+                                            openProgress: _openController.value,
+                                            showGlow: true,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                               const SizedBox(height: 18),
@@ -606,23 +696,48 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                         ),
                       )
                 else
-                  Column(
+                  Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.center,
                     children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: _rewardRarity.darkColor.withValues(alpha: 0.6),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: _rewardRarity.primaryColor, width: 2),
-                          boxShadow: [
-                            BoxShadow(color: _rewardRarity.primaryColor.withValues(alpha: 0.5), blurRadius: 20),
-                          ],
-                        ),
-                        child: Center(
-                          child: _buildRewardIcon(),
+                      // Confetti / Starburst Celebration Particles
+                      Positioned(
+                        top: -10,
+                        child: CustomPaint(
+                          size: const Size(240, 180),
+                          painter: _CrateConfettiPainter(
+                            progress: _revealController.value,
+                            color: _rewardRarity.primaryColor,
+                          ),
                         ),
                       ),
+                      ScaleTransition(
+                        scale: CurvedAnimation(
+                          parent: _revealController,
+                          curve: Curves.elasticOut,
+                        ),
+                        child: FadeTransition(
+                          opacity: CurvedAnimation(
+                            parent: _revealController,
+                            curve: Curves.easeIn,
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  color: _rewardRarity.darkColor.withValues(alpha: 0.6),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: _rewardRarity.primaryColor, width: 2),
+                                  boxShadow: [
+                                    BoxShadow(color: _rewardRarity.primaryColor.withValues(alpha: 0.5), blurRadius: 20),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: _buildRewardIcon(),
+                                ),
+                              ),
                       const SizedBox(height: 12),
                       if (_isDuplicate)
                         Container(
@@ -637,8 +752,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                             children: [
                               Icon(Icons.inventory, size: 13, color: Color(0xFFFFB74D)),
                               SizedBox(width: 5),
-                              Text(
-                                'ZATEN SAHİPSİN (KOPYA)',
+                              Text( 'ZATEN SAHİPSİN (KOPYA)',
                                 style: TextStyle(
                                   color: Color(0xFFFFB74D),
                                   fontSize: 10,
@@ -662,8 +776,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                             children: [
                               Icon(Icons.stars, size: 13, color: Color(0xFF69F0AE)),
                               SizedBox(width: 5),
-                              Text(
-                                'YENİ AÇILDI!',
+                              Text( 'YENİ AÇILDI!',
                                 style: TextStyle(
                                   color: Color(0xFF69F0AE),
                                   fontSize: 10,
@@ -715,8 +828,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                             children: [
                               const Icon(Icons.diamond, color: Color(0xFF00E5FF), size: 18),
                               const SizedBox(width: 8),
-                              Text(
-                                '+1 Parça Eklendi! (${SaveManager.instance.getShards(widget.category ?? widget.categoryCrate?.category ?? 'balls')}/3)',
+                              Text( '+1 Parça Eklendi! (${SaveManager.instance.getShards(widget.category ?? widget.categoryCrate?.category ?? 'balls')}/3)',
                                 style: const TextStyle(
                                   color: Color(0xFF00E5FF),
                                   fontSize: 12,
@@ -727,24 +839,24 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                           ),
                         ),
                       ],
-                      if (_isDuplicate && _duplicateGold > 0) ...[
+                      if (_isFoodBonus) ...[
                         const SizedBox(height: 10),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFD54F).withValues(alpha: 0.15),
+                            color: const Color(0xFF4CAF50).withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFFFD54F).withValues(alpha: 0.6)),
+                            border: Border.all(color: const Color(0xFF66BB6A).withValues(alpha: 0.7)),
                           ),
-                          child: Row(
+                          child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 18),
-                              const SizedBox(width: 8),
+                              Icon(Icons.set_meal, color: Color(0xFF81C784), size: 18),
+                              SizedBox(width: 8),
                               Text(
-                                '+$_duplicateGold Altın Eklendi!',
-                                style: const TextStyle(
-                                  color: Color(0xFFFFD54F),
+                                '+3 Balık Yemi Hediye Edildi!',
+                                style: TextStyle(
+                                  color: Color(0xFF81C784),
                                   fontSize: 12,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -755,6 +867,10 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                       ],
                     ],
                   ),
+                ),
+              ),
+            ],
+          ),
 
                 if (_opened) ...[
                   if (_isShardReward && SaveManager.instance.getShards(widget.category ?? widget.categoryCrate?.category ?? 'balls') >= 3)
@@ -1026,3 +1142,149 @@ class _DialogCosmicBrickPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+class _CrateSunburstPainter extends CustomPainter {
+  final Color color;
+  final double intensity;
+  final int spokeCount;
+
+  _CrateSunburstPainter({
+    required this.color,
+    required this.intensity,
+    this.spokeCount = 12,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+    final spokeAngle = (2 * pi) / spokeCount;
+
+    final rayPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          color.withValues(alpha: (0.42 * intensity).clamp(0.0, 1.0)),
+          color.withValues(alpha: (0.12 * intensity).clamp(0.0, 1.0)),
+          color.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.65, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+
+    for (int i = 0; i < spokeCount; i++) {
+      final angle = i * spokeAngle;
+      final path = Path();
+      path.moveTo(center.dx, center.dy);
+      path.lineTo(
+        center.dx + cos(angle - spokeAngle * 0.22) * radius,
+        center.dy + sin(angle - spokeAngle * 0.22) * radius,
+      );
+      path.lineTo(
+        center.dx + cos(angle + spokeAngle * 0.22) * radius,
+        center.dy + sin(angle + spokeAngle * 0.22) * radius,
+      );
+      path.close();
+      canvas.drawPath(path, rayPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CrateSunburstPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.intensity != intensity;
+}
+
+class _CrateShockwavePainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _CrateShockwavePainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0.0 || progress >= 1.0) return;
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxRadius = size.width * 0.48;
+    final currentRadius = maxRadius * progress;
+    final alpha = (1.0 - progress).clamp(0.0, 1.0);
+
+    // Primary expanding shockwave ring
+    final ringPaint = Paint()
+      ..color = color.withValues(alpha: alpha * 0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = max(1.5, 4.0 * (1.0 - progress));
+    canvas.drawCircle(center, currentRadius, ringPaint);
+
+    // Secondary inner echo ring
+    if (progress > 0.2) {
+      final echoProgress = (progress - 0.2) / 0.8;
+      final echoRadius = maxRadius * echoProgress * 0.8;
+      final echoPaint = Paint()
+        ..color = Colors.white.withValues(alpha: (1.0 - echoProgress) * 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5;
+      canvas.drawCircle(center, echoRadius, echoPaint);
+    }
+
+    // Radiating spark particles
+    final sparkPaint = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < 8; i++) {
+      final angle = (i * pi / 4) + (progress * 0.3);
+      final dist = currentRadius * 1.08;
+      final sparkPos = Offset(center.dx + cos(angle) * dist, center.dy + sin(angle) * dist);
+      sparkPaint.color = (i.isEven ? color : Colors.white).withValues(alpha: alpha * 0.9);
+      canvas.drawCircle(sparkPos, max(1.0, 3.0 * (1.0 - progress)), sparkPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CrateShockwavePainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
+}
+
+class _CrateConfettiPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _CrateConfettiPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0.05) return;
+    final center = Offset(size.width / 2, size.height / 2);
+    final rand = Random(42); // deterministic seed for smooth animation
+
+    final pVal = progress.clamp(0.0, 1.0);
+    final alpha = pVal < 0.7 ? 1.0 : (1.0 - (pVal - 0.7) / 0.3).clamp(0.0, 1.0);
+
+    for (int i = 0; i < 24; i++) {
+      final baseAngle = (i / 24) * 2 * pi + (rand.nextDouble() * 0.2);
+      final maxDist = 60.0 + rand.nextDouble() * 60.0;
+      final curDist = maxDist * CurvedAnimation(parent: AlwaysStoppedAnimation(pVal), curve: Curves.easeOutCubic).value;
+      final px = center.dx + cos(baseAngle) * curDist;
+      final py = center.dy + sin(baseAngle) * curDist - (pVal * 15.0); // subtle upward draft
+
+      final pColor = [
+        color,
+        Colors.white,
+        const Color(0xFFFFD54F),
+        const Color(0xFF00E5FF),
+      ][i % 4];
+
+      final particlePaint = Paint()..color = pColor.withValues(alpha: alpha * 0.85);
+
+      // Diamond star particle
+      final pSize = (3.5 - pVal * 1.2).clamp(1.5, 4.0);
+      final starPath = Path()
+        ..moveTo(px, py - pSize * 1.3)
+        ..lineTo(px + pSize, py)
+        ..lineTo(px, py + pSize * 1.3)
+        ..lineTo(px - pSize, py)
+        ..close();
+      canvas.drawPath(starPath, particlePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CrateConfettiPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
+}
+

@@ -8,6 +8,7 @@ import 'chest_widget.dart';
 import 'crate_opening_dialog.dart';
 import 'fortune_wheel_dialog.dart';
 import 'rewarded_ad_button.dart';
+import 'pixel_art.dart';
 
 class ShopView extends StatefulWidget {
   const ShopView({super.key});
@@ -267,7 +268,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                     save.equipBall('classic');
                     save.equipPaddle('pclassic');
                     save.equipTrail('t1');
-                    save.equipBrickStyle('brick_neon');
+                    save.equipBrickStyle('brick_gloss');
                     save.selectBackground('bg_default');
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -283,7 +284,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                     save.selectBackground('random');
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('🎲 Tüm kategoriler için Rastgele modu aktif edildi!'),
+                        content: Text(' Tüm kategoriler için Rastgele modu aktif edildi!'),
                         duration: Duration(seconds: 2),
                       ),
                     );
@@ -318,8 +319,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                     children: [
                       const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
                       const SizedBox(width: 6),
-                      Text(
-                        '${_displayGold ?? save.gold}',
+                      Text( '${_displayGold ?? save.gold}',
                         style: TextStyle(
                           color: _isPurchasing ? const Color(0xFFFFF176) : const Color(0xFFFFD54F),
                           fontWeight: FontWeight.w900,
@@ -476,8 +476,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                     children: [
                       const Icon(Icons.monetization_on, size: 15),
                       const SizedBox(width: 4),
-                      Text(
-                        '$cost',
+                      Text( '$cost',
                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
                       ),
                     ],
@@ -499,8 +498,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                 children: [
                   const Icon(Icons.diamond, color: Color(0xFF00E5FF), size: 18),
                   const SizedBox(width: 6),
-                  Text(
-                    '${I18n.tr('shards')}: $shards / 3',
+                  Text( '${I18n.tr('shards')}: $shards / 3',
                     style: const TextStyle(
                       color: Color(0xFF00E5FF),
                       fontWeight: FontWeight.w900,
@@ -534,7 +532,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                         save.addGold(1000);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('${I18n.tr('all_items_unlocked')} (+1000 🪙)')),
+                            SnackBar(content: Text('${I18n.tr('all_items_unlocked')} (+1000 )')),
                           );
                         }
                       }
@@ -642,8 +640,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                         color: accentColor.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(
-                        'ŞANS',
+                      child: Text( 'ŞANS',
                         style: TextStyle(
                           color: accentColor,
                           fontWeight: FontWeight.w900,
@@ -770,8 +767,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                     children: [
                       Row(
                         children: [
-                          const Text(
-                            'ŞANS ÇARKI',
+                          const Text( 'ŞANS ÇARKI',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 15,
@@ -804,8 +800,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                         ],
                       ),
                       const SizedBox(height: 3),
-                      const Text(
-                        'Reklam İzle & Sandık, Altın veya Parça Kazan!',
+                      const Text( 'Reklam İzle & Sandık, Altın veya Parça Kazan!',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 11,
@@ -831,8 +826,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'ÇEVİR',
+                      Text( 'ÇEVİR',
                         style: TextStyle(
                           color: Colors.black,
                           fontWeight: FontWeight.w900,
@@ -996,8 +990,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        'Akvaryum için deniz canlıları ve nadir balıklar içerir.',
+                      Text( 'Akvaryum için deniz canlıları ve nadir balıklar içerir.',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.65),
                           fontSize: 12,
@@ -1053,8 +1046,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                     children: [
                       const Icon(Icons.monetization_on_rounded, size: 18),
                       const SizedBox(width: 6),
-                      Text(
-                        '${crate.cost} ALTIN AÇ',
+                      Text( '${crate.cost} ALTIN AÇ',
                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.8),
                       ),
                     ],
@@ -1094,7 +1086,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
         SliverToBoxAdapter(
           child: _buildRandomOptionCard(
             context: context,
-            title: '🎲 RASTGELE BLOK',
+            title: ' RASTGELE BLOK',
             desc: 'Sahip olduğun blok stilleri arasından her oyunda rastgele biri seçilir.',
             icon: Icons.casino_rounded,
             accentColor: const Color(0xFFFFD54F),
@@ -1195,7 +1187,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
         SliverToBoxAdapter(
           child: _buildRandomOptionCard(
             context: context,
-            title: '🎲 RASTGELE TOP',
+            title: ' RASTGELE TOP',
             desc: 'Sahip olduğun tüm toplar arasından her oyunda rastgele biri seçilir.',
             icon: Icons.casino_rounded,
             accentColor: const Color(0xFF00E5FF),
@@ -1294,7 +1286,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
         _buildCategoryCrateHeader(context, save, 'paddles'),
         _buildRandomOptionCard(
           context: context,
-          title: '🎲 RASTGELE RAKET',
+          title: ' RASTGELE RAKET',
           desc: 'Sahip olduğun tüm raketler arasından her oyunda rastgele biri seçilir.',
           icon: Icons.casino_rounded,
           accentColor: const Color(0xFF7C4DFF),
@@ -1392,7 +1384,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
         _buildCategoryCrateHeader(context, save, 'trails'),
         _buildRandomOptionCard(
           context: context,
-          title: '🎲 RASTGELE İZ',
+          title: ' RASTGELE İZ',
           desc: 'Sahip olduğun tüm iz stilleri arasından her oyunda rastgele biri seçilir.',
           icon: Icons.casino_rounded,
           accentColor: const Color(0xFFFF4081),
@@ -1461,8 +1453,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                                           color: const Color(0x3300E5FF),
                                           borderRadius: BorderRadius.circular(6),
                                         ),
-                                        child: const Text(
-                                          'CANLI',
+                                        child: const Text( 'CANLI',
                                           style: TextStyle(color: Color(0xFF00E5FF), fontSize: 9, fontWeight: FontWeight.w900),
                                         ),
                                       ),
@@ -1481,16 +1472,29 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                                       ),
                                     ),
                                     const SizedBox(width: 6),
-                                    Text(
-                                      '• ${trail.length} Segment',
+                                    Text( '• ${trail.length} Segment',
                                       style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w600),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 2),
-                                Text(
-                                  _getTrailShortBadge(trail.style),
-                                  style: const TextStyle(color: Colors.white54, fontSize: 10),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    PixelIcon(
+                                      trail.style == TrailStyle.dot
+                                          ? 'starlight' : (trail.style == TrailStyle.spark
+                                              ? 'spark' : (trail.style == TrailStyle.ghost
+                                                  ? 'ghost' : (trail.style == TrailStyle.fire
+                                                      ? 'fire' : (trail.style == TrailStyle.rainbow ? 'rainbow' : 'plasma')))),
+                                      size: 11,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      _getTrailShortBadge(trail.style),
+                                      style: const TextStyle(color: Colors.white54, fontSize: 10),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -1568,7 +1572,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
       children: [
         _buildRandomOptionCard(
           context: context,
-          title: '🎲 RASTGELE ARKA PLAN',
+          title: ' RASTGELE ARKA PLAN',
           desc: 'Sahip olduğun tüm arka planlar arasından her oyunda rastgele biri seçilir.',
           icon: Icons.casino_rounded,
           accentColor: const Color(0xFFE040FB),
@@ -1679,8 +1683,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                       disabledForegroundColor: Colors.white38,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: Text(
-                      '${theme.cost} 🪙',
+                    child: Text( '${theme.cost} ',
                       style: const TextStyle(fontWeight: FontWeight.w900),
                     ),
                   ),
@@ -1837,8 +1840,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                 children: [
                   const Icon(Icons.play_circle_filled, color: Color(0xFF00E5FF), size: 16),
                   const SizedBox(width: 6),
-                  Text(
-                    'CANLI İZ SİMÜLASYONU: ${trail.name}',
+                  Text( 'CANLI İZ SİMÜLASYONU: ${trail.name}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -1855,8 +1857,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: trail.rarity.primaryColor.withValues(alpha: 0.4)),
                 ),
-                child: Text(
-                  '${trail.rarity.label} • ${trail.length} Segment',
+                child: Text( '${trail.rarity.label} • ${trail.length} Segment',
                   style: TextStyle(
                     color: trail.rarity.primaryColor,
                     fontSize: 10,
@@ -1916,17 +1917,17 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
   String _getTrailShortBadge(TrailStyle style) {
     switch (style) {
       case TrailStyle.dot:
-        return '✨ Starlight Takımyıldızı';
+        return 'Starlight Takımyıldızı';
       case TrailStyle.spark:
-        return '⚡ Elektrik & Şimşek';
+        return 'Elektrik & Şimşek';
       case TrailStyle.ghost:
-        return '👻 Ruhani Eko & Sis';
+        return 'Ruhani Eko & Sis';
       case TrailStyle.fire:
-        return '🔥 Blazing Cehennem Alevi';
+        return 'Blazing Cehennem Alevi';
       case TrailStyle.rainbow:
-        return '🌈 Prizmatik Aurora';
+        return 'Prizmatik Aurora';
       case TrailStyle.plasma:
-        return '⚛️ Kuantum Plazma Işını';
+        return 'Kuantum Plazma Işını';
     }
   }
 }

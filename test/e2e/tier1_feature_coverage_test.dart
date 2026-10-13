@@ -702,39 +702,39 @@ void main() {
     // F3.1: Expand gravitational influence radius max(135.0, r * mult)
     // -------------------------------------------------------------------------
     group('F3.1: Black Hole Gravitational Influence Radius', () {
-      test('F3.1_T1_01: Standard black hole with r=20.0 has maxInfluenceDist clamped to 135.0', () {
+      test('F3.1_T1_01: Standard black hole with r=20.0 has maxInfluenceDist clamped to 150.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 20.0, mass: 1000);
-        final expected = max(135.0, 20.0 * 5.5);
+        final expected = max(150.0, 20.0 * 7.5);
         expect((bh as dynamic).maxInfluenceDist, equals(expected));
       });
 
-      test('F3.1_T1_02: Standard black hole with r=30.0 has maxInfluenceDist equal to 165.0', () {
+      test('F3.1_T1_02: Standard black hole with r=30.0 has maxInfluenceDist equal to 225.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 30.0, mass: 1000);
-        final expected = max(135.0, 30.0 * 5.5);
+        final expected = max(150.0, 30.0 * 7.5);
         expect((bh as dynamic).maxInfluenceDist, equals(expected));
       });
 
-      test('F3.1_T1_03: Supercharged black hole with r=25.0 has maxInfluenceDist equal to 150.0', () {
+      test('F3.1_T1_03: Supercharged black hole with r=25.0 has maxInfluenceDist equal to 200.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 25.0, mass: 1000, isSupercharged: true);
-        final expected = max(135.0, 25.0 * 6.0);
+        final expected = max(150.0, 25.0 * 8.0);
         expect((bh as dynamic).maxInfluenceDist, equals(expected));
       });
 
-      test('F3.1_T1_04: Vortex Trap black hole with r=24.0 has maxInfluenceDist equal to 156.0', () {
+      test('F3.1_T1_04: Vortex Trap black hole with r=24.0 has maxInfluenceDist equal to 204.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 24.0, mass: 1000, isVortexTrap: true);
-        final expected = max(135.0, 24.0 * 6.5);
+        final expected = max(150.0, 24.0 * 8.5);
         expect((bh as dynamic).maxInfluenceDist, equals(expected));
       });
 
-      test('F3.1_T1_05: All black hole radii from 20 to 34 have maxInfluenceDist >= 135.0', () {
+      test('F3.1_T1_05: All black hole radii from 20 to 34 have maxInfluenceDist >= 150.0', () {
         for (double r = 20.0; r <= 34.0; r += 2.0) {
           final bhStd = BlackHole(x: 0, y: 0, radius: r, mass: 1000);
           final bhSuper = BlackHole(x: 0, y: 0, radius: r, mass: 1000, isSupercharged: true);
           final bhVortex = BlackHole(x: 0, y: 0, radius: r, mass: 1000, isVortexTrap: true);
 
-          expect((bhStd as dynamic).maxInfluenceDist >= 135.0, isTrue);
-          expect((bhSuper as dynamic).maxInfluenceDist >= 135.0, isTrue);
-          expect((bhVortex as dynamic).maxInfluenceDist >= 135.0, isTrue);
+          expect((bhStd as dynamic).maxInfluenceDist >= 150.0, isTrue);
+          expect((bhSuper as dynamic).maxInfluenceDist >= 150.0, isTrue);
+          expect((bhVortex as dynamic).maxInfluenceDist >= 150.0, isTrue);
         }
       });
     });

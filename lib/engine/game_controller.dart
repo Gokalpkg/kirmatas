@@ -121,7 +121,7 @@ class GameController extends ChangeNotifier {
 
   String _pickRandomBrickStyle() {
     final list = save.unlockedBrickStyles.where((id) => id != 'random').toList();
-    if (list.isEmpty) return 'brick_neon';
+    if (list.isEmpty) return 'brick_gloss';
     return list[_rand.nextInt(list.length)];
   }
 
@@ -433,8 +433,8 @@ class GameController extends ChangeNotifier {
         ball.vx = speed * sin(spread);
         ball.vy = -speed * cos(spread);
       } else {
-        // Subtle tilt angle (~2.6-4.6 degrees) so player cannot idle straight vertical shots
-        final tilt = (_rand.nextBool() ? 1.0 : -1.0) * (0.045 + _rand.nextDouble() * 0.035);
+        // Extremely subtle tilt angle (~0.8-1.5 degrees) barely perceptible to human eye yet prevents idle vertical exploit
+        final tilt = (_rand.nextBool() ? 1.0 : -1.0) * (0.014 + _rand.nextDouble() * 0.012);
         ball.vx = speed * sin(tilt);
         ball.vy = -speed * cos(tilt);
       }
@@ -509,12 +509,12 @@ class GameController extends ChangeNotifier {
 
   void _layoutChaosPile() {
     balls.clear();
-    final y = chaosFloorY - 8;
-    for (int i = 0; i < chaosStock; i++) {
+    // Kaos modunda hedeflerken/başlangıçta üst üste yığılmış toplar yerine tek bir net top gösterilir
+    if (chaosStock > 0) {
       balls.add(
         Ball(
-          x: chaosHomeX + ((i % 3) - 1) * 3.2,
-          y: y - (i ~/ 3) * 3.4,
+          x: chaosHomeX,
+          y: chaosFloorY - 8,
           radius: 5.2,
           isStuck: true,
         ),
@@ -567,7 +567,7 @@ class GameController extends ChangeNotifier {
       particles.spawnShockwave(screenWidth * 0.5, screenHeight * 0.4, const Color(0xFFFFD700), maxRadius: 75.0);
       particles.spawnBurst(screenWidth * 0.5, screenHeight * 0.4, const Color(0xFF00E5FF), count: 25, speed: 180.0);
       particles.spawnFloatingText(screenWidth * 0.5, screenHeight * 0.4, I18n.tr('level_cleared'), const Color(0xFFFFD700), isLarge: true);
-      particles.spawnFloatingText(screenWidth * 0.5, screenHeight * 0.47, '+$levelGold 🪙 ${I18n.tr('level_bonus')}', const Color(0xFFFFD54F), isLarge: false);
+      particles.spawnFloatingText(screenWidth * 0.5, screenHeight * 0.47, '+$levelGold  ${I18n.tr('level_bonus')}', const Color(0xFFFFD54F), isLarge: false);
       audio.playSfx(GameSfx.victory);
       notifyListeners();
       return;
@@ -969,10 +969,10 @@ class GameController extends ChangeNotifier {
           particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.38, I18n.tr('dice_big_10'), const Color(0xFF00E5FF), isLarge: true);
           audio.playSfx(GameSfx.ulti);
         } else if (isDoubleDice) {
-          particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.38, '🎰 $totalShots ${I18n.tr('dice_double_suffix')}', const Color(0xFFFFD700), isLarge: true);
+          particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.38, ' $totalShots ${I18n.tr('dice_double_suffix')}', const Color(0xFFFFD700), isLarge: true);
           audio.playSfx(GameSfx.ulti);
         } else {
-          particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.38, '🎲 $totalShots ${I18n.tr('dice_shot_suffix')}', const Color(0xFF00E5FF), isLarge: true);
+          particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.38, ' $totalShots ${I18n.tr('dice_shot_suffix')}', const Color(0xFF00E5FF), isLarge: true);
           audio.playSfx(GameSfx.laser);
         }
       }
@@ -1225,10 +1225,10 @@ class GameController extends ChangeNotifier {
         final maxY = paddle.y - 170.0;
 
         _blackHoleTimer = 0.0;
-        final r = 13.0 + _rand.nextDouble() * 4.0;
         final roll = _rand.nextDouble();
         final isVortexTrap = roll < 0.02; // 2% rare ultra vortex
         final isSupercharged = !isVortexTrap && (roll < 0.30); // ~28% exotic supercharged black hole
+        final r = isVortexTrap ? 32.0 : (isSupercharged ? 28.0 : (20.0 + _rand.nextDouble() * 10.0));
         final double spawnY = (maxY > minY + 20.0)
             ? (minY + _rand.nextDouble() * (maxY - minY))
             : (paddle.y - 200.0).clamp(160.0, paddle.y - 170.0);
@@ -1318,7 +1318,7 @@ class GameController extends ChangeNotifier {
         ball.vx = ball.vx >= 0 ? 8.0 : -8.0;
       }
 
-      // Black Hole gravity pull & trajectory deflection:
+      // Black Hole gravity pull & trajectory deflection (Restored authentic powerful Newtonian physics):
       for (final bh in blackHoles) {
         final dx = bh.x - ball.x;
         final dy = bh.y - ball.y;
@@ -1343,90 +1343,85 @@ class GameController extends ChangeNotifier {
             final newAccum = oldAccum + delta.abs();
             bh.ballAccumulatedAngles[ballKey] = newAccum;
 
-            // Tur ve orbital açıya göre hızlanma / fırlatma (Supercharged vs Standard):
+            // Lap tracking: slingshot acceleration upon complete orbits
             final currentLaps = (newAccum / (2 * pi)).floor();
             final recordedLaps = bh.ballOrbitLaps[ballKey] ?? 0;
             if (currentLaps > recordedLaps) {
               bh.ballOrbitLaps[ballKey] = currentLaps;
               final currentSpd = ball.speed;
-              if (bh.isSupercharged || bh.isVortexTrap) {
-                final boostedSpeed = (currentSpd * 1.30).clamp(getBaseBallSpeed(), 760.0);
-                ball.setSpeed(boostedSpeed);
-                particles.spawnBurst(ball.x, ball.y, const Color(0xFFFF9100), count: 8, speed: 130.0);
-                audio.playSfx(GameSfx.laser);
-              } else {
-                final boostedSpeed = (currentSpd * 1.15).clamp(getBaseBallSpeed(), 660.0);
-                ball.setSpeed(boostedSpeed);
-                particles.spawnBurst(ball.x, ball.y, const Color(0xFFE040FB), count: 5, speed: 80.0);
-              }
+              final lapMult = currentLaps >= 2 ? 1.35 : 1.25;
+              final boostedSpeed = (currentSpd * lapMult).clamp(getBaseBallSpeed(), 850.0);
+              ball.setSpeed(boostedSpeed);
+              particles.spawnBurst(ball.x, ball.y, bh.isSupercharged ? const Color(0xFFFF9100) : const Color(0xFFE040FB), count: 10, speed: 140.0);
+              audio.playSfx(GameSfx.cornerBoost);
             }
           }
           bh.ballAngles[ballKey] = currentAngle;
 
           final normalizedDist = (dist / maxInfluenceDist).clamp(0.0, 1.0);
           final proximity = 1.0 - normalizedDist;
-          final falloff = pow(proximity, 0.65).toDouble();
 
-          // Güçlü ve hissedilir kütleçekim ivmesi (etkileri fullenmiş dramatik arcade çekimi)
-          final sizeMult = (bh.radius / 20.0).clamp(1.0, 2.0);
-          final basePull = (bh.isVortexTrap ? 5400.0 : (bh.isSupercharged ? 4400.0 : 3400.0)) * sizeMult;
-          final pull = basePull * falloff;
+          // Pure, unrestrained gravitational pull (Early authentic formula scaled by radius):
+          // Even small black holes strongly bend trajectories; larger ones aggressively pull.
+          final basePull = (bh.isVortexTrap ? 1000.0 + bh.radius * 80.0 : (bh.isSupercharged ? 850.0 + bh.radius * 70.0 : (600.0 + bh.radius * 60.0)));
+          final pull = basePull * proximity * (1.25 + proximity * 4.2);
 
           final nx = dx / dist;
           final ny = dy / dist;
 
-          // Merkeze doğru kuvvetli kütleçekim ivmesi
+          // Strong radial Newtonian pull towards singularity
           ball.vx += nx * pull * dt;
           ball.vy += ny * pull * dt;
 
-          // Teğetsel dönüş & Girdap sürüklenmesi (orbital slingshot)
+          // Tangential orbital swirl in the direction of the ball's momentum
           final tangentX = -ny;
           final tangentY = nx;
           final dotTangent = ball.vx * tangentX + ball.vy * tangentY;
-          final dragDirection = dotTangent >= 0 ? 1.0 : -1.0;
-          final spinDrag = (bh.isVortexTrap ? 1400.0 : (bh.isSupercharged ? 1100.0 : 850.0)) * falloff;
-          ball.vx += tangentX * spinDrag * dragDirection * dt;
-          ball.vy += tangentY * spinDrag * dragDirection * dt;
+          final spinDir = dotTangent >= 0 ? 1.0 : -1.0;
+          final swirlPower = (bh.isVortexTrap ? 480.0 : (bh.isSupercharged ? 380.0 : 280.0)) * proximity;
+          ball.vx += tangentX * swirlPower * spinDir * dt;
+          ball.vy += tangentY * swirlPower * spinDir * dt;
 
-          // Yakın mesafede güçlü sapan hızlandırması ve görsel enerji kıvılcımları
-          if (proximity > 0.45 || dist < bh.radius * 3.5) {
-            ball.vx += tangentX * 280.0 * dragDirection * dt;
-            ball.vy += tangentY * 280.0 * dragDirection * dt;
-            if (_rand.nextDouble() < 0.25) {
+          // Event Horizon Slingshot Zone & Anti-singularity cushion:
+          if (dist <= bh.radius * 0.75 + ball.radius) {
+            // Accelerate and redirect along tangent
+            final slingshotSpd = max(ball.speed * 1.25, getBaseBallSpeed() * 1.35).clamp(getBaseBallSpeed(), 850.0);
+            ball.vx = tangentX * slingshotSpd * spinDir;
+            ball.vy = tangentY * slingshotSpd * spinDir;
+
+            if (dist < bh.radius * 0.40) {
+              // Push slightly outward so the ball never collapses into the singularity
+              ball.x = bh.x - nx * (bh.radius * 0.42);
+              ball.y = bh.y - ny * (bh.radius * 0.42);
+            }
+
+            particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD54F), count: 8, speed: 150.0);
+            particles.spawnShockwave(bh.x, bh.y, const Color(0xFFE040FB), maxRadius: 40.0);
+            audio.playSfx(GameSfx.cornerBoost);
+          } else if (proximity > 0.45) {
+            if (_rand.nextDouble() < 0.20) {
               particles.spawnBurnEmber(ball.x, ball.y, color: bh.isSupercharged ? const Color(0xFF00E5FF) : const Color(0xFFE040FB));
             }
           }
 
-          // Olay Ufku (Event Horizon) Teğet Sapanı & Anti-stuck:
-          // Top olay ufku çekirdeğine çok yaklaştığında asla tekillikte yutulup kalmaz;
-          // şiddetli bir kütleçekim sapanı ile dışarıya doğru fırlatılır!
-          if (dist <= bh.radius * 0.48 + ball.radius) {
-            final exitSpeed = max(ball.speed * 1.15, getBaseBallSpeed() * 1.25).clamp(getBaseBallSpeed(), 820.0);
-            ball.vx = tangentX * exitSpeed * dragDirection;
-            ball.vy = tangentY * exitSpeed * dragDirection;
-            particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD54F), count: 12, speed: 160.0);
-            particles.spawnShockwave(bh.x, bh.y, const Color(0xFFE040FB), maxRadius: 45.0);
-            audio.playSfx(GameSfx.cornerBoost);
-          }
-
-          // Asgari taban hız koruması
+          // Dynamic speed bounds
           final minSpeed = getBaseBallSpeed();
           if (ball.speed < minSpeed) {
             ball.setSpeed(minSpeed);
           }
-          final maxAllowedSpeed = (bh.isSupercharged || bh.isVortexTrap || ball.isWallSpeedBoosted) ? 800.0 : 700.0;
-          if (ball.speed > maxAllowedSpeed) {
-            ball.setSpeed(maxAllowedSpeed);
+          if (ball.speed > 850.0) {
+            ball.setSpeed(850.0);
           }
         } else {
           // Ball is outside gravitational influence
           final ballKey = ball.hashCode;
-          if ((bh.isSupercharged || bh.isVortexTrap) && (bh.ballAccumulatedAngles[ballKey] ?? 0.0) >= pi * 0.65) {
+          final accumAngle = bh.ballAccumulatedAngles[ballKey] ?? 0.0;
+          if (accumAngle >= pi * 0.75) {
             final currentSpd = ball.speed;
-            final slingshotSpeed = (currentSpd * 1.18).clamp(getBaseBallSpeed(), 760.0);
+            final slingshotSpeed = (currentSpd * 1.25).clamp(getBaseBallSpeed(), 820.0);
             ball.setSpeed(slingshotSpeed);
             particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD54F), count: 8, speed: 140.0);
-            audio.playSfx(GameSfx.hitPaddle);
+            audio.playSfx(GameSfx.cornerBoost);
           }
           bh.ballAngles.remove(ballKey);
           bh.ballAccumulatedAngles.remove(ballKey);
@@ -1500,13 +1495,18 @@ class GameController extends ChangeNotifier {
         ball.setSpeed(spd);
       }
 
-      // High-speed sub-stepping prevents tunneling through bricks or walls
-      final subSteps = (ball.speed > 380.0) ? 2 : 1;
+      // High-speed adaptive sub-stepping prevents tunneling through bricks or walls
+      final maxStepDist = (currentMode == GameMode.chaos) ? 3.5 : 5.0;
+      final stepDist = ball.speed * dt;
+      final subSteps = max(currentMode == GameMode.chaos ? 3 : 1, (stepDist / maxStepDist).ceil()).clamp(1, 8);
       final subDt = dt / subSteps;
-      final baseTrail = currentMode == GameMode.chaos ? 28 : (activeTrailSkin.length * 1.25).round();
-      final effectiveTrail = ball.cornerBoostTimer > 0
-          ? (baseTrail * 1.8).round().clamp(36, 160)
-          : baseTrail;
+      // Trail length calibration requested by user:
+      // Normal trail: 45% of full baseline length
+      // Corner shot trail: 83% of peak maximum trail
+      final fullBaseTrail = currentMode == GameMode.chaos ? 28 : (activeTrailSkin.length * 1.25).round();
+      final normalTrail = (fullBaseTrail * 0.45).round().clamp(10, 32);
+      final cornerTrail = (fullBaseTrail * 1.8 * 0.83).round().clamp(28, 80);
+      final effectiveTrail = ball.cornerBoostTimer > 0 ? cornerTrail : normalTrail;
       for (int step = 0; step < subSteps; step++) {
         ball.update(
           subDt,
@@ -1629,6 +1629,7 @@ class GameController extends ChangeNotifier {
         ball.stuckOffsetX = ball.x - paddle.x;
         ball.vy = 0;
         ball.vx = 0;
+        ball.trail.clear(); // Yapışkan raket tuttuğunda iz tamamen yok olur, havada asılı kalmaz!
         audio.playSfx(GameSfx.hitPaddle);
         return true;
       }
@@ -1740,6 +1741,78 @@ class GameController extends ChangeNotifier {
     final bx = ball.x;
     final by = ball.y;
 
+    // 1. Dikey İstif Dikiş Bariyeri (Vertical Seam Barrier):
+    // Kaos modunda (ve tüm modlarda) alt alta dizili iki bloğun arasındaki mesafe topun çapından küçükse (örn: 8px < 15px),
+    // bu iki blok sol ve sağ yüzeylerinde birleşik, kesintisiz dikey bir duvar oluşturur.
+    // Top bu boşluğa yatay olarak giremez/içinden geçemez; dış sınırdan pürüzsüzce geri yansır.
+    for (int i = 0; i < bricks.length; i++) {
+      final b1 = bricks[i];
+      if (!b1.isAlive || b1.isBallPickup || b1.isTuft) continue;
+
+      for (int j = i + 1; j < bricks.length; j++) {
+        final b2 = bricks[j];
+        if (!b2.isAlive || b2.isBallPickup || b2.isTuft) continue;
+
+        final topBrick = b1.y < b2.y ? b1 : b2;
+        final botBrick = b1.y < b2.y ? b2 : b1;
+
+        final vGap = botBrick.y - (topBrick.y + topBrick.height);
+        if (vGap < -2.0 || vGap >= 2.0 * r) continue;
+
+        final overlapLeft = max(topBrick.x, botBrick.x);
+        final overlapRight = min(topBrick.x + topBrick.width, botBrick.x + botBrick.width);
+        if (overlapRight - overlapLeft < 4.0) continue;
+
+        final seamTop = topBrick.y + topBrick.height;
+        final seamBottom = botBrick.y;
+
+        // Top bu dikey aralık dikişine temas ediyor mu?
+        if (by + r >= seamTop && by - r <= seamBottom) {
+          final targetBrick = (by - (topBrick.y + topBrick.height / 2)).abs() <
+                  (by - (botBrick.y + botBrick.height / 2)).abs()
+              ? topBrick
+              : botBrick;
+
+          // Soldan dikişe giriş engelleme:
+          if (bx + r >= overlapLeft && bx - r <= overlapLeft + 8.0 && ball.vx > 0) {
+            _hitBrick(targetBrick, ball);
+            if (!ball.isFireball && !ball.isPierce) {
+              ball.vx = -ball.vx.abs();
+              ball.x = overlapLeft - r - 0.1;
+              ball.triggerSquash(pi);
+            }
+            return;
+          }
+          // Sağdan dikişe giriş engelleme:
+          if (bx - r <= overlapRight && bx + r >= overlapRight - 8.0 && ball.vx < 0) {
+            _hitBrick(targetBrick, ball);
+            if (!ball.isFireball && !ball.isPierce) {
+              ball.vx = ball.vx.abs();
+              ball.x = overlapRight + r + 0.1;
+              ball.triggerSquash(0);
+            }
+            return;
+          }
+          // Aşırı hız vb. nedeniyle dikişin içine sızmış topu güvenli dış tarafa tahliye etme:
+          if (bx >= overlapLeft && bx <= overlapRight) {
+            _hitBrick(targetBrick, ball);
+            if (!ball.isFireball && !ball.isPierce) {
+              if (ball.vx >= 0) {
+                ball.vx = -ball.vx.abs();
+                ball.x = overlapLeft - r - 0.1;
+              } else {
+                ball.vx = ball.vx.abs();
+                ball.x = overlapRight + r + 0.1;
+              }
+              ball.triggerSquash(ball.vx < 0 ? pi : 0);
+            }
+            return;
+          }
+        }
+      }
+    }
+
+    // 2. Standart blok çarpışma döngüsü
     for (final b in bricks) {
       if (!b.isAlive) continue;
 
@@ -1796,6 +1869,43 @@ class GameController extends ChangeNotifier {
             else if (minD == dRight) { nx = 1.0; ny = 0.0; }
             else if (minD == dTop) { nx = 0.0; ny = -1.0; }
             else { nx = 0.0; ny = 1.0; }
+          }
+
+          // İç Kenar / Hayalet Köşe Düzeltmesi (Neighbor-Aware Normal Clamping):
+          // Eğer bloğun altında veya üstünde ball çapından (< 2*r) daha yakın komşu blok varsa,
+          // o dikişe doğru sekme normali oluşturulamaz, top duvardan yatay olarak yansıtılır.
+          if (ny > 0.001) {
+            final hasNeighborBelow = bricks.any((other) =>
+                other != b &&
+                other.isAlive &&
+                !other.isBallPickup &&
+                !other.isTuft &&
+                other.y >= b.y + b.height - 2.0 &&
+                other.y <= b.y + b.height + 2.0 * r &&
+                (min(b.x + b.width, other.x + other.width) - max(b.x, other.x) > 4.0));
+            if (hasNeighborBelow) {
+              ny = 0.0;
+              nx = (bx < b.x + b.width / 2) ? -1.0 : 1.0;
+            }
+          } else if (ny < -0.001) {
+            final hasNeighborAbove = bricks.any((other) =>
+                other != b &&
+                other.isAlive &&
+                !other.isBallPickup &&
+                !other.isTuft &&
+                other.y + other.height >= b.y - 2.0 * r &&
+                other.y + other.height <= b.y + 2.0 &&
+                (min(b.x + b.width, other.x + other.width) - max(b.x, other.x) > 4.0));
+            if (hasNeighborAbove) {
+              ny = 0.0;
+              nx = (bx < b.x + b.width / 2) ? -1.0 : 1.0;
+            }
+          }
+
+          final nLen = sqrt(nx * nx + ny * ny);
+          if (nLen > 0.0001) {
+            nx /= nLen;
+            ny /= nLen;
           }
 
           final dot = ball.vx * nx + ball.vy * ny;
@@ -1967,7 +2077,7 @@ class GameController extends ChangeNotifier {
       if (stats.combo >= 5) coins += 2;
       stats.goldCollected += coins;
       save.addGold(coins);
-      particles.spawnFloatingText(b.x + b.width / 2, b.y, '+$coins 🪙', const Color(0xFFFFD54F));
+      particles.spawnFloatingText(b.x + b.width / 2, b.y, '+$coins ', const Color(0xFFFFD54F));
     }
   }
 
@@ -2051,8 +2161,7 @@ class GameController extends ChangeNotifier {
     if (stats.combo == 3) {
       particles.spawnFloatingText(
         paddle.x + paddle.width / 2,
-        paddle.y - 28.0,
-        '⚡ TRIPLE HIT x3!',
+        paddle.y - 28.0, ' TRIPLE HIT x3!',
         const Color(0xFF00E5FF),
         isLarge: true,
       );
@@ -2060,8 +2169,7 @@ class GameController extends ChangeNotifier {
     } else if (stats.combo == 5) {
       particles.spawnFloatingText(
         paddle.x + paddle.width / 2,
-        paddle.y - 32.0,
-        '🔥 MEGA COMBO x5!',
+        paddle.y - 32.0, ' MEGA COMBO x5!',
         const Color(0xFFFF9100),
         isLarge: true,
       );
@@ -2069,8 +2177,7 @@ class GameController extends ChangeNotifier {
     } else if (stats.combo >= 8 && stats.combo % 4 == 0) {
       particles.spawnFloatingText(
         paddle.x + paddle.width / 2,
-        paddle.y - 36.0,
-        '💥 ULTRA COMBO x${stats.combo}!',
+        paddle.y - 36.0, ' ULTRA COMBO x${stats.combo}!',
         const Color(0xFFD500F9),
         isLarge: true,
       );
@@ -2078,8 +2185,7 @@ class GameController extends ChangeNotifier {
     } else if (stats.combo > 1 && stats.combo % 3 == 0) {
       particles.spawnFloatingText(
         paddle.x + paddle.width / 2,
-        paddle.y - 28.0,
-        '${I18n.tr('combo')} x${stats.combo}!',
+        paddle.y - 28.0, '${I18n.tr('combo')} x${stats.combo}!',
         const Color(0xFFFFD54F),
       );
     }
@@ -2098,8 +2204,8 @@ class GameController extends ChangeNotifier {
       final buffs = allTypes.where((t) => t.kind == PowerUpKind.buff && t != PowerUpType.mirror && t != PowerUpType.multi && t != PowerUpType.pierce && t != PowerUpType.drone).toList();
       chosen = buffs[_rand.nextInt(buffs.length)];
       
-      // KURAL: Ateş topu ve Roket çok daha nadir çıkmalı (2/3 oranında tekrar kura çekilir)
-      if ((chosen == PowerUpType.fireball || chosen == PowerUpType.rocket) && _rand.nextDouble() < 0.66) {
+      // KURAL: Ateş topu ve Roket çok daha nadir çıkmalı (0.88 oranında tekrar kura çekilir, çok nadir düşer)
+      if ((chosen == PowerUpType.fireball || chosen == PowerUpType.rocket) && _rand.nextDouble() < 0.88) {
         chosen = buffs[_rand.nextInt(buffs.length)];
       }
     } else {
@@ -2146,8 +2252,13 @@ class GameController extends ChangeNotifier {
           final aliveBricks = bricks.where((b) => b.isAlive && !b.isSteel).toList();
           if (aliveBricks.isNotEmpty) {
             final target = aliveBricks[_rand.nextInt(aliveBricks.length)];
+            final tx = target.x + target.width / 2;
+            final ty = target.y + target.height / 2;
+            particles.spawnShockwave(tx, ty, const Color(0xFFFF1744), maxRadius: 36.0);
+            particles.spawnBurst(tx, ty, const Color(0xFFFFD54F), count: 16, speed: 120.0);
+            audio.playSfx(GameSfx.laser);
             _destroyBrick(target);
-            particles.spawnFloatingText(target.x + target.width / 2, target.y, I18n.tr('target_locked'), const Color(0xFFFFAB00));
+            particles.spawnFloatingText(tx, target.y - 10, ' ${I18n.tr('target_locked')}', const Color(0xFFFFAB00), isLarge: true);
           }
           break;
         case PowerUpType.rocket:
@@ -2253,8 +2364,8 @@ class GameController extends ChangeNotifier {
           BlackHole(
             x: spawnX,
             y: spawnY,
-            radius: 26.0,
-            mass: 26.0 * 4500.0,
+            radius: 30.0,
+            mass: 30.0 * 5000.0,
             timeLeft: 9.0,
             isSupercharged: true,
           ),
@@ -2492,7 +2603,7 @@ class GameController extends ChangeNotifier {
         particles.spawnBurst(screenWidth / 2, screenHeight * 0.38, const Color(0xFFFFD700), count: 24, speed: 200.0);
         particles.spawnShockwave(screenWidth / 2, screenHeight * 0.38, const Color(0xFFFFD700), maxRadius: 85.0);
         particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.40, '${I18n.tr('level').toUpperCase()} ${stats.level}!', const Color(0xFFFFD54F), isLarge: true);
-        particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.48, '+$levelGold 🪙 ${I18n.tr('level_bonus')}', const Color(0xFFFFD54F), isLarge: false);
+        particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.48, '+$levelGold  ${I18n.tr('level_bonus')}', const Color(0xFFFFD54F), isLarge: false);
         audio.playSfx(GameSfx.victory);
         notifyListeners();
       }
@@ -2561,8 +2672,7 @@ class GameController extends ChangeNotifier {
     particles.spawnShockwave(screenWidth / 2, screenHeight / 2, const Color(0xFFFFD54F), maxRadius: 120.0);
     particles.spawnFloatingText(
       screenWidth / 2,
-      screenHeight * 0.45,
-      '🎲 ZAR $rolled ➔ ${endGameMultiplier}X ALTIN (+$bonusGold 🪙)!',
+      screenHeight * 0.45, ' ZAR $rolled  ${endGameMultiplier}X ALTIN (+$bonusGold )!',
       const Color(0xFFFFD54F),
       isLarge: true,
     );

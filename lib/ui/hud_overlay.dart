@@ -98,10 +98,8 @@ class HudOverlay extends StatelessWidget {
                                 fit: BoxFit.scaleDown,
                                 child: Text(
                                   controller.currentMode == GameMode.classic
-                                      ? '${I18n.tr('level').toUpperCase()} ${stats.level}'
-                                      : controller.currentMode == GameMode.chaos
-                                          ? '${I18n.tr('chaos').toUpperCase()} ${stats.level}'
-                                          : I18n.tr(controller.currentMode.name).toUpperCase(),
+                                      ? '${I18n.tr('level').toUpperCase()} ${stats.level}' : controller.currentMode == GameMode.chaos
+                                          ? '${I18n.tr('chaos').toUpperCase()} ${stats.level}' : I18n.tr(controller.currentMode.name).toUpperCase(),
                                   style: const TextStyle(
                                     color: Color(0xFFFFD54F),
                                     fontWeight: FontWeight.w900,
@@ -213,8 +211,7 @@ class HudOverlay extends StatelessWidget {
                                       letterSpacing: 0.8,
                                     ),
                                   ),
-                                  Text(
-                                    '${boss.hp} / ${boss.maxHp} HP',
+                                  Text( '${boss.hp} / ${boss.maxHp} HP',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 10,
@@ -316,8 +313,7 @@ class HudOverlay extends StatelessWidget {
                                       children: [
                                         Image.asset(p.type.assetPath, width: 14, height: 14, fit: BoxFit.contain),
                                         const SizedBox(width: 4),
-                                        Text(
-                                          '${p.timeLeft.toStringAsFixed(2)}s',
+                                        Text( '${p.timeLeft.toStringAsFixed(2)}s',
                                           style: TextStyle(
                                             color: p.type.color,
                                             fontSize: 11,
@@ -378,8 +374,7 @@ class HudOverlay extends StatelessWidget {
                                   controller.isDiceRolling
                                       ? I18n.tr('dice_rolling_hud')
                                       : (controller.isDiceActive
-                                          ? '🎲 ${controller.diceTotal}X'
-                                          : (stats.ultiCharge >= 100.0 ? I18n.tr('dice_roll_btn') : '%${stats.ultiCharge.toInt()}')),
+                                          ? ' ${controller.diceTotal}X' : (stats.ultiCharge >= 100.0 ? I18n.tr('dice_roll_btn') : '%${stats.ultiCharge.toInt()}')),
                                   style: TextStyle(
                                     color: stats.ultiCharge >= 100.0 ? Colors.white : Colors.white70,
                                     fontWeight: FontWeight.w900,

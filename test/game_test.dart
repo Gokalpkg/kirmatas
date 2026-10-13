@@ -1862,7 +1862,7 @@ void main() {
       expect(gc.currentMode, GameMode.chaos);
       expect(gc.chaosStock, 3);
       expect(gc.chaosPendingExtraBalls, 0);
-      expect(gc.balls.length, 3);
+      expect(gc.balls.length, 1); // Single visual ball at launcher (clean non-stacked aiming)
 
       // Verify level layout has +1 ball pickups and balanced HP
       expect(gc.bricks.any((b) => b.isBallPickup), true);
@@ -1935,7 +1935,7 @@ void main() {
       expect(gc.chaosStock, 3);
       expect(gc.chaosPendingExtraBalls, 0);
       expect(gc.status, GameStatus.ready);
-      expect(gc.balls.length, 3);
+      expect(gc.balls.length, 1); // Single visual ball at launcher (clean non-stacked aiming)
     });
 
     test('Smooth real-world contact normal reflection preserves speed and reflects corners accurately', () {
@@ -2636,6 +2636,83 @@ void main() {
       expect(gc2.endGameMultiplier, 3);
       expect(gc2.stats.goldCollected, 300);
       expect(save.gold, 1300);
+    });
+
+    test('Chaos Mode: Ball cannot pass through/tunnel between two vertically stacked bricks', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.chaos);
+      gc.status = GameStatus.playing;
+      gc.balls.clear();
+
+      // Clear existing bricks and add two vertically stacked bricks with an 8px gap (Chaos standard)
+      // Brick 1: x: 100, y: 100, w: 45, h: 26 (bottom: 126)
+      // Brick 2: x: 100, y: 134, w: 45, h: 26 (top: 134)
+      // Gap is 8px (y: 126 to 134). Ball radius is 7.5px (diameter 15px > 8px gap).
+      gc.bricks.clear();
+      final b1 = Brick(x: 100, y: 100, width: 45, height: 26, hp: 5, maxHp: 5, color: const Color(0xFFFF5252));
+      final b2 = Brick(x: 100, y: 134, width: 45, height: 26, hp: 5, maxHp: 5, color: const Color(0xFFFF5252));
+      gc.bricks.addAll([b1, b2]);
+
+      // Fire a ball aimed directly horizontally into the 8px seam from the left (x: 80, y: 130)
+      final ballLeft = Ball(x: 80, y: 130, vx: 500, vy: 0);
+      gc.balls.add(ballLeft);
+
+      // Simulate movement towards the seam: in ~3 frames it hits the bricks at x=100 and bounces back
+      bool hasBounced = false;
+      for (int step = 0; step < 15; step++) {
+        gc.update(0.016);
+        // The ball MUST NEVER tunnel through to the right of the stacked bricks (x > 145)
+        expect(ballLeft.x <= 100.0, true, reason: 'Ball penetrated or tunneled through the 8px seam between stacked blocks!');
+        if (ballLeft.vx < 0) {
+          hasBounced = true;
+        }
+      }
+      expect(hasBounced, true, reason: 'Ball should have bounced to the left off the stacked bricks!');
+
+      // Symmetrically test from the right: fire ball towards seam from x: 165 towards x: 145
+      gc.balls.clear();
+      final ballRight = Ball(x: 165, y: 130, vx: -500, vy: 0);
+      gc.balls.add(ballRight);
+
+      bool hasBouncedRight = false;
+      for (int step = 0; step < 15; step++) {
+        gc.update(0.016);
+        // Ball must never tunnel through to the left of the stacked bricks (x < 100)
+        expect(ballRight.x >= 145.0, true, reason: 'Ball penetrated from the right through the seam!');
+        if (ballRight.vx > 0) {
+          hasBouncedRight = true;
+        }
+      }
+      expect(hasBouncedRight, true, reason: 'Ball should have bounced to the right off the stacked bricks!');
+    });
+
+    test('Chaos Mode: Accumulated balls display as a single clean ball at launcher while aiming', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.chaos);
+
+      // Accumulate 20 balls in chaos mode
+      gc.chaosStock = 20;
+      gc.loadLevelBricks(); // Triggers _layoutChaosPile
+      gc.status = GameStatus.ready;
+
+      // Only 1 ball should be in balls list at the launcher node
+      expect(gc.chaosStock, 20);
+      expect(gc.balls.length, 1);
+      expect(gc.balls.first.x, gc.chaosHomeX);
+      expect(gc.balls.first.isStuck, true);
+
+      // Player aims
+      gc.aimChaos(gc.chaosHomeX, gc.chaosFloorY - 150.0);
+      expect(gc.chaosAiming, true);
+      // Still only 1 single ball while aiming
+      expect(gc.balls.length, 1);
+
+      // Firing launches all 20 balls into volley
+      gc.fireChaos();
+      expect(gc.status, GameStatus.playing);
+      expect(gc.chaosToLaunch, 20);
     });
   });
 }

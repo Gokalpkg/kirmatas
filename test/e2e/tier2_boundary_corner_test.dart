@@ -766,24 +766,24 @@ void main() {
     // F3.1: Boundary Cases for Black Hole Influence Radius
     // -------------------------------------------------------------------------
     group('F3.1: Influence Radius Boundaries', () {
-      test('F3.1_T2_01: Smallest standard black hole r=20.0 enforces lower bound 135.0', () {
+      test('F3.1_T2_01: Smallest standard black hole r=20.0 enforces lower bound 150.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 20.0, mass: 1000);
-        expect((bh as dynamic).maxInfluenceDist, equals(135.0));
+        expect((bh as dynamic).maxInfluenceDist, equals(150.0));
       });
 
-      test('F3.1_T2_02: Largest standard black hole r=34.0 has maxInfluenceDist = 187.0', () {
+      test('F3.1_T2_02: Largest standard black hole r=34.0 has maxInfluenceDist = 255.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 34.0, mass: 1000);
-        expect((bh as dynamic).maxInfluenceDist, equals(34.0 * 5.5));
+        expect((bh as dynamic).maxInfluenceDist, equals(34.0 * 7.5));
       });
 
-      test('F3.1_T2_03: Largest Supercharged black hole r=34.0 has maxInfluenceDist = 204.0', () {
+      test('F3.1_T2_03: Largest Supercharged black hole r=34.0 has maxInfluenceDist = 272.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 34.0, mass: 1000, isSupercharged: true);
-        expect((bh as dynamic).maxInfluenceDist, equals(34.0 * 6.0));
+        expect((bh as dynamic).maxInfluenceDist, equals(34.0 * 8.0));
       });
 
-      test('F3.1_T2_04: Largest Vortex Trap r=34.0 has maxInfluenceDist = 221.0', () {
+      test('F3.1_T2_04: Largest Vortex Trap r=34.0 has maxInfluenceDist = 289.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 34.0, mass: 1000, isVortexTrap: true);
-        expect((bh as dynamic).maxInfluenceDist, equals(34.0 * 6.5));
+        expect((bh as dynamic).maxInfluenceDist, equals(34.0 * 8.5));
       });
 
       test('F3.1_T2_05: Ball at distance maxInfluenceDist - 0.5px experiences pull; at + 0.5px experiences zero pull', () {
@@ -791,8 +791,9 @@ void main() {
         final bh = BlackHole(x: 180, y: 300, radius: 20.0, mass: 1000);
         gc.blackHoles..clear()..add(bh);
 
-        final ballInside = Ball(x: 180 + 134.5, y: 300, vx: 0, vy: -400);
-        final ballOutside = Ball(x: 180 + 135.5, y: 300, vx: 0, vy: -400);
+        final boundary = bh.maxInfluenceDist;
+        final ballInside = Ball(x: 180 + boundary - 0.5, y: 300, vx: 0, vy: -400);
+        final ballOutside = Ball(x: 180 + boundary + 0.5, y: 300, vx: 0, vy: -400);
 
         gc.balls..clear()..addAll([ballInside, ballOutside]);
         gc.status = GameStatus.playing;

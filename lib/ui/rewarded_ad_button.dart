@@ -59,8 +59,7 @@ class _RewardedGoldAdButtonState extends State<RewardedGoldAdButton> with Single
                 const Icon(Icons.stars, color: Color(0xFFFFD54F), size: 24),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    '🪙 +$reward Altın Hesabınıza Eklendi!',
+                  child: Text( ' +$reward Altın Hesabınıza Eklendi!',
                     style: const TextStyle(
                       color: Color(0xFFFFD54F),
                       fontWeight: FontWeight.w900,
@@ -89,8 +88,7 @@ class _RewardedGoldAdButtonState extends State<RewardedGoldAdButton> with Single
                 Icon(Icons.info_outline, color: Color(0xFFFFB74D), size: 22),
                 SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    'Ödülü kazanmak için reklamı sonuna kadar izlemelisiniz.',
+                  child: Text( 'Ödülü kazanmak için reklamı sonuna kadar izlemelisiniz.',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
@@ -135,8 +133,7 @@ class _RewardedGoldAdButtonState extends State<RewardedGoldAdButton> with Single
   Widget _buildCompactButton(bool isEnabled, bool isOnCooldown, bool isLoading, int cooldown) {
     final reward = AdManager.goldRewardAmount;
     final text = isOnCooldown
-        ? '🪙 +$reward (${_formatCooldown(cooldown)})'
-        : (isLoading ? 'Hazırlanıyor...' : '🎁 +$reward Altın');
+        ? ' +$reward (${_formatCooldown(cooldown)})' : (isLoading ? 'Hazırlanıyor...' : ' +$reward Altın');
 
     return Container(
       decoration: BoxDecoration(
@@ -264,8 +261,7 @@ class _RewardedGoldAdButtonState extends State<RewardedGoldAdButton> with Single
               children: [
                 Row(
                   children: [
-                    Text(
-                      '🪙 +${AdManager.goldRewardAmount} Altın',
+                    Text( ' +${AdManager.goldRewardAmount} Altın',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
@@ -296,8 +292,7 @@ class _RewardedGoldAdButtonState extends State<RewardedGoldAdButton> with Single
                 const SizedBox(height: 3),
                 Text(
                   isOnCooldown
-                      ? 'Yenilenme süresi: ${_formatCooldown(cooldown)}'
-                      : (isLoading ? 'Reklam hazırlanıyor...' : 'Kısa video izle & kasana altın ekle'),
+                      ? 'Yenilenme süresi: ${_formatCooldown(cooldown)}' : (isLoading ? 'Reklam hazırlanıyor...' : 'Kısa video izle & kasana altın ekle'),
                   style: TextStyle(
                     color: isOnCooldown ? const Color(0xFFFFB74D) : Colors.white60,
                     fontSize: 11.5,
@@ -333,8 +328,7 @@ class _RewardedGoldAdButtonState extends State<RewardedGoldAdButton> with Single
                 else ...[
                   const Icon(Icons.play_arrow_rounded, size: 16, color: Colors.black),
                   const SizedBox(width: 2),
-                  const Text(
-                    'AL',
+                  const Text( 'AL',
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: 12,

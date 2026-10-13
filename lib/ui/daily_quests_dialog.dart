@@ -30,8 +30,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
       AudioManager.instance.playSfx(GameSfx.powerupBuff);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            '🎉 +$reward ${I18n.tr('quest_gold')}',
+          content: Text( ' +$reward ${I18n.tr('quest_gold')}',
             style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFFD54F)),
           ),
           backgroundColor: const Color(0xFF161A29),
@@ -112,7 +111,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                 _buildQuestCard(
                   id: 'feed_fish',
                   title: I18n.tr('quest_feed'),
-                  rewardText: '+60 🪙 + 1 ${I18n.tr('food_word')} 🌾',
+                  rewardText: '+60  + 1 ${I18n.tr('food_word')} ',
                   current: _save.questFishFed ? 1 : 0,
                   target: 1,
                   icon: Icons.set_meal,
@@ -124,7 +123,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                 _buildQuestCard(
                   id: 'break_bricks',
                   title: I18n.tr('quest_bricks'),
-                  rewardText: '+120 🪙',
+                  rewardText: '+120 ',
                   current: _save.questBricksBroken,
                   target: 100,
                   icon: Icons.view_module,
@@ -136,7 +135,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                 _buildQuestCard(
                   id: 'ad_or_win',
                   title: I18n.tr('quest_win'),
-                  rewardText: '+150 🪙',
+                  rewardText: '+150 ',
                   current: _save.questAdOrWinDone ? 1 : 0,
                   target: 1,
                   icon: Icons.star,
@@ -206,8 +205,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      'Ödül: $rewardText',
+                    Text( 'Ödül: $rewardText',
                       style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.w700,
@@ -246,8 +244,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                   ),
                 ),
               ] else ...[
-                Text(
-                  '$current / $target',
+                Text( '$current / $target',
                   style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.w800, fontSize: 12),
                 ),
               ],

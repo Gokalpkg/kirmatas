@@ -52,8 +52,8 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
       final gold = result['gold'];
       final food = result['food'] as int? ?? 0;
 
-      String message = '🎉 +$gold Altın';
-      if (food > 0) message += ', +$food Balık Yemi 🌾';
+      String message = ' +$gold Altın';
+      if (food > 0) message += ', +$food Balık Yemi ';
       if (result['bonusItem'] != null) message += ' ve Özel Parça';
       message += ' Kazandınız! (Alttan 2X\'e katlayabilirsiniz)';
 
@@ -95,8 +95,8 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
           final gold = result['gold'];
           final food = result['food'] as int? ?? 0;
 
-          String message = '🎉 +$gold Altın';
-          if (food > 0) message += ', +$food Balık Yemi 🌾';
+          String message = ' +$gold Altın';
+          if (food > 0) message += ', +$food Balık Yemi ';
           if (result['bonusItem'] != null) message += ' ve Özel Parça';
           message += alreadyClaimedBase ? ' Kazandınız! (2X Tamamlandı!)' : ' Kazandınız! (2X KATLANDI!)';
 
@@ -169,8 +169,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                       children: [
                         Icon(Icons.calendar_month, color: Color(0xFFFFD54F), size: 26),
                         SizedBox(width: 8),
-                        Text(
-                          'GÜNLÜK GİRİŞ ÖDÜLÜ',
+                        Text( 'GÜNLÜK GİRİŞ ÖDÜLÜ',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -188,8 +187,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                   ],
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Her gün oyuna gir, seriyi bozma ve büyük ödülleri topla!',
+                const Text( 'Her gün oyuna gir, seriyi bozma ve büyük ödülleri topla!',
                   style: TextStyle(color: Colors.white60, fontSize: 12),
                   textAlign: TextAlign.center,
                 ),
@@ -225,8 +223,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                       children: [
                         Icon(Icons.touch_app_rounded, size: 14, color: Color(0xFFFFD54F)),
                         SizedBox(width: 4),
-                        Text(
-                          'Normal almak için bugünkü gün kutusuna dokunun',
+                        Text( 'Normal almak için bugünkü gün kutusuna dokunun',
                           style: TextStyle(color: Color(0xFFFFD54F), fontSize: 11, fontWeight: FontWeight.w700),
                         ),
                       ],
@@ -241,11 +238,10 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                     builder: (context) {
                       final baseGold = _save.getBaseGoldForDailyDay(currentDay);
                       final isComplementing = !canClaimBase; // already claimed base, now getting remaining 1x
-                      final buttonGoldText = isComplementing ? '+$baseGold 🪙' : '${baseGold * 2} 🪙';
-                      final buttonTitle = isComplementing ? '🔥 2X ÖDÜL AL: $buttonGoldText' : '🔥 2X KATLA & AL: $buttonGoldText';
+                      final buttonGoldText = isComplementing ? '+$baseGold ' : '${baseGold * 2} ';
+                      final buttonTitle = isComplementing ? ' 2X ÖDÜL AL: $buttonGoldText' : ' 2X KATLA & AL: $buttonGoldText';
                       final buttonSubtitle = isComplementing
-                          ? 'Kısa Video İzle, Bugünkü Ödülü 2X\'e Tamamla!'
-                          : 'Kısa Video İzle, Bugünkü Ödülü 2\'ye Katla!';
+                          ? 'Kısa Video İzle, Bugünkü Ödülü 2X\'e Tamamla!' : 'Kısa Video İzle, Bugünkü Ödülü 2\'ye Katla!';
 
                       return Column(
                         children: [
@@ -307,8 +303,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                                                 color: const Color(0xFFD50000),
                                                 borderRadius: BorderRadius.circular(6),
                                               ),
-                                              child: const Text(
-                                                '+2X',
+                                              child: const Text( '+2X',
                                                 style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900),
                                               ),
                                             ),
@@ -348,8 +343,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                       children: [
                         Icon(Icons.check_circle, color: Color(0xFF69F0AE), size: 18),
                         SizedBox(width: 8),
-                        Text(
-                          'Bugünkü ödül alındı! Yarın tekrar gel.',
+                        Text( 'Bugünkü ödül alındı! Yarın tekrar gel.',
                           style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w800, fontSize: 13),
                         ),
                       ],
@@ -374,30 +368,30 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
 
     switch (dayNum) {
       case 1:
-        rewardText = '50 🪙';
+        rewardText = '50 ';
         break;
       case 2:
-        rewardText = '100🪙 + 2🌾';
+        rewardText = '100 + 2';
         icon = Icons.set_meal;
         iconColor = const Color(0xFF4FC3F7);
         break;
       case 3:
-        rewardText = '150🪙 + 🎁';
+        rewardText = '150 + ';
         icon = Icons.sports_volleyball;
         iconColor = const Color(0xFFFF80AB);
         break;
       case 4:
-        rewardText = '200🪙 + ❤️';
+        rewardText = '200 + ️';
         icon = Icons.favorite;
         iconColor = const Color(0xFFFF5252);
         break;
       case 5:
-        rewardText = '300🪙 + 🛡️';
+        rewardText = '300 + ️';
         icon = Icons.view_stream;
         iconColor = const Color(0xFF00E5FF);
         break;
       case 6:
-        rewardText = '400🪙 + 3🌾';
+        rewardText = '400 + 3';
         icon = Icons.set_meal;
         iconColor = const Color(0xFF69F0AE);
         break;
@@ -431,8 +425,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                '$dayNum. GÜN',
+              Text( '$dayNum. GÜN',
                 style: TextStyle(
                   color: isToday ? const Color(0xFFFFD54F) : Colors.white54,
                   fontSize: 10,
@@ -532,8 +525,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
               children: [
                 Row(
                   children: [
-                    Text(
-                      '7. GÜN BÜYÜK ÖDÜL',
+                    Text( '7. GÜN BÜYÜK ÖDÜL',
                       style: TextStyle(
                         color: isToday ? Colors.white : const Color(0xFFFFD54F),
                         fontSize: 12,
@@ -548,8 +540,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                         color: Colors.redAccent,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text(
-                        'EFSANEVİ',
+                      child: const Text( 'EFSANEVİ',
                         style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
                       ),
                     ),
@@ -558,8 +549,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                 const SizedBox(height: 2),
                 Text(
                   isPast
-                      ? '✓ Tamamlandı'
-                      : '👑 600 Altın + 2x Efsanevi Kozmetik Parçası!',
+                      ? ' Tamamlandı' : ' 600 Altın + 2x Efsanevi Kozmetik Parçası!',
                   style: TextStyle(
                     color: isToday ? const Color(0xFFFFFDE7) : Colors.white70,
                     fontSize: 12,
@@ -579,8 +569,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
               ),
-              child: const Text(
-                'AL 👑',
+              child: const Text( 'AL ',
                 style: TextStyle(color: Color(0xFFE65100), fontWeight: FontWeight.w900, fontSize: 11),
               ),
             ),

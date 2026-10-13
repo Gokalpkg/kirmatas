@@ -171,7 +171,7 @@ void main() {
         gc.blackHoles..clear()..add(bh);
 
         // Verify influence radius calculation
-        final expectedInfluence = max(135.0, r * 5.5);
+        final expectedInfluence = max(150.0, r * 7.5);
         expect((bh as dynamic).maxInfluenceDist, equals(expectedInfluence));
 
         // Fast ball passing 50px away

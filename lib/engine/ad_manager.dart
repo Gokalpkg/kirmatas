@@ -154,16 +154,70 @@ class AdManager extends ChangeNotifier {
     }
 
     if (_interstitialAd == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Geçilebilir kısa reklam hazırlanıyor, birkaç saniye sonra tekrar deneyin...'),
-          backgroundColor: Color(0xFF1E2438),
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 2),
-        ),
-      );
       preloadInterstitialAd();
-      return;
+
+      bool dialogOpen = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dlgCtx) => PopScope(
+          canPop: false,
+          child: Dialog(
+            backgroundColor: const Color(0xFF131726),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: const BorderSide(color: Color(0xFF4FC3F7), width: 1.5),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.8,
+                      color: Color(0xFF4FC3F7),
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Reklam yükleniyor, lütfen bekleyin...',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ).then((_) => dialogOpen = false);
+
+      final startTime = DateTime.now().millisecondsSinceEpoch;
+      while (_interstitialAd == null && (DateTime.now().millisecondsSinceEpoch - startTime) < 3500) {
+        await Future.delayed(const Duration(milliseconds: 150));
+        if (!context.mounted) break;
+      }
+
+      if (dialogOpen && context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      if (_interstitialAd == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Reklam yüklenemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.'),
+              backgroundColor: Color(0xFF1E2438),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
     }
 
     _isShowing = true;
@@ -217,16 +271,72 @@ class AdManager extends ChangeNotifier {
     if (_isShowing) return;
 
     if (_interstitialAd == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Geçilebilir kısa reklam hazırlanıyor, birkaç saniye sonra tekrar deneyin...'),
-          backgroundColor: Color(0xFF1E2438),
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      // Reklam hafızada yoksa kullanıcıyı bekletip göndermek yerine,
+      // 3.5 saniye hızlı yükleme diyaloğu açıp yüklenir yüklenmez anında ekrana veriyoruz!
       preloadInterstitialAd();
-      return;
+
+      bool dialogOpen = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dlgCtx) => PopScope(
+          canPop: false,
+          child: Dialog(
+            backgroundColor: const Color(0xFF131726),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: const BorderSide(color: Color(0xFF4FC3F7), width: 1.5),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.8,
+                      color: Color(0xFF4FC3F7),
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Reklam yükleniyor, lütfen bekleyin...',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ).then((_) => dialogOpen = false);
+
+      final startTime = DateTime.now().millisecondsSinceEpoch;
+      while (_interstitialAd == null && (DateTime.now().millisecondsSinceEpoch - startTime) < 3500) {
+        await Future.delayed(const Duration(milliseconds: 150));
+        if (!context.mounted) break;
+      }
+
+      if (dialogOpen && context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      if (_interstitialAd == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Reklam yüklenemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.'),
+              backgroundColor: Color(0xFF1E2438),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
     }
 
     _isShowing = true;
@@ -370,7 +480,7 @@ class AdManager extends ChangeNotifier {
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
-          debugPrint('AdManager: Rewarded Tier 1 loaded successfully! 💰');
+          debugPrint('AdManager: Rewarded Tier 1 loaded successfully! ');
           _highYieldAd = ad;
           _isLoadingHighYield = false;
           notifyListeners();
@@ -390,7 +500,7 @@ class AdManager extends ChangeNotifier {
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
-          debugPrint('AdManager: Rewarded Tier 2 loaded successfully! 💵');
+          debugPrint('AdManager: Rewarded Tier 2 loaded successfully! ');
           _highYieldAd = ad;
           _isLoadingHighYield = false;
           notifyListeners();
@@ -410,7 +520,7 @@ class AdManager extends ChangeNotifier {
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
-          debugPrint('AdManager: Rewarded Tier 3 loaded successfully! 👍');
+          debugPrint('AdManager: Rewarded Tier 3 loaded successfully! ');
           _highYieldAd = ad;
           _isLoadingHighYield = false;
           notifyListeners();
@@ -465,7 +575,7 @@ class AdManager extends ChangeNotifier {
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
-          debugPrint('AdManager: Interstitial Tier 1 loaded successfully! ⚡');
+          debugPrint('AdManager: Interstitial Tier 1 loaded successfully! ');
           _interstitialAd = ad;
           _isLoadingInterstitial = false;
           notifyListeners();
@@ -485,7 +595,7 @@ class AdManager extends ChangeNotifier {
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
-          debugPrint('AdManager: Interstitial Tier 2 loaded successfully! ⚡');
+          debugPrint('AdManager: Interstitial Tier 2 loaded successfully! ');
           _interstitialAd = ad;
           _isLoadingInterstitial = false;
           notifyListeners();
@@ -505,7 +615,7 @@ class AdManager extends ChangeNotifier {
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
-          debugPrint('AdManager: Interstitial Tier 3 loaded successfully! ⚡');
+          debugPrint('AdManager: Interstitial Tier 3 loaded successfully! ');
           _interstitialAd = ad;
           _isLoadingInterstitial = false;
           notifyListeners();

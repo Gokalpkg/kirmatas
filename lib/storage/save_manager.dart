@@ -104,8 +104,8 @@ class SaveManager extends ChangeNotifier {
   String language = 'tr';
   Set<String> unlockedBackgrounds = {'bg_default'};
   String activeBackground = 'bg_default';
-  Set<String> unlockedBrickStyles = {'brick_neon'};
-  String activeBrickStyle = 'brick_neon';
+  Set<String> unlockedBrickStyles = {'brick_gloss'};
+  String activeBrickStyle = 'brick_gloss';
 
   Future<void> init() async {
     if (_initialized) return;
@@ -213,8 +213,8 @@ class SaveManager extends ChangeNotifier {
     language = _prefs?.getString('language') ?? 'tr';
     unlockedBackgrounds = (_prefs?.getStringList('unlockedBackgrounds') ?? ['bg_default']).toSet();
     activeBackground = _prefs?.getString('activeBackground') ?? 'bg_default';
-    unlockedBrickStyles = (_prefs?.getStringList('unlockedBrickStyles') ?? ['brick_neon']).toSet();
-    activeBrickStyle = _prefs?.getString('activeBrickStyle') ?? 'brick_neon';
+    unlockedBrickStyles = (_prefs?.getStringList('unlockedBrickStyles') ?? ['brick_gloss']).toSet();
+    activeBrickStyle = _prefs?.getString('activeBrickStyle') ?? 'brick_gloss';
     lastAdWatchTime = _prefs?.getInt('lastAdWatchTime') ?? 0;
     hasPermanentRelic = _prefs?.getBool('hasPermanentRelic') ?? false;
 

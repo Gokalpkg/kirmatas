@@ -100,8 +100,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(I18n.tr('score'), style: const TextStyle(color: Colors.white70)),
-                                Text(
-                                  '${stats.score}',
+                                Text( '${stats.score}',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w900,
@@ -115,8 +114,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(I18n.tr('high_score'), style: const TextStyle(color: Colors.white70)),
-                                Text(
-                                  '$bestScore',
+                                Text( '$bestScore',
                                   style: const TextStyle(
                                     color: Color(0xFFFFD54F),
                                     fontWeight: FontWeight.w900,
@@ -130,8 +128,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(I18n.tr('max_combo'), style: const TextStyle(color: Colors.white70)),
-                                Text(
-                                  'x${stats.maxCombo}',
+                                Text( 'x${stats.maxCombo}',
                                   style: const TextStyle(
                                     color: Color(0xFF00E5FF),
                                     fontWeight: FontWeight.w900,
@@ -144,8 +141,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(I18n.tr('bricks_broken'), style: const TextStyle(color: Colors.white70)),
-                                Text(
-                                  '${stats.bricksBroken}',
+                                Text( '${stats.bricksBroken}',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w900,
@@ -162,8 +158,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                                   children: [
                                     const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
                                     const SizedBox(width: 4),
-                                    Text(
-                                      '+${stats.goldCollected}',
+                                    Text( '+${stats.goldCollected}',
                                       style: const TextStyle(
                                         color: Color(0xFFFFD54F),
                                         fontWeight: FontWeight.w900,
@@ -197,8 +192,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                         builder: (context, _) {
                           return Column(
                             children: [
-                              Text(
-                                '${I18n.tr('sfx')}: ${save.sfxVolume}',
+                              Text( '${I18n.tr('sfx')}: ${save.sfxVolume}',
                                 style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
                               ),
                               Slider(
@@ -212,8 +206,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                                   AudioManager.instance.playSfx(GameSfx.hitBrick);
                                 },
                               ),
-                              Text(
-                                '${I18n.tr('music_bgm')}: ${save.bgmVolume}',
+                              Text( '${I18n.tr('music_bgm')}: ${save.bgmVolume}',
                                 style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
                               ),
                               Slider(
@@ -227,8 +220,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                                   AudioManager.instance.updateBgmVolume();
                                 },
                               ),
-                              Text(
-                                '${I18n.tr('haptics')}: ${save.vibrationLevel == 0 ? I18n.tr('off') : save.vibrationLevel}',
+                              Text( '${I18n.tr('haptics')}: ${save.vibrationLevel == 0 ? I18n.tr('off') : save.vibrationLevel}',
                                 style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
                               ),
                               Slider(
@@ -410,8 +402,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            '❤️ ${I18n.tr('save_record_title')}',
+                          Text( '️ ${I18n.tr('save_record_title')}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w900,
@@ -460,7 +451,7 @@ class _EndGameDiceMultiplierCard extends StatefulWidget {
 }
 
 class _EndGameDiceMultiplierCardState extends State<_EndGameDiceMultiplierCard> {
-  static const List<String> _diceGlyphs = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+  static const List<String> _diceGlyphs = ['', '', '', '', '', ''];
   bool _isRolling = false;
   int _previewFace = 6;
   Timer? _rollTimer;
@@ -532,8 +523,7 @@ class _EndGameDiceMultiplierCardState extends State<_EndGameDiceMultiplierCard> 
             Text(glyph, style: const TextStyle(fontSize: 24, color: Color(0xFFFFD54F))),
             const SizedBox(width: 8),
             Flexible(
-              child: Text(
-                'ZAR $rolled GELDİ ➔ ${mult}X ALTIN (+$bonus 🪙 EKLENDİ!)',
+              child: Text( 'ZAR $rolled GELDİ  ${mult}X ALTIN (+$bonus  EKLENDİ!)',
                 style: const TextStyle(
                   color: Color(0xFFB9F6CA),
                   fontWeight: FontWeight.w900,
@@ -628,8 +618,7 @@ class _EndGameDiceMultiplierCardState extends State<_EndGameDiceMultiplierCard> 
                     children: [
                       Icon(Icons.casino_rounded, color: Color(0xFFFFEB3B), size: 13),
                       SizedBox(width: 4),
-                      Text(
-                        'ŞANS ZARINI AT: 2X VEYA 3X ALTIN!',
+                      Text( 'ŞANS ZARINI AT: 2X VEYA 3X ALTIN!',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
@@ -650,8 +639,7 @@ class _EndGameDiceMultiplierCardState extends State<_EndGameDiceMultiplierCard> 
                         style: const TextStyle(fontSize: 28, color: Colors.white),
                       ),
                       const SizedBox(width: 10),
-                      const Text(
-                        '🎲 ZAR ATILIYOR...',
+                      const Text( ' ZAR ATILIYOR...',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
@@ -703,8 +691,7 @@ class _EndGameDiceMultiplierCardState extends State<_EndGameDiceMultiplierCard> 
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(
-                                  '$baseGold 🪙 ➔ ',
+                                Text( '$baseGold ',
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.85),
                                     fontWeight: FontWeight.w800,
@@ -713,8 +700,7 @@ class _EndGameDiceMultiplierCardState extends State<_EndGameDiceMultiplierCard> 
                                   ),
                                 ),
                                 Flexible(
-                                  child: Text(
-                                    '🎲 $gold2x - $gold3x 🪙',
+                                  child: Text( ' $gold2x - $gold3x ',
                                     style: const TextStyle(
                                       color: Color(0xFFFFFDE7),
                                       fontWeight: FontWeight.w900,
@@ -729,8 +715,7 @@ class _EndGameDiceMultiplierCardState extends State<_EndGameDiceMultiplierCard> 
                               ],
                             ),
                             const SizedBox(height: 2),
-                            const Text(
-                              'Reklam İzle & Zar At (1-3: 2X | 4-6: 3X)',
+                            const Text( 'Reklam İzle & Zar At (1-3: 2X | 4-6: 3X)',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w700,

@@ -21,6 +21,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
   Timer? _uiTimer;
   late final AnimationController _pulseCtrl;
   late final Animation<double> _pulseScale;
+  bool _isHudExpanded = false; // Start collapsed so the full beautiful aquarium tank is clearly visible!
 
   @override
   void initState() {
@@ -82,8 +83,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
               const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 24),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  '🪙 6 Saat Doldu! Beslediğin balıklardan +$collected Altın hesabına eklendi!',
+                child: Text( ' 6 Saat Doldu! Beslediğin balıklardan +$collected Altın hesabına eklendi!',
                   style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFFD54F)),
                 ),
               ),
@@ -142,8 +142,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                         ),
                         const SizedBox(width: 10),
                         const Expanded(
-                          child: Text(
-                            'Balık Yemi Mağazası',
+                          child: Text( 'Balık Yemi Mağazası',
                             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17),
                           ),
                         ),
@@ -173,8 +172,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                 const Icon(Icons.grain, color: Color(0xFF4FC3F7), size: 16),
                                 const SizedBox(width: 5),
                                 Flexible(
-                                  child: Text(
-                                    'Yem: ${_save.fishFood}',
+                                  child: Text( 'Yem: ${_save.fishFood}',
                                     style: const TextStyle(
                                       color: Color(0xFF4FC3F7),
                                       fontWeight: FontWeight.w900,
@@ -194,8 +192,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                 const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
                                 const SizedBox(width: 5),
                                 Flexible(
-                                  child: Text(
-                                    '${_save.gold} 🪙',
+                                  child: Text( '${_save.gold} ',
                                     style: const TextStyle(
                                       color: Color(0xFFFFD54F),
                                       fontWeight: FontWeight.w900,
@@ -212,8 +209,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                     ),
                     const SizedBox(height: 12),
 
-                    const Text(
-                      'Beslediğin her balık 6 saat sonunda kendi değerinde altın verir:',
+                    const Text( 'Beslediğin her balık 6 saat sonunda kendi değerinde altın verir:',
                       style: TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                     const SizedBox(height: 12),
@@ -248,7 +244,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                 if (mounted) {
                                   messenger.showSnackBar(
                                     const SnackBar(
-                                      content: Text('🌾 +3 Balık Yemi Hesabınıza Eklendi!'),
+                                      content: Text(' +3 Balık Yemi Hesabınıza Eklendi!'),
                                       backgroundColor: Color(0xFF161A29),
                                     ),
                                   );
@@ -267,12 +263,10 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        'Kısa Reklam İzle -> +3 Yem Al',
+                                      Text( 'Kısa Reklam İzle -> +3 Yem Al',
                                         style: TextStyle(color: Color(0xFF2E1C00), fontWeight: FontWeight.w900, fontSize: 13.5),
                                       ),
-                                      Text(
-                                        '⚡ Geçilebilir Reklam • Ücretsiz!',
+                                      Text( ' Geçilebilir Reklam • Ücretsiz!',
                                         style: TextStyle(color: Color(0xFF4E342E), fontWeight: FontWeight.w700, fontSize: 10.5),
                                       ),
                                     ],
@@ -303,14 +297,14 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                       dlgContext: dlgContext,
                       count: 3,
                       cost: 50,
-                      subtitle: 'Küçük Paket (50 🪙)',
+                      subtitle: 'Küçük Paket (50 )',
                     ),
                     const SizedBox(height: 8),
                     _buildFoodBuyTile(
                       dlgContext: dlgContext,
                       count: 10,
                       cost: 140,
-                      subtitle: 'Avantajlı Paket (140 🪙)',
+                      subtitle: 'Avantajlı Paket (140 )',
                       badge: 'İNDİRİMLİ',
                     ),
                     const SizedBox(height: 8),
@@ -318,7 +312,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                       dlgContext: dlgContext,
                       count: 25,
                       cost: 300,
-                      subtitle: 'Süper Paket (300 🪙)',
+                      subtitle: 'Süper Paket (300 )',
                       badge: 'EN İYİ FİYAT',
                     ),
                   ],
@@ -351,7 +345,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('🌾 +$count Balık Yemi Satın Alındı! (-$cost 🪙)'),
+                  content: Text(' +$count Balık Yemi Satın Alındı! (-$cost )'),
                   backgroundColor: const Color(0xFF161A29),
                   duration: const Duration(seconds: 2),
                 ),
@@ -387,8 +381,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                     Row(
                       children: [
                         Flexible(
-                          child: Text(
-                            '+$count Yem',
+                          child: Text( '+$count Yem',
                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -420,8 +413,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                   color: canAfford ? const Color(0xFFFFD54F) : Colors.white12,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  '$cost 🪙',
+                child: Text( '$cost ',
                   style: TextStyle(
                     color: canAfford ? Colors.black : Colors.white38,
                     fontWeight: FontWeight.w900,
@@ -509,8 +501,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                               children: [
                                 const Icon(Icons.grain, color: Color(0xFF4FC3F7), size: 15),
                                 const SizedBox(width: 4),
-                                Text(
-                                  '${_save.fishFood}',
+                                Text( '${_save.fishFood}',
                                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
                                 ),
                                 const SizedBox(width: 3),
@@ -533,8 +524,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                             children: [
                               const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 15),
                               const SizedBox(width: 4),
-                              Text(
-                                '${_save.gold}',
+                              Text( '${_save.gold}',
                                 style: const TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.w900, fontSize: 12),
                               ),
                             ],
@@ -544,154 +534,176 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                     ),
                   ),
 
-                  // Bottom Per-Fish Feeding & 6-Hour Gold HUD Panel
+                  // Bottom Compact Floating Toolbar & Optional Expanded Detail Drawer
                   Positioned(
-                    bottom: max(14.0, MediaQuery.of(context).padding.bottom + 8.0),
+                    bottom: max(12.0, MediaQuery.of(context).padding.bottom + 6.0),
                     left: 14,
                     right: 14,
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xF2102229), Color(0xF20B151C)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(
-                          color: const Color(0x664FC3F7),
-                          width: 1.4,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.45),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Collapsible Information & Detail Card (Only visible when user toggles or wants details)
+                        AnimatedCrossFade(
+                          duration: const Duration(milliseconds: 250),
+                          crossFadeState: _isHudExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                          firstChild: const SizedBox.shrink(),
+                          secondChild: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xCC0B151C),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: const Color(0x444FC3F7), width: 1.2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.35),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.water_drop_rounded, color: Color(0xFF4FC3F7), size: 16),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text( 'Beslenen Balık: $fedCount / $totalFish',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0x26FFD54F),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: const Color(0x66FFD54F)),
+                                      ),
+                                      child: Text( '6s Ödülü: +$pendingGold ',
+                                        style: const TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.w900, fontSize: 11),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  remainingMs > 0
+                                      ? '⏳ Sonraki Ödül: ${_formatDuration(remainingMs)} • Yem yiyen balık 3s beklemede' : ' Suya doğrudan dokunarak veya alttaki butonla balıkları besleyebilirsin!',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 10.5, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Row 1: Fed fish status & Expected 6-hour gold reward
-                          Row(
-                            children: [
-                              const Icon(Icons.water_drop_rounded, color: Color(0xFF4FC3F7), size: 17),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'Beslenen Balık: $fedCount / $totalFish',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0x26FFD54F),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0x66FFD54F)),
-                                ),
-                                child: Text(
-                                  '6s Ödülü: +$pendingGold 🪙',
-                                  style: const TextStyle(
-                                    color: Color(0xFFFFD54F),
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 11.5,
-                                  ),
-                                ),
+                        ),
+
+                        // Ultra-Compact Translucent Floating Bottom Pill Bar (Does NOT block the aquarium!)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0x880A1218),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: const Color(0x334FC3F7), width: 1.0),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-
-                          // Row 2: Timer or instruction
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                            decoration: BoxDecoration(
-                              color: Colors.black26,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              remainingMs > 0
-                                  ? '⏳ Sonraki Ödüle Kalan: ${_formatDuration(remainingMs)}  •  Yem yiyen balık 3s yem yemez'
-                                  : 'Suya dokunarak veya aşağıdaki butonla yem atabilirsin (Ödül: 6 saat sonra)',
-                              style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-
-                          // Row 3: Action buttons (Feed + Collection + Buy Food)
-                          Row(
+                          child: Row(
                             children: [
+                              // 1. Info / Status Toggle Pill
+                              GestureDetector(
+                                onTap: () => setState(() => _isHudExpanded = !_isHudExpanded),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: _isHudExpanded ? const Color(0x334FC3F7) : Colors.black38,
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(color: _isHudExpanded ? const Color(0x884FC3F7) : Colors.white12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        _isHudExpanded ? Icons.keyboard_arrow_down : Icons.info_outline_rounded,
+                                        color: const Color(0xFF4FC3F7),
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text( '$fedCount/$totalFish ',
+                                        style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+
+                              // 2. Feed Action Button (Main Hero)
                               Expanded(
-                                flex: 5,
+                                flex: 6,
                                 child: ScaleTransition(
                                   scale: _pulseScale,
                                   child: ElevatedButton.icon(
                                     onPressed: _onFeedPressed,
                                     icon: Icon(
                                       _save.fishFood <= 0 ? Icons.add_shopping_cart : Icons.grain,
-                                      size: 16,
+                                      size: 15,
                                     ),
                                     label: Text(
                                       _save.fishFood <= 0 ? 'Yem Al' : 'Yem At (${_save.fishFood})',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5),
                                     ),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: _save.fishFood <= 0 ? const Color(0xFFFF9800) : const Color(0xFF00ACC1),
+                                      backgroundColor: _save.fishFood <= 0 ? const Color(0xD9FF9800) : const Color(0xCC00ACC1),
                                       foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 11),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                      elevation: 3,
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                      elevation: 0,
                                     ),
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                flex: 5,
-                                child: OutlinedButton.icon(
-                                  onPressed: () {
-                                    showModalBottomSheet(
-                                      context: context,
-                                      isScrollControlled: true,
-                                      backgroundColor: const Color(0xF00D0F18),
-                                      shape: const RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                                      ),
-                                      builder: (_) => _buildFishSheet(context, _save),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.collections_bookmark, size: 15),
-                                  label: Text(
-                                    'Balıklar ($totalFish/${FishItem.allFish.length})',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                    side: const BorderSide(color: Colors.white24),
-                                    padding: const EdgeInsets.symmetric(vertical: 11),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              const SizedBox(width: 6),
+
+                              // 3. Compact Fish Encyclopedia Button
+                              IconButton(
+                                tooltip: 'Balık Koleksiyonu',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.black38,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    side: const BorderSide(color: Colors.white12),
                                   ),
                                 ),
+                                icon: const Icon(Icons.collections_bookmark_rounded, color: Colors.white70, size: 17),
+                                onPressed: () {
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    backgroundColor: const Color(0xF00D0F18),
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                    ),
+                                    builder: (_) => _buildFishSheet(context, _save),
+                                  );
+                                },
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -717,8 +729,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                   I18n.tr('collected_species'),
                   style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
                 ),
-                Text(
-                  '${save.unlockedFish.length} / ${FishItem.allFish.length}',
+                Text( '${save.unlockedFish.length} / ${FishItem.allFish.length}',
                   style: const TextStyle(color: Color(0xFF4FC3F7), fontWeight: FontWeight.bold),
                 ),
               ],
@@ -776,7 +787,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          owned ? '${fish.rarity.label} • +${fish.goldReward} 🪙' : 'Kilitli',
+                          owned ? '${fish.rarity.label} • +${fish.goldReward} ' : 'Kilitli',
                           style: TextStyle(
                             color: owned ? fish.rarity.primaryColor : Colors.white24,
                             fontSize: 9,

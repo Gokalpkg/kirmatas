@@ -131,8 +131,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     final level = isClassic ? (_save.classicSavedLevel ?? 1) : (_save.chaosSavedLevel ?? 1);
     final score = isClassic ? (_save.classicSavedScore ?? 0) : (_save.chaosSavedScore ?? 0);
     final extraStat = isClassic
-        ? '${_save.classicSavedLives ?? 3} ❤️'
-        : '${_save.chaosSavedStock ?? 3} ⚪ Top';
+        ? '${_save.classicSavedLives ?? 3} ️' : '${_save.chaosSavedStock ?? 3}  Top';
 
     showDialog(
       context: context,
@@ -190,8 +189,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   children: [
                     Icon(Icons.bookmark_added_rounded, color: Color(0xFF00E5FF), size: 18),
                     SizedBox(width: 8),
-                    Text(
-                      'KAYITLI OYUNUN BULUNDU',
+                    Text( 'KAYITLI OYUNUN BULUNDU',
                       style: TextStyle(
                         color: Color(0xFF00E5FF),
                         fontWeight: FontWeight.w900,
@@ -275,8 +273,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     _launchGame(mode, isResume: true);
                   },
                   icon: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 22),
-                  label: const Text(
-                    'DEVAM ET',
+                  label: const Text( 'DEVAM ET',
                     style: TextStyle(
                       color: Colors.black,
                       fontWeight: FontWeight.w900,
@@ -303,8 +300,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     _launchGame(mode, isResume: false);
                   },
                   icon: const Icon(Icons.refresh_rounded, color: Colors.white70, size: 20),
-                  label: const Text(
-                    'YENİDEN BAŞLA',
+                  label: const Text( 'YENİDEN BAŞLA',
                     style: TextStyle(
                       color: Colors.white70,
                       fontWeight: FontWeight.bold,
@@ -419,8 +415,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  Text(
-                                    '(${lang.label})',
+                                  Text( '(${lang.label})',
                                     style: const TextStyle(color: Colors.white54, fontSize: 11),
                                   ),
                                 ],
@@ -440,8 +435,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                     const SizedBox(height: 16),
 
-                    Text(
-                      '${I18n.tr('sfx')}: ${_save.sfxVolume}',
+                    Text( '${I18n.tr('sfx')}: ${_save.sfxVolume}',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
@@ -462,8 +456,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                     const SizedBox(height: 8),
 
-                    Text(
-                      '${I18n.tr('music_bgm')}: ${_save.bgmVolume}',
+                    Text( '${I18n.tr('music_bgm')}: ${_save.bgmVolume}',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
@@ -484,8 +477,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                     const SizedBox(height: 8),
 
-                    Text(
-                      '${I18n.tr('haptics')}: ${_save.vibrationLevel == 0 ? I18n.tr('off') : _save.vibrationLevel}',
+                    Text( '${I18n.tr('haptics')}: ${_save.vibrationLevel == 0 ? I18n.tr('off') : _save.vibrationLevel}',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
@@ -558,11 +550,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      '${I18n.tr('metric_sessions')}: ${_save.metricSessions}\n'
-                      '${I18n.tr('metric_day2')}: ${_save.metricDay2 ? I18n.tr('metric_yes') : I18n.tr('metric_no')}\n'
-                      '${I18n.tr('metric_leave')}: ${_save.metricLevel1Leaves}\n'
-                      '${I18n.tr('metric_ad')}: ${_save.metricAdCloses}',
+                    Text( '${I18n.tr('metric_sessions')}: ${_save.metricSessions}\n' '${I18n.tr('metric_day2')}: ${_save.metricDay2 ? I18n.tr('metric_yes') : I18n.tr('metric_no')}\n' '${I18n.tr('metric_leave')}: ${_save.metricLevel1Leaves}\n' '${I18n.tr('metric_ad')}: ${_save.metricAdCloses}',
                       style: const TextStyle(color: Colors.white60, fontSize: 12, height: 1.45),
                     ),
                   ],
@@ -676,8 +664,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               children: [
                                 const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 18),
                                 const SizedBox(width: 6),
-                                Text(
-                                  '${_save.gold}',
+                                Text( '${_save.gold}',
                                   style: const TextStyle(
                                     color: Color(0xFFFFD54F),
                                     fontWeight: FontWeight.w900,
@@ -695,8 +682,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   ),
 
                   // Brand Title (Clean, no subtitle)
-                  Text(
-                    'KIRMATAS',
+                  Text( 'KIRMATAS',
                     style: TextStyle(
                       fontSize: 42,
                       fontWeight: FontWeight.w900,
@@ -848,7 +834,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         _buildNavButton(
                           icon: Icons.water,
                           label: I18n.tr('aquarium'),
-                          badge: _save.currentAvailableFishGold > 0 ? '🪙' : null,
+                          badge: _save.currentAvailableFishGold > 0 ? '' : null,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => const AquariumView()),
                           ),
@@ -1007,7 +993,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('🪙 +$reward Altın Hesabınıza Eklendi!'),
+                                content: Text(' +$reward Altın Hesabınıza Eklendi!'),
                                 backgroundColor: const Color(0xFF161A29),
                               ),
                             );
@@ -1238,8 +1224,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 color: const Color(0xDD00E5FF),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Text(
-                                'BÖLÜM ${_save.classicSavedLevel} 💾',
+                              child: Text( 'BÖLÜM ${_save.classicSavedLevel} ',
                                 style: const TextStyle(
                                   color: Colors.black,
                                   fontSize: 10,
@@ -1262,8 +1247,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       ),
                       if (best > 0) ...[
                         const SizedBox(height: 4),
-                        Text(
-                          '${I18n.tr('high_score')}: $best',
+                        Text( '${I18n.tr('high_score')}: $best',
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 12,
@@ -1349,8 +1333,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 color: const Color(0xDDFFD54F),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Text(
-                                'BÖLÜM ${_save.chaosSavedLevel} 💾',
+                              child: Text( 'BÖLÜM ${_save.chaosSavedLevel} ',
                                 style: const TextStyle(
                                   color: Colors.black,
                                   fontSize: 10,
@@ -1379,8 +1362,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       ),
                       if (best > 0) ...[
                         const SizedBox(height: 4),
-                        Text(
-                          '${I18n.tr('high_score')}: $best',
+                        Text( '${I18n.tr('high_score')}: $best',
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 12,
@@ -1464,8 +1446,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           color: Colors.black26,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(
-                          '$best',
+                        child: Text( '$best',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,

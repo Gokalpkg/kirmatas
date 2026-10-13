@@ -40,7 +40,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
 
   final List<WheelReward> _rewards = [
     WheelReward(
-      label: '500 🪙',
+      label: '500 ',
       subtitle: 'JACKPOT!',
       icon: Icons.diamond,
       primaryColor: const Color(0xFFFFD700),
@@ -76,7 +76,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       },
     ),
     WheelReward(
-      label: '250 🪙',
+      label: '250 ',
       subtitle: 'Büyük Ödül',
       icon: Icons.monetization_on,
       primaryColor: const Color(0xFFFF9100),
@@ -84,7 +84,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       onClaim: (context, save) => save.addGold(250),
     ),
     WheelReward(
-      label: '150 🪙',
+      label: '150 ',
       subtitle: 'Altın',
       icon: Icons.stars,
       primaryColor: const Color(0xFFFFD54F),
@@ -100,7 +100,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       onClaim: (context, save) => save.addBoostStock('life', 1),
     ),
     WheelReward(
-      label: '100 🪙',
+      label: '100 ',
       subtitle: 'Altın',
       icon: Icons.toll,
       primaryColor: const Color(0xFF26A69A),
@@ -108,7 +108,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       onClaim: (context, save) => save.addGold(100),
     ),
     WheelReward(
-      label: '75 🪙',
+      label: '75 ',
       subtitle: 'Altın',
       icon: Icons.monetization_on,
       primaryColor: const Color(0xFFAB47BC),
@@ -239,8 +239,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                 Icon(Icons.info_outline, color: Color(0xFFFFD54F), size: 22),
                 SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    'Şans çarkını çevirmek için reklamı tamamlamalısınız.',
+                  child: Text( 'Şans çarkını çevirmek için reklamı tamamlamalısınız.',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -268,8 +267,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
           children: [
             Icon(reward.icon, color: reward.primaryColor, size: 54),
             const SizedBox(height: 12),
-            const Text(
-              'TEBRİKLER! 👑',
+            const Text( 'TEBRİKLER! ',
               style: TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.w900, fontSize: 20),
             ),
           ],
@@ -291,8 +289,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
               style: const TextStyle(color: Colors.white70, fontSize: 14),
             ),
             const SizedBox(height: 14),
-            const Text(
-              'Ödül hesabınıza aktarıldı!',
+            const Text( 'Ödül hesabınıza aktarıldı!',
               style: TextStyle(color: Colors.white54, fontSize: 12),
             ),
           ],
@@ -356,8 +353,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                       children: [
                         Icon(Icons.stars, color: Color(0xFFFFD54F), size: 24),
                         SizedBox(width: 8),
-                        Text(
-                          'ŞANS ÇARKI',
+                        Text( 'ŞANS ÇARKI',
                           style: TextStyle(
                             color: Color(0xFFFFD54F),
                             fontWeight: FontWeight.w900,
@@ -397,8 +393,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                       const SizedBox(width: 6),
                       Text(
                         canSpin
-                            ? 'Bugün Kalan Hak: $spinsLeft / 3'
-                            : 'Günlük Hak Bitti (0/3) - Yarın Tekrar Gel!',
+                            ? 'Bugün Kalan Hak: $spinsLeft / 3' : 'Günlük Hak Bitti (0/3) - Yarın Tekrar Gel!',
                         style: TextStyle(
                           color: canSpin ? const Color(0xFF00E5FF) : const Color(0xFFFF8A80),
                           fontSize: 11.5,
@@ -409,8 +404,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  '💎 500🪙 Jackpot, Sandık veya Parça Kazanma Şansı!',
+                const Text( ' 500 Jackpot, Sandık veya Parça Kazanma Şansı!',
                   style: TextStyle(color: Color(0xFFFFD54F), fontSize: 12, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
@@ -530,8 +524,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    'GÜNLÜK HAK BİTTİ (0 / 3)',
+                                  Text( 'GÜNLÜK HAK BİTTİ (0 / 3)',
                                     style: TextStyle(
                                       color: Colors.white70,
                                       fontWeight: FontWeight.w900,
@@ -539,8 +532,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                       letterSpacing: 0.4,
                                     ),
                                   ),
-                                  Text(
-                                    'Yarın yeni 3 çevirme hakkı eklenecek!',
+                                  Text( 'Yarın yeni 3 çevirme hakkı eklenecek!',
                                     style: TextStyle(
                                       color: Colors.white38,
                                       fontWeight: FontWeight.w600,
@@ -569,8 +561,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    '🎯 ŞANSINI DENE & ÇEVİR! ($spinsLeft / 3)',
+                                  Text( ' ŞANSINI DENE & ÇEVİR! ($spinsLeft / 3)',
                                     style: const TextStyle(
                                       color: Color(0xFF2E1C00),
                                       fontWeight: FontWeight.w900,
@@ -578,8 +569,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                       letterSpacing: 0.5,
                                     ),
                                   ),
-                                  const Text(
-                                    '⚡ Geçilebilir Kısa Reklam İzle & Çevir',
+                                  const Text( ' Geçilebilir Kısa Reklam İzle & Çevir',
                                     style: TextStyle(
                                       color: Color(0xFF4E342E),
                                       fontWeight: FontWeight.w700,

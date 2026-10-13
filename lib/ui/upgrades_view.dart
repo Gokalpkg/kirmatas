@@ -44,8 +44,7 @@ class UpgradesView extends StatelessWidget {
                   children: [
                     const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
                     const SizedBox(width: 6),
-                    Text(
-                      '${save.gold}',
+                    Text( '${save.gold}',
                       style: const TextStyle(
                         color: Color(0xFFFFD54F),
                         fontWeight: FontWeight.w900,
@@ -124,16 +123,14 @@ class UpgradesView extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(color: const Color(0xFF69F0AE)),
                                   ),
-                                  child: const Text(
-                                    'AKTİF',
+                                  child: const Text( 'AKTİF',
                                     style: TextStyle(color: Color(0xFF69F0AE), fontSize: 10, fontWeight: FontWeight.w900),
                                   ),
                                 ),
                             ],
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            'Kalıcı Lüks Yadigar: Raket yakınındaki kapsülleri çok hafif (mikro) çeker ve bölüm sonlarında +%5 altın bonusu verir. Oyunu çok az etkiler.',
+                          const Text( 'Kalıcı Lüks Yadigar: Raket yakınındaki kapsülleri çok hafif (mikro) çeker ve bölüm sonlarında +%5 altın bonusu verir. Oyunu çok az etkiler.',
                             style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
                           ),
                           const SizedBox(height: 6),
@@ -163,8 +160,7 @@ class UpgradesView extends StatelessWidget {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         ),
-                        child: const Text(
-                          '25.000 🪙',
+                        child: const Text( '25.000 ',
                           style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
                         ),
                       ),
@@ -222,8 +218,7 @@ class UpgradesView extends StatelessWidget {
                               style: const TextStyle(color: Colors.white60, fontSize: 12),
                             ),
                             const SizedBox(height: 6),
-                            Text(
-                              '${I18n.tr('stock')}: $stock ${I18n.tr('pcs')}',
+                            Text( '${I18n.tr('stock')}: $stock ${I18n.tr('pcs')}',
                               style: TextStyle(color: b.color, fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                           ],
@@ -244,8 +239,7 @@ class UpgradesView extends StatelessWidget {
                           foregroundColor: Colors.black,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
-                        child: Text(
-                          '${b.cost} 🪙',
+                        child: Text( '${b.cost} ',
                           style: const TextStyle(fontWeight: FontWeight.w900),
                         ),
                       ),

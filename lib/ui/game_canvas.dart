@@ -198,7 +198,6 @@ class _GameWorldPainter extends CustomPainter {
   static bool _splatPathsInitialized = false;
   static final Map<int, Color> _alphaColors = {};
   static final Map<int, Shader> _skinShaders = {};
-  static final Map<int, Shader> _holeShaders = {};
   static final Map<int, Shader> _brickShaders = {};
   static final Map<int, Color> _hslDerivedColors = {};
 
@@ -898,15 +897,12 @@ class _GameWorldPainter extends CustomPainter {
       ..color = pulse > 0.5 ? const Color(0xFFFFEA00) : const Color(0xFFFF1744)
       ..strokeWidth = 1.4
       ..strokeCap = StrokeCap.square;
-    // Left 'T'
-    canvas.drawLine(const Offset(-7.2, -2.5), const Offset(-3.8, -2.5), _stroke);
+    // Left 'T' canvas.drawLine(const Offset(-7.2, -2.5), const Offset(-3.8, -2.5), _stroke);
     canvas.drawLine(const Offset(-5.5, -2.5), const Offset(-5.5, 2.6), _stroke);
-    // Middle 'N'
-    canvas.drawLine(const Offset(-1.8, 2.6), const Offset(-1.8, -2.5), _stroke);
+    // Middle 'N' canvas.drawLine(const Offset(-1.8, 2.6), const Offset(-1.8, -2.5), _stroke);
     canvas.drawLine(const Offset(-1.8, -2.5), const Offset(1.8, 2.6), _stroke);
     canvas.drawLine(const Offset(1.8, 2.6), const Offset(1.8, -2.5), _stroke);
-    // Right 'T'
-    canvas.drawLine(const Offset(3.8, -2.5), const Offset(7.2, -2.5), _stroke);
+    // Right 'T' canvas.drawLine(const Offset(3.8, -2.5), const Offset(7.2, -2.5), _stroke);
     canvas.drawLine(const Offset(5.5, -2.5), const Offset(5.5, 2.6), _stroke);
 
     // 5. Sizzling Fuse & Star Spark on Right/Top
@@ -2225,7 +2221,7 @@ class _GameWorldPainter extends CustomPainter {
     _tp.layout();
     _tp.paint(canvas, Offset(ox - _tp.width / 2, oy + 8.0));
 
-    // 4. Floating ⚡ 2X Turbo / ⏬ Recall Button during active volley
+    // 4. Floating  2X Turbo / ⏬ Recall Button during active volley
     if (c.status == GameStatus.playing) {
       const btnW = 96.0;
       const btnH = 36.0;
@@ -2253,8 +2249,7 @@ class _GameWorldPainter extends CustomPainter {
       canvas.drawRRect(btnRRect, _stroke);
 
       final btnLabel = isRecall
-          ? '⏬ TOPLANIYOR'
-          : (isTurbo ? '⏬ ÇAĞIR' : '⚡ 2X HIZ');
+          ? '⏬ TOPLANIYOR' : (isTurbo ? '⏬ ÇAĞIR' : ' 2X HIZ');
 
       _tp.text = TextSpan(
         text: btnLabel,
@@ -2781,130 +2776,138 @@ class _GameWorldPainter extends CustomPainter {
       canvas.save();
       canvas.translate(bh.x, bh.y);
 
-      // 0. Outer Gravitational Influence Boundary Ring & Inward-Spiraling Waves
+      // KESİN SINIR KURALI: Karadeliğin çekim gücü nerede bitiyorsa (maxInfluenceDist),
+      // görsel de tam orada biter. Çekim gücü olmayan hiçbir yerde en ufak bir çizgi/hale oluşamaz.
       final maxDist = bh.maxInfluenceDist;
+      canvas.clipPath(Path()..addOval(Rect.fromCircle(center: Offset.zero, radius: maxDist)));
+
       final Color fieldColor = bh.isVortexTrap
           ? const Color(0xFFFF1744)
           : (bh.isSupercharged ? const Color(0xFF00E5FF) : const Color(0xFFB388FF));
+
+      // 0. Outer Gravitational Boundary (Tam etki sınırında süzülen hafif çekim sınırı)
       _stroke
         ..style = PaintingStyle.stroke
         ..maskFilter = null
-        ..strokeWidth = 1.2
-        ..color = _ca(fieldColor, 0.22 + 0.08 * sin(time * 4.0));
-      canvas.drawCircle(Offset.zero, maxDist, _stroke);
+        ..strokeWidth = 1.0
+        ..color = _ca(fieldColor, 0.25 + 0.08 * sin(time * 3.5));
+      canvas.drawCircle(Offset.zero, maxDist - 0.5, _stroke);
 
-      // Animated inward-contracting gravity wave rings
-      for (int w = 0; w < 3; w++) {
-        final phase = ((time * 0.85 + w / 3.0) % 1.0);
-        final waveR = maxDist * (1.0 - phase * 0.72);
-        final waveAlpha = (sin(phase * pi) * 0.28).clamp(0.0, 0.35);
+      // Sınır içerisindeki hafif gravitasyon dalgası (tamamen maxDist içinde kalır)
+      for (int w = 0; w < 2; w++) {
+        final phase = ((time * 0.7 + w * 0.5) % 1.0);
+        final waveR = maxDist * (1.0 - phase * 0.65);
+        final waveAlpha = (sin(phase * pi) * 0.22).clamp(0.0, 0.28);
         _stroke
-          ..strokeWidth = 1.4
+          ..strokeWidth = 1.2
           ..color = _ca(fieldColor, waveAlpha);
         canvas.drawCircle(Offset.zero, waveR, _stroke);
       }
 
+      // 1. Relativistik Astrofizik Yığılma Diski (Asimetrik Doppler Beaming & Yerçekimsel Merceklenme)
+      // Düz yuvarlak yerine, ışığın büküldüğü, bir tarafı yaklaşan gazlar nedeniyle daha parlak olan organik disk:
+      canvas.save();
       canvas.rotate(bh.rotation);
 
-      // 1. Broad Gravitational Lensing & Warped Photon Halo
-      final typeIndex = bh.isVortexTrap ? 1 : (bh.isSupercharged ? 2 : 0);
-      final holeKey = Object.hash(typeIndex, (bh.radius * 2).round());
-      final haloRadiusMult = bh.isVortexTrap ? 3.4 : (bh.isSupercharged ? 3.2 : 2.8);
+      // Doppler beaming için ofsetli elips ve ışıma
+      final diskRadiusX = min(bh.radius * 2.8, maxDist * 0.95);
+      final diskRadiusY = min(bh.radius * 1.9, maxDist * 0.75);
+
+      final diskGradient = RadialGradient(
+        center: const Alignment(-0.25, -0.15), // Asimetrik parlama odağı (Doppler ışıması)
+        radius: 0.95,
+        colors: bh.isVortexTrap
+            ? [
+                Colors.black,
+                const Color(0xFF260000),
+                _ca(const Color(0xFFFF1744), 0.90),
+                _ca(const Color(0xFFFF5252), 0.70),
+                _ca(const Color(0xFFFF8A80), 0.30),
+                Colors.transparent,
+              ]
+            : (bh.isSupercharged
+                ? [
+                    Colors.black,
+                    const Color(0xFF180A00),
+                    _ca(const Color(0xFFFF9100), 0.95),
+                    _ca(const Color(0xFFFFD54F), 0.75),
+                    _ca(const Color(0xFF00E5FF), 0.35),
+                    Colors.transparent,
+                  ]
+                : [
+                    Colors.black,
+                    const Color(0xFF100224),
+                    _ca(const Color(0xFF7C4DFF), 0.90),
+                    _ca(const Color(0xFFB388FF), 0.65),
+                    _ca(const Color(0xFFEA80FC), 0.25),
+                    Colors.transparent,
+                  ]),
+        stops: const [0.22, 0.38, 0.58, 0.75, 0.90, 1.0],
+      );
 
       _fill
         ..style = PaintingStyle.fill
         ..maskFilter = null
-        ..shader = _holeShaders.putIfAbsent(holeKey, () {
-          List<Color> vortexColors;
-          if (bh.isVortexTrap) {
-            vortexColors = [
-              Colors.black,
-              const Color(0xFF1A0000),
-              _ca(const Color(0xFFB71C1C), 0.95),
-              _ca(const Color(0xFFFF1744), 0.75),
-              _ca(const Color(0xFFFF80AB), 0.35),
-              Colors.transparent,
-            ];
-          } else if (bh.isSupercharged) {
-            // Egzotik Karadelik: Akkor Plazma Çekirdek & Elektrik Amber/Turkuaz Aura
-            vortexColors = [
-              Colors.black,
-              const Color(0xFF120700),
-              _ca(const Color(0xFFFF6D00), 0.95),
-              _ca(const Color(0xFFFFAB00), 0.80),
-              _ca(const Color(0xFF00E5FF), 0.40),
-              Colors.transparent,
-            ];
-          } else {
-            // Standart Karadelik: Sakin Kozmik Derin Mor & Eflatun Sis
-            vortexColors = [
-              Colors.black,
-              const Color(0xFF0D0318),
-              _ca(const Color(0xFF4A148C), 0.95),
-              _ca(const Color(0xFF7C4DFF), 0.6),
-              _ca(const Color(0xFFE040FB), 0.25),
-              Colors.transparent,
-            ];
-          }
-          return RadialGradient(
-            colors: vortexColors,
-            stops: const [0.25, 0.42, 0.60, 0.78, 0.92, 1.0],
-          ).createShader(Rect.fromCircle(
-            center: Offset.zero,
-            radius: bh.radius * haloRadiusMult,
-          ));
-        });
-      
-      canvas.drawCircle(Offset.zero, bh.radius * haloRadiusMult, _fill);
+        ..shader = diskGradient.createShader(Rect.fromCenter(center: Offset.zero, width: diskRadiusX * 2, height: diskRadiusY * 2));
+      canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: diskRadiusX * 2, height: diskRadiusY * 2), _fill);
       _fill.shader = null;
 
-      // 2. Swirling Relativistic Accretion Disk Arms (Infalling stellar matter)
-      final armCount = bh.isVortexTrap ? 8 : (bh.isSupercharged ? 7 : 5);
+      // 2. Organik Spiral Madde Akıntıları (Infalling Interstellar Plasma Tendrils)
+      final armCount = bh.isVortexTrap ? 7 : (bh.isSupercharged ? 6 : 5);
       for (int i = 0; i < armCount; i++) {
-        final angleOffset = (pi * 2 / armCount) * i + sin(time * 3.0 + i) * 0.15;
-        final r = bh.radius * (0.55 + 0.35 * (i % 5));
-        Color armColor;
-        if (bh.isVortexTrap) {
-          armColor = (i % 2 == 0) ? const Color(0xFFFF1744) : const Color(0xFFFF80AB);
-        } else if (bh.isSupercharged) {
-          armColor = (i % 2 == 0) ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF);
-        } else {
-          armColor = (i % 2 == 0) ? const Color(0xFFE040FB) : const Color(0xFF7C4DFF);
-        }
+        final baseAngle = (pi * 2 / armCount) * i;
+        final swirlProgress = (time * 1.8 + i * 0.4) % 1.0;
+        final tendrilRadius = bh.radius * (0.65 + 1.6 * (1.0 - swirlProgress));
+        if (tendrilRadius > maxDist * 0.92) continue;
+
+        final startA = baseAngle + swirlProgress * 1.2;
+        final sweepA = pi * (0.8 + 0.4 * sin(time * 3.0 + i));
+
+        Color tendrilColor = bh.isVortexTrap
+            ? ((i % 2 == 0) ? const Color(0xFFFF1744) : const Color(0xFFFF8A80))
+            : (bh.isSupercharged
+                ? ((i % 2 == 0) ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF))
+                : ((i % 2 == 0) ? const Color(0xFFEA80FC) : const Color(0xFF7C4DFF)));
+
         _stroke
           ..style = PaintingStyle.stroke
           ..strokeCap = StrokeCap.round
-          ..maskFilter = null
-          ..color = _ca(armColor, 0.70 - (i * 0.05))
-          ..strokeWidth = 2.4 - (i * 0.15);
+          ..strokeWidth = (2.2 * (1.0 - swirlProgress * 0.5)).clamp(0.8, 2.5)
+          ..color = _ca(tendrilColor, (0.75 * (1.0 - swirlProgress * 0.4)).clamp(0.1, 0.85));
+
         canvas.drawArc(
-          Rect.fromCircle(center: Offset.zero, radius: r),
-          angleOffset,
-          pi * (bh.isVortexTrap ? 1.6 : (bh.isSupercharged ? 1.5 : 1.35)),
+          Rect.fromCenter(center: Offset.zero, width: tendrilRadius * 2, height: tendrilRadius * 1.4),
+          startA,
+          sweepA,
           false,
           _stroke,
         );
       }
+      canvas.restore();
 
-      // 3. Photon Sphere Incandescent Border (Relativistic light ring)
-      final rimColor = bh.isSupercharged ? const Color(0xFF00E5FF) : const Color(0xFFB388FF);
-      _stroke
-        ..strokeWidth = 3.2
-        ..maskFilter = null
-        ..color = _ca(rimColor, 0.55);
-      canvas.drawCircle(Offset.zero, bh.radius * 0.48, _stroke);
+      // 3. Foton Halkası ve Göreli Merceklenme Parlaması (Photon Ring)
+      final photonRingR = bh.radius * 0.52;
+      final Color photonGlow = bh.isSupercharged
+          ? const Color(0xFFFFD54F)
+          : (bh.isVortexTrap ? const Color(0xFFFF5252) : const Color(0xFFE040FB));
 
       _stroke
-        ..strokeWidth = 1.3
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4
+        ..color = _ca(photonGlow, 0.70 + 0.20 * sin(time * 5.0));
+      canvas.drawCircle(Offset.zero, photonRingR, _stroke);
+
+      _stroke
+        ..strokeWidth = 1.0
         ..color = _ca(Colors.white, 0.95);
-      canvas.drawCircle(Offset.zero, bh.radius * 0.48, _stroke);
+      canvas.drawCircle(Offset.zero, photonRingR, _stroke);
 
-      // 4. Absolute Singularity Event Horizon (Infinite Black Void)
+      // 4. Olay Ufku ve Tekillik Gölgesi (Singularity Event Horizon Void)
+      // İçerisi zifiri karanlık, mutlak ışık yutucu çekirdek
       _fill
         ..style = PaintingStyle.fill
-        ..maskFilter = null
-        ..color = Colors.black;
-      canvas.drawCircle(Offset.zero, bh.radius * 0.45, _fill);
+        ..color = const Color(0xFF020204);
+      canvas.drawCircle(Offset.zero, bh.radius * 0.46, _fill);
 
       canvas.restore();
     }
@@ -3009,7 +3012,12 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawBalls(Canvas canvas) {
-    for (final ball in c.balls) {
+    // Kaos modunda hazır/hedefleme durumunda üst üste yığılmış toplar yerine tek bir top çizilir
+    final Iterable<Ball> ballsToDraw = (c.currentMode == GameMode.chaos && c.status == GameStatus.ready)
+        ? (c.balls.isNotEmpty ? [c.balls.first] : const <Ball>[])
+        : c.balls;
+
+    for (final ball in ballsToDraw) {
       final isFireball = ball.isFireball;
       final isCornerBoost = ball.cornerBoostTimer > 0;
       final skinGlow = c.activeBallSkin.glowColor;
@@ -3064,12 +3072,12 @@ class _GameWorldPainter extends CustomPainter {
       final cbFlameBright = Color.lerp(cbFlameBase, Colors.white, 0.55)!;
       final cbFlameCore = Color.lerp(cbFlameBase, Colors.white, 0.88)!;
 
-      if (ball.trail.length > 1) {
+      if (!ball.isStuck && ball.trail.length > 1) {
         final trailStyle = c.activeTrailSkin.style;
         final trailCount = ball.trail.length;
-        // Full-bodied majestic taper: keeps rich thickness along the body and tapers smoothly at the tail
+        // Smooth aerodynamic taper: rich near ball, gracefully tapering down to a fine tip at the tail
         double majesticTaper(double progress) =>
-            (0.48 + 0.52 * pow((1.0 - progress).clamp(0.0, 1.0), 0.48).toDouble()).clamp(0.0, 1.0);
+            pow((1.0 - progress).clamp(0.0, 1.0), 1.25).toDouble();
 
         if (trailStyle == TrailStyle.dot) {
           // === ELEVATED DOT TRAIL: Celestial Starlight Constellation (Full-bodied & Majestic) ===
@@ -4534,10 +4542,8 @@ class _GameWorldPainter extends CustomPainter {
               : (total == 10 ? const Color(0xFF00E5FF) : Colors.white));
 
       final text = total == 12
-          ? '🌟 12 - MEGA JACKPOT! 🌟'
-          : (total == 11
-              ? '🔥 11 - EPİK ŞANS! 🔥'
-              : (total == 10 ? '💎 10 - BÜYÜK KAZANÇ! 💎' : '🎲  X SALVO 🎲'));
+          ? ' 12 - MEGA JACKPOT! ' : (total == 11
+              ? ' 11 - EPİK ŞANS! ' : (total == 10 ? ' 10 - BÜYÜK KAZANÇ! ' : ' X SALVO '));
 
       _tp.text = TextSpan(
         text: text,
