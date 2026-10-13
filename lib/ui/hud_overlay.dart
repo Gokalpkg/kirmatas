@@ -238,6 +238,54 @@ class HudOverlay extends StatelessWidget {
                   ),
                 ),
 
+              // Micro-Onboarding Tip Banner (Levels 1-10 intro for mechanics)
+              if (controller.activeTipText != null && controller.tipTimer > 0)
+                Positioned(
+                  top: controller.activeBossBrick != null ? 104 : 60,
+                  left: 20,
+                  right: 20,
+                  child: IgnorePointer(
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 250),
+                      opacity: (controller.tipTimer > 0.4) ? 1.0 : (controller.tipTimer / 0.4).clamp(0.0, 1.0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xF010162B), Color(0xF00A0E1A)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFF00E5FF), width: 1.2),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x6600E5FF), blurRadius: 12, offset: Offset(0, 2)),
+                            BoxShadow(color: Color(0x99000000), blurRadius: 16),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFFFFD54F), size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                controller.activeTipText!,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.2,
+                                  height: 1.25,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
               // Ready Launch Banner (Doesn't block gestures)
               if (controller.status == GameStatus.ready)
                 IgnorePointer(

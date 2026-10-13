@@ -178,6 +178,17 @@ class GameController extends ChangeNotifier {
   bool _chaosAllSolidBroken = false;
   int activeIceVariant = 0;
   double endgameStallTimer = 0.0;
+  String? activeTipText;
+  double tipTimer = 0.0;
+
+  void showMicroTip(String tipId, String text) {
+    if (stats.level <= 10 && !save.hasSeenTip(tipId)) {
+      save.markTipSeen(tipId);
+      activeTipText = text;
+      tipTimer = 3.5;
+      notifyListeners();
+    }
+  }
 
   int get endGameMultiplierBaseGold => max(stats.goldCollected, 100);
 
@@ -404,6 +415,23 @@ class GameController extends ChangeNotifier {
         break;
     }
     _loadedBricksRef = bricks;
+
+    // Micro-onboarding: Check if this level introduces a new mechanic (levels 1-10)
+    if (currentMode == GameMode.classic && stats.level <= 10) {
+      if (LevelDesign.isBossLevelNumber(stats.level)) {
+        showMicroTip('boss', I18n.tr('tip_boss'));
+      } else if (portals.isNotEmpty) {
+        showMicroTip('portal', I18n.tr('tip_portal'));
+      } else if (bricks.any((b) => b.isIce)) {
+        showMicroTip('ice', I18n.tr('tip_ice'));
+      } else if (bricks.any((b) => b.isDynamite)) {
+        showMicroTip('bomb', I18n.tr('tip_bomb'));
+      } else if (bricks.any((b) => b.isSteel)) {
+        showMicroTip('steel', I18n.tr('tip_steel'));
+      } else if (bricks.any((b) => b.isTuft)) {
+        showMicroTip('tuft', I18n.tr('tip_tuft'));
+      }
+    }
   }
 
   bool get hasStuckBall => balls.any((b) => b.isStuck);
@@ -697,6 +725,16 @@ class GameController extends ChangeNotifier {
 
   void update(double dt) {
     gameTime += dt;
+
+    // Update micro-onboarding tip timer
+    if (tipTimer > 0) {
+      tipTimer -= dt;
+      if (tipTimer <= 0) {
+        tipTimer = 0.0;
+        activeTipText = null;
+        notifyListeners();
+      }
+    }
 
     // Windshield Splat update: persists on screen glass for 2 seconds even when game state changes
     final hadSplat = activeSplat != null;
@@ -1268,6 +1306,7 @@ class GameController extends ChangeNotifier {
         } else {
           particles.spawnShockwave(spawnX, spawnY, const Color(0xFF7C4DFF), maxRadius: 60.0);
         }
+        showMicroTip('black_hole', I18n.tr('tip_black_hole'));
       }
     }
   }
@@ -2268,11 +2307,14 @@ class GameController extends ChangeNotifier {
             final target = aliveBricks[_rand.nextInt(aliveBricks.length)];
             final tx = target.x + target.width / 2;
             final ty = target.y + target.height / 2;
-            particles.spawnShockwave(tx, ty, const Color(0xFFFF1744), maxRadius: 36.0);
-            particles.spawnBurst(tx, ty, const Color(0xFFFFD54F), count: 16, speed: 120.0);
+            // High-tech cyber targeting reticle & orbital laser beam effect:
+            particles.spawnShockwave(tx, ty, const Color(0xFF00E5FF), maxRadius: 42.0);
+            particles.spawnShockwave(tx, ty, const Color(0xFFFF1744), maxRadius: 26.0);
+            particles.spawnBurst(tx, ty, const Color(0xFF00E5FF), count: 12, speed: 140.0);
+            particles.spawnBurst(tx, ty, const Color(0xFFFFD54F), count: 12, speed: 110.0);
             audio.playSfx(GameSfx.laser);
             _destroyBrick(target);
-            particles.spawnFloatingText(tx, target.y - 10, ' ${I18n.tr('target_locked')}', const Color(0xFFFFAB00), isLarge: true);
+            particles.spawnFloatingText(tx, target.y - 12, '[+] ${I18n.tr('target_locked')}', const Color(0xFF00E5FF), isLarge: true);
           }
           break;
         case PowerUpType.rocket:

@@ -89,6 +89,19 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
                   c.toggleChaosTurboOrRecall();
                   return;
                 }
+
+                // Check if animated Tempo Cue pill was tapped
+                if (c.chaosTurnTime >= 9.0 && !c.chaosRecallActive) {
+                  const cueW = 160.0;
+                  const cueH = 32.0;
+                  final cueX = (c.screenWidth - cueW) / 2;
+                  final cueY = c.screenHeight - 118.0;
+                  final cueRect = Rect.fromLTWH(cueX, cueY, cueW, cueH);
+                  if (cueRect.contains(event.localPosition)) {
+                    c.toggleChaosTurboOrRecall();
+                    return;
+                  }
+                }
               }
 
               if (c.status == GameStatus.ready) {
@@ -2249,7 +2262,7 @@ class _GameWorldPainter extends CustomPainter {
       canvas.drawRRect(btnRRect, _stroke);
 
       final btnLabel = isRecall
-          ? '⏬ TOPLANIYOR' : (isTurbo ? '⏬ ÇAĞIR' : ' 2X HIZ');
+          ? 'TOPLANIYOR' : (isTurbo ? 'ÇAĞIR' : '2X HIZ');
 
       _tp.text = TextSpan(
         text: btnLabel,
@@ -2262,6 +2275,41 @@ class _GameWorldPainter extends CustomPainter {
       );
       _tp.layout();
       _tp.paint(canvas, Offset(btnX + (btnW - _tp.width) / 2, btnY + (btnH - _tp.height) / 2));
+
+      // 4b. Pulsing interactive Tempo Cue Pill when balls linger in upper zone
+      if (c.chaosTurnTime >= 9.0 && !isRecall) {
+        final cuePulse = 0.65 + 0.35 * sin(time * 5.0);
+        const cueW = 160.0;
+        const cueH = 32.0;
+        final cueX = (c.screenWidth - cueW) / 2;
+        final cueY = c.screenHeight - 118.0;
+        final cueRRect = RRect.fromRectAndRadius(Rect.fromLTWH(cueX, cueY, cueW, cueH), const Radius.circular(16.0));
+
+        _fill
+          ..style = PaintingStyle.fill
+          ..shader = null
+          ..color = Color.lerp(const Color(0xDD0D1B2A), const Color(0xDDFF6D00), isTurbo ? 0.45 : 0.15)!;
+        canvas.drawRRect(cueRRect, _fill);
+
+        _stroke
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.4
+          ..color = (isTurbo ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF)).withValues(alpha: cuePulse);
+        canvas.drawRRect(cueRRect, _stroke);
+
+        final cueText = isTurbo ? 'TOPLARI ÇAĞIR' : 'HIZLANDIR / ÇAĞIR';
+        _tp.text = TextSpan(
+          text: cueText,
+          style: TextStyle(
+            color: isTurbo ? const Color(0xFFFFD54F) : const Color(0xFFE0F7FA),
+            fontSize: 10.5,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.8,
+          ),
+        );
+        _tp.layout();
+        _tp.paint(canvas, Offset(cueX + (cueW - _tp.width) / 2, cueY + (cueH - _tp.height) / 2));
+      }
       return;
     }
 

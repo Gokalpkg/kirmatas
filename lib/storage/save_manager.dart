@@ -88,6 +88,7 @@ class SaveManager extends ChangeNotifier {
   bool seenFirstShot = false;
   bool seenFoodLink = false;
   int bricksUntilFood = 8;
+  Set<String> seenTips = {};
 
   int metricSessions = 0;
   String? metricFirstDay;
@@ -165,6 +166,7 @@ class SaveManager extends ChangeNotifier {
     fishFood = _prefs?.getInt('fishFood') ?? 5;
     seenFirstShot = _prefs?.getBool('seenFirstShot') ?? false;
     seenFoodLink = _prefs?.getBool('seenFoodLink') ?? false;
+    seenTips = (_prefs?.getStringList('seenTips') ?? []).toSet();
     bricksUntilFood = _prefs?.getInt('bricksUntilFood') ?? 8;
     metricSessions = _prefs?.getInt('metricSessions') ?? 0;
     metricFirstDay = _prefs?.getString('metricFirstDay');
@@ -592,6 +594,15 @@ class SaveManager extends ChangeNotifier {
     if (seenFirstShot) return;
     seenFirstShot = true;
     _prefs?.setBool('seenFirstShot', true);
+  }
+
+  bool hasSeenTip(String tipId) => seenTips.contains(tipId);
+
+  void markTipSeen(String tipId) {
+    if (seenTips.add(tipId)) {
+      _prefs?.setStringList('seenTips', seenTips.toList());
+      notifyListeners();
+    }
   }
 
   /// Directly saves fishFood to persistent storage and notifies listeners

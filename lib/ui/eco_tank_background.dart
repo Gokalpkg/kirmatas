@@ -130,6 +130,49 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
     return true;
   }
 
+  void _onTankTap(Offset pos) {
+    if (!widget.interactive) return;
+
+    // 1. Check if tap directly touches any fish
+    _SimFish? hitFish;
+    double minHitDist = 36.0;
+    for (final f in _simFish) {
+      final d = sqrt((pos.dx - f.x) * (pos.dx - f.x) + (pos.dy - f.y) * (pos.dy - f.y));
+      if (d < minHitDist) {
+        minHitDist = d;
+        hitFish = f;
+      }
+    }
+
+    if (hitFish != null) {
+      // Tap on fish: barrel roll / flip, dart away playfully, spawn hearts!
+      hitFish.flipTimer = 0.65;
+      final dartDirX = hitFish.x >= pos.dx ? 1.0 : -1.0;
+      final dartDirY = hitFish.y >= pos.dy ? 0.6 : -0.6;
+      hitFish.vx = dartDirX * (85.0 + _rand.nextDouble() * 45.0);
+      hitFish.vy = dartDirY * (40.0 + _rand.nextDouble() * 30.0);
+      hitFish.facingRight = dartDirX > 0;
+
+      // Spawn 3 floating hearts & bubbles
+      for (int i = 0; i < 3; i++) {
+        _eatParticles.add(
+          _EatParticle(
+            x: hitFish.x + (_rand.nextDouble() * 20.0 - 10.0),
+            y: hitFish.y - 12.0 - (_rand.nextDouble() * 12.0),
+            maxLife: 0.9 + _rand.nextDouble() * 0.4,
+            color: const Color(0xFFFF4081),
+            isHeart: true,
+          ),
+        );
+      }
+      AudioManager.instance.playSfx(GameSfx.bubble);
+      return;
+    }
+
+    // 2. Open water tap: drop food pellet!
+    _addFood(pos);
+  }
+
   void _addFood(Offset pos) {
     if (!widget.interactive) return;
     final save = SaveManager.instance;
@@ -182,7 +225,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       }
     }
 
-    // 4. Update fish tail animation and short bite cooldowns
+    // 4. Update fish tail animation, flip roll, and short bite cooldowns
     for (final f in _simFish) {
       f.tailPhase += dt * 4.5;
       if (f.eatCooldown > 0) {
@@ -190,6 +233,10 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       }
       if (f.satiatedTimer > 0) {
         f.satiatedTimer -= dt;
+      }
+      if (f.flipTimer > 0) {
+        f.flipTimer -= dt;
+        f.flipProgress = (1.0 - (f.flipTimer / 0.65)).clamp(0.0, 1.0);
       }
     }
 
@@ -329,7 +376,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: (details) => _addFood(details.localPosition),
+      onTapDown: (details) => _onTankTap(details.localPosition),
       child: Stack(
         children: [
           Positioned.fill(
@@ -360,6 +407,8 @@ class _SimFish {
   double tailPhase;
   double eatCooldown = 0.0;
   double satiatedTimer = 0.0;
+  double flipTimer = 0.0;
+  double flipProgress = 0.0;
 
   /// True while the fish is in its 3-hour post-feeding satiety window
   bool get isSatiated => SaveManager.instance.isFishInSatietyCooldown(item.id);
@@ -408,8 +457,15 @@ class _EatParticle {
   double life;
   final double maxLife;
   final Color color;
+  final bool isHeart;
 
-  _EatParticle({required this.x, required this.y, required this.maxLife, required this.color}) : life = maxLife;
+  _EatParticle({
+    required this.x,
+    required this.y,
+    required this.maxLife,
+    required this.color,
+    this.isHeart = false,
+  }) : life = maxLife;
 }
 
 class _TankFrame extends ChangeNotifier {
@@ -500,11 +556,24 @@ class _TankPainter extends CustomPainter {
       canvas.drawCircle(Offset(p.x, p.y), 2.5, _foodPaint);
     }
 
-    // 6. Eat particles (sparkles and bubbles)
+    // 6. Eat particles & tap reaction hearts
     for (final ep in eatParticles) {
       final alpha = (ep.life / ep.maxLife).clamp(0.0, 1.0);
       _sparkPaint.color = ep.color.withValues(alpha: alpha);
-      canvas.drawCircle(Offset(ep.x, ep.y), 2.0 * alpha, _sparkPaint);
+      if (ep.isHeart) {
+        final r = 3.4 * alpha;
+        canvas.drawCircle(Offset(ep.x - r * 0.45, ep.y - r * 0.3), r * 0.60, _sparkPaint);
+        canvas.drawCircle(Offset(ep.x + r * 0.45, ep.y - r * 0.3), r * 0.60, _sparkPaint);
+        _tailPath
+          ..reset()
+          ..moveTo(ep.x - r * 1.0, ep.y - r * 0.1)
+          ..lineTo(ep.x + r * 1.0, ep.y - r * 0.1)
+          ..lineTo(ep.x, ep.y + r * 1.2)
+          ..close();
+        canvas.drawPath(_tailPath, _sparkPaint);
+      } else {
+        canvas.drawCircle(Offset(ep.x, ep.y), 2.0 * alpha, _sparkPaint);
+      }
     }
 
     // 7. Fish drawing (Scaled down to realistic proportion)
@@ -515,7 +584,8 @@ class _TankPainter extends CustomPainter {
       if (!f.facingRight) {
         canvas.scale(-1, 1);
       }
-      canvas.rotate(f.pitchAngle);
+      final rollAngle = f.flipTimer > 0 ? (f.flipProgress * pi * 2.0) : 0.0;
+      canvas.rotate(f.pitchAngle + rollAngle);
 
       final img = AssetCache.instance.getFishImage(f.item.id);
       if (img != null) {

@@ -491,78 +491,101 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
           const SizedBox(height: 10),
 
           // 2. Shards Progress & Guaranteed Redemption
-          Row(
-            children: [
-              // Shard Progress Pips
-              Row(
-                children: [
-                  const Icon(Icons.diamond, color: Color(0xFF00E5FF), size: 18),
-                  const SizedBox(width: 6),
-                  Text( '${I18n.tr('shards')}: $shards / 3',
-                    style: const TextStyle(
-                      color: Color(0xFF00E5FF),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 12,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0C101C),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.25)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.diamond, color: Color(0xFF00E5FF), size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${I18n.tr('shards')}: $shards/3',
+                          style: const TextStyle(
+                            color: Color(0xFF00E5FF),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  for (int i = 0; i < 3; i++) ...[
-                    Container(
-                      width: 10,
-                      height: 10,
-                      margin: const EdgeInsets.only(right: 3),
-                      decoration: BoxDecoration(
-                        color: i < shards ? const Color(0xFF00E5FF) : Colors.white12,
-                        shape: BoxShape.circle,
-                        boxShadow: i < shards
-                            ? [const BoxShadow(color: Color(0xFF00E5FF), blurRadius: 4)]
-                            : null,
+                    Text(
+                      shards >= 3 ? 'GARANTİLİ YENİ EŞYA HAZIR!' : '(3 olunca Garantili Yeni Eşya!)',
+                      style: TextStyle(
+                        color: shards >= 3 ? const Color(0xFFFFD54F) : Colors.white70,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
-                ],
-              ),
-              const Spacer(),
-              if (shards >= 3)
-                ElevatedButton(
-                  onPressed: () async {
-                    if (allOwned) {
-                      final ok = await save.consumeShards(category, 3);
-                      if (ok) {
-                        save.addGold(1000);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('${I18n.tr('all_items_unlocked')} (+1000 )')),
-                          );
-                        }
-                      }
-                      return;
-                    }
-                    final ok = await save.consumeShards(category, 3);
-                    if (ok && context.mounted) {
-                      showDialog(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (_) => CrateOpeningDialog(
-                          isGuaranteedRedemption: true,
-                          category: category,
-                          categoryCrate: crateInfo,
-                        ),
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00E5FF),
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  ),
-                  child: Text(
-                    allOwned ? I18n.tr('all_items_unlocked') : I18n.tr('use_shards_guaranteed'),
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(5),
+                  child: LinearProgressIndicator(
+                    value: (shards / 3.0).clamp(0.0, 1.0),
+                    minHeight: 6,
+                    backgroundColor: Colors.white12,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      shards >= 3 ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF),
+                    ),
                   ),
                 ),
-            ],
+                if (shards >= 3) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (allOwned) {
+                          final ok = await save.consumeShards(category, 3);
+                          if (ok) {
+                            save.addGold(1000);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('${I18n.tr('all_items_unlocked')} (+1000 Altın)')),
+                              );
+                            }
+                          }
+                          return;
+                        }
+                        final ok = await save.consumeShards(category, 3);
+                        if (ok && context.mounted) {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (_) => CrateOpeningDialog(
+                              isGuaranteedRedemption: true,
+                              category: category,
+                              categoryCrate: crateInfo,
+                            ),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00E5FF),
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                      child: Text(
+                        allOwned ? I18n.tr('all_items_unlocked') : I18n.tr('use_shards_guaranteed'),
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
