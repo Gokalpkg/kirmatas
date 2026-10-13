@@ -1730,6 +1730,15 @@ class GameController extends ChangeNotifier {
             ball.x = nearestX + nx * (r + 0.1);
             ball.y = nearestY + ny * (r + 0.1);
             ball.triggerSquash(atan2(ny, nx));
+
+            // Anti-pinch: If trapped bouncing > 4 times in under 0.15s between adjacent bricks, nudge outward
+            ball.rapidBounceCount++;
+            ball.rapidBounceTimer = 0.15;
+            if (ball.rapidBounceCount >= 5) {
+              ball.x += nx * 2.5;
+              ball.y += (ny != 0 ? ny : 1.0) * 2.5;
+              ball.rapidBounceCount = 0;
+            }
           }
         }
 

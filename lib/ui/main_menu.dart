@@ -485,7 +485,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     const SizedBox(height: 8),
 
                     Text(
-                      '${I18n.tr('haptics')}: ${_save.vibrationLevel}',
+                      '${I18n.tr('haptics')}: ${_save.vibrationLevel == 0 ? I18n.tr('off') : _save.vibrationLevel}',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,

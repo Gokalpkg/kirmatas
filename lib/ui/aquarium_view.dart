@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
@@ -545,7 +546,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
 
                   // Bottom Per-Fish Feeding & 6-Hour Gold HUD Panel
                   Positioned(
-                    bottom: 16,
+                    bottom: max(14.0, MediaQuery.of(context).padding.bottom + 8.0),
                     left: 14,
                     right: 14,
                     child: Container(

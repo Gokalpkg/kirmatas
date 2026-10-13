@@ -32,6 +32,8 @@ class Ball {
   double anomalyCooldown = 0.0;
   int sideWallBounceCount = 0;
   bool isWallSpeedBoosted = false;
+  int rapidBounceCount = 0;
+  double rapidBounceTimer = 0.0;
 
   Ball({
     required this.x,
@@ -83,6 +85,13 @@ class Ball {
     if (anomalyCooldown > 0) {
       anomalyCooldown -= dt;
       if (anomalyCooldown < 0) anomalyCooldown = 0.0;
+    }
+    if (rapidBounceTimer > 0) {
+      rapidBounceTimer -= dt;
+      if (rapidBounceTimer <= 0) {
+        rapidBounceTimer = 0.0;
+        rapidBounceCount = 0;
+      }
     }
 
     if (!isStuck) {

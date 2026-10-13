@@ -228,7 +228,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                                 },
                               ),
                               Text(
-                                '${I18n.tr('haptics')}: ${save.vibrationLevel}',
+                                '${I18n.tr('haptics')}: ${save.vibrationLevel == 0 ? I18n.tr('off') : save.vibrationLevel}',
                                 style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
                               ),
                               Slider(
