@@ -1207,12 +1207,16 @@ class GameController extends ChangeNotifier {
     }
 
     // Black Hole random dynamic appearance strictly in open playable zone between bricks and paddle
+    // Genelde (%90+) 1 adet karadelik bulunur. 2. karadelik çok nadiren (%5-10) belirir.
     if (status == GameStatus.playing &&
-        blackHoles.isEmpty &&
         currentMode != GameMode.zen &&
-        currentMode != GameMode.chaos) {
+        currentMode != GameMode.chaos &&
+        blackHoles.length < 2) {
       _blackHoleTimer = (_blackHoleTimer ?? 0.0) + dt;
-      if (_blackHoleTimer! >= 8.0 && _rand.nextDouble() < 0.12) {
+      final canSpawn = blackHoles.isEmpty
+          ? (_blackHoleTimer! >= 8.0 && _rand.nextDouble() < 0.12)
+          : (blackHoles.length == 1 && _blackHoleTimer! >= 14.0 && _rand.nextDouble() < 0.02);
+      if (canSpawn) {
         // Find bottom-most active breakable brick so steel barriers don't block black hole spawns
         double lowestAliveBrickY = 0.0;
         for (final b in bricks) {
@@ -1232,7 +1236,17 @@ class GameController extends ChangeNotifier {
         final double spawnY = (maxY > minY + 20.0)
             ? (minY + _rand.nextDouble() * (maxY - minY))
             : (paddle.y - 200.0).clamp(160.0, paddle.y - 170.0);
-        final spawnX = (screenWidth * 0.22 + _rand.nextDouble() * (screenWidth * 0.56)).clamp(r + 20.0, screenWidth - r - 20.0);
+        var spawnX = (screenWidth * 0.22 + _rand.nextDouble() * (screenWidth * 0.56)).clamp(r + 20.0, screenWidth - r - 20.0);
+
+        // 2. karadelik çıktığında 1.siyle üst üste binmesin diye yatay mesafe garantisi:
+        if (blackHoles.isNotEmpty) {
+          final first = blackHoles.first;
+          if ((spawnX - first.x).abs() < 120.0) {
+            spawnX = (first.x > screenWidth * 0.5)
+                ? (first.x - 130.0).clamp(r + 20.0, screenWidth - r - 20.0)
+                : (first.x + 130.0).clamp(r + 20.0, screenWidth - r - 20.0);
+          }
+        }
 
         blackHoles.add(
           BlackHole(
@@ -1504,7 +1518,7 @@ class GameController extends ChangeNotifier {
       // Normal trail: 45% of full baseline length
       // Corner shot trail: 83% of peak maximum trail
       final fullBaseTrail = currentMode == GameMode.chaos ? 28 : (activeTrailSkin.length * 1.25).round();
-      final normalTrail = (fullBaseTrail * 0.45).round().clamp(10, 32);
+      final normalTrail = (fullBaseTrail * 0.58).round().clamp(14, 40);
       final cornerTrail = (fullBaseTrail * 1.8 * 0.83).round().clamp(28, 80);
       final effectiveTrail = ball.cornerBoostTimer > 0 ? cornerTrail : normalTrail;
       for (int step = 0; step < subSteps; step++) {

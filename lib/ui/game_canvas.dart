@@ -2785,129 +2785,102 @@ class _GameWorldPainter extends CustomPainter {
           ? const Color(0xFFFF1744)
           : (bh.isSupercharged ? const Color(0xFF00E5FF) : const Color(0xFFB388FF));
 
-      // 0. Outer Gravitational Boundary (Tam etki sınırında süzülen hafif çekim sınırı)
+      // 0. Outer Gravitational Boundary (Etki alanındaki o ilk ve tek sınır çizgisi)
+      // Kullanıcı kuralı: "etki alanındaki o ilk çizgi var olsun 2. 3. çizgiler zaten olmasın"
       _stroke
         ..style = PaintingStyle.stroke
         ..maskFilter = null
         ..strokeWidth = 1.0
-        ..color = _ca(fieldColor, 0.25 + 0.08 * sin(time * 3.5));
+        ..color = _ca(fieldColor, 0.22 + 0.08 * sin(time * 3.5));
       canvas.drawCircle(Offset.zero, maxDist - 0.5, _stroke);
 
-      // Sınır içerisindeki hafif gravitasyon dalgası (tamamen maxDist içinde kalır)
-      for (int w = 0; w < 2; w++) {
-        final phase = ((time * 0.7 + w * 0.5) % 1.0);
-        final waveR = maxDist * (1.0 - phase * 0.65);
-        final waveAlpha = (sin(phase * pi) * 0.22).clamp(0.0, 0.28);
-        _stroke
-          ..strokeWidth = 1.2
-          ..color = _ca(fieldColor, waveAlpha);
-        canvas.drawCircle(Offset.zero, waveR, _stroke);
-      }
-
-      // 1. Relativistik Astrofizik Yığılma Diski (Asimetrik Doppler Beaming & Yerçekimsel Merceklenme)
-      // Düz yuvarlak yerine, ışığın büküldüğü, bir tarafı yaklaşan gazlar nedeniyle daha parlak olan organik disk:
+      // 1. Organik Dalgalanan Yuvarlak Karadelik Gövdesi (Yuvarlağımsı & Hafif Dalgalanan Mor Kısım)
+      // Kullanıcı kuralı: "Şekli öyle elips değil de yuvarlağımsı ama böyle yanı hafif dalgalanan böyle güzel ibşi yapalım
+      // ve yanındaki o çizgiler yok olsun sadece o mor kısım var olsun"
       canvas.save();
-      canvas.rotate(bh.rotation);
+      canvas.rotate(bh.rotation * 0.4);
 
-      // Doppler beaming için ofsetli elips ve ışıma
-      final diskRadiusX = min(bh.radius * 2.8, maxDist * 0.95);
-      final diskRadiusY = min(bh.radius * 1.9, maxDist * 0.75);
+      final double baseRadius = min(bh.radius * 1.65, maxDist * 0.80);
+      _tempPath.reset();
+      const int segments = 36;
+      for (int i = 0; i <= segments; i++) {
+        final double angle = (pi * 2 / segments) * i;
+        // İki farklı harmonikle yumuşak, canlı ve organik dalgalanma:
+        final double wave1 = sin(angle * 4.0 + time * 3.0);
+        final double wave2 = cos(angle * 3.0 - time * 2.2);
+        final double r = baseRadius * (1.0 + 0.065 * wave1 + 0.035 * wave2);
+        final double px = cos(angle) * r;
+        final double py = sin(angle) * r;
+        if (i == 0) {
+          _tempPath.moveTo(px, py);
+        } else {
+          _tempPath.lineTo(px, py);
+        }
+      }
+      _tempPath.close();
 
       final diskGradient = RadialGradient(
-        center: const Alignment(-0.25, -0.15), // Asimetrik parlama odağı (Doppler ışıması)
-        radius: 0.95,
+        center: Alignment.center,
+        radius: 0.98,
         colors: bh.isVortexTrap
             ? [
                 Colors.black,
                 const Color(0xFF260000),
                 _ca(const Color(0xFFFF1744), 0.90),
-                _ca(const Color(0xFFFF5252), 0.70),
-                _ca(const Color(0xFFFF8A80), 0.30),
+                _ca(const Color(0xFFFF5252), 0.65),
+                _ca(const Color(0xFFFF8A80), 0.20),
                 Colors.transparent,
               ]
             : (bh.isSupercharged
                 ? [
                     Colors.black,
-                    const Color(0xFF180A00),
-                    _ca(const Color(0xFFFF9100), 0.95),
-                    _ca(const Color(0xFFFFD54F), 0.75),
-                    _ca(const Color(0xFF00E5FF), 0.35),
+                    const Color(0xFF001926),
+                    _ca(const Color(0xFF00E5FF), 0.90),
+                    _ca(const Color(0xFF18FFFF), 0.65),
+                    _ca(const Color(0xFF80D8FF), 0.20),
                     Colors.transparent,
                   ]
                 : [
                     Colors.black,
-                    const Color(0xFF100224),
-                    _ca(const Color(0xFF7C4DFF), 0.90),
+                    const Color(0xFF130226),
+                    _ca(const Color(0xFF7C4DFF), 0.92),
                     _ca(const Color(0xFFB388FF), 0.65),
-                    _ca(const Color(0xFFEA80FC), 0.25),
+                    _ca(const Color(0xFFEA80FC), 0.20),
                     Colors.transparent,
                   ]),
-        stops: const [0.22, 0.38, 0.58, 0.75, 0.90, 1.0],
+        stops: const [0.24, 0.40, 0.65, 0.82, 0.94, 1.0],
       );
 
       _fill
         ..style = PaintingStyle.fill
         ..maskFilter = null
-        ..shader = diskGradient.createShader(Rect.fromCenter(center: Offset.zero, width: diskRadiusX * 2, height: diskRadiusY * 2));
-      canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: diskRadiusX * 2, height: diskRadiusY * 2), _fill);
+        ..shader = diskGradient.createShader(Rect.fromCircle(center: Offset.zero, radius: baseRadius * 1.12));
+      canvas.drawPath(_tempPath, _fill);
       _fill.shader = null;
-
-      // 2. Organik Spiral Madde Akıntıları (Infalling Interstellar Plasma Tendrils)
-      final armCount = bh.isVortexTrap ? 7 : (bh.isSupercharged ? 6 : 5);
-      for (int i = 0; i < armCount; i++) {
-        final baseAngle = (pi * 2 / armCount) * i;
-        final swirlProgress = (time * 1.8 + i * 0.4) % 1.0;
-        final tendrilRadius = bh.radius * (0.65 + 1.6 * (1.0 - swirlProgress));
-        if (tendrilRadius > maxDist * 0.92) continue;
-
-        final startA = baseAngle + swirlProgress * 1.2;
-        final sweepA = pi * (0.8 + 0.4 * sin(time * 3.0 + i));
-
-        Color tendrilColor = bh.isVortexTrap
-            ? ((i % 2 == 0) ? const Color(0xFFFF1744) : const Color(0xFFFF8A80))
-            : (bh.isSupercharged
-                ? ((i % 2 == 0) ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF))
-                : ((i % 2 == 0) ? const Color(0xFFEA80FC) : const Color(0xFF7C4DFF)));
-
-        _stroke
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeWidth = (2.2 * (1.0 - swirlProgress * 0.5)).clamp(0.8, 2.5)
-          ..color = _ca(tendrilColor, (0.75 * (1.0 - swirlProgress * 0.4)).clamp(0.1, 0.85));
-
-        canvas.drawArc(
-          Rect.fromCenter(center: Offset.zero, width: tendrilRadius * 2, height: tendrilRadius * 1.4),
-          startA,
-          sweepA,
-          false,
-          _stroke,
-        );
-      }
       canvas.restore();
 
-      // 3. Foton Halkası ve Göreli Merceklenme Parlaması (Photon Ring)
-      final photonRingR = bh.radius * 0.52;
+      // 2. Foton Halkası (Event Horizon Glow)
+      final photonRingR = bh.radius * 0.50;
       final Color photonGlow = bh.isSupercharged
-          ? const Color(0xFFFFD54F)
+          ? const Color(0xFF18FFFF)
           : (bh.isVortexTrap ? const Color(0xFFFF5252) : const Color(0xFFE040FB));
 
       _stroke
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.4
+        ..strokeWidth = 2.0
         ..color = _ca(photonGlow, 0.70 + 0.20 * sin(time * 5.0));
       canvas.drawCircle(Offset.zero, photonRingR, _stroke);
 
       _stroke
-        ..strokeWidth = 1.0
-        ..color = _ca(Colors.white, 0.95);
+        ..strokeWidth = 0.8
+        ..color = _ca(Colors.white, 0.92);
       canvas.drawCircle(Offset.zero, photonRingR, _stroke);
 
-      // 4. Olay Ufku ve Tekillik Gölgesi (Singularity Event Horizon Void)
-      // İçerisi zifiri karanlık, mutlak ışık yutucu çekirdek
+      // 3. Zifiri Karanlık Tekillik Çekirdeği (Event Horizon Singularity Void)
       _fill
         ..style = PaintingStyle.fill
         ..color = const Color(0xFF020204);
-      canvas.drawCircle(Offset.zero, bh.radius * 0.46, _fill);
+      canvas.drawCircle(Offset.zero, bh.radius * 0.44, _fill);
 
       canvas.restore();
     }
