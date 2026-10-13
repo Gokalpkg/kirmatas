@@ -1954,17 +1954,32 @@ class _GameWorldPainter extends CustomPainter {
       canvas.drawLine(Offset(halfW - wingW + 10 + s * 6, -halfH + 4), Offset(halfW - wingW + 16 + s * 6, halfH - 4), _stroke);
     }
 
-    // 4. Dual Plasma Cannons on Gun Mounts
+    // 4. Dual Plasma Cannons on Gun Mounts (with Pre-fire Telegraphing Flash)
+    final isTelegraphing = b.shootTimer <= 0.6;
+    final cannonMuzzleColor = isTelegraphing
+        ? (sin(time * 24.0) > 0 ? const Color(0xFFFFEB3B) : const Color(0xFFFF1744))
+        : const Color(0xFFFF1744);
+    final muzzleRadius = isTelegraphing ? 5.0 : 3.0;
+
     _fill.color = const Color(0xFF37474F);
     // Left Cannon
     canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(-halfW * 0.5, halfH + 4), width: 10, height: 12), const Radius.circular(2)), _fill);
-    _fill.color = _ca(const Color(0xFFFF1744), 0.75 + sin(time * 8.0) * 0.25);
-    canvas.drawCircle(Offset(-halfW * 0.5, halfH + 9), 3.0, _fill);
+    _fill.color = _ca(cannonMuzzleColor, isTelegraphing ? 1.0 : (0.75 + sin(time * 8.0) * 0.25));
+    canvas.drawCircle(Offset(-halfW * 0.5, halfH + 9), muzzleRadius, _fill);
+    if (isTelegraphing) {
+      _fill.color = _ca(Colors.white, 0.85);
+      canvas.drawCircle(Offset(-halfW * 0.5, halfH + 9), 2.2, _fill);
+    }
+
     // Right Cannon
     _fill.color = const Color(0xFF37474F);
     canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(halfW * 0.5, halfH + 4), width: 10, height: 12), const Radius.circular(2)), _fill);
-    _fill.color = _ca(const Color(0xFFFF1744), 0.75 + sin(time * 8.0) * 0.25);
-    canvas.drawCircle(Offset(halfW * 0.5, halfH + 9), 3.0, _fill);
+    _fill.color = _ca(cannonMuzzleColor, isTelegraphing ? 1.0 : (0.75 + sin(time * 8.0) * 0.25));
+    canvas.drawCircle(Offset(halfW * 0.5, halfH + 9), muzzleRadius, _fill);
+    if (isTelegraphing) {
+      _fill.color = _ca(Colors.white, 0.85);
+      canvas.drawCircle(Offset(halfW * 0.5, halfH + 9), 2.2, _fill);
+    }
 
     // 5. Central Reactor Chassis
     final centerW = halfW * 0.65;

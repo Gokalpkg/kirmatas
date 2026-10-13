@@ -177,6 +177,7 @@ class GameController extends ChangeNotifier {
   bool _bossEnrageAnnounced = false;
   bool _chaosAllSolidBroken = false;
   int activeIceVariant = 0;
+  double endgameStallTimer = 0.0;
 
   int get endGameMultiplierBaseGold => max(stats.goldCollected, 100);
 
@@ -295,7 +296,12 @@ class GameController extends ChangeNotifier {
   void haltBackgroundGameplay() => _haltBackgroundGameplay();
 
   void resetPaddleAndBall() {
-    paddle.width = paddle.baseWidth;
+    // Step 7: Aquarium Synergy - Passive buffs based on unlocked fish in Eco-Tank
+    double fishWidthBonus = 0.0;
+    if (save.unlockedFish.contains('guppy')) fishWidthBonus += 4.0;
+    if (save.unlockedFish.contains('tetra')) fishWidthBonus += 3.0;
+
+    paddle.width = paddle.baseWidth + fishWidthBonus;
     paddle.x = (screenWidth - paddle.width) / 2;
     paddle.y = screenHeight - 110.0;
     paddle.isSticky = false;
@@ -793,6 +799,7 @@ class GameController extends ChangeNotifier {
     _updateAnomalies(effectiveDt);
     _updateBalls(effectiveDt);
     _updateDice(effectiveDt);
+    endgameStallTimer += effectiveDt;
     _checkGameProgress();
     frameTick.ping();
     _syncHud();
@@ -1646,18 +1653,38 @@ class GameController extends ChangeNotifier {
       }
 
       final bounceAngle = hitOffset * (pi / 2.7); // -66 deg to +66 deg
-      final baseSpeed = min(ball.speed + 6.0, 680.0);
+      // Step 2: Capped speed escalation (keep within human reaction limits)
+      final baseSpeed = min(ball.speed + 4.0, 580.0);
 
       // Corner hit detection (outer 22% of paddle)
       final isCornerHit = hitOffset.abs() >= 0.78;
-      final speedMultiplier = isCornerHit ? 1.45 : 1.0;
-      final finalSpeed = (baseSpeed * speedMultiplier).clamp(100.0, 850.0);
+      final speedMultiplier = isCornerHit ? 1.35 : 1.0;
+      final finalSpeed = (baseSpeed * speedMultiplier).clamp(100.0, 680.0);
 
-      ball.vx = sin(bounceAngle) * finalSpeed;
-      ball.vy = -cos(bounceAngle) * finalSpeed;
+      var vx = sin(bounceAngle) * finalSpeed;
+      var vy = -cos(bounceAngle) * finalSpeed;
 
       // Spin transfer
-      ball.vx += paddle.velocityX * 0.25;
+      vx += paddle.velocityX * 0.25;
+
+      // Step 1: Endgame Pacing - Micro-nudge targeting towards remaining 1-2 bricks if stalled > 10s
+      final remainingAliveBricks = bricks.where((b) => b.isAlive && !b.isSteel).toList();
+      if (remainingAliveBricks.isNotEmpty && remainingAliveBricks.length <= 2 && endgameStallTimer >= 10.0) {
+        final targetBrick = remainingAliveBricks.first;
+        final targetCenterX = targetBrick.x + targetBrick.width / 2;
+        final targetCenterY = targetBrick.y + targetBrick.height / 2;
+        final dx = targetCenterX - ball.x;
+        final dy = targetCenterY - pr.top;
+        final desiredAngle = atan2(dx, -dy); // upward heading angle
+        final clampedDesiredAngle = desiredAngle.clamp(-pi / 2.8, pi / 2.8);
+        // Blend current bounce angle with target angle gently (12% steer)
+        final blendedAngle = bounceAngle * 0.88 + clampedDesiredAngle * 0.12;
+        vx = sin(blendedAngle) * finalSpeed;
+        vy = -cos(blendedAngle) * finalSpeed;
+      }
+
+      ball.vx = vx;
+      ball.vy = vy;
 
       ball.y = pr.top - ball.radius - 1.0;
       ball.triggerSquash(-pi / 2);
@@ -1861,6 +1888,7 @@ class GameController extends ChangeNotifier {
 
     b.hp--;
     b.jelly = 0.8;
+    endgameStallTimer = 0.0;
 
     if (b.hp <= 0) {
       _destroyBrick(b);
@@ -2019,7 +2047,35 @@ class GameController extends ChangeNotifier {
     stats.score += points;
     _checkLiveNewRecordCelebration();
 
-    if (stats.combo > 1 && stats.combo % 3 == 0) {
+    // Step 5: Arcade Combo Juice (Milestone floating text and micro-shakes)
+    if (stats.combo == 3) {
+      particles.spawnFloatingText(
+        paddle.x + paddle.width / 2,
+        paddle.y - 28.0,
+        '⚡ TRIPLE HIT x3!',
+        const Color(0xFF00E5FF),
+        isLarge: true,
+      );
+      particles.triggerShake(2.0, 0.12);
+    } else if (stats.combo == 5) {
+      particles.spawnFloatingText(
+        paddle.x + paddle.width / 2,
+        paddle.y - 32.0,
+        '🔥 MEGA COMBO x5!',
+        const Color(0xFFFF9100),
+        isLarge: true,
+      );
+      particles.triggerShake(3.5, 0.18);
+    } else if (stats.combo >= 8 && stats.combo % 4 == 0) {
+      particles.spawnFloatingText(
+        paddle.x + paddle.width / 2,
+        paddle.y - 36.0,
+        '💥 ULTRA COMBO x${stats.combo}!',
+        const Color(0xFFD500F9),
+        isLarge: true,
+      );
+      particles.triggerShake(5.0, 0.22);
+    } else if (stats.combo > 1 && stats.combo % 3 == 0) {
       particles.spawnFloatingText(
         paddle.x + paddle.width / 2,
         paddle.y - 28.0,

@@ -545,6 +545,14 @@ class AdManager extends ChangeNotifier {
     _gameplayCount++;
     debugPrint('AdManager: Gameplay count: $_gameplayCount / $_targetPlaysBeforeNextInterstitial');
 
+    // Step 9: Early Level Churn Shield - Never show interstitial ads before level 5
+    final currentLevel = SaveManager.instance.classicSavedLevel ?? 1;
+    if (currentLevel < 5) {
+      preloadInterstitialAd();
+      onComplete?.call();
+      return;
+    }
+
     // If the user just watched a long rewarded ad (Revive or 2X-3X Dice Roll) in the last 45s,
     // don't immediately hit them with another ad when clicking Restart/Main Menu.
     final nowMs = DateTime.now().millisecondsSinceEpoch;
