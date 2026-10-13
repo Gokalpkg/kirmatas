@@ -347,17 +347,30 @@ class GameController extends ChangeNotifier {
         }
         if (portalLevels.contains(stats.level)) {
           final levelRand = Random(stats.level * 1337);
+          double lowestAliveBrickY = 120.0;
+          for (final b in bricks) {
+            if ((b.y + b.height) > lowestAliveBrickY) {
+              lowestAliveBrickY = b.y + b.height;
+            }
+          }
+          final minY = (lowestAliveBrickY + 45.0).clamp(160.0, paddle.y - 140.0);
+          final maxY = (paddle.y - 80.0).clamp(minY + 20.0, paddle.y - 40.0);
+          final rangeY = max(20.0, maxY - minY);
+
+          final p1Y = minY + levelRand.nextDouble() * rangeY * 0.45;
+          final p2Y = minY + rangeY * 0.55 + levelRand.nextDouble() * rangeY * 0.45;
+
           final p1 = Portal(
-            x: screenWidth * (0.18 + levelRand.nextDouble() * 0.16),
-            y: screenHeight * (0.45 + levelRand.nextDouble() * 0.12),
-            radius: 22.0,
+            x: screenWidth * (0.20 + levelRand.nextDouble() * 0.14),
+            y: p1Y,
+            radius: 20.0,
             isBlue: true,
-            color: const Color(0xFF00B0FF),
+            color: const Color(0xFF00E5FF),
           );
           final p2 = Portal(
-            x: screenWidth * (0.66 + levelRand.nextDouble() * 0.16),
-            y: screenHeight * (0.45 + levelRand.nextDouble() * 0.12),
-            radius: 22.0,
+            x: screenWidth * (0.66 + levelRand.nextDouble() * 0.14),
+            y: p2Y,
+            radius: 20.0,
             isBlue: false,
             color: const Color(0xFFFF9100),
           );
@@ -1421,14 +1434,27 @@ class GameController extends ChangeNotifier {
           final dy = p.y - ball.y;
           if (dx * dx + dy * dy <= p.radius * p.radius && p.linkedPortal != null) {
             final target = p.linkedPortal!;
-            final spd = ball.speed > 0 ? ball.speed : getBaseBallSpeed();
-            final dirX = ball.vx / spd;
-            final dirY = ball.vy / spd;
-            ball.x = target.x + dirX * (target.radius + ball.radius + 3.0);
-            ball.y = target.y + dirY * (target.radius + ball.radius + 3.0);
-            ball.anomalyCooldown = 1.0;
-            particles.spawnBurst(p.x, p.y, p.color, count: 18, speed: 100.0);
-            particles.spawnBurst(target.x, target.y, target.color, count: 22, speed: 130.0);
+            final currentSpd = ball.speed > 0 ? ball.speed : getBaseBallSpeed();
+            // Preserve ball direction vector, but ensure it never stalls
+            var dirX = ball.vx / currentSpd;
+            var dirY = ball.vy / currentSpd;
+            if (dirX.abs() < 0.1 && dirY.abs() < 0.1) {
+              dirY = -1.0;
+              dirX = 0.0;
+            }
+
+            // Safe ejection distance outside target portal's event horizon
+            final ejectDist = target.radius + ball.radius + 6.0;
+            ball.x = (target.x + dirX * ejectDist).clamp(ball.radius + 8.0, screenWidth - ball.radius - 8.0);
+            ball.y = (target.y + dirY * ejectDist).clamp(42.0, screenHeight - 60.0);
+            ball.setSpeed(currentSpd.clamp(getBaseBallSpeed(), 850.0));
+            ball.anomalyCooldown = 0.55;
+
+            // Spawn portal warp effects
+            particles.spawnBurst(p.x, p.y, p.color, count: 22, speed: 120.0);
+            particles.spawnShockwave(p.x, p.y, p.color, maxRadius: 38.0);
+            particles.spawnBurst(target.x, target.y, target.color, count: 26, speed: 140.0);
+            particles.spawnShockwave(target.x, target.y, target.color, maxRadius: 44.0);
             audio.playSfx(GameSfx.ulti);
             break;
           }

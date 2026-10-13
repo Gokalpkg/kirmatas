@@ -272,6 +272,8 @@ class _GameWorldPainter extends CustomPainter {
     _drawBossWarningBanner(canvas, size);
     _drawLevelClearCelebration(canvas, size);
 
+    _drawPlayfieldBorder(canvas, size);
+
     canvas.restore();
 
     _drawWindshieldSplat(canvas, size);
@@ -2070,6 +2072,72 @@ class _GameWorldPainter extends CustomPainter {
     }
   }
 
+  void _drawPlayfieldBorder(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    const ceilingY = 36.0;
+
+    // 1. Edge Vignette Gradients: Left, Right, and Top subtle shadow fades
+    // Left edge shadow (8px)
+    _fill
+      ..shader = const LinearGradient(
+        colors: [Color(0x99000000), Colors.transparent],
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+      ).createShader(Rect.fromLTWH(0, 0, 10, h))
+      ..color = Colors.black;
+    canvas.drawRect(Rect.fromLTWH(0, 0, 10, h), _fill);
+
+    // Right edge shadow (8px)
+    _fill.shader = const LinearGradient(
+      colors: [Colors.transparent, Color(0x99000000)],
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+    ).createShader(Rect.fromLTWH(w - 10, 0, 10, h));
+    canvas.drawRect(Rect.fromLTWH(w - 10, 0, 10, h), _fill);
+
+    // Top ceiling shadow (12px)
+    _fill.shader = const LinearGradient(
+      colors: [Color(0xBB000000), Colors.transparent],
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+    ).createShader(Rect.fromLTWH(0, 0, w, ceilingY + 12));
+    canvas.drawRect(Rect.fromLTWH(0, 0, w, ceilingY + 12), _fill);
+    _fill.shader = null;
+
+    // 2. Playfield Border Frame Line (Left, Top Ceiling, Right)
+    final glowColor = c.activePaddleSkin.glowColor;
+    _stroke
+      ..shader = null
+      ..color = _ca(glowColor, 0.22)
+      ..strokeWidth = 2.0;
+
+    // Ceiling bar line
+    canvas.drawLine(const Offset(0, ceilingY), Offset(w, ceilingY), _stroke);
+    // Left border line
+    canvas.drawLine(const Offset(0.5, ceilingY), Offset(0.5, h), _stroke);
+    // Right border line
+    canvas.drawLine(Offset(w - 0.5, ceilingY), Offset(w - 0.5, h), _stroke);
+
+    // 3. Cyber Arc / Tech Brackets at Top-Left & Top-Right Corners
+    _stroke
+      ..color = _ca(Colors.white, 0.7)
+      ..strokeWidth = 1.5;
+
+    // Top-Left corner bracket
+    canvas.drawLine(const Offset(0, ceilingY), const Offset(16, ceilingY), _stroke);
+    canvas.drawLine(const Offset(0, ceilingY), const Offset(0, ceilingY + 16), _stroke);
+
+    // Top-Right corner bracket
+    canvas.drawLine(Offset(w - 16, ceilingY), Offset(w, ceilingY), _stroke);
+    canvas.drawLine(Offset(w, ceilingY), Offset(w, ceilingY + 16), _stroke);
+
+    // Corner pip lights
+    _fill.color = _ca(glowColor, 0.9);
+    canvas.drawCircle(const Offset(3, ceilingY + 3), 1.8, _fill);
+    canvas.drawCircle(Offset(w - 3, ceilingY + 3), 1.8, _fill);
+  }
+
   void _drawNet(Canvas canvas, Size size) {
     if (!c.paddle.hasNet) return;
     final y = size.height - 22.0;
@@ -2828,31 +2896,98 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawPortals(Canvas canvas) {
+    if (c.portals.isEmpty) return;
+
+    // 1. Subtle Quantum Resonance Beam connecting linked portals
+    if (c.portals.length >= 2 && c.portals[0].linkedPortal != null) {
+      final p1 = c.portals[0];
+      final p2 = c.portals[1];
+      final beamPulse = 0.18 + 0.12 * sin(time * 3.5);
+      _stroke
+        ..shader = LinearGradient(
+          colors: [
+            _ca(p1.color, beamPulse),
+            _ca(Colors.white, beamPulse * 1.3),
+            _ca(p2.color, beamPulse),
+          ],
+        ).createShader(Rect.fromPoints(Offset(p1.x, p1.y), Offset(p2.x, p2.y)))
+        ..strokeWidth = 2.0;
+      _drawDashedLine(
+        canvas,
+        Offset(p1.x, p1.y),
+        Offset(p2.x, p2.y),
+        _stroke,
+        dashWidth: 6.0,
+        dashSpace: 8.0,
+      );
+      _stroke.shader = null;
+    }
+
+    // 2. High-Tech Dual Rotating Cosmic Portals
     for (final p in c.portals) {
       canvas.save();
       canvas.translate(p.x, p.y);
-      canvas.rotate(p.rotation);
 
-      // Portal Outer Ring
+      final pulse = 1.0 + 0.08 * sin(time * 4.0 + (p.isBlue ? 0 : pi));
+      final effRadius = p.radius * pulse;
+
+      // Outer Halo Glow Aura
+      _fill.color = _ca(p.color, 0.16);
+      canvas.drawCircle(Offset.zero, effRadius * 1.55, _fill);
+      _fill.color = _ca(p.color, 0.28);
+      canvas.drawCircle(Offset.zero, effRadius * 1.25, _fill);
+
+      // Outer Segmented Gear / Pulsar Ring
+      canvas.save();
+      canvas.rotate(p.rotation);
       _stroke
-        ..color = p.color
+        ..color = _ca(p.color, 0.95)
         ..strokeWidth = 3.0;
-      canvas.drawCircle(Offset.zero, p.radius, _stroke);
-      
-      // Portal Inner Swirls
-      final swirlCount = 4;
+      canvas.drawCircle(Offset.zero, effRadius, _stroke);
+
+      // Orbital Power Nodes on Outer Ring
+      const nodeCount = 6;
+      for (int i = 0; i < nodeCount; i++) {
+        final nodeAngle = (i * 2 * pi) / nodeCount;
+        final nx = cos(nodeAngle) * effRadius;
+        final ny = sin(nodeAngle) * effRadius;
+        _fill.color = Colors.white;
+        canvas.drawCircle(Offset(nx, ny), 2.2, _fill);
+        _fill.color = _ca(p.color, 0.85);
+        canvas.drawCircle(Offset(nx, ny), 4.0, _fill);
+      }
+      canvas.restore();
+
+      // Counter-Rotating Inner Vortex Accretion Swirls
+      canvas.save();
+      canvas.rotate(-p.rotation * 1.4);
+      const swirlCount = 5;
       for (int i = 0; i < swirlCount; i++) {
         final angle = (i * 2 * pi) / swirlCount;
-        final x = cos(angle) * (p.radius * 0.5);
-        final y = sin(angle) * (p.radius * 0.5);
-        
-        _fill.color = _ca(p.color, 0.8);
-        canvas.drawCircle(Offset(x, y), p.radius * 0.3, _fill);
-      }
+        final rOffset = effRadius * (0.35 + 0.25 * sin(time * 3.0 + i));
+        final sx = cos(angle) * rOffset;
+        final sy = sin(angle) * rOffset;
 
-      // Center Void
-      _fill.color = const Color(0xFF111111);
-      canvas.drawCircle(Offset.zero, p.radius * 0.4, _fill);
+        _fill.color = _ca(p.color, 0.65);
+        canvas.drawCircle(Offset(sx, sy), effRadius * 0.28, _fill);
+        _fill.color = _ca(Colors.white, 0.55);
+        canvas.drawCircle(Offset(sx, sy), effRadius * 0.14, _fill);
+      }
+      canvas.restore();
+
+      // Center Singularity / Event Horizon Void
+      _fill.color = const Color(0xFF060810);
+      canvas.drawCircle(Offset.zero, effRadius * 0.42, _fill);
+      _stroke
+        ..color = _ca(Colors.white, 0.8)
+        ..strokeWidth = 1.4;
+      canvas.drawCircle(Offset.zero, effRadius * 0.42, _stroke);
+
+      // Inner Core Glow Dot
+      _fill.color = _ca(p.color, 0.95);
+      canvas.drawCircle(Offset.zero, 3.5 * pulse, _fill);
+      _fill.color = Colors.white;
+      canvas.drawCircle(Offset.zero, 1.8, _fill);
 
       canvas.restore();
     }

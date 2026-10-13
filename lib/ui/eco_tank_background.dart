@@ -565,6 +565,40 @@ class _TankPainter extends CustomPainter {
 
       canvas.restore();
     }
+
+    // 9. Premium Aquarium Tank Frame & Edge Vignette
+    // Left edge shadow (12px)
+    _sandPaint.shader = const LinearGradient(
+      colors: [Color(0xBB03080E), Colors.transparent],
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+    ).createShader(Rect.fromLTWH(0, 0, 14, size.height));
+    canvas.drawRect(Rect.fromLTWH(0, 0, 14, size.height), _sandPaint);
+
+    // Right edge shadow (12px)
+    _sandPaint.shader = const LinearGradient(
+      colors: [Colors.transparent, Color(0xBB03080E)],
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+    ).createShader(Rect.fromLTWH(size.width - 14, 0, 14, size.height));
+    canvas.drawRect(Rect.fromLTWH(size.width - 14, 0, 14, size.height), _sandPaint);
+
+    // Top edge shadow (16px)
+    _sandPaint.shader = const LinearGradient(
+      colors: [Color(0xAA03080E), Colors.transparent],
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+    ).createShader(Rect.fromLTWH(0, 0, size.width, 18));
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, 18), _sandPaint);
+    _sandPaint.shader = null;
+
+    // Subtle cyan edge glass reflection line on left and right
+    final borderPaint = Paint()
+      ..color = const Color(0x2280D8FF)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(const Offset(0.5, 0), Offset(0.5, size.height), borderPaint);
+    canvas.drawLine(Offset(size.width - 0.5, 0), Offset(size.width - 0.5, size.height), borderPaint);
   }
 
   @override
