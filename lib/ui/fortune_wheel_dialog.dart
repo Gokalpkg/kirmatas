@@ -39,13 +39,43 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
   bool _isSpinning = false;
 
   // Manual Drag-to-Spin tracking
-  double _dragStartAngle = 0.0;
   Offset _lastTouchPos = Offset.zero;
   double _dragVelocity = 0.0;
   DateTime _lastTouchTime = DateTime.now();
   int _lastDragTickSector = -1;
+  String? _lastAwardedShardCategory;
 
-  final List<WheelReward> _rewards = [
+  String _getCategoryDisplayName(String cat) {
+    switch (cat) {
+      case 'balls':
+        return 'Top';
+      case 'paddles':
+        return 'Raket';
+      case 'trails':
+        return 'İz';
+      case 'bricks':
+        return 'Blok';
+      default:
+        return 'Eşya';
+    }
+  }
+
+  IconData _getCategoryIcon(String cat) {
+    switch (cat) {
+      case 'balls':
+        return Icons.sports_volleyball;
+      case 'paddles':
+        return Icons.view_stream;
+      case 'trails':
+        return Icons.grain;
+      case 'bricks':
+        return Icons.view_module;
+      default:
+        return Icons.hexagon;
+    }
+  }
+
+  late final List<WheelReward> _rewards = [
     WheelReward(
       label: '500 ',
       subtitle: 'JACKPOT!',
@@ -79,6 +109,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       onClaim: (context, save) {
         final categories = ['balls', 'paddles', 'trails', 'bricks'];
         final cat = categories[Random().nextInt(categories.length)];
+        _lastAwardedShardCategory = cat;
         save.addShard(cat, 1);
       },
     ),
@@ -217,7 +248,26 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       // Claim reward into save
       selectedReward.onClaim(context, SaveManager.instance);
 
-      _showPrizeDialog(selectedReward);
+      String? customTitle;
+      String? customSubtitle;
+      IconData? customIcon;
+
+      // If shard reward, display exact category name and icon
+      if (targetIndex == 2) {
+        final cat = _lastAwardedShardCategory ?? 'paddles';
+        final catName = _getCategoryDisplayName(cat);
+        final currentShards = SaveManager.instance.getShards(cat);
+        customTitle = '$catName Parçası';
+        customSubtitle = '+1 $catName Parçası Eklendi! (Toplam: $currentShards/3)';
+        customIcon = _getCategoryIcon(cat);
+      }
+
+      _showPrizeDialog(
+        selectedReward,
+        customLabel: customTitle,
+        customSubtitle: customSubtitle,
+        customIcon: customIcon,
+      );
     });
   }
 
@@ -316,7 +366,16 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     );
   }
 
-  void _showPrizeDialog(WheelReward reward) {
+  void _showPrizeDialog(
+    WheelReward reward, {
+    String? customLabel,
+    String? customSubtitle,
+    IconData? customIcon,
+  }) {
+    final displayLabel = customLabel ?? reward.label;
+    final displaySubtitle = customSubtitle ?? reward.subtitle;
+    final displayIcon = customIcon ?? reward.icon;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -327,9 +386,10 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
         ),
         title: Column(
           children: [
-            Icon(reward.icon, color: reward.primaryColor, size: 54),
+            Icon(displayIcon, color: reward.primaryColor, size: 54),
             const SizedBox(height: 12),
-            const Text( 'TEBRİKLER! ',
+            const Text(
+              'TEBRİKLER!',
               style: TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.w900, fontSize: 20),
             ),
           ],
@@ -338,20 +398,23 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              reward.label,
+              displayLabel,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: reward.primaryColor,
                 fontWeight: FontWeight.w900,
-                fontSize: 26,
+                fontSize: displayLabel.length > 10 ? 21 : 25,
               ),
             ),
             const SizedBox(height: 6),
             Text(
-              reward.subtitle,
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
+              displaySubtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.3),
             ),
             const SizedBox(height: 14),
-            const Text( 'Ödül hesabınıza aktarıldı!',
+            const Text(
+              'Ödül hesabınıza aktarıldı!',
               style: TextStyle(color: Colors.white54, fontSize: 12),
             ),
           ],
@@ -477,7 +540,6 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                 GestureDetector(
                   onPanStart: (details) {
                     if (_isSpinning) return;
-                    _dragStartAngle = _currentRotation;
                     _lastTouchPos = details.localPosition;
                     _dragVelocity = 0.0;
                     _lastTouchTime = DateTime.now();
