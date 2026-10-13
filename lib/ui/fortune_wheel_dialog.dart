@@ -38,6 +38,13 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
   double _currentRotation = 0.0;
   bool _isSpinning = false;
 
+  // Manual Drag-to-Spin tracking
+  double _dragStartAngle = 0.0;
+  Offset _lastTouchPos = Offset.zero;
+  double _dragVelocity = 0.0;
+  DateTime _lastTouchTime = DateTime.now();
+  int _lastDragTickSector = -1;
+
   final List<WheelReward> _rewards = [
     WheelReward(
       label: '500 ',
@@ -132,7 +139,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     super.dispose();
   }
 
-  void _triggerWheelSpin() {
+  void _triggerWheelSpin({bool clockwise = true}) {
     if (_isSpinning) return;
     setState(() {
       _isSpinning = true;
@@ -169,7 +176,14 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     // To align sector i under top pointer:
     final targetAngleOffset = (3 * pi / 2) - (targetIndex * sectorAngle + sectorAngle / 2);
     final fullRotations = (5 + rand.nextInt(3)) * 2 * pi;
-    final finalRotation = _currentRotation + fullRotations + (targetAngleOffset - (_currentRotation % (2 * pi)));
+    final double finalRotation;
+    if (clockwise) {
+      final diff = (targetAngleOffset - (_currentRotation % (2 * pi))) % (2 * pi);
+      finalRotation = _currentRotation + fullRotations + (diff >= 0 ? diff : diff + 2 * pi);
+    } else {
+      final diff = ((_currentRotation % (2 * pi)) - targetAngleOffset) % (2 * pi);
+      finalRotation = _currentRotation - fullRotations - (diff >= 0 ? diff : diff + 2 * pi);
+    }
 
     _spinAnimation = Tween<double>(
       begin: _currentRotation,
@@ -205,6 +219,54 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
 
       _showPrizeDialog(selectedReward);
     });
+  }
+
+  void _onManualFlingSpin({bool clockwise = true}) {
+    final save = SaveManager.instance;
+    if (!save.canSpinFortuneWheel) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Bugünkü 3 çark hakkını kullandın! Yarın yeni haklar gelecek.'),
+          backgroundColor: const Color(0xFF1E2438),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      );
+      return;
+    }
+
+    AdManager.instance.watchSkippableAd(
+      context,
+      onSuccess: () async {
+        if (!mounted) return;
+        final ok = await SaveManager.instance.recordWheelSpin();
+        if (ok && mounted) {
+          _triggerWheelSpin(clockwise: clockwise);
+        }
+      },
+      onDismissedEarly: () {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.info_outline, color: Color(0xFFFFD54F), size: 22),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Şans çarkını çevirmek için reklamı tamamlamalısınız.',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF1E2438),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          ),
+        );
+      },
+    );
   }
 
   void _onWatchAdAndSpin() {
@@ -404,61 +466,128 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text( ' 500 Jackpot, Sandık veya Parça Kazanma Şansı!',
-                  style: TextStyle(color: Color(0xFFFFD54F), fontSize: 12, fontWeight: FontWeight.bold),
+                const Text(
+                  'Çarkı parmağınla aşağı kaydırarak çevir veya butona bas!',
+                  style: TextStyle(color: Color(0xFFFFD54F), fontSize: 11.5, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
-                // Animated Wheel with top pointer
-                SizedBox(
-                  width: 270,
-                  height: 270,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Outer Glow & Wheel Painter
-                      Transform.rotate(
-                        angle: _currentRotation,
-                        child: CustomPaint(
-                          size: const Size(270, 270),
-                          painter: _WheelPainter(rewards: _rewards),
-                        ),
-                      ),
+                // Interactive Animated Wheel with top pointer & Drag-to-spin gesture
+                GestureDetector(
+                  onPanStart: (details) {
+                    if (_isSpinning) return;
+                    _dragStartAngle = _currentRotation;
+                    _lastTouchPos = details.localPosition;
+                    _dragVelocity = 0.0;
+                    _lastTouchTime = DateTime.now();
+                  },
+                  onPanUpdate: (details) {
+                    if (_isSpinning) return;
+                    final currentPos = details.localPosition;
+                    const center = Offset(135, 135);
 
-                      // Center Pin Hub
-                      Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const RadialGradient(
-                            colors: [Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFFF8F00)],
+                    // Calculate angular delta around wheel center
+                    final prevOffset = _lastTouchPos - center;
+                    final curOffset = currentPos - center;
+                    final prevAngle = atan2(prevOffset.dy, prevOffset.dx);
+                    final curAngle = atan2(curOffset.dy, curOffset.dx);
+                    var delta = curAngle - prevAngle;
+                    while (delta > pi) {
+                      delta -= 2 * pi;
+                    }
+                    while (delta < -pi) {
+                      delta += 2 * pi;
+                    }
+
+                    // If dragging vertically near edges (e.g. downward swipe), map vertical delta smoothly
+                    final dy = currentPos.dy - _lastTouchPos.dy;
+                    if (delta.abs() < 0.02 && dy.abs() > 2.0) {
+                      // Left side dragged down rotates counter-clockwise; right side dragged down rotates clockwise
+                      final sign = (currentPos.dx >= center.dx) ? 1.0 : -1.0;
+                      delta = (dy / 135.0) * sign;
+                    }
+
+                    final now = DateTime.now();
+                    final dtMs = now.difference(_lastTouchTime).inMilliseconds;
+                    if (dtMs > 0) {
+                      _dragVelocity = delta / (dtMs / 1000.0);
+                    }
+                    _lastTouchTime = now;
+                    _lastTouchPos = currentPos;
+
+                    setState(() {
+                      _currentRotation += delta;
+                    });
+
+                    // Audio feedback on manual drag
+                    const sectorAngle = (2 * pi) / 8;
+                    final currentSector = ((_currentRotation / sectorAngle).floor()) % _rewards.length;
+                    if (currentSector != _lastDragTickSector) {
+                      _lastDragTickSector = currentSector;
+                      AudioManager.instance.playSfx(GameSfx.hitBrick);
+                    }
+                  },
+                  onPanEnd: (details) {
+                    if (_isSpinning) return;
+                    final speed = _dragVelocity.abs();
+                    final pixelsVelocity = details.velocity.pixelsPerSecond.distance;
+                    // Trigger spin if user swiped with reasonable velocity or moved wheel noticeably
+                    if (speed > 1.2 || pixelsVelocity > 250) {
+                      final cw = _dragVelocity >= 0;
+                      _onManualFlingSpin(clockwise: cw);
+                    }
+                  },
+                  child: SizedBox(
+                    width: 270,
+                    height: 270,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Outer Glow & Wheel Painter
+                        Transform.rotate(
+                          angle: _currentRotation,
+                          child: CustomPaint(
+                            size: const Size(270, 270),
+                            painter: _WheelPainter(rewards: _rewards),
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.6),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
                         ),
-                        child: const Center(
-                          child: Icon(Icons.star, color: Color(0xFF3E2723), size: 24),
-                        ),
-                      ),
 
-                      // Top Indicator Arrow
-                      Positioned(
-                        top: 0,
-                        child: CustomPaint(
-                          size: const Size(26, 26),
-                          painter: _PointerArrowPainter(),
+                        // Center Pin Hub
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const RadialGradient(
+                              colors: [Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFFF8F00)],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.touch_app_rounded, color: Color(0xFF3E2723), size: 24),
+                          ),
                         ),
-                      ),
-                    ],
+
+                        // Top Indicator Arrow
+                        Positioned(
+                          top: 0,
+                          child: CustomPaint(
+                            size: const Size(26, 26),
+                            painter: _PointerArrowPainter(),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
 
                 // Action Button: Watch Skippable Ad & Spin
                 Container(
