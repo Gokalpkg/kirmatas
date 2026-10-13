@@ -44,6 +44,8 @@ class Ball {
     bool? isStuck,
     this.stuckOffsetX = 0.0,
     this.isFireball = false,
+    int? fireballPierceCount,
+    this.fireballPaddleBounces = 0,
     this.isBomb = false,
     this.isPierce = false,
     this.isMirror = false,
@@ -52,7 +54,8 @@ class Ball {
     this.squashAngle = 0.0,
     this.stuckTimer = 0.0,
     this.cornerBoostTimer = 0.0,
-  }) : isStuck = isStuck ?? (vx == 0.0 && vy == 0.0);
+  }) : isStuck = isStuck ?? (vx == 0.0 && vy == 0.0),
+       fireballPierceCount = fireballPierceCount ?? ((isFireball || isPierce) ? 12 : 0);
 
   double get speed => sqrt(vx * vx + vy * vy);
 

@@ -414,8 +414,10 @@ class GameController extends ChangeNotifier {
         ball.vx = speed * sin(spread);
         ball.vy = -speed * cos(spread);
       } else {
-        ball.vx = 0.0;
-        ball.vy = -speed;
+        // Subtle tilt angle (~2.6-4.6 degrees) so player cannot idle straight vertical shots
+        final tilt = (_rand.nextBool() ? 1.0 : -1.0) * (0.045 + _rand.nextDouble() * 0.035);
+        ball.vx = speed * sin(tilt);
+        ball.vy = -speed * cos(tilt);
       }
       anyLaunched = true;
     }
@@ -964,7 +966,7 @@ class GameController extends ChangeNotifier {
     if (diceSalvoRemaining > 0) {
       diceSalvoCooldown -= dt;
       if (diceSalvoCooldown <= 0) {
-        diceSalvoCooldown = 0.16;
+        diceSalvoCooldown = 0.30;
         diceSalvoRemaining--;
 
         final leftX = paddle.x + 8.0;
@@ -1663,6 +1665,17 @@ class GameController extends ChangeNotifier {
         particles.spawnShockwave(ball.x, pr.top, activePaddleSkin.glowColor, maxRadius: 32.0);
         audio.playSfx(GameSfx.hitPaddle);
       }
+
+      // Alev topunun raket sekme dayanıklılığı: 3 raket dönüşünden sonra söner
+      if (ball.isFireball || ball.isPierce) {
+        ball.fireballPaddleBounces++;
+        if (ball.fireballPaddleBounces >= 3) {
+          ball.isFireball = false;
+          ball.isPierce = false;
+          activePowerUps.removeWhere((p) => p.type == PowerUpType.fireball || p.type == PowerUpType.pierce);
+          particles.spawnBurst(ball.x, pr.top, const Color(0xFFFF9100), count: 16, speed: 100.0);
+        }
+      }
       return true;
     }
     return false;
@@ -1701,6 +1714,17 @@ class GameController extends ChangeNotifier {
 
         // Hit brick!
         _hitBrick(b, ball);
+
+        // Alev topu dayanıklılık/delme kotası tüketimi
+        if (ball.isFireball || ball.isPierce) {
+          ball.fireballPierceCount--;
+          if (ball.fireballPierceCount <= 0) {
+            ball.isFireball = false;
+            ball.isPierce = false;
+            activePowerUps.removeWhere((p) => p.type == PowerUpType.fireball || p.type == PowerUpType.pierce);
+            particles.spawnBurst(ball.x, ball.y, const Color(0xFFFF9100), count: 12, speed: 90.0);
+          }
+        }
 
         if (!ball.isFireball && !ball.isPierce && !b.isTuft) {
           final dist = sqrt(distSq);
@@ -1989,7 +2013,7 @@ class GameController extends ChangeNotifier {
     // Luck tilts towards buffs (exclude mirror, multi, and pierce from random drops)
     PowerUpType chosen;
     if (_rand.nextDouble() < 0.78 + luckLevel * 0.05) {
-      final buffs = allTypes.where((t) => t.kind == PowerUpKind.buff && t != PowerUpType.mirror && t != PowerUpType.multi && t != PowerUpType.pierce).toList();
+      final buffs = allTypes.where((t) => t.kind == PowerUpKind.buff && t != PowerUpType.mirror && t != PowerUpType.multi && t != PowerUpType.pierce && t != PowerUpType.drone).toList();
       chosen = buffs[_rand.nextInt(buffs.length)];
       
       // KURAL: Ateş topu ve Roket çok daha nadir çıkmalı (2/3 oranında tekrar kura çekilir)
@@ -2108,6 +2132,8 @@ class GameController extends ChangeNotifier {
         for (final b in balls) {
           b.isFireball = true;
           b.isPierce = true;
+          b.fireballPierceCount = 12; // 12 tuğla delme hakkı
+          b.fireballPaddleBounces = 0; // 3 raket sekme dayanıklılığı
         }
         break;
       case PowerUpType.bomb:
