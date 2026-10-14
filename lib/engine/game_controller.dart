@@ -204,10 +204,13 @@ class GameController extends ChangeNotifier {
 
   bool get _blackHolesAllowed => currentMode != GameMode.classic || stats.level >= 4;
 
-  /// Death returns the player to the first board of the current ten-level band.
+  /// Death returns the player to the nearest sector checkpoint (every 17 levels).
+  /// Level 1..16 -> 1, Level 17..33 -> 17, Level 34..50 -> 34, etc. (Total 14 sectors for 238 levels).
   int get classicCheckpointLevel {
     final level = stats.level.clamp(1, 238);
-    return ((level - 1) ~/ 10) * 10 + 1;
+    if (level < 17) return 1;
+    if (level >= 221) return 221;
+    return (level ~/ 17) * 17;
   }
 
   int get endGameMultiplierBaseGold => max(stats.goldCollected, 100);
@@ -2757,7 +2760,9 @@ class GameController extends ChangeNotifier {
     if (remainingBreakable == 0 && levelTransitionTimer <= 0) {
       _hasLoadedBricks = false;
       _haltBackgroundGameplay();
-      if (currentMode == GameMode.daily || (currentMode == GameMode.classic && stats.level >= 238)) {
+      if (currentMode == GameMode.daily ||
+          (currentMode == GameMode.classic && stats.level >= 238) ||
+          (currentMode == GameMode.shapes && stats.level >= 38)) {
         if (AdManager.instance.registerLevelClear()) pendingLevelInterstitial = true;
         _onVictory();
       } else {

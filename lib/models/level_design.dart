@@ -3,33 +3,39 @@ import 'package:flutter/material.dart';
 import 'brick.dart';
 
 class LevelDesign {
-  static const List<List<int>> shapeSmiley = [
-    [0, 1, 1, 1, 1, 1, 0],
-    [1, 0, 1, 0, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 1, 0, 1, 0, 1],
-    [1, 0, 0, 1, 0, 0, 1],
-    [0, 1, 1, 0, 1, 1, 0]
-  ];
-
-  static const List<List<int>> shapeSword = [
-    [0, 0, 0, 1, 0, 0, 0],
-    [0, 0, 0, 1, 0, 0, 0],
-    [0, 0, 0, 1, 0, 0, 0],
-    [0, 1, 1, 1, 1, 1, 0],
-    [0, 0, 0, 1, 0, 0, 0],
-    [0, 0, 1, 1, 1, 0, 0]
-  ];
-
+  // --- 38 ÖZEL PİKSEL-ART ŞEKİL MATRİSİ (SHAPES MODE: 38 BÖLÜM) ---
+  // 1. Kalp
   static const List<List<int>> shapeHeart = [
     [0, 1, 1, 0, 1, 1, 0],
     [1, 1, 1, 1, 1, 1, 1],
     [1, 1, 1, 1, 1, 1, 1],
     [0, 1, 1, 1, 1, 1, 0],
     [0, 0, 1, 1, 1, 0, 0],
-    [0, 0, 0, 1, 0, 0, 0]
+    [0, 0, 0, 1, 0, 0, 0],
   ];
 
+  // 2. Kuru Kafa (Skull)
+  static const List<List<int>> shapeSkull = [
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 1, 1, 1, 0, 1],
+    [1, 0, 1, 1, 1, 0, 1],
+    [0, 1, 1, 0, 1, 1, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 0, 1, 0, 1, 0, 0],
+  ];
+
+  // 3. Kılıç (Sword)
+  static const List<List<int>> shapeSword = [
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+  ];
+
+  // 4. Elmas (Diamond)
   static const List<List<int>> shapeDiamond = [
     [0, 0, 0, 1, 0, 0, 0],
     [0, 0, 1, 1, 1, 0, 0],
@@ -37,7 +43,406 @@ class LevelDesign {
     [1, 1, 1, 1, 1, 1, 1],
     [0, 1, 1, 1, 1, 1, 0],
     [0, 0, 1, 1, 1, 0, 0],
-    [0, 0, 0, 1, 0, 0, 0]
+    [0, 0, 0, 1, 0, 0, 0],
+  ];
+
+  // 5. Gülen Yüz (Smiley)
+  static const List<List<int>> shapeSmiley = [
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 0, 1, 0, 1, 0, 1],
+    [1, 0, 0, 0, 0, 0, 1],
+    [1, 0, 1, 0, 1, 0, 1],
+    [1, 0, 0, 1, 0, 0, 1],
+    [0, 1, 1, 0, 1, 1, 0],
+  ];
+
+  // 6. Yıldız (Star)
+  static const List<List<int>> shapeStar = [
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [1, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 1, 0, 1, 1, 0],
+    [1, 1, 0, 0, 0, 1, 1],
+  ];
+
+  // 7. Roket (Rocket)
+  static const List<List<int>> shapeRocket = [
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 0, 1, 0, 1, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 0, 1, 1, 1, 0, 1],
+    [1, 0, 1, 1, 1, 0, 1],
+    [0, 0, 0, 1, 0, 0, 0],
+  ];
+
+  // 8. Taç (Crown)
+  static const List<List<int>> shapeCrown = [
+    [1, 0, 0, 1, 0, 0, 1],
+    [1, 1, 0, 1, 0, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 1, 1, 1, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+  ];
+
+  // 9. Hayalet (Ghost)
+  static const List<List<int>> shapeGhost = [
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 1, 1, 0, 1, 1],
+    [1, 0, 1, 1, 0, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 1, 0, 1, 0, 1],
+  ];
+
+  // 10. Mantar (Mushroom)
+  static const List<List<int>> shapeMushroom = [
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 0, 1, 1, 1, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+  ];
+
+  // 11. Gamepad (Retro Controller)
+  static const List<List<int>> shapeGamepad = [
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 1, 0, 1, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 1],
+  ];
+
+  // 12. Şimşek (Lightning)
+  static const List<List<int>> shapeLightning = [
+    [0, 0, 0, 1, 1, 0, 0],
+    [0, 0, 1, 1, 0, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 0, 0, 1, 1, 0, 0],
+    [0, 0, 1, 1, 0, 0, 0],
+    [0, 1, 1, 0, 0, 0, 0],
+    [1, 0, 0, 0, 0, 0, 0],
+  ];
+
+  // 13. Balık (Fish)
+  static const List<List<int>> shapeFish = [
+    [0, 0, 1, 0, 0, 0, 0],
+    [0, 1, 1, 1, 0, 0, 1],
+    [1, 0, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 0, 0, 1],
+    [0, 0, 1, 0, 0, 0, 0],
+  ];
+
+  // 14. Çapa (Anchor)
+  static const List<List<int>> shapeAnchor = [
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 0, 1, 0, 1, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 0, 0, 1, 0, 0, 0],
+    [1, 0, 0, 1, 0, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 0, 1, 1, 0],
+  ];
+
+  // 15. Kalkan (Shield)
+  static const List<List<int>> shapeShield = [
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 1, 1, 1, 0, 1],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 0, 0, 1, 0, 0, 0],
+  ];
+
+  // 16. Kupa (Trophy)
+  static const List<List<int>> shapeTrophy = [
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 1, 1, 1, 0, 1],
+    [1, 0, 1, 1, 1, 0, 1],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+  ];
+
+  // 17. Anahtar (Key)
+  static const List<List<int>> shapeKey = [
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 0, 0, 0, 1, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 0, 1, 1, 1, 0],
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 0, 1, 1, 1, 0],
+  ];
+
+  // 18. Ağaç (Tree)
+  static const List<List<int>> shapeTree = [
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 1],
+    [0, 0, 0, 1, 0, 0, 0],
+  ];
+
+  // 19. Çan (Bell)
+  static const List<List<int>> shapeBell = [
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 1],
+    [0, 0, 1, 1, 1, 0, 0],
+  ];
+
+  // 20. Sandık (Treasure Chest)
+  static const List<List<int>> shapeChest = [
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 1, 1, 1, 0, 1],
+    [1, 1, 1, 0, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+  ];
+
+  // 21. Uzay Gemisi / Invader
+  static const List<List<int>> shapeInvader = [
+    [0, 0, 1, 0, 1, 0, 0],
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 1, 0, 1, 0, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 1, 1, 1, 0, 1],
+    [1, 0, 1, 0, 1, 0, 1],
+  ];
+
+  // 22. Kiraz (Cherries)
+  static const List<List<int>> shapeCherries = [
+    [0, 0, 0, 1, 1, 0, 0],
+    [0, 0, 1, 0, 0, 1, 0],
+    [0, 1, 0, 0, 0, 0, 1],
+    [1, 1, 1, 0, 1, 1, 1],
+    [1, 1, 1, 0, 1, 1, 1],
+    [0, 1, 0, 0, 0, 1, 0],
+  ];
+
+  // 23. Alev (Flame)
+  static const List<List<int>> shapeFlame = [
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 1, 1, 0, 1, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 1, 0, 1, 0, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+  ];
+
+  // 24. Kar Tanesi (Snowflake)
+  static const List<List<int>> shapeSnowflake = [
+    [1, 0, 0, 1, 0, 0, 1],
+    [0, 1, 0, 1, 0, 1, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [1, 1, 1, 1, 1, 1, 1],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 0, 1, 0, 1, 0],
+    [1, 0, 0, 1, 0, 0, 1],
+  ];
+
+  // 25. Güneş (Sun)
+  static const List<List<int>> shapeSun = [
+    [0, 0, 0, 1, 0, 0, 0],
+    [1, 0, 1, 1, 1, 0, 1],
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 0, 1, 1, 1, 0, 1],
+    [0, 0, 0, 1, 0, 0, 0],
+  ];
+
+  // 26. Hilal / Ay (Moon)
+  static const List<List<int>> shapeMoon = [
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 1, 0, 0, 0, 0],
+    [1, 1, 0, 0, 0, 0, 0],
+    [1, 1, 0, 0, 0, 0, 0],
+    [1, 1, 0, 0, 0, 0, 0],
+    [0, 1, 1, 0, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+  ];
+
+  // 27. Elma (Apple)
+  static const List<List<int>> shapeApple = [
+    [0, 0, 0, 1, 1, 0, 0],
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 1, 1, 0, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 0, 1, 1, 0],
+  ];
+
+  // 28. Kanca (Hook)
+  static const List<List<int>> shapeHook = [
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 0, 0, 0, 1, 0],
+    [0, 0, 0, 0, 0, 1, 0],
+    [0, 0, 0, 0, 1, 0, 0],
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+  ];
+
+  // 29. Zümrüt Kristal (Gem)
+  static const List<List<int>> shapeGem = [
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 1, 0, 1, 0, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 0, 0, 1, 0, 0, 0],
+  ];
+
+  // 30. Bomba (Bomb)
+  static const List<List<int>> shapeBomb = [
+    [0, 0, 0, 0, 1, 0, 1],
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 0, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 0],
+  ];
+
+  // 31. Müzik Notası (Music Note)
+  static const List<List<int>> shapeNote = [
+    [0, 0, 1, 1, 1, 1, 0],
+    [0, 0, 1, 0, 0, 1, 0],
+    [0, 0, 1, 0, 0, 1, 0],
+    [0, 0, 1, 0, 0, 1, 0],
+    [0, 1, 1, 0, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 0],
+  ];
+
+  // 32. Bayrak (Flag)
+  static const List<List<int>> shapeFlag = [
+    [1, 1, 1, 1, 1, 0, 0],
+    [1, 1, 1, 1, 0, 0, 0],
+    [1, 1, 1, 1, 1, 0, 0],
+    [1, 0, 0, 0, 0, 0, 0],
+    [1, 0, 0, 0, 0, 0, 0],
+    [1, 0, 0, 0, 0, 0, 0],
+    [1, 1, 1, 0, 0, 0, 0],
+  ];
+
+  // 33. Kum Saati (Hourglass)
+  static const List<List<int>> shapeHourglass = [
+    [1, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 1],
+  ];
+
+  // 34. Büyüteç (Magnifier)
+  static const List<List<int>> shapeMagnifier = [
+    [0, 1, 1, 1, 1, 0, 0],
+    [1, 1, 0, 0, 1, 1, 0],
+    [1, 0, 0, 0, 0, 1, 0],
+    [1, 1, 0, 0, 1, 1, 0],
+    [0, 1, 1, 1, 1, 0, 0],
+    [0, 0, 0, 0, 0, 1, 0],
+    [0, 0, 0, 0, 0, 0, 1],
+  ];
+
+  // 35. Yüzük (Ring)
+  static const List<List<int>> shapeRing = [
+    [0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 1, 0, 1, 1, 0],
+    [1, 1, 0, 0, 0, 1, 1],
+    [1, 1, 0, 0, 0, 1, 1],
+    [0, 1, 1, 1, 1, 1, 0],
+  ];
+
+  // 36. Kilitli Kalp (Heart Lock)
+  static const List<List<int>> shapeHeartLock = [
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 0, 1, 0, 1, 0, 0],
+    [0, 1, 1, 0, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 0, 1, 0, 1, 1],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 0, 0, 1, 0, 0, 0],
+  ];
+
+  // 37. Sonsuzluk (Infinity)
+  static const List<List<int>> shapeInfinity = [
+    [0, 1, 1, 0, 1, 1, 0],
+    [1, 0, 0, 1, 0, 0, 1],
+    [1, 0, 0, 1, 0, 0, 1],
+    [0, 1, 1, 0, 1, 1, 0],
+  ];
+
+  // 38. Ejderha / Phoenix
+  static const List<List<int>> shapeDragon = [
+    [1, 0, 0, 1, 0, 0, 1],
+    [1, 1, 0, 1, 0, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 0, 1, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 1],
+  ];
+
+  static const List<List<List<int>>> allShapes = [
+    shapeHeart,      // 1
+    shapeSkull,      // 2
+    shapeSword,      // 3
+    shapeDiamond,    // 4
+    shapeSmiley,     // 5
+    shapeStar,       // 6
+    shapeRocket,     // 7
+    shapeCrown,      // 8
+    shapeGhost,      // 9
+    shapeMushroom,   // 10
+    shapeGamepad,    // 11
+    shapeLightning,  // 12
+    shapeFish,       // 13
+    shapeAnchor,     // 14
+    shapeShield,     // 15
+    shapeTrophy,     // 16
+    shapeKey,        // 17
+    shapeTree,       // 18
+    shapeBell,       // 19
+    shapeChest,      // 20
+    shapeInvader,    // 21
+    shapeCherries,   // 22
+    shapeFlame,      // 23
+    shapeSnowflake,  // 24
+    shapeSun,        // 25
+    shapeMoon,       // 26
+    shapeApple,      // 27
+    shapeHook,       // 28
+    shapeGem,        // 29
+    shapeBomb,       // 30
+    shapeNote,       // 31
+    shapeFlag,       // 32
+    shapeHourglass,  // 33
+    shapeMagnifier,  // 34
+    shapeRing,       // 35
+    shapeHeartLock,  // 36
+    shapeInfinity,   // 37
+    shapeDragon,     // 38
   ];
 
   static const List<Color> magmaPalette = [
@@ -85,6 +490,24 @@ class LevelDesign {
     Color(0xFF00E676),
     Color(0xFF7C4DFF),
     Color(0xFFFF6D00),
+  ];
+
+  static const List<Color> goldPalette = [
+    Color(0xFFFFD54F),
+    Color(0xFFFFC107),
+    Color(0xFFFFB300),
+    Color(0xFFFFA000),
+    Color(0xFFFF8F00),
+    Color(0xFFFFE082),
+  ];
+
+  static const List<Color> naturePalette = [
+    Color(0xFF81C784),
+    Color(0xFF4CAF50),
+    Color(0xFF388E3C),
+    Color(0xFF2E7D32),
+    Color(0xFFA5D6A7),
+    Color(0xFF66BB6A),
   ];
 
   static const double baseTopMargin = 105.0;
@@ -969,9 +1392,8 @@ class LevelDesign {
 
   static List<Brick> buildShapesLevel(int level, double screenWidth, double screenHeight) {
     final List<Brick> bricks = [];
-    final shapes = [shapeHeart, shapeSword, shapeSmiley, shapeDiamond];
-    final shapeIndex = (level - 1) % shapes.length;
-    final matrix = shapes[shapeIndex];
+    final shapeIndex = (level - 1) % allShapes.length;
+    final matrix = allShapes[shapeIndex];
     final rows = matrix.length;
     final cols = matrix[0].length;
     const gap = 6.0;
@@ -980,10 +1402,66 @@ class LevelDesign {
     final startX = (screenWidth - totalW) / 2;
     final bh = 22.0;
 
+    // Thematic palette per shape index
+    final List<Color> palette;
+    switch (shapeIndex) {
+      case 0: // Kalp
+      case 21: // Kiraz
+      case 22: // Alev
+      case 26: // Elma
+      case 29: // Bomba
+        palette = magmaPalette;
+        break;
+      case 1: // Kuru Kafa (Spooky neon)
+      case 10: // Gamepad
+      case 11: // Şimşek
+      case 20: // Invader
+      case 35: // HeartLock
+      case 36: // Infinity
+      case 37: // Dragon
+        palette = neonPalette;
+        break;
+      case 2: // Kılıç
+      case 3: // Elmas
+      case 8: // Hayalet
+      case 23: // Kar Tanesi
+      case 25: // Ay
+      case 28: // Gem
+        palette = icePalette;
+        break;
+      case 4: // Gülen Yüz
+      case 5: // Yıldız
+      case 6: // Roket
+      case 7: // Taç
+      case 15: // Kupa
+      case 16: // Anahtar
+      case 18: // Çan
+      case 19: // Sandık
+      case 24: // Güneş
+      case 34: // Yüzük
+        palette = goldPalette;
+        break;
+      case 12: // Balık
+      case 13: // Çapa
+      case 17: // Ağaç
+      case 27: // Kanca
+        palette = naturePalette;
+        break;
+      case 9: // Mantar
+      case 14: // Kalkan
+      case 30: // Nota
+      case 31: // Bayrak
+      case 32: // Kum Saati
+      case 33: // Büyüteç
+      default:
+        palette = candyPalette;
+        break;
+    }
+
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
         if (matrix[r][c] == 1) {
-          final color = magmaPalette[(r + c) % magmaPalette.length];
+          final color = palette[(r + c) % palette.length];
           bricks.add(
             Brick(
               x: startX + c * (bw + gap),

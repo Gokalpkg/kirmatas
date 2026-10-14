@@ -1271,7 +1271,7 @@ void main() {
       expect(controller.stats.lives >= 3, true);
     });
 
-    test('Classic death returns to the start of the ten-level band with 3 lives', () {
+    test('Classic death returns to the start of the 17-level sector with 3 lives', () {
       final gc = GameController();
       gc.setDimensions(360, 640);
       gc.startNewGame(GameMode.classic);
@@ -1284,9 +1284,40 @@ void main() {
       gc.update(0.016);
 
       expect(gc.status, GameStatus.gameOver);
-      expect(SaveManager.instance.classicSavedLevel, 11);
+      expect(SaveManager.instance.classicSavedLevel, 1);
       expect(SaveManager.instance.classicSavedLives, 3);
       expect(SaveManager.instance.classicSavedScore, 4000);
+
+      // Verify checkpoint calculation across 17-level bands:
+      gc.stats.level = 1;
+      expect(gc.classicCheckpointLevel, 1);
+      gc.stats.level = 16;
+      expect(gc.classicCheckpointLevel, 1);
+      gc.stats.level = 17;
+      expect(gc.classicCheckpointLevel, 17);
+      gc.stats.level = 33;
+      expect(gc.classicCheckpointLevel, 17);
+      gc.stats.level = 34;
+      expect(gc.classicCheckpointLevel, 34);
+      gc.stats.level = 50;
+      expect(gc.classicCheckpointLevel, 34);
+      gc.stats.level = 51;
+      expect(gc.classicCheckpointLevel, 51);
+      gc.stats.level = 238;
+      expect(gc.classicCheckpointLevel, 221);
+    });
+
+    test('Shapes mode provides 38 distinct figures and builds valid bricks', () {
+      expect(LevelDesign.allShapes.length, 38);
+      for (int lvl = 1; lvl <= 38; lvl++) {
+        final bricks = LevelDesign.buildShapesLevel(lvl, 360, 640);
+        expect(bricks.isNotEmpty, true, reason: 'Level $lvl shape should produce bricks');
+        for (final b in bricks) {
+          expect(b.width > 0, true);
+          expect(b.height > 0, true);
+          expect(b.x >= 0, true);
+        }
+      }
     });
 
     test('AdManager cascade waterfall ad units are configured correctly', () {

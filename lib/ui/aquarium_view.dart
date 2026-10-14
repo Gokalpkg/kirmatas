@@ -467,16 +467,18 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                     ),
                   ),
 
+                  // Bottom Sunken Aquarium Treasure Chest (Resting on sand seabed)
                   Positioned(
-                    top: 56,
-                    right: 10,
+                    bottom: max(8.0, MediaQuery.of(context).padding.bottom + 2.0),
+                    right: 12,
                     child: FishHoardChest(save: _save),
                   ),
+
                   // Bottom Compact Floating Toolbar & Optional Expanded Detail Drawer
                   Positioned(
                     bottom: max(12.0, MediaQuery.of(context).padding.bottom + 6.0),
-                    left: 14,
-                    right: 14,
+                    left: 12,
+                    right: 98,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
