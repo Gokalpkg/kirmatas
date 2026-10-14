@@ -433,6 +433,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                 primaryColor: crateInfo.primaryColor,
                 secondaryColor: const Color(0xFF3E2723),
                 showGlow: true,
+                time: _animController.value * 2 * pi,
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -974,6 +975,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                           ? const Color(0xFF006064)
                           : const Color(0xFF263238)),
                   showGlow: true,
+                  time: _animController.value * 2 * pi,
                 ),
                 const SizedBox(width: 14),
                 Expanded(

@@ -2,9 +2,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 /// Highly detailed, arcade-futuristic Cyber Vault / Treasure Chest widget.
-/// Renders a high-tech obsidian chassis with emissive neon circuit conduits,
-/// metallic titanium armor bands with luminous energy rivets, a pulsing reactor core lock,
-/// and dynamic volumetric god-ray light shafts when opening.
+/// Renders an isometric perspective obsidian chassis with emissive neon circuit conduits,
+/// metallic titanium armor bands with luminous energy rivets, an animated pulsing reactor core lock,
+/// inner velvet/metallic treasure cavity with deep shading, and dynamic volumetric god-ray light shafts.
 class ChestWidget extends StatelessWidget {
   final double size;
   final Color primaryColor;
@@ -12,6 +12,7 @@ class ChestWidget extends StatelessWidget {
   final bool isOpened;
   final double openProgress; // 0.0 (closed) to 1.0 (fully open)
   final bool showGlow;
+  final double time; // for continuous breathing / circuit shimmer
 
   const ChestWidget({
     super.key,
@@ -21,6 +22,7 @@ class ChestWidget extends StatelessWidget {
     this.isOpened = false,
     this.openProgress = 0.0,
     this.showGlow = true,
+    this.time = 0.0,
   });
 
   @override
@@ -35,6 +37,7 @@ class ChestWidget extends StatelessWidget {
           isOpened: isOpened,
           openProgress: openProgress,
           showGlow: showGlow,
+          time: time,
         ),
       ),
     );
@@ -47,6 +50,7 @@ class _ChestPainter extends CustomPainter {
   final bool isOpened;
   final double openProgress;
   final bool showGlow;
+  final double time;
 
   _ChestPainter({
     required this.primaryColor,
@@ -54,6 +58,7 @@ class _ChestPainter extends CustomPainter {
     required this.isOpened,
     required this.openProgress,
     required this.showGlow,
+    this.time = 0.0,
   });
 
   @override
@@ -66,26 +71,69 @@ class _ChestPainter extends CustomPainter {
     // 0. AMBIENT NEON GLOW / OUTER BLOOM
     // -------------------------------------------------------------
     if (showGlow) {
+      final pulse = (sin(time * 3.0) * 0.06).clamp(-0.1, 0.1);
       final glowPaint = Paint()
-        ..color = primaryColor.withValues(alpha: 0.32 + effectiveOpen * 0.18)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * (0.18 + effectiveOpen * 0.08));
-      canvas.drawCircle(Offset(w * 0.5, h * 0.52), w * 0.42, glowPaint);
+        ..color = primaryColor.withValues(alpha: (0.32 + effectiveOpen * 0.22 + pulse).clamp(0.0, 0.8))
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * (0.20 + effectiveOpen * 0.10));
+      canvas.drawCircle(Offset(w * 0.5, h * 0.52), w * 0.44, glowPaint);
     }
 
     // Volumetric God Rays bursting from inside chest when opening
-    if (effectiveOpen > 0.05) {
+    if (effectiveOpen > 0.03) {
       _drawVolumetricRays(canvas, w, h, effectiveOpen);
     }
 
-    // Cast ground drop shadow under chest
-    final shadowPaint = Paint()..color = const Color(0x99000000);
+    // Cast realistic ground drop shadow with perspective oval under chest
+    final shadowScale = 1.0 - effectiveOpen * 0.12;
+    final shadowPaint = Paint()..color = const Color(0xAA000000);
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(w * 0.5, h * 0.90), width: w * 0.84, height: h * 0.20),
+      Rect.fromCenter(
+        center: Offset(w * 0.5, h * 0.90 + effectiveOpen * 2.0),
+        width: w * 0.86 * shadowScale,
+        height: h * 0.22 * shadowScale,
+      ),
       shadowPaint,
     );
 
     // -------------------------------------------------------------
-    // 1. CHEST BASE (LOWER CHASSIS)
+    // 1. CHEST INTERIOR CAVITY (When Opened - Vault Lining & Treasure Core)
+    // -------------------------------------------------------------
+    if (effectiveOpen > 0.05) {
+      final cavityRect = Rect.fromLTWH(w * 0.16, h * 0.38, w * 0.68, h * 0.26 * effectiveOpen);
+      final cavityRRect = RRect.fromRectAndCorners(
+        cavityRect,
+        topLeft: Radius.circular(w * 0.04),
+        topRight: Radius.circular(w * 0.04),
+      );
+
+      // Deep obsidian void shading
+      final cavityGrad = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFF040508),
+          const Color(0xFF0D0F18),
+          Color.lerp(const Color(0xFF151824), secondaryColor, 0.2)!,
+        ],
+      );
+      canvas.drawRRect(cavityRRect, Paint()..shader = cavityGrad.createShader(cavityRect));
+
+      // Golden / Prismatic Core Aura radiating from inside the vault
+      final innerGlowPaint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Colors.white,
+            primaryColor,
+            primaryColor.withValues(alpha: 0.4),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.35, 0.70, 1.0],
+        ).createShader(Rect.fromCenter(center: Offset(w * 0.5, h * 0.42), width: w * 0.64, height: h * 0.32));
+      canvas.drawRect(cavityRect, innerGlowPaint);
+    }
+
+    // -------------------------------------------------------------
+    // 2. CHEST BASE (LOWER CHASSIS)
     // -------------------------------------------------------------
     final baseRect = Rect.fromLTWH(w * 0.14, h * 0.44, w * 0.72, h * 0.42);
     final baseRRect = RRect.fromRectAndCorners(
@@ -124,36 +172,20 @@ class _ChestPainter extends CustomPainter {
     // Emissive Neon Circuit Traces on chest body panels
     _drawCircuitTraces(canvas, w, h, primaryColor);
 
-    // Inside chest cavity glow when open
-    if (effectiveOpen > 0.05) {
-      final innerGlowPaint = Paint()
-        ..shader = RadialGradient(
-          colors: [
-            Colors.white,
-            primaryColor,
-            primaryColor.withValues(alpha: 0.0),
-          ],
-          stops: const [0.0, 0.42, 1.0],
-        ).createShader(Rect.fromLTWH(w * 0.16, h * 0.28, w * 0.68, h * 0.42));
-      canvas.drawRect(
-        Rect.fromLTWH(w * 0.16, h * 0.40, w * 0.68, h * 0.19 * effectiveOpen),
-        innerGlowPaint,
-      );
-    }
-
     // -------------------------------------------------------------
-    // 2. CHEST BASE METALLIC CORNER BANDS & RIVETS
+    // 3. CHEST BASE METALLIC CORNER BANDS & RIVETS
     // -------------------------------------------------------------
-    final bandPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color.lerp(primaryColor, Colors.white, 0.45)!,
-          primaryColor,
-          Color.lerp(primaryColor, Colors.black, 0.45)!,
-        ],
-      ).createShader(baseRect);
+    final bandGrad = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Color.lerp(primaryColor, Colors.white, 0.55)!,
+        primaryColor,
+        Color.lerp(primaryColor, Colors.black, 0.45)!,
+      ],
+      stops: const [0.0, 0.5, 1.0],
+    );
+    final bandPaint = Paint()..shader = bandGrad.createShader(baseRect);
 
     // Left vertical bracket
     canvas.drawRRect(
@@ -185,8 +217,8 @@ class _ChestPainter extends CustomPainter {
 
     // Glowing Cyber-Rivets on base brackets
     final rivetBase = Paint()..color = const Color(0xFF11141C);
-    final rivetGlint = Paint()..color = Colors.white.withValues(alpha: 0.85);
-    final rivetNeon = Paint()..color = primaryColor.withValues(alpha: 0.75);
+    final rivetGlint = Paint()..color = Colors.white.withValues(alpha: 0.90);
+    final rivetNeon = Paint()..color = primaryColor.withValues(alpha: 0.85);
     final rivetR = max(1.2, w * 0.018);
 
     final rivetPositions = [
@@ -206,7 +238,7 @@ class _ChestPainter extends CustomPainter {
     }
 
     // -------------------------------------------------------------
-    // 3. CHEST LID (TOP ARCH) - Animates opening upward & tilting
+    // 4. CHEST LID (TOP ARCH) - Animates opening upward & tilting with 3D Depth
     // -------------------------------------------------------------
     canvas.save();
 
@@ -220,8 +252,25 @@ class _ChestPainter extends CustomPainter {
       final pivotX = w * 0.5;
       final pivotY = h * 0.42;
       canvas.translate(pivotX, pivotY);
-      canvas.rotate(-effectiveOpen * 0.78); // tilt backwards/upwards
-      canvas.translate(-pivotX, -pivotY - effectiveOpen * (h * 0.18));
+      // Perspective backwards rotation + upward lift
+      canvas.rotate(-effectiveOpen * 0.85);
+      canvas.translate(-pivotX, -pivotY - effectiveOpen * (h * 0.22));
+
+      // Draw Lid Inner Underbelly Panel (Perspective Depth)
+      final innerLidRect = Rect.fromLTWH(lidLeft + w * 0.03, lidTop + lidH * 0.10, lidW - w * 0.06, lidH * 0.85);
+      final innerLidGrad = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFF0A0C14),
+          Color.lerp(const Color(0xFF141826), primaryColor, 0.25)!,
+          Colors.white.withValues(alpha: 0.4),
+        ],
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(innerLidRect, Radius.circular(w * 0.06)),
+        Paint()..shader = innerLidGrad.createShader(innerLidRect),
+      );
     }
 
     final lidRect = Rect.fromLTWH(lidLeft, lidTop, lidW, lidH);
@@ -238,7 +287,7 @@ class _ChestPainter extends CustomPainter {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        Color.lerp(bodyMidColor, Colors.white, 0.18)!,
+        Color.lerp(bodyMidColor, Colors.white, 0.22)!,
         bodyMidColor,
         bodyBaseColor,
       ],
@@ -255,7 +304,7 @@ class _ChestPainter extends CustomPainter {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Color.lerp(primaryColor, Colors.white, 0.45)!,
+          Color.lerp(primaryColor, Colors.white, 0.55)!,
           primaryColor,
           Color.lerp(primaryColor, Colors.black, 0.40)!,
         ],
@@ -298,7 +347,7 @@ class _ChestPainter extends CustomPainter {
 
     // Emissive neon crest line across lid rim
     final neonTrimPaint = Paint()
-      ..color = primaryColor.withValues(alpha: 0.85)
+      ..color = primaryColor.withValues(alpha: 0.90)
       ..strokeWidth = max(1.2, w * 0.014);
     canvas.drawLine(
       Offset(lidLeft + w * 0.02, lidTop + lidH - h * 0.03),
@@ -323,22 +372,24 @@ class _ChestPainter extends CustomPainter {
     canvas.restore(); // restore lid rotation
 
     // -------------------------------------------------------------
-    // 4. CHEST POWER CORE REACTOR LOCK (Centerpiece)
+    // 5. CHEST POWER CORE REACTOR LOCK (Centerpiece)
     // -------------------------------------------------------------
-    final lockCenter = Offset(w * 0.5, h * 0.47);
-    final lockW = w * 0.18;
-    final lockH = h * 0.18;
+    // Lock drops/separates down smoothly when opening
+    final lockCenterY = h * 0.47 + effectiveOpen * (h * 0.08);
+    final lockCenter = Offset(w * 0.5, lockCenterY);
+    final lockW = w * 0.19;
+    final lockH = h * 0.19;
 
     // Lock plate shadow
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(lockCenter.dx, lockCenter.dy + 2.0), width: lockW, height: lockH),
+        Rect.fromCenter(center: Offset(lockCenter.dx, lockCenter.dy + 2.5), width: lockW, height: lockH),
         Radius.circular(w * 0.04),
       ),
-      Paint()..color = const Color(0x99000000),
+      Paint()..color = const Color(0xAA000000),
     );
 
-    // Lock plate cyber escutcheon
+    // Lock plate cyber escutcheon with metallic sheen
     final lockPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topLeft,
@@ -359,37 +410,56 @@ class _ChestPainter extends CustomPainter {
     );
 
     // Inner Dark Core Housing
-    final innerCorePaint = Paint()..color = const Color(0xFF0A0C14);
+    final innerCorePaint = Paint()..color = const Color(0xFF07090F);
     canvas.drawCircle(lockCenter, lockW * 0.34, innerCorePaint);
 
-    // Glowing Power Gem / Hex-Core in Lock
+    // Glowing Power Core Reactor / Crystal
+    final corePulse = (sin(time * 5.0) * 0.12).clamp(-0.2, 0.2);
     final coreGlowPaint = Paint()
-      ..color = primaryColor.withValues(alpha: 0.85)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, max(1.0, w * 0.03));
-    canvas.drawCircle(lockCenter, lockW * 0.22, coreGlowPaint);
+      ..color = primaryColor.withValues(alpha: (0.85 + effectiveOpen * 0.15 + corePulse).clamp(0.0, 1.0))
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, max(1.0, w * 0.035));
+    canvas.drawCircle(lockCenter, lockW * (0.24 + effectiveOpen * 0.08), coreGlowPaint);
 
-    // Diamond / Crystal Core
+    // Octagonal / Diamond Prismatic Crystal Core
     final crystalPath = Path()
-      ..moveTo(lockCenter.dx, lockCenter.dy - lockH * 0.22)
-      ..lineTo(lockCenter.dx + lockW * 0.18, lockCenter.dy)
-      ..lineTo(lockCenter.dx, lockCenter.dy + lockH * 0.22)
-      ..lineTo(lockCenter.dx - lockW * 0.18, lockCenter.dy)
+      ..moveTo(lockCenter.dx, lockCenter.dy - lockH * 0.24)
+      ..lineTo(lockCenter.dx + lockW * 0.20, lockCenter.dy)
+      ..lineTo(lockCenter.dx, lockCenter.dy + lockH * 0.24)
+      ..lineTo(lockCenter.dx - lockW * 0.20, lockCenter.dy)
       ..close();
     final crystalPaint = Paint()
       ..shader = RadialGradient(
         colors: [Colors.white, primaryColor],
-        stops: const [0.1, 1.0],
-      ).createShader(Rect.fromCenter(center: lockCenter, width: lockW * 0.36, height: lockH * 0.44));
+        stops: const [0.15, 1.0],
+      ).createShader(Rect.fromCenter(center: lockCenter, width: lockW * 0.40, height: lockH * 0.48));
     canvas.drawPath(crystalPath, crystalPaint);
+
+    // If opening, draw energy crack lines across the lock core
+    if (effectiveOpen > 0.1) {
+      final crackPaint = Paint()
+        ..color = Colors.white.withValues(alpha: (effectiveOpen * 0.95).clamp(0.0, 1.0))
+        ..strokeWidth = max(0.8, w * 0.012)
+        ..style = PaintingStyle.stroke;
+      canvas.drawLine(
+        Offset(lockCenter.dx - lockW * 0.12, lockCenter.dy - lockH * 0.12),
+        Offset(lockCenter.dx + lockW * 0.12, lockCenter.dy + lockH * 0.12),
+        crackPaint,
+      );
+      canvas.drawLine(
+        Offset(lockCenter.dx - lockW * 0.10, lockCenter.dy + lockH * 0.08),
+        Offset(lockCenter.dx + lockW * 0.14, lockCenter.dy - lockH * 0.06),
+        crackPaint,
+      );
+    }
 
     // Specular Glint on Core
     final lockGlint = Paint()..color = Colors.white.withValues(alpha: 0.95);
-    canvas.drawCircle(Offset(lockCenter.dx - lockW * 0.06, lockCenter.dy - lockH * 0.06), max(0.9, w * 0.015), lockGlint);
+    canvas.drawCircle(Offset(lockCenter.dx - lockW * 0.07, lockCenter.dy - lockH * 0.07), max(0.9, w * 0.016), lockGlint);
   }
 
   void _drawCircuitTraces(Canvas canvas, double w, double h, Color color) {
     final circuitPaint = Paint()
-      ..color = color.withValues(alpha: 0.45)
+      ..color = color.withValues(alpha: 0.50)
       ..strokeWidth = max(1.0, w * 0.012)
       ..style = PaintingStyle.stroke;
 
@@ -411,7 +481,7 @@ class _ChestPainter extends CustomPainter {
 
     // Small node dots
     final nodePaint = Paint()
-      ..color = color.withValues(alpha: 0.70)
+      ..color = color.withValues(alpha: 0.75)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(w * 0.35, h * 0.72), max(1.0, w * 0.014), nodePaint);
     canvas.drawCircle(Offset(w * 0.65, h * 0.72), max(1.0, w * 0.014), nodePaint);
@@ -423,23 +493,24 @@ class _ChestPainter extends CustomPainter {
         begin: Alignment.bottomCenter,
         end: Alignment.topCenter,
         colors: [
-          primaryColor.withValues(alpha: 0.75 * progress),
-          primaryColor.withValues(alpha: 0.25 * progress),
+          Colors.white.withValues(alpha: 0.85 * progress),
+          primaryColor.withValues(alpha: 0.65 * progress),
+          primaryColor.withValues(alpha: 0.20 * progress),
           primaryColor.withValues(alpha: 0.0),
         ],
-        stops: const [0.0, 0.45, 1.0],
-      ).createShader(Rect.fromLTWH(0, 0, w, h * 0.9));
+        stops: const [0.0, 0.25, 0.65, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, w, h * 0.95));
 
-    // Fan of 7 volumetric light rays projecting up
-    for (int i = -3; i <= 3; i++) {
-      final angle = i * 0.24;
+    // Fan of 9 volumetric light rays projecting up
+    for (int i = -4; i <= 4; i++) {
+      final angle = i * 0.22;
       final rayPath = Path();
-      final originX = w * 0.5 + i * (w * 0.05);
-      final originY = h * 0.44 - progress * (h * 0.05);
-      final reach = (h * 0.60) * (0.6 + progress * 0.4);
+      final originX = w * 0.5 + i * (w * 0.045);
+      final originY = h * 0.44 - progress * (h * 0.06);
+      final reach = (h * 0.70) * (0.65 + progress * 0.35);
       rayPath.moveTo(originX - w * 0.02, originY);
-      rayPath.lineTo(originX + sin(angle - 0.09) * reach, originY - cos(angle) * reach);
-      rayPath.lineTo(originX + sin(angle + 0.09) * reach, originY - cos(angle) * reach);
+      rayPath.lineTo(originX + sin(angle - 0.08) * reach, originY - cos(angle) * reach);
+      rayPath.lineTo(originX + sin(angle + 0.08) * reach, originY - cos(angle) * reach);
       rayPath.lineTo(originX + w * 0.02, originY);
       rayPath.close();
       canvas.drawPath(rayPath, rayPaint);
@@ -452,6 +523,7 @@ class _ChestPainter extends CustomPainter {
         oldDelegate.secondaryColor != secondaryColor ||
         oldDelegate.isOpened != isOpened ||
         oldDelegate.openProgress != openProgress ||
-        oldDelegate.showGlow != showGlow;
+        oldDelegate.showGlow != showGlow ||
+        oldDelegate.time != time;
   }
 }
