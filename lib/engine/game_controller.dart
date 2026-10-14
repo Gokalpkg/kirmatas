@@ -81,6 +81,20 @@ class GameController extends ChangeNotifier {
   bool _hasLoadedBricks = false;
   List<Brick>? _loadedBricksRef;
 
+  List<int> shapesPermutation = [];
+  double checkpointBannerTimer = 0.0;
+  int checkpointBannerLevel = 1;
+
+  int get currentShapeIndex {
+    if (shapesPermutation.isEmpty) {
+      return (stats.level - 1) % LevelDesign.allShapes.length;
+    }
+    final idx = (stats.level - 1) % shapesPermutation.length;
+    return shapesPermutation[idx];
+  }
+
+  String get currentShapeName => LevelDesign.getShapeName(currentShapeIndex, lang: save.language);
+
   bool isDiceRolling = false;
   double diceRollTimer = 0.0;
   bool isDoubleDice = false;
@@ -238,6 +252,11 @@ class GameController extends ChangeNotifier {
     _bossEnrageAnnounced = false;
     _glassBreaksTowardDice = 0;
     _blocksUntilDicePoint = _rollDiceBlockGap();
+    checkpointBannerTimer = 0.0;
+
+    if (mode == GameMode.shapes) {
+      shapesPermutation = List<int>.generate(LevelDesign.allShapes.length, (i) => i)..shuffle();
+    }
 
     if (mode == GameMode.chaos) {
       if (!isResume) {
@@ -438,13 +457,24 @@ class GameController extends ChangeNotifier {
         bricks = LevelDesign.buildDailyLevel(DateTime.now(), screenWidth, screenHeight);
         break;
       case GameMode.shapes:
-        bricks = LevelDesign.buildShapesLevel(stats.level, screenWidth, screenHeight);
+        bricks = LevelDesign.buildShapesLevel(
+          stats.level,
+          screenWidth,
+          screenHeight,
+          explicitShapeIndex: currentShapeIndex,
+        );
         break;
       case GameMode.chaos:
         bricks = LevelDesign.buildChaosLevel(stats.level, screenWidth, screenHeight);
         break;
     }
     _loadedBricksRef = bricks;
+
+    // Checkpoint announce banner for classic mode sectors
+    if (currentMode == GameMode.classic && stats.level > 1 && stats.level % 17 == 0) {
+      checkpointBannerTimer = 2.5;
+      checkpointBannerLevel = stats.level;
+    }
 
     // Micro-onboarding: Check if this level introduces a new mechanic (levels 1-10)
     if (currentMode == GameMode.classic && stats.level <= 10) {
@@ -813,6 +843,10 @@ class GameController extends ChangeNotifier {
       if (bossWarningTimer > 0) {
         bossWarningTimer -= dt;
         if (bossWarningTimer < 0) bossWarningTimer = 0;
+      }
+      if (checkpointBannerTimer > 0) {
+        checkpointBannerTimer -= dt;
+        if (checkpointBannerTimer < 0) checkpointBannerTimer = 0;
       }
       if (levelTransitionTimer > 0) {
         levelTransitionTimer = ((levelTransitionTimer - dt) * 1000000).round() / 1000000.0;

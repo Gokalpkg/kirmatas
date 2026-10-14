@@ -1320,6 +1320,39 @@ void main() {
       }
     });
 
+    test('Shapes mode localized names and random permutation work accurately', () {
+      expect(LevelDesign.shapeNamesTr.length, 38);
+      expect(LevelDesign.shapeNamesEn.length, 38);
+      expect(LevelDesign.getShapeName(0, lang: 'tr'), 'Kalp');
+      expect(LevelDesign.getShapeName(1, lang: 'tr'), 'Kuru Kafa');
+      expect(LevelDesign.getShapeName(0, lang: 'en'), 'Heart');
+      expect(LevelDesign.getShapeName(1, lang: 'en'), 'Skull');
+
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.shapes);
+      expect(gc.shapesPermutation.length, 38);
+      // Ensure permutation has all elements 0..37
+      final set = gc.shapesPermutation.toSet();
+      expect(set.length, 38);
+      expect(gc.currentShapeName.isNotEmpty, true);
+    });
+
+    test('Checkpoint banner activates on level 17, 34, etc in Classic Mode', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.classic);
+      expect(gc.checkpointBannerTimer, 0.0);
+
+      gc.stats.level = 17;
+      gc.loadLevelBricks();
+      expect(gc.checkpointBannerTimer > 0, true);
+      expect(gc.checkpointBannerLevel, 17);
+
+      gc.update(0.5);
+      expect(gc.checkpointBannerTimer < 2.5, true);
+    });
+
     test('AdManager cascade waterfall ad units are configured correctly', () {
       // Rewarded Waterfall
       expect(AdManager.tier1RewardedAdUnitId, 'ca-app-pub-9505724609102225/7282413936');

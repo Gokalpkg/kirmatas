@@ -97,7 +97,31 @@ class HudOverlay extends StatelessWidget {
                               ),
                               child: FittedBox(
                                 fit: BoxFit.scaleDown,
-                                child: controller.currentMode == GameMode.classic
+                                child: controller.currentMode == GameMode.shapes
+                                    ? Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '${I18n.tr('shapes').toUpperCase()} • ${stats.level}/38',
+                                            style: const TextStyle(
+                                              color: Color(0xFFFFD54F),
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 12,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                          Text(
+                                            controller.currentShapeName.toUpperCase(),
+                                            style: const TextStyle(
+                                              color: Color(0xFF80D8FF),
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 9.5,
+                                              letterSpacing: 0.4,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : controller.currentMode == GameMode.classic
                                     ? Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -122,15 +146,16 @@ class HudOverlay extends StatelessWidget {
                                         ],
                                       )
                                     : Text(
-                                  controller.currentMode == GameMode.chaos
-                                          ? '${I18n.tr('chaos').toUpperCase()} ${stats.level}' : I18n.tr(controller.currentMode.name).toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Color(0xFFFFD54F),
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 13,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
+                                        controller.currentMode == GameMode.chaos
+                                            ? '${I18n.tr('chaos').toUpperCase()} ${stats.level}'
+                                            : I18n.tr(controller.currentMode.name).toUpperCase(),
+                                        style: const TextStyle(
+                                          color: Color(0xFFFFD54F),
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 13,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
                               ),
                             ),
                           ),
@@ -191,6 +216,71 @@ class HudOverlay extends StatelessWidget {
                   ),
                 ),
               ),
+
+              // Classic Mode Checkpoint Reached Banner
+              if (controller.checkpointBannerTimer > 0)
+                Positioned(
+                  top: 62,
+                  left: 20,
+                  right: 20,
+                  child: IgnorePointer(
+                    child: Builder(
+                      builder: (context) {
+                        final progress = (controller.checkpointBannerTimer / 2.5).clamp(0.0, 1.0);
+                        final opacity = (progress < 0.2 ? progress / 0.2 : 1.0).clamp(0.0, 1.0);
+                        return Opacity(
+                          opacity: opacity,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xF02A1E08), Color(0xF0120C03)],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFFFD54F), width: 1.5),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x66FFD54F),
+                                  blurRadius: 14,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.shield, color: Color(0xFFFFD54F), size: 20),
+                                const SizedBox(width: 8),
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text(
+                                      'CHECKPOINT AKTİF!',
+                                      style: TextStyle(
+                                        color: Color(0xFFFFD54F),
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 12.5,
+                                        letterSpacing: 1.0,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Bölüm ${controller.checkpointBannerLevel} Başlangıç Noktası',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
 
               // Boss Health Bar Banner (Appears dynamically when Boss brick is alive)
               if (controller.activeBossBrick != null)

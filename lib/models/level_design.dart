@@ -1390,9 +1390,103 @@ class LevelDesign {
     return bricks;
   }
 
-  static List<Brick> buildShapesLevel(int level, double screenWidth, double screenHeight) {
+  static const List<String> shapeNamesTr = [
+    'Kalp',         // 1
+    'Kuru Kafa',    // 2
+    'Kılıç',        // 3
+    'Elmas',        // 4
+    'Gülen Yüz',    // 5
+    'Yıldız',       // 6
+    'Roket',        // 7
+    'Taç',          // 8
+    'Hayalet',      // 9
+    'Mantar',       // 10
+    'Gamepad',      // 11
+    'Şimşek',       // 12
+    'Balık',        // 13
+    'Çapa',         // 14
+    'Kalkan',       // 15
+    'Kupa',         // 16
+    'Anahtar',      // 17
+    'Çam Ağacı',    // 18
+    'Çan',          // 19
+    'Hazine Sandığı', // 20
+    'Uzay Gemisi',  // 21
+    'Kiraz',        // 22
+    'Alev',         // 23
+    'Kar Tanesi',   // 24
+    'Güneş',        // 25
+    'Hilal',        // 26
+    'Elma',         // 27
+    'Kanca',        // 28
+    'Kristal',      // 29
+    'Bomba',        // 30
+    'Müzik Notası', // 31
+    'Bayrak',       // 32
+    'Kum Saati',    // 33
+    'Büyüteç',      // 34
+    'Yüzük',        // 35
+    'Kilitli Kalp', // 36
+    'Sonsuzluk',    // 37
+    'Ejderha',      // 38
+  ];
+
+  static const List<String> shapeNamesEn = [
+    'Heart',        // 1
+    'Skull',        // 2
+    'Sword',        // 3
+    'Diamond',      // 4
+    'Smiley',       // 5
+    'Star',         // 6
+    'Rocket',       // 7
+    'Crown',        // 8
+    'Ghost',        // 9
+    'Mushroom',     // 10
+    'Gamepad',      // 11
+    'Lightning',    // 12
+    'Fish',         // 13
+    'Anchor',       // 14
+    'Shield',       // 15
+    'Trophy',       // 16
+    'Key',          // 17
+    'Pine Tree',    // 18
+    'Bell',         // 19
+    'Treasure Chest', // 20
+    'Space Invader', // 21
+    'Cherries',     // 22
+    'Flame',        // 23
+    'Snowflake',    // 24
+    'Sun',          // 25
+    'Crescent',     // 26
+    'Apple',        // 27
+    'Hook',         // 28
+    'Crystal',      // 29
+    'Bomb',         // 30
+    'Music Note',   // 31
+    'Flag',         // 32
+    'Hourglass',    // 33
+    'Magnifier',    // 34
+    'Ring',         // 35
+    'Heart Lock',   // 36
+    'Infinity',     // 37
+    'Dragon',       // 38
+  ];
+
+  static String getShapeName(int index, {String lang = 'tr'}) {
+    final i = index.clamp(0, allShapes.length - 1);
+    return lang == 'en' ? shapeNamesEn[i] : shapeNamesTr[i];
+  }
+
+  static List<Brick> buildShapesLevel(
+    int level,
+    double screenWidth,
+    double screenHeight, {
+    int? explicitShapeIndex,
+  }) {
     final List<Brick> bricks = [];
-    final shapeIndex = (level - 1) % allShapes.length;
+    final shapeIndex = explicitShapeIndex != null
+        ? explicitShapeIndex.clamp(0, allShapes.length - 1)
+        : (level - 1) % allShapes.length;
     final matrix = allShapes[shapeIndex];
     final rows = matrix.length;
     final cols = matrix[0].length;
