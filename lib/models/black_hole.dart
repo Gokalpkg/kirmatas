@@ -24,7 +24,7 @@ class BlackHole {
     this.isSupercharged = false,
   });
 
-  double get maxInfluenceDist => max(150.0, radius * (isVortexTrap ? 8.5 : (isSupercharged ? 8.0 : 7.5)));
+  double get maxInfluenceDist => max(135.0, radius * (isVortexTrap ? 6.5 : (isSupercharged ? 6.0 : 5.5)));
 
   void update(double dt) {
     final speedMultiplier = isVortexTrap ? 4.5 : (isSupercharged ? 3.6 : 2.0);

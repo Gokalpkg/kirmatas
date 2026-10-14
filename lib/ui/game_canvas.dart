@@ -2824,111 +2824,119 @@ class _GameWorldPainter extends CustomPainter {
       canvas.save();
       canvas.translate(bh.x, bh.y);
 
-      // KESİN SINIR KURALI: Karadeliğin çekim gücü nerede bitiyorsa (maxInfluenceDist),
-      // görsel de tam orada biter. Çekim gücü olmayan hiçbir yerde en ufak bir çizgi/hale oluşamaz.
+      // Pull is active only while dist < maxInfluenceDist. The ring's outer
+      // edge stops half a pixel inside that, so the line itself is still pull.
       final maxDist = bh.maxInfluenceDist;
-      canvas.clipPath(Path()..addOval(Rect.fromCircle(center: Offset.zero, radius: maxDist)));
+      final double limit = maxDist - 0.5;
+      canvas.clipPath(
+        Path()..addOval(Rect.fromCircle(center: Offset.zero, radius: limit)),
+        doAntiAlias: false,
+      );
 
-      final Color fieldColor = bh.isVortexTrap
+      final bool vortex = bh.isVortexTrap;
+      final bool exotic = bh.isSupercharged;
+      final Color accent = vortex
           ? const Color(0xFFFF1744)
-          : (bh.isSupercharged ? const Color(0xFF00E5FF) : const Color(0xFFB388FF));
+          : (exotic ? const Color(0xFF00E5FF) : const Color(0xFFB388FF));
+      final Color deep = vortex
+          ? const Color(0xFF2A0010)
+          : (exotic ? const Color(0xFF042833) : const Color(0xFF14042E));
+      final Color mid = vortex
+          ? const Color(0xFFFF5252)
+          : (exotic ? const Color(0xFF18FFFF) : const Color(0xFF7C4DFF));
+      final Color rim = vortex
+          ? const Color(0xFFFF8A80)
+          : (exotic ? const Color(0xFFFFD54F) : const Color(0xFFE040FB));
+      final double pulse = 0.5 + 0.5 * sin(time * 2.4);
 
-      // 0. Outer Gravitational Boundary (Etki alanındaki o ilk ve tek sınır çizgisi)
-      // Kullanıcı kuralı: "etki alanındaki o ilk çizgi var olsun 2. 3. çizgiler zaten olmasın"
-      _stroke
-        ..style = PaintingStyle.stroke
+      // Quiet field wash without outer boundary line.
+      _fill
+        ..style = PaintingStyle.fill
         ..maskFilter = null
-        ..strokeWidth = 1.0
-        ..color = _ca(fieldColor, 0.22 + 0.08 * sin(time * 3.5));
-      canvas.drawCircle(Offset.zero, maxDist - 0.5, _stroke);
+        ..shader = RadialGradient(
+          colors: [
+            _ca(accent, 0.20 + 0.05 * pulse),
+            _ca(mid, 0.07),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.46, 1.0],
+        ).createShader(Rect.fromCircle(center: Offset.zero, radius: maxDist));
+      canvas.drawCircle(Offset.zero, limit, _fill);
+      _fill.shader = null;
 
-      // 1. Organik Dalgalanan Yuvarlak Karadelik Gövdesi (Yuvarlağımsı & Hafif Dalgalanan Mor Kısım)
-      // Kullanıcı kuralı: "Şekli öyle elips değil de yuvarlağımsı ama böyle yanı hafif dalgalanan böyle güzel ibşi yapalım
-      // ve yanındaki o çizgiler yok olsun sadece o mor kısım var olsun"
+      // Round body with a slow side wave, smoothed so it stays a circle.
       canvas.save();
-      canvas.rotate(bh.rotation * 0.4);
-
-      final double baseRadius = min(bh.radius * 1.65, maxDist * 0.80);
-      _tempPath.reset();
-      const int segments = 36;
-      for (int i = 0; i <= segments; i++) {
+      canvas.rotate(bh.rotation * 0.32);
+      final double baseRadius = min(bh.radius * 1.85, maxDist * 0.58);
+      const int segments = 28;
+      final List<Offset> pts = List<Offset>.generate(segments, (i) {
         final double angle = (pi * 2 / segments) * i;
-        // İki farklı harmonikle yumuşak, canlı ve organik dalgalanma:
-        final double wave1 = sin(angle * 4.0 + time * 3.0);
-        final double wave2 = cos(angle * 3.0 - time * 2.2);
-        final double r = baseRadius * (1.0 + 0.065 * wave1 + 0.035 * wave2);
-        final double px = cos(angle) * r;
-        final double py = sin(angle) * r;
-        if (i == 0) {
-          _tempPath.moveTo(px, py);
-        } else {
-          _tempPath.lineTo(px, py);
-        }
+        final double wave = sin(angle * 5.0 + time * 2.2) * 0.042 + cos(angle * 3.0 - time * 1.5) * 0.022;
+        final double r = baseRadius * (1.0 + wave);
+        return Offset(cos(angle) * r, sin(angle) * r);
+      });
+      _tempPath.reset();
+      final Offset start = Offset(
+        (pts[0].dx + pts[1].dx) * 0.5,
+        (pts[0].dy + pts[1].dy) * 0.5,
+      );
+      _tempPath.moveTo(start.dx, start.dy);
+      for (int i = 1; i < segments; i++) {
+        final Offset next = pts[(i + 1) % segments];
+        final Offset mid = Offset((pts[i].dx + next.dx) * 0.5, (pts[i].dy + next.dy) * 0.5);
+        _tempPath.quadraticBezierTo(pts[i].dx, pts[i].dy, mid.dx, mid.dy);
       }
       _tempPath.close();
 
-      final diskGradient = RadialGradient(
-        center: Alignment.center,
-        radius: 0.98,
-        colors: bh.isVortexTrap
-            ? [
-                Colors.black,
-                const Color(0xFF260000),
-                _ca(const Color(0xFFFF1744), 0.90),
-                _ca(const Color(0xFFFF5252), 0.65),
-                _ca(const Color(0xFFFF8A80), 0.20),
-                Colors.transparent,
-              ]
-            : (bh.isSupercharged
-                ? [
-                    Colors.black,
-                    const Color(0xFF001926),
-                    _ca(const Color(0xFF00E5FF), 0.90),
-                    _ca(const Color(0xFF18FFFF), 0.65),
-                    _ca(const Color(0xFF80D8FF), 0.20),
-                    Colors.transparent,
-                  ]
-                : [
-                    Colors.black,
-                    const Color(0xFF130226),
-                    _ca(const Color(0xFF7C4DFF), 0.92),
-                    _ca(const Color(0xFFB388FF), 0.65),
-                    _ca(const Color(0xFFEA80FC), 0.20),
-                    Colors.transparent,
-                  ]),
-        stops: const [0.24, 0.40, 0.65, 0.82, 0.94, 1.0],
-      );
-
       _fill
-        ..style = PaintingStyle.fill
-        ..maskFilter = null
-        ..shader = diskGradient.createShader(Rect.fromCircle(center: Offset.zero, radius: baseRadius * 1.12));
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFF05060C),
+            deep,
+            _ca(mid, 0.96),
+            _ca(rim, 0.78),
+            _ca(rim, 0.0),
+          ],
+          stops: const [0.16, 0.36, 0.60, 0.82, 1.0],
+        ).createShader(Rect.fromCircle(center: Offset.zero, radius: baseRadius * 1.06));
       canvas.drawPath(_tempPath, _fill);
       _fill.shader = null;
+
+      // Glass crescent so the disk has a lit face, same language as the neon tubes.
+      _stroke
+        ..strokeWidth = 1.5
+        ..color = _ca(Colors.white, 0.22 + 0.10 * pulse);
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset(-baseRadius * 0.16, -baseRadius * 0.14), radius: baseRadius * 0.70),
+        -2.35,
+        1.35,
+        false,
+        _stroke,
+      );
       canvas.restore();
 
-      // 2. Foton Halkası (Event Horizon Glow)
-      final photonRingR = bh.radius * 0.50;
-      final Color photonGlow = bh.isSupercharged
-          ? const Color(0xFF18FFFF)
-          : (bh.isVortexTrap ? const Color(0xFFFF5252) : const Color(0xFFE040FB));
-
+      // Event horizon: one phosphor ring, then the void.
+      final double photonR = bh.radius * 0.50;
       _stroke
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0
-        ..color = _ca(photonGlow, 0.70 + 0.20 * sin(time * 5.0));
-      canvas.drawCircle(Offset.zero, photonRingR, _stroke);
-
+        ..strokeWidth = 2.4
+        ..color = _ca(rim, 0.78 + 0.16 * pulse);
+      canvas.drawCircle(Offset.zero, photonR, _stroke);
       _stroke
-        ..strokeWidth = 0.8
+        ..strokeWidth = 0.7
         ..color = _ca(Colors.white, 0.92);
-      canvas.drawCircle(Offset.zero, photonRingR, _stroke);
+      canvas.drawCircle(Offset.zero, photonR, _stroke);
 
-      // 3. Zifiri Karanlık Tekillik Çekirdeği (Event Horizon Singularity Void)
-      _fill
-        ..style = PaintingStyle.fill
-        ..color = const Color(0xFF020204);
-      canvas.drawCircle(Offset.zero, bh.radius * 0.44, _fill);
+      _fill.color = const Color(0xFF020308);
+      canvas.drawCircle(Offset.zero, photonR * 0.76, _fill);
+
+      // Three sparks on a circular orbit. No spiral arms.
+      final double sparkR = baseRadius * 0.62;
+      final double spin = bh.rotation * (exotic ? 2.2 : 1.45);
+      for (int i = 0; i < 3; i++) {
+        final double a = spin + i * (pi * 2 / 3);
+        _fill.color = _ca(i == 0 ? Colors.white : rim, 0.9);
+        canvas.drawCircle(Offset(cos(a) * sparkR, sin(a) * sparkR), i == 0 ? 1.6 : 1.15, _fill);
+      }
 
       canvas.restore();
     }
@@ -4193,6 +4201,15 @@ class _GameWorldPainter extends CustomPainter {
         canvas.drawCircle(Offset(-ball.radius * 0.28, -ball.radius * 0.28), ball.radius * 0.38, _fill);
         _fill.color = _ca(Colors.white, 0.95);
         canvas.drawCircle(Offset(-ball.radius * 0.38, -ball.radius * 0.38), ball.radius * 0.16, _fill);
+      }
+
+      if (ball.isDayBlessed) {
+        _stroke
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.6
+          ..shader = null
+          ..color = const Color(0xCCFFD54F);
+        canvas.drawCircle(Offset.zero, ball.radius + 5.2, _stroke);
       }
 
       canvas.restore();

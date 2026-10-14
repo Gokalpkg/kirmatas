@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../storage/save_manager.dart';
@@ -18,7 +19,7 @@ class AdManager extends ChangeNotifier {
   // Tier 3: Standard / Guaranteed Fill Ad Unit ID (Altın - Ödüllü - Tüm fiyatlar)
   static const String tier3RewardedAdUnitId = 'ca-app-pub-9505724609102225/1791945382';
 
-  // INTERSTITIAL ADS WATERFALL (3-4 oyunda bir rastgele geçiş reklamı)
+  // INTERSTITIAL ADS WATERFALL (3-5 bölümde bir, bölüm geçişinde)
   // Tier 1: Yüksek Taban Geçiş Reklamı (Gecis_Yuksek - Geçiş)
   static const String tier1InterstitialAdUnitId = 'ca-app-pub-9505724609102225/2542891443';
 
@@ -57,10 +58,11 @@ class AdManager extends ChangeNotifier {
   bool _isShowing = false;
   bool _initialized = false;
 
-  // Gameplay counter for interstitial ads (randomly fires every 3-4 sessions)
-  int _gameplayCount = 0;
-  int _targetPlaysBeforeNextInterstitial = 3;
-  int _lastLongAdCloseTimeMs = 0;
+  // Cleared boards since the last interstitial. Next ad after 3, 4, or 5.
+  int _levelsSinceAd = 0;
+  int _levelsUntilAd = 3 + (DateTime.now().microsecond % 3);
+  int _clearsSinceVoluntaryAd = 99;
+  int _quietClearsAfterAd = 0;
 
   bool get isLoading => _isLoading;
   bool get isLoadingHighYield => _isLoadingHighYield;
@@ -109,7 +111,14 @@ class AdManager extends ChangeNotifier {
           notifyListeners();
         },
         onAdFailedToLoad: (LoadAdError error) {
-          debugPrint('Tier 3 standard ad failed: $error. Falling back to test Ad Unit ID...');
+          debugPrint('Tier 3 standard ad failed: $error');
+          if (kReleaseMode) {
+            _rewardedAd = null;
+            _isLoading = false;
+            notifyListeners();
+            return;
+          }
+          debugPrint('Falling back to test Ad Unit ID...');
           RewardedAd.load(
             adUnitId: testRewardedAdUnitId,
             request: const AdRequest(),
@@ -237,6 +246,7 @@ class AdManager extends ChangeNotifier {
 
         SaveManager.instance.addGold(goldRewardAmount);
         SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
+        _noteVoluntaryAd();
         SaveManager.instance.recordAdOrWinQuest();
         AudioManager.instance.playSfx(GameSfx.powerupBuff);
         onSuccess(goldRewardAmount);
@@ -355,6 +365,7 @@ class AdManager extends ChangeNotifier {
         preloadInterstitialAd();
 
         SaveManager.instance.recordAdOrWinQuest();
+        _noteVoluntaryAd();
         onSuccess();
       },
       onAdFailedToShowFullScreenContent: (ad, AdError error) {
@@ -473,7 +484,6 @@ class AdManager extends ChangeNotifier {
           _rewardedAd = null;
         }
         _isShowing = false;
-        _lastLongAdCloseTimeMs = DateTime.now().millisecondsSinceEpoch;
         notifyListeners();
 
         // Immediately preload next high-yield ad in the background
@@ -482,6 +492,7 @@ class AdManager extends ChangeNotifier {
 
         if (userEarnedReward) {
           SaveManager.instance.recordAdOrWinQuest();
+          _noteVoluntaryAd();
           onReviveSuccess();
         } else {
           onDismissedEarly();
@@ -582,7 +593,13 @@ class AdManager extends ChangeNotifier {
           notifyListeners();
         },
         onAdFailedToLoad: (LoadAdError error) {
-          debugPrint('AdManager: Rewarded Tier 3 failed ($error). Falling back to Google test ad...');
+          debugPrint('AdManager: Rewarded Tier 3 failed ($error)');
+          if (kReleaseMode) {
+            _highYieldAd = null;
+            _isLoadingHighYield = false;
+            notifyListeners();
+            return;
+          }
           _loadRewardedTestFallback();
         },
       ),
@@ -677,7 +694,13 @@ class AdManager extends ChangeNotifier {
           notifyListeners();
         },
         onAdFailedToLoad: (LoadAdError error) {
-          debugPrint('AdManager: Interstitial Tier 3 failed ($error). Falling back to Test Interstitial...');
+          debugPrint('AdManager: Interstitial Tier 3 failed ($error)');
+          if (kReleaseMode) {
+            _interstitialAd = null;
+            _isLoadingInterstitial = false;
+            notifyListeners();
+            return;
+          }
           _loadInterstitialTestFallback();
         },
       ),
@@ -705,65 +728,68 @@ class AdManager extends ChangeNotifier {
     );
   }
 
-  /// Increments game count and shows a skippable (5-15s) interstitial ad every 3-4 games
-  /// on Game Over / Victory (unless the player just watched a long rewarded ad on that screen).
+  void _noteVoluntaryAd() {
+    _clearsSinceVoluntaryAd = 0;
+    _quietClearsAfterAd = 2 + (DateTime.now().microsecond % 3);
+  }
+
+  /// One cleared board counts toward the next interstitial.
+  /// A completed voluntary ad quiets the next 2, 3, or 4 clears.
+  /// Otherwise the interstitial still opens every 3, 4, or 5 boards.
+  bool registerLevelClear() {
+    if (SaveManager.instance.adsRemoved) return false;
+    if (SaveManager.instance.metricHighestClassicLevel < 5) return false;
+    final watchedRecently = _clearsSinceVoluntaryAd < _quietClearsAfterAd;
+    if (_clearsSinceVoluntaryAd < 99) _clearsSinceVoluntaryAd++;
+    if (watchedRecently) return false;
+    if (_levelsSinceAd < _levelsUntilAd) _levelsSinceAd++;
+    if (_levelsSinceAd < _levelsUntilAd) return false;
+    if (_interstitialAd == null || _isShowing) return false;
+    _levelsSinceAd = 0;
+    _levelsUntilAd = 3 + (DateTime.now().microsecond % 3);
+    return true;
+  }
+
+  /// Level-transition interstitial. Menu and restart no longer force one.
   void checkAndShowInterstitial(BuildContext context, {VoidCallback? onComplete}) {
-    _gameplayCount++;
-    debugPrint('AdManager: Gameplay count: $_gameplayCount / $_targetPlaysBeforeNextInterstitial');
-
-    // Step 9: Early Level Churn Shield - Never show interstitial ads before level 5
-    final currentLevel = SaveManager.instance.classicSavedLevel ?? 1;
-    if (currentLevel < 5) {
-      preloadInterstitialAd();
-      onComplete?.call();
-      return;
-    }
-
-    // If the user just watched a long rewarded ad (Revive or 2X-3X Dice Roll) in the last 45s,
-    // don't immediately hit them with another ad when clicking Restart/Main Menu.
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    if (nowMs - _lastLongAdCloseTimeMs < 45000) {
-      preloadInterstitialAd();
-      onComplete?.call();
-      return;
-    }
-
-    if (_gameplayCount >= _targetPlaysBeforeNextInterstitial) {
-      _gameplayCount = 0;
-      _targetPlaysBeforeNextInterstitial = (DateTime.now().microsecond % 2 == 0) ? 3 : 4;
-
-      if (_interstitialAd != null && !_isShowing) {
-        _isShowing = true;
-        final ad = _interstitialAd!;
-        ad.fullScreenContentCallback = FullScreenContentCallback(
-          onAdShowedFullScreenContent: (ad) {
-            debugPrint('AdManager: Skippable interstitial ad showed.');
-          },
-          onAdDismissedFullScreenContent: (ad) {
-            SaveManager.instance.noteAdClosed();
-            ad.dispose();
-            _interstitialAd = null;
-            _isShowing = false;
-            preloadInterstitialAd();
-            onComplete?.call();
-          },
-          onAdFailedToShowFullScreenContent: (ad, error) {
-            debugPrint('AdManager: Interstitial failed to show: $error');
-            ad.dispose();
-            _interstitialAd = null;
-            _isShowing = false;
-            preloadInterstitialAd();
-            onComplete?.call();
-          },
-        );
-        ad.show();
-        return;
-      } else {
-        preloadInterstitialAd();
-      }
-    }
-
+    if (!context.mounted) return;
     onComplete?.call();
+  }
+
+  void showLevelInterstitial(BuildContext context, {VoidCallback? onComplete}) {
+    if (SaveManager.instance.adsRemoved) {
+      onComplete?.call();
+      return;
+    }
+    if (!context.mounted || _interstitialAd == null || _isShowing) {
+      preloadInterstitialAd();
+      onComplete?.call();
+      return;
+    }
+    _isShowing = true;
+    final ad = _interstitialAd!;
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (ad) {
+        debugPrint('AdManager: Level interstitial showed.');
+      },
+      onAdDismissedFullScreenContent: (ad) {
+        SaveManager.instance.noteAdClosed();
+        ad.dispose();
+        _interstitialAd = null;
+        _isShowing = false;
+        preloadInterstitialAd();
+        onComplete?.call();
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        debugPrint('AdManager: Level interstitial failed: $error');
+        ad.dispose();
+        _interstitialAd = null;
+        _isShowing = false;
+        preloadInterstitialAd();
+        onComplete?.call();
+      },
+    );
+    ad.show();
   }
 
   /// Shows the high-yield long rewarded ad for End-of-Game 2X-3X Dice Gold Multiplier.
@@ -807,7 +833,6 @@ class AdManager extends ChangeNotifier {
           _rewardedAd = null;
         }
         _isShowing = false;
-        _lastLongAdCloseTimeMs = DateTime.now().millisecondsSinceEpoch;
         notifyListeners();
 
         // Preload next high-yield ad in the background
@@ -816,6 +841,7 @@ class AdManager extends ChangeNotifier {
 
         if (userEarnedReward) {
           SaveManager.instance.recordAdOrWinQuest();
+          _noteVoluntaryAd();
           onSuccess();
         } else {
           onDismissedEarly();

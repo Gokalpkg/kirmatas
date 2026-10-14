@@ -5,6 +5,7 @@ import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
 import 'chest_widget.dart';
+import 'remove_ads_card.dart';
 import 'crate_opening_dialog.dart';
 import 'fortune_wheel_dialog.dart';
 import 'rewarded_ad_button.dart';
@@ -349,7 +350,11 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
               ],
             ),
           ),
-          body: TabBarView(
+          body: Column(
+            children: [
+              const RemoveAdsCard(compact: true),
+              Expanded(
+                child: TabBarView(
             controller: _tabController,
             children: [
               _buildCratesTab(context, save),
@@ -358,6 +363,9 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
               _buildTrailsTab(context, save),
               _buildBricksTab(context, save),
               _buildBackgroundsTab(context, save),
+            ],
+                ),
+              ),
             ],
           ),
         ),
@@ -1039,13 +1047,13 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildDropRateChip('Yaygın', '${crate.weights[Rarity.common]?.toInt() ?? 0}%', Colors.white60),
+                  _buildDropRateChip(I18n.tr('common'), '${crate.weights[Rarity.common]?.toInt() ?? 0}%', Colors.white60),
                   Container(width: 1, height: 16, color: Colors.white12),
-                  _buildDropRateChip('Nadir', '${crate.weights[Rarity.rare]?.toInt() ?? 0}%', const Color(0xFF00E5FF)),
+                  _buildDropRateChip(I18n.tr('rare'), '${crate.weights[Rarity.rare]?.toInt() ?? 0}%', const Color(0xFF00E5FF)),
                   Container(width: 1, height: 16, color: Colors.white12),
-                  _buildDropRateChip('Destansı', '${crate.weights[Rarity.epic]?.toInt() ?? 0}%', const Color(0xFFE040FB)),
+                  _buildDropRateChip(I18n.tr('epic'), '${crate.weights[Rarity.epic]?.toInt() ?? 0}%', const Color(0xFFE040FB)),
                   Container(width: 1, height: 16, color: Colors.white12),
-                  _buildDropRateChip('Efsanevi', '${crate.weights[Rarity.legendary]?.toInt() ?? 0}%', const Color(0xFFFFD54F)),
+                  _buildDropRateChip(I18n.tr('legendary'), '${crate.weights[Rarity.legendary]?.toInt() ?? 0}%', const Color(0xFFFFD54F)),
                 ],
               ),
             ),
@@ -1071,7 +1079,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                     children: [
                       const Icon(Icons.monetization_on_rounded, size: 18),
                       const SizedBox(width: 6),
-                      Text( '${crate.cost} ALTIN AÇ',
+                      Text(I18n.tr('crate_open').replaceAll('{cost}', '${crate.cost}'),
                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.8),
                       ),
                     ],

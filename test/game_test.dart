@@ -25,6 +25,7 @@ import 'package:kirmatas/ui/chest_widget.dart';
 import 'package:kirmatas/ui/crate_opening_dialog.dart';
 import 'package:kirmatas/ui/shop_view.dart';
 import 'package:kirmatas/ui/aquarium_view.dart';
+import 'package:kirmatas/ui/fish_hoard_chest.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -1270,6 +1271,24 @@ void main() {
       expect(controller.stats.lives >= 3, true);
     });
 
+    test('Classic death returns to the start of the ten-level band with 3 lives', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.classic);
+      SaveManager.instance.markFreeContinueUsed();
+      gc.stats.level = 15;
+      gc.stats.lives = 1;
+      gc.stats.score = 4000;
+      gc.status = GameStatus.playing;
+      gc.balls.clear();
+      gc.update(0.016);
+
+      expect(gc.status, GameStatus.gameOver);
+      expect(SaveManager.instance.classicSavedLevel, 11);
+      expect(SaveManager.instance.classicSavedLives, 3);
+      expect(SaveManager.instance.classicSavedScore, 4000);
+    });
+
     test('AdManager cascade waterfall ad units are configured correctly', () {
       // Rewarded Waterfall
       expect(AdManager.tier1RewardedAdUnitId, 'ca-app-pub-9505724609102225/7282413936');
@@ -1625,6 +1644,11 @@ void main() {
     });
 
     testWidgets('ShopView renders with animated trail preview, ball preview, and paddle preview painters without exceptions', (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await tester.pumpWidget(
         const MaterialApp(
           home: ShopView(),
@@ -2342,6 +2366,41 @@ void main() {
       expect((initialX - capsule.x).abs() < 2.0, true); // Extremely subtle, does not teleport
     });
 
+    test('Laser rolls 1 to 6 shots, mostly 1-3, then stops', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.classic);
+      gc.status = GameStatus.playing;
+
+      final counts = <int, int>{};
+      for (var i = 0; i < 400; i++) {
+        gc.applyPowerUp(PowerUpType.laser);
+        final shots = gc.paddle.laserAmmo;
+        expect(shots, inInclusiveRange(1, 6));
+        counts[shots] = (counts[shots] ?? 0) + 1;
+      }
+      final common = (counts[1] ?? 0) + (counts[2] ?? 0) + (counts[3] ?? 0);
+      final rare = (counts[4] ?? 0) + (counts[5] ?? 0) + (counts[6] ?? 0);
+      expect(common, greaterThan(rare * 3));
+
+      gc.paddle.laserAmmo = 3;
+      gc.paddle.hasLaser = true;
+      gc.laserTimer = 0.65;
+      gc.projectiles.clear();
+      var spawned = 0;
+      var previous = 0;
+      for (var i = 0; i < 90; i++) {
+        gc.update(0.05);
+        if (gc.projectiles.length > previous) {
+          spawned += gc.projectiles.length - previous;
+        }
+        previous = gc.projectiles.length;
+      }
+      expect(spawned, 6);
+      expect(gc.paddle.hasLaser, isFalse);
+      expect(gc.paddle.laserAmmo, 0);
+    });
+
     testWidgets('ShopView crates tab renders reworked crate cards and drop rate chips', (tester) async {
       final save = SaveManager.instance;
       await save.init();
@@ -2366,10 +2425,10 @@ void main() {
 
       // Check that crate texts and ALTIN AÇ buttons exist
       expect(find.textContaining('ALTIN AÇ'), findsWidgets);
-      expect(find.text('Yaygın'), findsWidgets);
-      expect(find.text('Nadir'), findsWidgets);
-      expect(find.text('Destansı'), findsWidgets);
-      expect(find.text('Efsanevi'), findsWidgets);
+      expect(find.text(I18n.tr('common')), findsWidgets);
+      expect(find.text(I18n.tr('rare')), findsWidgets);
+      expect(find.text(I18n.tr('epic')), findsWidgets);
+      expect(find.text(I18n.tr('legendary')), findsWidgets);
     });
 
     test('Cosmetic Ball rarities: ates and isilti are epic, altin is rare, elmas and gokkusagi are legendary', () {
@@ -2479,7 +2538,7 @@ void main() {
       expect(controller.paddle.width, closeTo(controller.paddle.baseWidth * 0.65, 0.1));
     });
 
-    test('Clutch Save on outer 10% tip of paddle grants +150 bonus score and +15% ultiCharge', () {
+    test('Clutch save on the outer tip grants +150 score, and a corner hit fills the dice by 3', () {
       final controller = GameController();
       controller.setDimensions(360, 640);
       controller.startNewGame(GameMode.classic);
@@ -2498,7 +2557,7 @@ void main() {
       controller.update(0.016);
 
       expect(controller.stats.score, scoreBefore + 150);
-      expect(controller.stats.ultiCharge, closeTo(ultiBefore + 15.0, 0.01));
+      expect(controller.stats.ultiCharge, closeTo(ultiBefore + 3.0, 0.01));
     });
 
     test('Boss level exposes activeBossBrick and triggers Boss Enrage at <= 50% HP', () {
@@ -2553,7 +2612,12 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // Auto-collected +30 gold upon entering AquariumView!
+      // Tap the FishHoardChest to pour ready coins into account
+      await tester.tap(find.byType(FishHoardChest));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 900));
+
+      // Collected +30 gold from hoard chest!
       expect(save.gold, 12530);
       expect(save.fedFishCount, 0);
 
@@ -2567,6 +2631,7 @@ void main() {
       final gc = GameController();
       gc.setDimensions(360, 640);
       gc.startNewGame(GameMode.classic);
+      gc.stats.level = 4;
       gc.launchBall();
 
       // 1. Activate Vortex

@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'engine/ad_manager.dart';
+import 'engine/remove_ads_billing.dart';
 import 'engine/asset_cache.dart';
 import 'engine/audio_manager.dart';
 import 'storage/save_manager.dart';
@@ -20,6 +22,7 @@ void main() async {
   await AudioManager.instance.init();
   await AssetCache.instance.init();
   await AdManager.instance.init();
+  unawaited(RemoveAdsBilling.instance.init());
 
   runApp(const KirmatasApp());
 }
@@ -66,13 +69,14 @@ class _KirmatasAppState extends State<KirmatasApp> with WidgetsBindingObserver {
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
+        fontFamily: 'Rajdhani',
         scaffoldBackgroundColor: const Color(0xFF07080C),
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFFFFD54F),
           secondary: Color(0xFF00E5FF),
           surface: Color(0xFF101320),
         ),
-        textTheme: GoogleFonts.rajdhaniTextTheme(ThemeData.dark().textTheme),
+        textTheme: ThemeData.dark().textTheme.apply(fontFamily: 'Rajdhani'),
       ),
       home: const SplashScreen(),
     );

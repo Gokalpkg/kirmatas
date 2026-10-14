@@ -98,6 +98,66 @@ class LevelDesign {
     return 6;
   }
 
+  static int decadeIndex(int level) => (level - 1) ~/ 10;
+
+  /// One brick rule for each 10-level band, starting at level 11.
+  static String? decadeRuleKey(int level) {
+    if (level < 11) return null;
+    switch (decadeIndex(level) % 4) {
+      case 1:
+        return 'rule_ice';
+      case 2:
+        return 'rule_steel';
+      case 3:
+        return 'rule_mover';
+      default:
+        return 'rule_dynamite';
+    }
+  }
+
+  static void _applyDecadeSignature(List<Brick> bricks, int level) {
+    if (level < 11 || isBossLevelNumber(level)) return;
+    final key = decadeRuleKey(level);
+    if (key == null) return;
+    final present = switch (key) {
+      'rule_ice' => bricks.any((b) => b.isIce),
+      'rule_steel' => bricks.any((b) => b.isSteel || b.isHeavySteel),
+      'rule_mover' => bricks.any((b) => b.isMover),
+      'rule_dynamite' => bricks.any((b) => b.isDynamite),
+      _ => true,
+    };
+    if (present) return;
+    Brick? pick;
+    for (final b in bricks) {
+      if (b.isBoss || b.isSteel || b.isHeavySteel || b.isIce || b.isDynamite || b.isMover) continue;
+      pick = b;
+      break;
+    }
+    if (pick == null) return;
+    switch (key) {
+      case 'rule_ice':
+        pick.isIce = true;
+        break;
+      case 'rule_steel':
+        final breakable = bricks.where((b) => !b.isSteel && !b.isHeavySteel).length;
+        if (breakable <= 6) return;
+        pick.isSteel = true;
+        pick.hp = 999;
+        pick.maxHp = 999;
+        pick.points = 0;
+        pick.color = const Color(0xFF78909C);
+        break;
+      case 'rule_mover':
+        pick.isMover = true;
+        break;
+      case 'rule_dynamite':
+        pick.isDynamite = true;
+        pick.hp = 1;
+        pick.maxHp = 1;
+        break;
+    }
+  }
+
   static String getWorldName(int level) {
     switch (getWorldIndex(level)) {
       case 1:
@@ -205,35 +265,44 @@ class LevelDesign {
     switch (archetype) {
       case 0: // Checkerboard
         return (r + c) % 2 == 0;
-      case 1: // DominoChain
-        return (r % 2 == 0 && c % 2 == 0) || (r % 2 == 1 && c % 2 == 1 && c > 0 && c < cols - 1);
-      case 2: // DiamondMine
-        final dr = (r - rows / 2.0).abs() / (rows / 2.0);
-        final dc = (c - cols / 2.0).abs() / (cols / 2.0);
-        return (dr + dc) <= 1.08;
+      case 1: // DominoChain — both side edges stay in the chain
+        final fromEdge = min(c, cols - 1 - c);
+        if (r % 2 == 0) return fromEdge % 2 == 0;
+        return fromEdge % 2 == 1 && c != 0 && c != cols - 1;
+      case 2: // DiamondMine — centered so both side edges and both tips exist
+        final midR = (rows - 1) / 2.0;
+        final midC = (cols - 1) / 2.0;
+        final dr = (r - midR).abs() / max(midR, 0.5);
+        final dc = (c - midC).abs() / max(midC, 0.5);
+        return (dr + dc) <= 1.22;
       case 3: // SpiralGalaxy
         return (r == 0 && c < cols - 1) ||
             (c == cols - 1 && r < rows - 1) ||
             (r == rows - 1 && c > 0) ||
             (c == 0 && r > 1) ||
             (r >= 2 && r <= rows - 3 && c >= 2 && c <= cols - 3 && ((r + c) % 2 == 0));
-      case 4: // IceAvalanche
-        final midC = cols ~/ 2;
-        return r >= (c - midC).abs();
+      case 4: // IceAvalanche — peak on the top edge, full base on both sides
+        final midC = (cols - 1) / 2.0;
+        final dist = (c - midC).abs();
+        final inner = dist <= 0.51 ? 0.0 : dist - 0.51;
+        final half = max(midC - 0.51, 0.5);
+        final t = (inner / half).clamp(0.0, 1.0);
+        return r >= (t * (rows - 1)).floor();
       case 5: // CastleFortress
         return c == 0 ||
             c == cols - 1 ||
-            (r == 0 && c % 2 == 0) ||
+            (r == 0 && min(c, cols - 1 - c) % 2 == 0) ||
             (r >= rows - 2) ||
             (r >= 2 && (c == 2 || c == cols - 3));
       case 6: // Honeycomb
         return r % 2 == 0 ? (c % 2 == 0) : (c % 2 == 1);
-      case 7: // PillarsOfHercules
-        return (c % 3 != 1) || (r == 0) || (r == rows - 1);
+      case 7: // PillarsOfHercules — both side columns stay solid
+        if (c == 0 || c == cols - 1 || r == 0 || r == rows - 1) return true;
+        return min(c, cols - 1 - c) % 3 != 1;
       case 8: // SymmetricTotem
-        final dc = (c - cols / 2.0).abs();
-        final dr = (r - rows / 2.0).abs();
-        return (dc + dr <= (rows + cols) * 0.38) && !(r % 2 == 1 && dc < 0.8);
+        final dc = (c - (cols - 1) / 2.0).abs();
+        final dr = (r - (rows - 1) / 2.0).abs();
+        return (dc + dr <= (rows + cols) * 0.38) && !(r % 2 == 1 && dc < 0.6);
       case 9: // AlienInvader
         final cNorm = (c < cols / 2) ? c : (cols - 1 - c);
         return (r == 0 && cNorm == 1) ||
@@ -245,14 +314,22 @@ class LevelDesign {
         final h1 = ((r * 1.3).round()) % cols;
         final h2 = cols - 1 - (((r * 1.3).round()) % cols);
         return c == h1 || c == h2 || (r % 3 == 0 && c >= min(h1, h2) && c <= max(h1, h2));
-      case 11: // Arrowhead
-        final midC = cols ~/ 2;
-        return r <= (rows - 1 - ((c - midC).abs() * 1.5).round());
+      case 11: // Arrowhead — wide top edge, tip centered on the bottom edge
+        final midC = (cols - 1) / 2.0;
+        final dist = (c - midC).abs();
+        final inner = dist <= 0.51 ? 0.0 : dist - 0.51;
+        final half = max(midC - 0.51, 0.5);
+        final t = (inner / half).clamp(0.0, 1.0);
+        return r <= ((1.0 - t) * (rows - 1)).floor();
       case 12: // StarOfDestiny
-        return r == rows ~/ 2 ||
-            c == cols ~/ 2 ||
-            (r == (c * rows / cols).round()) ||
-            (r == ((cols - 1 - c) * rows / cols).round());
+        final midR = (rows - 1) / 2.0;
+        final midC = (cols - 1) / 2.0;
+        final onCross = (r - midR).abs() <= 0.51 || (c - midC).abs() <= 0.51;
+        final nr = rows <= 1 ? 0.0 : r / (rows - 1);
+        final nc = cols <= 1 ? 0.0 : c / (cols - 1);
+        final tol = 0.55 / max(rows - 1, cols - 1);
+        final onDiag = (nr - nc).abs() <= tol || (nr + nc - 1).abs() <= tol;
+        return onCross || onDiag;
       case 13: // PrecisionSlit
         final slitCol = cols ~/ 2;
         return !(r == rows - 2 && c == slitCol);
@@ -266,14 +343,20 @@ class LevelDesign {
         return r % 2 == 0 || (r % 4 == 1 && c == cols - 1) || (r % 4 == 3 && c == 0);
       case 18: // TheGauntlet
         return c <= 1 || c >= cols - 2 || (r % 2 == 0 && c == cols ~/ 2);
-      case 19: // TheFunnel
-        final midC = cols ~/ 2;
-        return r <= (((c - midC).abs() * 1.8).round());
+      case 19: // TheFunnel — top edge closed, both side columns run to the bottom
+        final midC = (cols - 1) / 2.0;
+        final dist = (c - midC).abs();
+        final inner = dist <= 0.51 ? 0.0 : dist - 0.51;
+        final half = max(midC - 0.51, 0.5);
+        final t = (inner / half).clamp(0.0, 1.0);
+        return r <= (t * (rows - 1)).floor();
       case 20: // TargetBullseye
-        final dr = (r - rows / 2.0) / (rows / 2.0);
-        final dc = (c - cols / 2.0) / (cols / 2.0);
+        final midR = (rows - 1) / 2.0;
+        final midC = (cols - 1) / 2.0;
+        final dr = (r - midR) / max(midR, 0.5);
+        final dc = (c - midC) / max(midC, 0.5);
         final dist = sqrt(dr * dr + dc * dc);
-        return dist < 0.38 || (dist > 0.65 && dist < 1.05);
+        return dist < 0.42 || (dist > 0.62 && dist <= 1.05);
       case 21: // TwinTowers
         return c <= 1 || c >= cols - 2 || (r == 0 && (c == cols ~/ 2 || c == cols ~/ 2 - 1));
       case 22: // SkullFortress
@@ -281,41 +364,65 @@ class LevelDesign {
           final isEye = (r == rows ~/ 3) && (c == cols ~/ 3 || c == cols - 1 - cols ~/ 3);
           return !isEye;
         } else {
-          return c >= 1 && c <= cols - 2 && c % 2 == 0;
+          return c >= 1 && c <= cols - 2 && min(c, cols - 1 - c) % 2 == 0;
         }
-      case 23: // ShieldAndCrown
+      case 23: // ShieldAndCrown — point sits on the bottom edge
+        final crownL = (cols - 1) ~/ 2;
+        final crownR = cols ~/ 2;
         if (r <= 1) {
-          return c == 0 || c == cols - 1 || c == cols ~/ 2;
-        } else {
-          return c >= (r - 2) && c <= (cols - 1 - (r - 2));
+          return c == 0 || c == cols - 1 || c == crownL || c == crownR;
         }
+        final span = max(1, rows - 2);
+        final t = (r - 1) / span;
+        final midC = (cols - 1) / 2.0;
+        final reach = midC * (1.0 - t);
+        return (c - midC).abs() <= reach + 0.55;
       case 24: // SwordOfJustice
-        final center = cols ~/ 2;
-        if (r < rows - 2) return c == center || (r == 0 && (c == center - 1 || c == center + 1));
+        final bladeL = (cols - 1) ~/ 2;
+        final bladeR = cols ~/ 2;
+        final onBlade = c == bladeL || c == bladeR;
+        if (r < rows - 2) {
+          return onBlade || (r == 0 && (c == bladeL - 1 || c == bladeR + 1));
+        }
         if (r == rows - 2) return true;
-        return c == center;
+        return onBlade;
       case 25: // Hourglass
-        final midR = rows / 2.0;
-        final waist = (1.0 - (r - midR).abs() / midR);
-        return (c - cols / 2.0).abs() >= (waist * (cols / 3.0));
+        final midR = (rows - 1) / 2.0;
+        final midC = (cols - 1) / 2.0;
+        final waist = 1.0 - (r - midR).abs() / max(midR, 0.5);
+        return (c - midC).abs() >= (waist * (cols / 3.0));
       case 26: // HeartOfStone
-        final halfC = cols / 2.0;
-        if (r == 0) return c == 1 || c == 2 || c == cols - 2 || c == cols - 3;
+        final midC = (cols - 1) / 2.0;
+        if (r == 0) {
+          final lobe = (c - midC).abs();
+          final outer = midC * 0.78;
+          final inner = max(0.8, midC * 0.22);
+          return lobe >= inner && lobe <= outer + 0.05;
+        }
         if (r == 1) return true;
-        final t = (r - 2) / max(1, rows - 2);
-        return (c - halfC).abs() <= (halfC * (1.0 - t * 0.85));
-      case 27: // QuantumMatrix
-        return (r % 2 == 0) || (c % 2 == 0) || (r == rows ~/ 2 && c == cols ~/ 2);
-      case 28: // Eclipse
-        final dr = (r - rows / 2.0) / (rows / 2.0);
-        final dc = (c - cols / 2.0) / (cols / 2.0);
+        final t = (r - 1) / max(1, rows - 2);
+        return (c - midC).abs() <= midC * (1.0 - t) + 0.55;
+      case 27: // QuantumMatrix — both side edges stay filled
+        if (c == 0 || c == cols - 1 || r % 2 == 0) return true;
+        return min(c, cols - 1 - c) % 2 == 0;
+      case 28: // Eclipse — full rim, the bite is a smooth inner crescent
+        final midR = (rows - 1) / 2.0;
+        final midC = (cols - 1) / 2.0;
+        final dr = (r - midR) / max(midR, 0.5);
+        final dc = (c - midC) / max(midC, 0.5);
         final dist = sqrt(dr * dr + dc * dc);
-        return dist <= 1.05 && !(dr > 0.1 && dc > 0.1 && dist < 0.85);
+        if (dist > 1.02) return false;
+        final moonDr = dr + 0.05;
+        final moonDc = dc - 0.55;
+        final moon = sqrt(moonDr * moonDr + moonDc * moonDc);
+        return moon >= 0.55 || dist >= 0.82;
       case 29: // OmegaFinal
-        final dr = (r - rows / 2.5) / (rows / 2.5);
-        final dc = (c - cols / 2.0) / (cols / 2.0);
+        final midR = (rows - 1) / 2.0;
+        final midC = (cols - 1) / 2.0;
+        final dr = (r - midR) / max(midR, 0.5);
+        final dc = (c - midC) / max(midC, 0.5);
         final dist = sqrt(dr * dr + dc * dc);
-        if (r < rows - 1) return dist >= 0.55 && dist <= 1.15 && (dr < 0.6 || dc.abs() > 0.35);
+        if (r < rows - 1) return dist >= 0.55 && dist <= 1.12 && (dr < 0.6 || dc.abs() > 0.35);
         return c <= 1 || c >= cols - 2;
       default:
         return true;
@@ -644,6 +751,7 @@ class LevelDesign {
       b.maxX = screenWidth - padding;
     }
 
+    _applyDecadeSignature(bricks, level);
     return bricks;
   }
 

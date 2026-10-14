@@ -38,6 +38,8 @@ class SaveManager extends ChangeNotifier {
 
   // --- KALICI LÜKS YADİGAR (PERMANENT RELIC) ---
   bool hasPermanentRelic = false;
+  bool adsRemoved = false;
+  bool removeAdsOfferSeen = false;
 
   // --- KAYITLI OYUN DEVAM ET (SAVE PROGRESSION - CLASSIC & CHAOS) ---
   int? classicSavedLevel;
@@ -57,6 +59,7 @@ class SaveManager extends ChangeNotifier {
   // --- ECO-TANK PER-FISH FEEDING & 6-HOUR GOLD PAYOUT ---
   int fishFood = 5;
   int lastFishFedTimestamp = 0;
+  String? lastFishFedDay;
   Map<String, int> fishFedTimestamps = {}; // fishId -> epoch ms when 6h cycle started
   static const int fishFedDurationHours = 6;
   static const int fishSatietyDurationHours = 3;
@@ -96,9 +99,13 @@ class SaveManager extends ChangeNotifier {
   bool metricDay2 = false;
   int metricLevel1Leaves = 0;
   int metricAdCloses = 0;
+  int metricHighestClassicLevel = 1;
+  bool usedFreeContinue = false;
+  String? dayBlessingDate;
+  List<String> playEvents = [];
 
   SpeedSetting speed = SpeedSetting.medium;
-  bool sfxEnabled = false;
+  bool sfxEnabled = true;
   bool hapticsEnabled = true;
   HapticIntensity hapticIntensity = HapticIntensity.strong;
 
@@ -174,7 +181,11 @@ class SaveManager extends ChangeNotifier {
     metricDay2 = _prefs?.getBool('metricDay2') ?? false;
     metricLevel1Leaves = _prefs?.getInt('metricLevel1Leaves') ?? 0;
     metricAdCloses = _prefs?.getInt('metricAdCloses') ?? 0;
+    usedFreeContinue = _prefs?.getBool('usedFreeContinue') ?? false;
+    dayBlessingDate = _prefs?.getString('dayBlessingDate');
+    playEvents = _prefs?.getStringList('playEvents') ?? [];
     lastFishFedTimestamp = _prefs?.getInt('lastFishFedTimestamp') ?? 0;
+    lastFishFedDay = _prefs?.getString('lastFishFedDay');
     final fedMapStr = _prefs?.getString('fishFedTimestamps');
     if (fedMapStr != null) {
       try {
@@ -204,10 +215,10 @@ class SaveManager extends ChangeNotifier {
     claimedQuests = (_prefs?.getStringList('claimedQuests') ?? []).toSet();
     _checkAndResetQuests();
 
-    final speedIndex = _prefs?.getInt('speedSetting') ?? 1;
+    final speedIndex = _prefs?.getInt('speedSetting') ?? 0;
     speed = SpeedSetting.values[speedIndex.clamp(0, SpeedSetting.values.length - 1)];
 
-    sfxEnabled = false;
+    sfxEnabled = _prefs?.getBool('sfxEnabled') ?? true;
     final hIndex = _prefs?.getInt('hapticIntensity') ?? HapticIntensity.strong.index;
     hapticIntensity = HapticIntensity.values[hIndex.clamp(0, HapticIntensity.values.length - 1)];
     hapticsEnabled = hapticIntensity != HapticIntensity.off;
@@ -219,10 +230,13 @@ class SaveManager extends ChangeNotifier {
     activeBrickStyle = _prefs?.getString('activeBrickStyle') ?? 'brick_gloss';
     lastAdWatchTime = _prefs?.getInt('lastAdWatchTime') ?? 0;
     hasPermanentRelic = _prefs?.getBool('hasPermanentRelic') ?? false;
+    adsRemoved = _prefs?.getBool('adsRemoved') ?? false;
+    removeAdsOfferSeen = _prefs?.getBool('removeAdsOfferSeen') ?? false;
 
     classicSavedLevel = _prefs?.getInt('classicSavedLevel');
     classicSavedScore = _prefs?.getInt('classicSavedScore');
     classicSavedLives = _prefs?.getInt('classicSavedLives');
+    metricHighestClassicLevel = _prefs?.getInt('metricHighestClassicLevel') ?? classicSavedLevel ?? 1;
 
     chaosSavedLevel = _prefs?.getInt('chaosSavedLevel');
     chaosSavedScore = _prefs?.getInt('chaosSavedScore');
@@ -471,6 +485,11 @@ class SaveManager extends ChangeNotifier {
     }
 
     recordFishFedQuest();
+    final fedDay = DateTime.now().toIso8601String().substring(0, 10);
+    if (lastFishFedDay != fedDay) {
+      lastFishFedDay = fedDay;
+      _prefs?.setString('lastFishFedDay', fedDay);
+    }
     notifyListeners();
     return true;
   }
@@ -583,11 +602,47 @@ class SaveManager extends ChangeNotifier {
   void noteLevel1Left() {
     metricLevel1Leaves += 1;
     _prefs?.setInt('metricLevel1Leaves', metricLevel1Leaves);
+    _notePlayEvent('leave', classicSavedLevel ?? 1);
   }
 
   void noteAdClosed() {
     metricAdCloses += 1;
     _prefs?.setInt('metricAdCloses', metricAdCloses);
+    _notePlayEvent('ad', metricHighestClassicLevel);
+  }
+
+  void noteClassicProgress(int level) {
+    final stored = _prefs?.getInt('metricHighestClassicLevel');
+    if (stored == null) {
+      metricHighestClassicLevel = level;
+      _prefs?.setInt('metricHighestClassicLevel', level);
+      _notePlayEvent('level', level);
+      return;
+    }
+    if (level <= metricHighestClassicLevel) return;
+    metricHighestClassicLevel = level;
+    _prefs?.setInt('metricHighestClassicLevel', level);
+    _notePlayEvent('level', level);
+  }
+
+  void markDayBlessed(String day) {
+    dayBlessingDate = day;
+    _prefs?.setString('dayBlessingDate', day);
+  }
+
+  void markFreeContinueUsed() {
+    if (usedFreeContinue) return;
+    usedFreeContinue = true;
+    _prefs?.setBool('usedFreeContinue', true);
+  }
+
+  void _notePlayEvent(String kind, int level) {
+    final day = DateTime.now().toIso8601String().substring(0, 10);
+    playEvents.add('$day|$kind|$level');
+    if (playEvents.length > 40) {
+      playEvents = playEvents.sublist(playEvents.length - 40);
+    }
+    _prefs?.setStringList('playEvents', playEvents);
   }
 
   void markFirstShotSeen() {
@@ -939,7 +994,9 @@ class SaveManager extends ChangeNotifier {
 
   Future<void> setSfxVolume(int level) async {
     sfxVolume = level.clamp(0, 8);
+    sfxEnabled = sfxVolume > 0;
     await _prefs?.setInt('sfxVolume', sfxVolume);
+    await _prefs?.setBool('sfxEnabled', sfxEnabled);
     notifyListeners();
   }
 
@@ -961,6 +1018,22 @@ class SaveManager extends ChangeNotifier {
     return true;
   }
 
+  bool get shouldOfferRemoveAds =>
+      !adsRemoved && !removeAdsOfferSeen && metricHighestClassicLevel >= 100;
+
+  Future<void> grantRemoveAds() async {
+    if (adsRemoved) return;
+    adsRemoved = true;
+    await _prefs?.setBool('adsRemoved', true);
+    notifyListeners();
+  }
+
+  Future<void> markRemoveAdsOfferSeen() async {
+    if (removeAdsOfferSeen) return;
+    removeAdsOfferSeen = true;
+    await _prefs?.setBool('removeAdsOfferSeen', true);
+  }
+
   // --- SAVED PROGRESSION (DEVAM ET - KLASİK & KAOS) ---
   bool hasSavedGame(GameMode mode) {
     if (mode == GameMode.classic) {
@@ -971,6 +1044,31 @@ class SaveManager extends ChangeNotifier {
           (chaosSavedLevel == 1 && (chaosSavedScore ?? 0) > 0);
     }
     return false;
+  }
+
+  String get progressCode {
+    final level = classicSavedLevel ?? metricHighestClassicLevel;
+    return 'KT1|$metricHighestClassicLevel|$level|$gold|$fishFood';
+  }
+
+  Future<bool> applyProgressCode(String raw) async {
+    final parts = raw.trim().split('|');
+    if (parts.length != 5 || parts[0] != 'KT1') return false;
+    final highest = int.tryParse(parts[1]);
+    final level = int.tryParse(parts[2]);
+    final nextGold = int.tryParse(parts[3]);
+    final food = int.tryParse(parts[4]);
+    if (highest == null || level == null || nextGold == null || food == null) return false;
+    if (highest < 1 || highest > 238 || level < 1 || level > 238) return false;
+    if (nextGold < 0 || nextGold > 2000000 || food < 0 || food > 99) return false;
+    metricHighestClassicLevel = highest;
+    gold = nextGold;
+    fishFood = food;
+    await _prefs?.setInt('metricHighestClassicLevel', highest);
+    await _prefs?.setInt('gold', gold);
+    await _prefs?.setInt('fishFood', fishFood);
+    await saveClassicSession(level: level, score: 0, lives: 3);
+    return true;
   }
 
   Future<void> saveClassicSession({

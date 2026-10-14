@@ -12,6 +12,7 @@ import '../models/paddle.dart';
 import '../models/powerup.dart';
 import '../storage/save_manager.dart';
 import 'audio_manager.dart';
+import 'ad_manager.dart';
 import 'i18n.dart';
 import 'particle_system.dart';
 
@@ -87,6 +88,8 @@ class GameController extends ChangeNotifier {
   int dice2Value = 1;
   int diceDisplay1 = 1;
   int diceDisplay2 = 1;
+  int _glassBreaksTowardDice = 0;
+  int _blocksUntilDicePoint = 3;
   int diceSalvoRemaining = 0;
   double diceSalvoCooldown = 0.0;
   double diceDisplayTimer = 0.0;
@@ -168,6 +171,7 @@ class GameController extends ChangeNotifier {
   }
 
   bool hasUsedRevive = false;
+  bool pendingLevelInterstitial = false;
   bool hasClaimedVictoryBonus = false;
   int endGameRolledDice = 0;
   int endGameMultiplier = 0;
@@ -188,6 +192,22 @@ class GameController extends ChangeNotifier {
       tipTimer = 3.5;
       notifyListeners();
     }
+  }
+
+  void showOnceTip(String tipId, String text) {
+    if (save.hasSeenTip(tipId)) return;
+    save.markTipSeen(tipId);
+    activeTipText = text;
+    tipTimer = 3.8;
+    notifyListeners();
+  }
+
+  bool get _blackHolesAllowed => currentMode != GameMode.classic || stats.level >= 4;
+
+  /// Death returns the player to the first board of the current ten-level band.
+  int get classicCheckpointLevel {
+    final level = stats.level.clamp(1, 238);
+    return ((level - 1) ~/ 10) * 10 + 1;
   }
 
   int get endGameMultiplierBaseGold => max(stats.goldCollected, 100);
@@ -213,6 +233,8 @@ class GameController extends ChangeNotifier {
     _sessionStartingBestScore = save.getHighScore(mode);
     _hasCelebratedNewRecord = false;
     _bossEnrageAnnounced = false;
+    _glassBreaksTowardDice = 0;
+    _blocksUntilDicePoint = _rollDiceBlockGap();
 
     if (mode == GameMode.chaos) {
       if (!isResume) {
@@ -260,6 +282,9 @@ class GameController extends ChangeNotifier {
 
     stats.reset(initialLives: startLives, startLevel: startLevel);
     stats.score = startScore;
+    if (mode == GameMode.classic) {
+      save.noteClassicProgress(stats.level);
+    }
     particles.clear();
     capsules.clear();
     projectiles.clear();
@@ -297,6 +322,7 @@ class GameController extends ChangeNotifier {
     rocketTimer = 0.0;
     droneShootTimer = 0.0;
     paddle.hasLaser = false;
+    paddle.laserAmmo = 0;
     paddle.hasRockets = false;
     paddle.hasDrone = false;
     paddle.hasVortex = false;
@@ -317,6 +343,7 @@ class GameController extends ChangeNotifier {
     paddle.y = screenHeight - 110.0;
     paddle.isSticky = false;
     paddle.hasLaser = false;
+    paddle.laserAmmo = 0;
     paddle.hasRockets = false;
     paddle.hasDrone = false;
     paddle.hasNet = false;
@@ -426,10 +453,23 @@ class GameController extends ChangeNotifier {
         showMicroTip('ice', I18n.tr('tip_ice'));
       } else if (bricks.any((b) => b.isDynamite)) {
         showMicroTip('bomb', I18n.tr('tip_bomb'));
-      } else if (bricks.any((b) => b.isSteel)) {
-        showMicroTip('steel', I18n.tr('tip_steel'));
       } else if (bricks.any((b) => b.isTuft)) {
         showMicroTip('tuft', I18n.tr('tip_tuft'));
+      }
+    }
+    if (currentMode == GameMode.classic && bricks.any((b) => b.isSteel)) {
+      showOnceTip('steel', I18n.tr('tip_steel'));
+    }
+    if (currentMode == GameMode.classic && stats.level < 4) {
+      blackHoles.clear();
+    }
+    if (currentMode == GameMode.classic && stats.level >= 11 && stats.level % 10 == 1) {
+      final rule = LevelDesign.decadeRuleKey(stats.level);
+      if (rule != null) {
+        showOnceTip(
+          'decade_${LevelDesign.decadeIndex(stats.level)}',
+          '${LevelDesign.getWorldName(stats.level)} · ${I18n.tr(rule)}',
+        );
       }
     }
   }
@@ -437,8 +477,6 @@ class GameController extends ChangeNotifier {
   bool get hasStuckBall => balls.any((b) => b.isStuck);
 
   void launchBall() {
-    audio.isBgmAllowed = false;
-    audio.pauseBgm();
     if (levelTransitionTimer > 0) {
       levelTransitionTimer = 0.0;
       if (balls.isEmpty) {
@@ -470,8 +508,29 @@ class GameController extends ChangeNotifier {
     }
     if (anyLaunched) {
       audio.playSfx(GameSfx.hitPaddle);
+      _blessFirstBallOfDay(stuck);
       notifyListeners();
     }
+  }
+
+  void _blessFirstBallOfDay(List<Ball> launched) {
+    if (launched.isEmpty || currentMode == GameMode.chaos) return;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    if (save.dayBlessingDate == today) return;
+    String? key;
+    final fedDay = save.lastFishFedDay;
+    if (fedDay != null && fedDay.compareTo(today) < 0) key = 'day_fish_ball';
+    if (key == null && currentMode == GameMode.daily) key = 'day_board_ball';
+    if (key == null) return;
+    save.markDayBlessed(today);
+    launched.first.isDayBlessed = true;
+    particles.spawnFloatingText(
+      screenWidth * 0.5,
+      screenHeight * 0.56,
+      I18n.tr(key),
+      const Color(0xFFFFD54F),
+      isLarge: true,
+    );
   }
 
   void aimChaos(double x, double y) {
@@ -583,6 +642,7 @@ class GameController extends ChangeNotifier {
 
       stats.level++;
       stats.score += 300 * stats.level;
+      if (AdManager.instance.registerLevelClear()) pendingLevelInterstitial = true;
       chaosStock = 3;
       chaosPendingExtraBalls = 0;
       chaosReturned = 0;
@@ -628,10 +688,11 @@ class GameController extends ChangeNotifier {
   }
 
   double getBaseBallSpeed() {
+    const pace = 1.48;
     if (currentMode == GameMode.chaos) {
-      return 420.0 * save.speed.multiplier;
+      return 420.0 * pace;
     }
-    final base = 350.0 * save.speed.multiplier;
+    final base = 350.0 * pace;
     return base + min(stats.level * 10.0, 90.0);
   }
 
@@ -926,22 +987,25 @@ class GameController extends ChangeNotifier {
       }
     }
 
-    // GÜÇLENDİRİCİ KOMBİNASYONU: Lazer + Alev Topu (Fire Laser) veya sadece Lazer
-    if (paddle.hasLaser) {
+    // Lazer: yakalanınca 1–6 atış. 1, 2, 3 sık; 4, 5, 6 seyrek.
+    if (paddle.hasLaser && paddle.laserAmmo > 0) {
       laserTimer = (laserTimer ?? 0.0) + dt;
       if (laserTimer! >= 0.65) {
         laserTimer = 0.0;
         final hasFireball = balls.any((b) => b.isFireball);
         if (hasFireball) {
-          // Kombinasyon: Alev Lazerleri! Üçlü geniş atış
           projectiles.add(Projectile(x: paddle.x + 10, y: paddle.y - 12, vx: -80, vy: -500.0, radius: 6.0, isLaser: true));
           projectiles.add(Projectile(x: paddle.x + paddle.width - 10, y: paddle.y - 12, vx: 80, vy: -500.0, radius: 6.0, isLaser: true));
           audio.playSfx(GameSfx.explosion);
         } else {
-          // Normal Lazer
           projectiles.add(Projectile(x: paddle.x + 10, y: paddle.y - 12, vy: -450.0, radius: 4.0, isLaser: true));
           projectiles.add(Projectile(x: paddle.x + paddle.width - 10, y: paddle.y - 12, vy: -450.0, radius: 4.0, isLaser: true));
           audio.playSfx(GameSfx.laser);
+        }
+        paddle.laserAmmo--;
+        if (paddle.laserAmmo <= 0) {
+          paddle.hasLaser = false;
+          activePowerUps.removeWhere((p) => p.type == PowerUpType.laser);
         }
       }
     }
@@ -1151,10 +1215,10 @@ class GameController extends ChangeNotifier {
           c.y += (dy / dist) * pull * dt;
         }
       } else if (save.hasPermanentRelic) {
-        // Subtle Relic Micro-Attraction: Very gentle nudge towards paddle X
         final dx = paddleCenter.dx - c.x;
-        if (dx.abs() > 4.0 && (paddleCenter.dy - c.y) < 180.0 && (paddleCenter.dy - c.y) > -20.0) {
-          c.x += dx.sign * (28.0 * dt);
+        final dy = paddleCenter.dy - c.y;
+        if (dx.abs() > 4.0 && dy < 220.0 && dy > -20.0) {
+          c.x += dx.sign * (72.0 * dt);
         }
       }
 
@@ -1249,7 +1313,8 @@ class GameController extends ChangeNotifier {
     if (status == GameStatus.playing &&
         currentMode != GameMode.zen &&
         currentMode != GameMode.chaos &&
-        blackHoles.length < 2) {
+        blackHoles.length < 2 &&
+        _blackHolesAllowed) {
       _blackHoleTimer = (_blackHoleTimer ?? 0.0) + dt;
       final canSpawn = blackHoles.isEmpty
           ? (_blackHoleTimer! >= 8.0 && _rand.nextDouble() < 0.12)
@@ -1371,7 +1436,7 @@ class GameController extends ChangeNotifier {
         ball.vx = ball.vx >= 0 ? 8.0 : -8.0;
       }
 
-      // Black Hole gravity pull & trajectory deflection (Restored authentic powerful Newtonian physics):
+      // Black Hole gravity: the whole painted field bends the ball, not only the core.
       for (final bh in blackHoles) {
         final dx = bh.x - ball.x;
         final dy = bh.y - ball.y;
@@ -1382,7 +1447,6 @@ class GameController extends ChangeNotifier {
           final ballKey = ball.hashCode;
           final currentAngle = atan2(ball.y - bh.y, ball.x - bh.x);
 
-          // Measure angular rotation around black hole center
           if (bh.ballAngles.containsKey(ballKey)) {
             final prevAngle = bh.ballAngles[ballKey]!;
             var delta = currentAngle - prevAngle;
@@ -1396,85 +1460,80 @@ class GameController extends ChangeNotifier {
             final newAccum = oldAccum + delta.abs();
             bh.ballAccumulatedAngles[ballKey] = newAccum;
 
-            // Lap tracking: slingshot acceleration upon complete orbits
             final currentLaps = (newAccum / (2 * pi)).floor();
             final recordedLaps = bh.ballOrbitLaps[ballKey] ?? 0;
             if (currentLaps > recordedLaps) {
               bh.ballOrbitLaps[ballKey] = currentLaps;
               final currentSpd = ball.speed;
-              final lapMult = currentLaps >= 2 ? 1.35 : 1.25;
-              final boostedSpeed = (currentSpd * lapMult).clamp(getBaseBallSpeed(), 850.0);
-              ball.setSpeed(boostedSpeed);
-              particles.spawnBurst(ball.x, ball.y, bh.isSupercharged ? const Color(0xFFFF9100) : const Color(0xFFE040FB), count: 10, speed: 140.0);
-              audio.playSfx(GameSfx.cornerBoost);
+              if (bh.isSupercharged || bh.isVortexTrap) {
+                final boostedSpeed = (currentSpd * 1.30).clamp(getBaseBallSpeed(), 760.0);
+                ball.setSpeed(boostedSpeed);
+                particles.spawnBurst(ball.x, ball.y, const Color(0xFFFF9100), count: 8, speed: 130.0);
+                audio.playSfx(GameSfx.laser);
+              } else {
+                final boostedSpeed = (currentSpd * 1.15).clamp(getBaseBallSpeed(), 660.0);
+                ball.setSpeed(boostedSpeed);
+                particles.spawnBurst(ball.x, ball.y, const Color(0xFFE040FB), count: 5, speed: 80.0);
+              }
             }
           }
           bh.ballAngles[ballKey] = currentAngle;
 
           final normalizedDist = (dist / maxInfluenceDist).clamp(0.0, 1.0);
           final proximity = 1.0 - normalizedDist;
+          final falloff = pow(proximity, 0.65).toDouble();
 
-          // Pure, unrestrained gravitational pull (Early authentic formula scaled by radius):
-          // Even small black holes strongly bend trajectories; larger ones aggressively pull.
-          final basePull = (bh.isVortexTrap ? 1000.0 + bh.radius * 80.0 : (bh.isSupercharged ? 850.0 + bh.radius * 70.0 : (600.0 + bh.radius * 60.0)));
-          final pull = basePull * proximity * (1.25 + proximity * 4.2);
+          final sizeMult = (bh.radius / 20.0).clamp(1.0, 2.0);
+          final basePull = (bh.isVortexTrap ? 5400.0 : (bh.isSupercharged ? 4400.0 : 3400.0)) * sizeMult;
+          final pull = basePull * falloff;
 
           final nx = dx / dist;
           final ny = dy / dist;
 
-          // Strong radial Newtonian pull towards singularity
           ball.vx += nx * pull * dt;
           ball.vy += ny * pull * dt;
 
-          // Tangential orbital swirl in the direction of the ball's momentum
           final tangentX = -ny;
           final tangentY = nx;
           final dotTangent = ball.vx * tangentX + ball.vy * tangentY;
-          final spinDir = dotTangent >= 0 ? 1.0 : -1.0;
-          final swirlPower = (bh.isVortexTrap ? 480.0 : (bh.isSupercharged ? 380.0 : 280.0)) * proximity;
-          ball.vx += tangentX * swirlPower * spinDir * dt;
-          ball.vy += tangentY * swirlPower * spinDir * dt;
+          final dragDirection = dotTangent >= 0 ? 1.0 : -1.0;
+          final spinDrag = (bh.isVortexTrap ? 1400.0 : (bh.isSupercharged ? 1100.0 : 850.0)) * falloff;
+          ball.vx += tangentX * spinDrag * dragDirection * dt;
+          ball.vy += tangentY * spinDrag * dragDirection * dt;
 
-          // Event Horizon Slingshot Zone & Anti-singularity cushion:
-          if (dist <= bh.radius * 0.75 + ball.radius) {
-            // Accelerate and redirect along tangent
-            final slingshotSpd = max(ball.speed * 1.25, getBaseBallSpeed() * 1.35).clamp(getBaseBallSpeed(), 850.0);
-            ball.vx = tangentX * slingshotSpd * spinDir;
-            ball.vy = tangentY * slingshotSpd * spinDir;
-
-            if (dist < bh.radius * 0.40) {
-              // Push slightly outward so the ball never collapses into the singularity
-              ball.x = bh.x - nx * (bh.radius * 0.42);
-              ball.y = bh.y - ny * (bh.radius * 0.42);
-            }
-
-            particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD54F), count: 8, speed: 150.0);
-            particles.spawnShockwave(bh.x, bh.y, const Color(0xFFE040FB), maxRadius: 40.0);
-            audio.playSfx(GameSfx.cornerBoost);
-          } else if (proximity > 0.45) {
-            if (_rand.nextDouble() < 0.20) {
+          if (proximity > 0.45 || dist < bh.radius * 3.5) {
+            ball.vx += tangentX * 280.0 * dragDirection * dt;
+            ball.vy += tangentY * 280.0 * dragDirection * dt;
+            if (_rand.nextDouble() < 0.25) {
               particles.spawnBurnEmber(ball.x, ball.y, color: bh.isSupercharged ? const Color(0xFF00E5FF) : const Color(0xFFE040FB));
             }
           }
 
-          // Dynamic speed bounds
+          if (dist <= bh.radius * 0.48 + ball.radius) {
+            final exitSpeed = max(ball.speed * 1.15, getBaseBallSpeed() * 1.25).clamp(getBaseBallSpeed(), 820.0);
+            ball.vx = tangentX * exitSpeed * dragDirection;
+            ball.vy = tangentY * exitSpeed * dragDirection;
+            particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD54F), count: 12, speed: 160.0);
+            particles.spawnShockwave(bh.x, bh.y, const Color(0xFFE040FB), maxRadius: 45.0);
+            audio.playSfx(GameSfx.cornerBoost);
+          }
+
           final minSpeed = getBaseBallSpeed();
           if (ball.speed < minSpeed) {
             ball.setSpeed(minSpeed);
           }
-          if (ball.speed > 850.0) {
-            ball.setSpeed(850.0);
+          final maxAllowedSpeed = (bh.isSupercharged || bh.isVortexTrap || ball.isWallSpeedBoosted) ? 800.0 : 700.0;
+          if (ball.speed > maxAllowedSpeed) {
+            ball.setSpeed(maxAllowedSpeed);
           }
         } else {
-          // Ball is outside gravitational influence
           final ballKey = ball.hashCode;
-          final accumAngle = bh.ballAccumulatedAngles[ballKey] ?? 0.0;
-          if (accumAngle >= pi * 0.75) {
+          if ((bh.isSupercharged || bh.isVortexTrap) && (bh.ballAccumulatedAngles[ballKey] ?? 0.0) >= pi * 0.65) {
             final currentSpd = ball.speed;
-            final slingshotSpeed = (currentSpd * 1.25).clamp(getBaseBallSpeed(), 820.0);
+            final slingshotSpeed = (currentSpd * 1.18).clamp(getBaseBallSpeed(), 760.0);
             ball.setSpeed(slingshotSpeed);
             particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD54F), count: 8, speed: 140.0);
-            audio.playSfx(GameSfx.cornerBoost);
+            audio.playSfx(GameSfx.hitPaddle);
           }
           bh.ballAngles.remove(ballKey);
           bh.ballAccumulatedAngles.remove(ballKey);
@@ -1676,6 +1735,7 @@ class GameController extends ChangeNotifier {
         }
       }
 
+      if (ball.isDayBlessed) ball.isDayBlessed = false;
       if (paddle.isSticky) {
         ball.isStuck = true;
         ball.stuckTimer = 0.0;
@@ -1751,8 +1811,8 @@ class GameController extends ChangeNotifier {
         final isClutchSave = hitOffset.abs() >= 0.90 && balls.length == 1;
         if (isClutchSave) {
           stats.score += 150;
-          stats.ultiCharge = (stats.ultiCharge + 15.0).clamp(0.0, 100.0);
         }
+        stats.ultiCharge = (stats.ultiCharge + 3.0).clamp(0.0, 100.0);
 
         if (ball.cornerHitCount >= 8) {
           ball.isPurple = true;
@@ -2076,10 +2136,26 @@ class GameController extends ChangeNotifier {
     }
   }
 
+  int _rollDiceBlockGap() => 3 + ((DateTime.now().microsecond % 2) * 2);
+
+  void _chargeDiceFromGlass(Brick b) {
+    if (b.isBoss || b.isSteel || b.isTuft) return;
+    _glassBreaksTowardDice++;
+    if (_glassBreaksTowardDice < _blocksUntilDicePoint) return;
+    _glassBreaksTowardDice = 0;
+    _blocksUntilDicePoint = _rollDiceBlockGap();
+    stats.ultiCharge = (stats.ultiCharge + 1.0).clamp(0.0, 100.0);
+  }
+
   void _destroyBrick(Brick b) {
     b.isAlive = false;
     stats.bricksBroken++;
     save.recordBrickBrokenQuest();
+    _chargeDiceFromGlass(b);
+    if (currentMode == GameMode.classic && stats.level <= 3 && !save.seenFirstShot) {
+      save.markFirstShotSeen();
+      showOnceTip('first_break', I18n.tr('tip_first_break'));
+    }
 
     // Geometric physical shard explosion!
     particles.spawnBrickShards(b.x, b.y, b.width, b.height, b.color, count: b.isBoss ? 16 : 6);
@@ -2115,11 +2191,6 @@ class GameController extends ChangeNotifier {
     } else if (b.isIce) {
       _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 90.0);
     }
-
-    // Charge Ulti (with battery upgrade bonus) - balanced slower charge rate
-    final batteryLevel = save.upgrades['battery'] ?? 0;
-    final ultiGain = 1.35 * (1.0 + batteryLevel * 0.18);
-    stats.ultiCharge = (stats.ultiCharge + ultiGain).clamp(0.0, 100.0);
 
     // Roll powerup drop
     _rollCapsuleDrop(b.x + b.width / 2, b.y + b.height / 2);
@@ -2254,7 +2325,11 @@ class GameController extends ChangeNotifier {
     // Luck tilts towards buffs (exclude mirror, multi, and pierce from random drops)
     PowerUpType chosen;
     if (_rand.nextDouble() < 0.78 + luckLevel * 0.05) {
-      final buffs = allTypes.where((t) => t.kind == PowerUpKind.buff && t != PowerUpType.mirror && t != PowerUpType.multi && t != PowerUpType.pierce && t != PowerUpType.drone).toList();
+      var buffs = allTypes.where((t) => t.kind == PowerUpKind.buff && t != PowerUpType.mirror && t != PowerUpType.multi && t != PowerUpType.pierce && t != PowerUpType.drone).toList();
+      if (currentMode == GameMode.classic && stats.level < 4) {
+        buffs = buffs.where((t) => t != PowerUpType.vortex).toList();
+      }
+      if (buffs.isEmpty) return;
       chosen = buffs[_rand.nextInt(buffs.length)];
       
       // KURAL: Ateş topu ve Roket çok daha nadir çıkmalı (0.88 oranında tekrar kura çekilir, çok nadir düşer)
@@ -2267,6 +2342,19 @@ class GameController extends ChangeNotifier {
     }
 
     capsules.add(FallingCapsule(x: x, y: y, type: chosen));
+    showOnceTip('capsule', I18n.tr('tip_capsule'));
+  }
+
+  /// 1–3 çoğu zaman. 4, 5 ve 6 seyrek. Üst sınır 6.
+  int _rollLaserShots() {
+    const weights = [36, 30, 20, 8, 4, 2];
+    final roll = _rand.nextInt(100);
+    var cursor = 0;
+    for (var i = 0; i < weights.length; i++) {
+      cursor += weights[i];
+      if (roll < cursor) return i + 1;
+    }
+    return 1;
   }
 
   void applyPowerUp(PowerUpType type) {
@@ -2372,6 +2460,15 @@ class GameController extends ChangeNotifier {
         break;
       case PowerUpType.laser:
         paddle.hasLaser = true;
+        paddle.laserAmmo = _rollLaserShots();
+        laserTimer = 0.65;
+        particles.spawnFloatingText(
+          paddle.x + paddle.width / 2,
+          paddle.y - 15,
+          '${paddle.laserAmmo}${I18n.tr('laser_ammo_suffix')}',
+          const Color(0xFFFFD740),
+          isLarge: true,
+        );
         break;
       case PowerUpType.rocket:
         paddle.hasRockets = true;
@@ -2402,6 +2499,7 @@ class GameController extends ChangeNotifier {
         stats.bulletTimeLeft = 4.5;
         break;
       case PowerUpType.vortex:
+        if (!_blackHolesAllowed) break;
         paddle.hasVortex = true;
         double lowestAliveBrickY = 0.0;
         for (final b in bricks) {
@@ -2459,6 +2557,7 @@ class GameController extends ChangeNotifier {
         break;
       case PowerUpType.laser:
         paddle.hasLaser = false;
+        paddle.laserAmmo = 0;
         break;
       case PowerUpType.rocket:
         paddle.hasRockets = false;
@@ -2556,6 +2655,7 @@ class GameController extends ChangeNotifier {
     dice2Value = 1 + _rand.nextInt(6);
     diceDisplay1 = 1 + _rand.nextInt(6);
     diceDisplay2 = 1 + _rand.nextInt(6);
+    showOnceTip('dice', I18n.tr('tip_dice'));
 
     if (isDoubleDice) {
       particles.triggerShake(7.0, 0.35);
@@ -2586,6 +2686,22 @@ class GameController extends ChangeNotifier {
   void _loseLife() {
     if (levelTransitionTimer > 0 || status != GameStatus.playing) return;
     stats.lives--;
+    if (stats.lives <= 0 && currentMode == GameMode.classic && !save.usedFreeContinue) {
+      save.markFreeContinueUsed();
+      stats.lives = 1;
+      particles.spawnFloatingText(
+        screenWidth * 0.5,
+        screenHeight * 0.46,
+        I18n.tr('free_continue'),
+        const Color(0xFF69F0AE),
+        isLarge: true,
+      );
+      audio.playSfx(GameSfx.powerupBuff);
+      resetPaddleAndBall();
+      status = GameStatus.ready;
+      notifyListeners();
+      return;
+    }
     audio.playSfx(GameSfx.gameOver);
 
     if (stats.lives <= 0 && currentMode != GameMode.zen) {
@@ -2600,7 +2716,11 @@ class GameController extends ChangeNotifier {
     _haltBackgroundGameplay();
     status = GameStatus.gameOver;
     if (currentMode == GameMode.classic) {
-      save.clearClassicSession();
+      save.saveClassicSession(
+        level: classicCheckpointLevel,
+        score: stats.score,
+        lives: 3,
+      );
     } else if (currentMode == GameMode.chaos) {
       save.clearChaosSession();
     }
@@ -2638,6 +2758,7 @@ class GameController extends ChangeNotifier {
       _hasLoadedBricks = false;
       _haltBackgroundGameplay();
       if (currentMode == GameMode.daily || (currentMode == GameMode.classic && stats.level >= 238)) {
+        if (AdManager.instance.registerLevelClear()) pendingLevelInterstitial = true;
         _onVictory();
       } else {
         // Immediate next level load with celebratory transition freeze!
@@ -2649,7 +2770,9 @@ class GameController extends ChangeNotifier {
         save.addGold(levelGold);
         stats.level++;
         stats.score += 250 * stats.level;
+        if (AdManager.instance.registerLevelClear()) pendingLevelInterstitial = true;
         if (currentMode == GameMode.classic) {
+          save.noteClassicProgress(stats.level);
           save.saveClassicSession(level: stats.level, score: stats.score, lives: stats.lives);
         }
         loadLevelBricks();
@@ -2687,15 +2810,18 @@ class GameController extends ChangeNotifier {
     if (status == GameStatus.playing || status == GameStatus.ready) {
       _statusBeforePause = status;
       status = GameStatus.paused;
+      audio.isBgmAllowed = true;
+      audio.playDuck = 1.0;
+      audio.updateBgmVolume();
       notifyListeners();
     }
   }
 
   void resume() {
-    audio.isBgmAllowed = false;
-    audio.pauseBgm();
     if (status == GameStatus.paused) {
       status = _statusBeforePause;
+      audio.isBgmAllowed = false;
+      audio.pauseBgm();
       notifyListeners();
     }
   }
@@ -2706,6 +2832,9 @@ class GameController extends ChangeNotifier {
     stats.lives = 1;
     resetPaddleAndBall();
     status = GameStatus.ready;
+    if (currentMode == GameMode.classic) {
+      save.saveClassicSession(level: stats.level, score: stats.score, lives: stats.lives);
+    }
     audio.playSfx(GameSfx.powerupBuff);
     particles.spawnShockwave(screenWidth / 2, paddle.y, const Color(0xFFFF1744), maxRadius: 100.0);
     particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.45, I18n.tr('second_chance_life'), const Color(0xFFFF1744), isLarge: true);

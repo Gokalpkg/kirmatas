@@ -16,6 +16,7 @@ void main() {
   group('Tier 3: Cross-Feature Combinations (Pairwise Interactions)', () {
     test('F1.1 x F3.4: Level cleared while Vortex power-up black hole is active freezes anomaly cleanly', () {
       final gc = createTestController();
+      gc.stats.level = 4;
       gc.applyPowerUp(PowerUpType.vortex);
       expect(gc.blackHoles.isNotEmpty, isTrue);
 
@@ -133,6 +134,7 @@ void main() {
 
     test('F3.4 x F2.2: Collecting Vortex power-up while Searing ball is active allows both mechanics to operate concurrently', () {
       final gc = createTestController();
+      gc.stats.level = 4;
       gc.launchBall();
 
       gc.applyPowerUp(PowerUpType.fireball);

@@ -171,7 +171,7 @@ void main() {
         gc.blackHoles..clear()..add(bh);
 
         // Verify influence radius calculation
-        final expectedInfluence = max(150.0, r * 7.5);
+        final expectedInfluence = max(135.0, r * 5.5);
         expect((bh as dynamic).maxInfluenceDist, equals(expectedInfluence));
 
         // Fast ball passing 50px away
@@ -196,6 +196,7 @@ void main() {
     test('Tier 4 Scenario 5: Vortex Power-Up Capsule Collect & Hazard Navigation (F3.1, F3.4, F1.1)', () {
       // Step 1: Start game with bricks
       final gc = createTestController();
+      gc.stats.level = 4;
       expect(gc.blackHoles.isEmpty, isTrue);
 
       // Step 2: Collect PowerUpType.vortex capsule

@@ -139,6 +139,7 @@ void main() {
         gc.projectiles.add(Projectile(x: 100, y: 300, vy: -400));
         gc.capsules.add(FallingCapsule(x: 120, y: 250, type: PowerUpType.laser));
         gc.balls.clear(); // Lose final ball
+        SaveManager.instance.markFreeContinueUsed();
 
         gc.update(0.016);
 
@@ -155,6 +156,7 @@ void main() {
         gc.paddle.hasRockets = true;
         gc.paddle.hasDrone = true;
         gc.balls.clear();
+        SaveManager.instance.markFreeContinueUsed();
 
         gc.update(0.016);
 
@@ -702,39 +704,39 @@ void main() {
     // F3.1: Expand gravitational influence radius max(135.0, r * mult)
     // -------------------------------------------------------------------------
     group('F3.1: Black Hole Gravitational Influence Radius', () {
-      test('F3.1_T1_01: Standard black hole with r=20.0 has maxInfluenceDist clamped to 150.0', () {
+      test('F3.1_T1_01: Standard black hole with r=20.0 has maxInfluenceDist clamped to 135.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 20.0, mass: 1000);
-        final expected = max(150.0, 20.0 * 7.5);
+        final expected = max(135.0, 20.0 * 5.5);
         expect((bh as dynamic).maxInfluenceDist, equals(expected));
       });
 
-      test('F3.1_T1_02: Standard black hole with r=30.0 has maxInfluenceDist equal to 225.0', () {
+      test('F3.1_T1_02: Standard black hole with r=30.0 has maxInfluenceDist equal to 165.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 30.0, mass: 1000);
-        final expected = max(150.0, 30.0 * 7.5);
+        final expected = max(135.0, 30.0 * 5.5);
         expect((bh as dynamic).maxInfluenceDist, equals(expected));
       });
 
-      test('F3.1_T1_03: Supercharged black hole with r=25.0 has maxInfluenceDist equal to 200.0', () {
+      test('F3.1_T1_03: Supercharged black hole with r=25.0 has maxInfluenceDist equal to 150.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 25.0, mass: 1000, isSupercharged: true);
-        final expected = max(150.0, 25.0 * 8.0);
+        final expected = max(135.0, 25.0 * 6.0);
         expect((bh as dynamic).maxInfluenceDist, equals(expected));
       });
 
-      test('F3.1_T1_04: Vortex Trap black hole with r=24.0 has maxInfluenceDist equal to 204.0', () {
+      test('F3.1_T1_04: Vortex Trap black hole with r=24.0 has maxInfluenceDist equal to 156.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 24.0, mass: 1000, isVortexTrap: true);
-        final expected = max(150.0, 24.0 * 8.5);
+        final expected = max(135.0, 24.0 * 6.5);
         expect((bh as dynamic).maxInfluenceDist, equals(expected));
       });
 
-      test('F3.1_T1_05: All black hole radii from 20 to 34 have maxInfluenceDist >= 150.0', () {
+      test('F3.1_T1_05: All black hole radii from 20 to 34 have maxInfluenceDist >= 135.0', () {
         for (double r = 20.0; r <= 34.0; r += 2.0) {
           final bhStd = BlackHole(x: 0, y: 0, radius: r, mass: 1000);
           final bhSuper = BlackHole(x: 0, y: 0, radius: r, mass: 1000, isSupercharged: true);
           final bhVortex = BlackHole(x: 0, y: 0, radius: r, mass: 1000, isVortexTrap: true);
 
-          expect((bhStd as dynamic).maxInfluenceDist >= 150.0, isTrue);
-          expect((bhSuper as dynamic).maxInfluenceDist >= 150.0, isTrue);
-          expect((bhVortex as dynamic).maxInfluenceDist >= 150.0, isTrue);
+          expect((bhStd as dynamic).maxInfluenceDist >= 135.0, isTrue);
+          expect((bhSuper as dynamic).maxInfluenceDist >= 135.0, isTrue);
+          expect((bhVortex as dynamic).maxInfluenceDist >= 135.0, isTrue);
         }
       });
     });
@@ -880,8 +882,17 @@ void main() {
     // F3.4: Implement PowerUpType.vortex to spawn active BlackHole in play zone
     // -------------------------------------------------------------------------
     group('F3.4: Vortex Power-Up Spawns Black Hole', () {
+      test('F3.4 classic levels 1-3 swallow a vortex capsule', () {
+        final gc = createTestController();
+        gc.stats.level = 2;
+        gc.applyPowerUp(PowerUpType.vortex);
+        expect(gc.blackHoles, isEmpty);
+        expect(gc.paddle.hasVortex, isFalse);
+      });
+
       test('F3.4_T1_01: Collecting PowerUpType.vortex immediately spawns an active BlackHole', () {
         final gc = createTestController();
+        gc.stats.level = 4;
         expect(gc.blackHoles.isEmpty, isTrue);
 
         gc.applyPowerUp(PowerUpType.vortex);
@@ -891,6 +902,7 @@ void main() {
 
       test('F3.4_T1_02: Spawned BlackHole has timeLeft set to 9.0 seconds', () {
         final gc = createTestController();
+        gc.stats.level = 4;
         gc.applyPowerUp(PowerUpType.vortex);
 
         expect(gc.blackHoles.first.timeLeft, equals(9.0), reason: 'Spawned BlackHole duration should be 9.0s');
@@ -898,6 +910,7 @@ void main() {
 
       test('F3.4_T1_03: Spawned BlackHole is placed strictly below lowest alive brick + 45.0', () {
         final gc = createTestController();
+        gc.stats.level = 4;
         final lowestBrickY = getLowestAliveBrickBottom(gc);
 
         gc.applyPowerUp(PowerUpType.vortex);
@@ -908,6 +921,7 @@ void main() {
 
       test('F3.4_T1_04: Spawned BlackHole is placed strictly above paddle.y - 75.0', () {
         final gc = createTestController();
+        gc.stats.level = 4;
 
         gc.applyPowerUp(PowerUpType.vortex);
 
@@ -917,6 +931,7 @@ void main() {
 
       test('F3.4_T1_05: Active power-up list registers vortex buff', () {
         final gc = createTestController();
+        gc.stats.level = 4;
         gc.applyPowerUp(PowerUpType.vortex);
 
         expect(gc.activePowerUps.any((p) => p.type == PowerUpType.vortex), isTrue);

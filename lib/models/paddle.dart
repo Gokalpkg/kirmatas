@@ -8,6 +8,7 @@ class Paddle {
   double baseWidth;
   bool isSticky;
   bool hasLaser;
+  int laserAmmo;
   double laserCooldown;
   bool hasRockets;
   int rocketAmmo = 0;
@@ -33,6 +34,7 @@ class Paddle {
     this.baseWidth = 88.0,
     this.isSticky = false,
     this.hasLaser = false,
+    this.laserAmmo = 0,
     this.laserCooldown = 0.0,
     this.hasRockets = false,
     this.rocketCooldown = 0.0,

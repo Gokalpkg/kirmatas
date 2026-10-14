@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
+import 'remove_ads_card.dart';
 
 class UpgradesView extends StatelessWidget {
   const UpgradesView({super.key});
@@ -69,6 +70,7 @@ class UpgradesView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
+              const RemoveAdsCard(),
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(18),
@@ -109,10 +111,10 @@ class UpgradesView extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              const Expanded(
+                              Expanded(
                                 child: Text(
-                                  "Midas'ın Mikro Çekimi",
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15),
+                                  I18n.tr('relic_title'),
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15),
                                 ),
                               ),
                               if (save.hasPermanentRelic)
@@ -123,19 +125,21 @@ class UpgradesView extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(color: const Color(0xFF69F0AE)),
                                   ),
-                                  child: const Text( 'AKTİF',
-                                    style: TextStyle(color: Color(0xFF69F0AE), fontSize: 10, fontWeight: FontWeight.w900),
+                                  child: Text(
+                                    I18n.tr('relic_owned'),
+                                    style: const TextStyle(color: Color(0xFF69F0AE), fontSize: 10, fontWeight: FontWeight.w900),
                                   ),
                                 ),
                             ],
                           ),
                           const SizedBox(height: 4),
-                          const Text( 'Kalıcı Lüks Yadigar: Raket yakınındaki kapsülleri çok hafif (mikro) çeker ve bölüm sonlarında +%5 altın bonusu verir. Oyunu çok az etkiler.',
-                            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
+                          Text(
+                            I18n.tr('relic_body'),
+                            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            save.hasPermanentRelic ? 'Kalıcı olarak açık • Tek seferlik' : '25.000 Altın • Çok pahalı & Kalıcı',
+                            save.hasPermanentRelic ? I18n.tr('relic_owned') : I18n.tr('relic_price'),
                             style: TextStyle(
                               color: save.hasPermanentRelic ? const Color(0xFF69F0AE) : const Color(0xFFFFD54F),
                               fontSize: 11,

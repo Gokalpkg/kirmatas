@@ -206,7 +206,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                                   AudioManager.instance.playSfx(GameSfx.hitBrick);
                                 },
                               ),
-                              Text( '${I18n.tr('music_bgm')}: ${save.bgmVolume}',
+                              Text( '${I18n.tr('music_bgm')}: ${save.bgmVolume == 0 ? I18n.tr('haptic_off') : save.bgmVolume}',
                                 style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
                               ),
                               Slider(
@@ -253,20 +253,14 @@ class PauseGameOverOverlay extends StatelessWidget {
                         ),
                       ),
                     const SizedBox(height: 8),
-                    // 1. Revive / Second Chance Long Ad Button (Only on Game Over and once per game)
-                    if (isGameOver && !controller.hasUsedRevive) ...[
-                      _buildReviveButton(context),
-                      const SizedBox(height: 10),
-                    ],
-                    // 2. End-of-Game Dice Roll 2X-3X Gold Multiplier Long Ad Button (On BOTH Game Over & Victory!)
-                    if (isGameOver || isVictory) ...[
-                      _EndGameDiceMultiplierCard(controller: controller),
-                      const SizedBox(height: 12),
-                    ],
                     ElevatedButton.icon(
                       onPressed: onRestart,
                       icon: const Icon(Icons.replay),
-                      label: Text(I18n.tr('restart')),
+                      label: Text(
+                        isGameOver && controller.currentMode == GameMode.classic
+                            ? I18n.tr('continue_band').replaceAll('{level}', '${controller.classicCheckpointLevel}')
+                            : I18n.tr('restart'),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFFD54F),
                         foregroundColor: Colors.black,
@@ -275,6 +269,14 @@ class PauseGameOverOverlay extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
+                    if (isGameOver && !controller.hasUsedRevive) ...[
+                      _buildReviveButton(context),
+                      const SizedBox(height: 10),
+                    ],
+                    if (isGameOver || isVictory) ...[
+                      _EndGameDiceMultiplierCard(controller: controller),
+                      const SizedBox(height: 12),
+                    ],
                     OutlinedButton.icon(
                       onPressed: onMainMenu,
                       icon: const Icon(Icons.home),

@@ -1006,7 +1006,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                           const Icon(Icons.diamond_rounded, color: Color(0xFF00E5FF), size: 18),
                                           const SizedBox(width: 8),
                                           Text(
-                                            '+1 Parça Eklendi! (${SaveManager.instance.getShards(widget.category ?? widget.categoryCrate?.category ?? 'balls')}/3)',
+                                            I18n.tr('shard_added').replaceAll('{count}', '${SaveManager.instance.getShards(widget.category ?? widget.categoryCrate?.category ?? 'balls')}'),
                                             style: const TextStyle(
                                               color: Color(0xFF00E5FF),
                                               fontSize: 12.5,

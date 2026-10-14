@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../engine/ad_manager.dart';
@@ -7,6 +6,7 @@ import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
 import 'eco_tank_background.dart';
+import 'fish_hoard_chest.dart';
 
 class AquariumView extends StatefulWidget {
   const AquariumView({super.key});
@@ -18,7 +18,6 @@ class AquariumView extends StatefulWidget {
 class _AquariumViewState extends State<AquariumView> with SingleTickerProviderStateMixin {
   final GlobalKey<EcoTankBackgroundState> _tankKey = GlobalKey<EcoTankBackgroundState>();
   final SaveManager _save = SaveManager.instance;
-  Timer? _uiTimer;
   late final AnimationController _pulseCtrl;
   late final Animation<double> _pulseScale;
   bool _isHudExpanded = false; // Start collapsed so the full beautiful aquarium tank is clearly visible!
@@ -34,71 +33,12 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
     _pulseScale = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
-
-    // Automatically grant ready 6-hour fish gold upon entering the aquarium
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndAutoCollectGold();
-    });
-
-    // Refresh remaining duration countdown every second & auto-collect if 6h completes
-    _uiTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        _checkAndAutoCollectGold();
-        setState(() {});
-      }
-    });
   }
 
   @override
   void dispose() {
-    _uiTimer?.cancel();
     _pulseCtrl.dispose();
     super.dispose();
-  }
-
-  String _formatDuration(int ms) {
-    final totalSec = ms ~/ 1000;
-    final h = totalSec ~/ 3600;
-    final m = (totalSec % 3600) ~/ 60;
-    final s = totalSec % 60;
-    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
-
-  bool _isCollecting = false;
-
-  Future<void> _checkAndAutoCollectGold() async {
-    if (_isCollecting || !mounted) return;
-    if (_save.currentAvailableFishGold <= 0) return;
-
-    _isCollecting = true;
-    final collected = await _save.collectFishGold();
-    _isCollecting = false;
-
-    if (collected > 0 && mounted) {
-      AudioManager.instance.playSfx(GameSfx.victory);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 24),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text( ' 6 Saat Doldu! Beslediğin balıklardan +$collected Altın hesabına eklendi!',
-                  style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFFD54F)),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFF161A29),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFFFFD54F), width: 1.5),
-          ),
-          duration: const Duration(seconds: 4),
-        ),
-      );
-    }
   }
 
   void _onFeedPressed() {
@@ -206,11 +146,6 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    const Text( 'Beslediğin her balık 6 saat sonunda kendi değerinde altın verir:',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                     const SizedBox(height: 12),
 
@@ -435,8 +370,6 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
       builder: (context, _) {
         final fedCount = _save.fedFishCount;
         final totalFish = _save.unlockedFish.length;
-        final pendingGold = _save.pendingFishGold;
-        final remainingMs = _save.remainingFedDurationMs;
 
         return Scaffold(
           body: EcoTankBackground(
@@ -534,6 +467,11 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                     ),
                   ),
 
+                  Positioned(
+                    top: 56,
+                    right: 10,
+                    child: FishHoardChest(save: _save),
+                  ),
                   // Bottom Compact Floating Toolbar & Optional Expanded Detail Drawer
                   Positioned(
                     bottom: max(12.0, MediaQuery.of(context).padding.bottom + 6.0),
@@ -577,24 +515,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                         style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900),
                                       ),
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0x26FFD54F),
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: const Color(0x66FFD54F)),
-                                      ),
-                                      child: Text( '6s Ödülü: +$pendingGold ',
-                                        style: const TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.w900, fontSize: 11),
-                                      ),
-                                    ),
                                   ],
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  remainingMs > 0
-                                      ? '⏳ Sonraki Ödül: ${_formatDuration(remainingMs)} • Yem yiyen balık 3s beklemede' : ' Suya doğrudan dokunarak veya alttaki butonla balıkları besleyebilirsin!',
-                                  style: const TextStyle(color: Colors.white70, fontSize: 10.5, fontWeight: FontWeight.w500),
                                 ),
                               ],
                             ),

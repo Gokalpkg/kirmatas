@@ -114,6 +114,7 @@ void main() {
         gc.isDiceRolling = true;
         gc.diceRollTimer = 0.45;
         gc.balls.clear();
+        SaveManager.instance.markFreeContinueUsed();
 
         gc.update(0.016);
 
@@ -145,6 +146,7 @@ void main() {
         gc.stats.lives = 1;
         gc.projectiles.add(Projectile(x: gc.paddle.x + 10, y: gc.paddle.y - 5, vy: 300, isBossBullet: true));
         gc.balls.clear();
+        SaveManager.instance.markFreeContinueUsed();
 
         gc.update(0.016);
 
@@ -766,24 +768,24 @@ void main() {
     // F3.1: Boundary Cases for Black Hole Influence Radius
     // -------------------------------------------------------------------------
     group('F3.1: Influence Radius Boundaries', () {
-      test('F3.1_T2_01: Smallest standard black hole r=20.0 enforces lower bound 150.0', () {
+      test('F3.1_T2_01: Smallest standard black hole r=20.0 enforces lower bound 135.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 20.0, mass: 1000);
-        expect((bh as dynamic).maxInfluenceDist, equals(150.0));
+        expect((bh as dynamic).maxInfluenceDist, equals(135.0));
       });
 
-      test('F3.1_T2_02: Largest standard black hole r=34.0 has maxInfluenceDist = 255.0', () {
+      test('F3.1_T2_02: Largest standard black hole r=34.0 has maxInfluenceDist = 187.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 34.0, mass: 1000);
-        expect((bh as dynamic).maxInfluenceDist, equals(34.0 * 7.5));
+        expect((bh as dynamic).maxInfluenceDist, equals(34.0 * 5.5));
       });
 
-      test('F3.1_T2_03: Largest Supercharged black hole r=34.0 has maxInfluenceDist = 272.0', () {
+      test('F3.1_T2_03: Largest Supercharged black hole r=34.0 has maxInfluenceDist = 204.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 34.0, mass: 1000, isSupercharged: true);
-        expect((bh as dynamic).maxInfluenceDist, equals(34.0 * 8.0));
+        expect((bh as dynamic).maxInfluenceDist, equals(34.0 * 6.0));
       });
 
-      test('F3.1_T2_04: Largest Vortex Trap r=34.0 has maxInfluenceDist = 289.0', () {
+      test('F3.1_T2_04: Largest Vortex Trap r=34.0 has maxInfluenceDist = 221.0', () {
         final bh = BlackHole(x: 100, y: 100, radius: 34.0, mass: 1000, isVortexTrap: true);
-        expect((bh as dynamic).maxInfluenceDist, equals(34.0 * 8.5));
+        expect((bh as dynamic).maxInfluenceDist, equals(34.0 * 6.5));
       });
 
       test('F3.1_T2_05: Ball at distance maxInfluenceDist - 0.5px experiences pull; at + 0.5px experiences zero pull', () {
@@ -952,6 +954,7 @@ void main() {
     group('F3.4: Vortex Spawning Boundaries', () {
       test('F3.4_T2_01: Spawning vortex when bricks extend very low clamps spawn safely above paddle', () {
         final gc = createTestController();
+        gc.stats.level = 4;
         gc.bricks.add(Brick(x: 100, y: gc.paddle.y - 130, width: 40, height: 20, hp: 1, color: Colors.red));
 
         gc.applyPowerUp(PowerUpType.vortex);
@@ -964,6 +967,7 @@ void main() {
 
       test('F3.4_T2_02: Spawning vortex when all bricks are destroyed spawns safely in upper play area', () {
         final gc = createTestController();
+        gc.stats.level = 4;
         gc.bricks.clear();
 
         gc.applyPowerUp(PowerUpType.vortex);
@@ -977,6 +981,7 @@ void main() {
 
       test('F3.4_T2_03: Spawning vortex when paddle is widened preserves safe margin', () {
         final gc = createTestController();
+        gc.stats.level = 4;
         gc.applyPowerUp(PowerUpType.wide);
         gc.applyPowerUp(PowerUpType.vortex);
 
@@ -988,6 +993,7 @@ void main() {
 
       test('F3.4_T2_04: Collecting consecutive vortex capsules refreshes black hole lifespan', () {
         final gc = createTestController();
+        gc.stats.level = 4;
         gc.applyPowerUp(PowerUpType.vortex);
         expect(gc.blackHoles.isNotEmpty, isTrue);
 

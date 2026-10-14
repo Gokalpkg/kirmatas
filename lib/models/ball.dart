@@ -32,6 +32,7 @@ class Ball {
   double anomalyCooldown = 0.0;
   int sideWallBounceCount = 0;
   bool isWallSpeedBoosted = false;
+  bool isDayBlessed = false;
   int rapidBounceCount = 0;
   double rapidBounceTimer = 0.0;
 

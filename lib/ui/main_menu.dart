@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
 import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
+import '../engine/remove_ads_billing.dart';
 import '../models/game_state.dart';
 import '../storage/save_manager.dart';
 import 'aquarium_view.dart';
@@ -27,6 +29,8 @@ class MainMenuScreen extends StatefulWidget {
 class _MainMenuScreenState extends State<MainMenuScreen> {
   final SaveManager _save = SaveManager.instance;
   GameController? _activeGame;
+  bool _levelAdBusy = false;
+  bool _offerBusy = false;
   Timer? _cooldownRefreshTimer;
 
   static bool _hasAutoShownWheelThisSession = false;
@@ -50,6 +54,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             _openFortuneWheelWithHero();
           }
         });
+        Future.delayed(const Duration(milliseconds: 2200), () {
+          if (mounted && _activeGame == null) _maybeOfferRemoveAds();
+        });
       }
     });
   }
@@ -57,7 +64,76 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   @override
   void dispose() {
     _cooldownRefreshTimer?.cancel();
+    _activeGame?.removeListener(_onActiveGameTick);
     super.dispose();
+  }
+
+  void _onActiveGameTick() {
+    final game = _activeGame;
+    if (game != null && game.pendingLevelInterstitial && !_levelAdBusy) {
+      game.pendingLevelInterstitial = false;
+      _levelAdBusy = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          _levelAdBusy = false;
+          return;
+        }
+        AdManager.instance.showLevelInterstitial(context, onComplete: () {
+          _levelAdBusy = false;
+          _maybeOfferRemoveAds();
+        });
+      });
+      return;
+    }
+    _maybeOfferRemoveAds();
+  }
+
+  void _maybeOfferRemoveAds() {
+    if (!mounted || _offerBusy || _levelAdBusy) return;
+    if (!SaveManager.instance.shouldOfferRemoveAds) return;
+    final game = _activeGame;
+    if (game != null && game.status != GameStatus.ready && game.status != GameStatus.victory) return;
+    _offerBusy = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showRemoveAdsOffer());
+  }
+
+  Future<void> _showRemoveAdsOffer() async {
+    if (!mounted) return;
+    await SaveManager.instance.markRemoveAdsOfferSeen();
+    if (!mounted) return;
+    final price = RemoveAdsBilling.instance.priceLabel;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF141724),
+          title: Text(I18n.tr('remove_ads_offer_title'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+          content: Text(
+            '${I18n.tr('remove_ads_offer_body')}\n$price',
+            style: const TextStyle(color: Colors.white70, height: 1.35),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(I18n.tr('remove_ads_later')),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF26C6DA), foregroundColor: Colors.black),
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                final opened = await RemoveAdsBilling.instance.buy();
+                if (!opened && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(I18n.tr('remove_ads_unavailable'))),
+                  );
+                }
+              },
+              child: Text(I18n.tr('remove_ads_buy'), style: const TextStyle(fontWeight: FontWeight.w900)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _openFortuneWheelWithHero() async {
@@ -122,7 +198,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     AudioManager.instance.isBgmAllowed = false;
     AudioManager.instance.pauseBgm();
     setState(() {
+      _activeGame?.removeListener(_onActiveGameTick);
       _activeGame = GameController()..startNewGame(mode, isResume: isResume);
+      _activeGame!.addListener(_onActiveGameTick);
     });
   }
 
@@ -342,16 +420,19 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       }
     }
 
+    _activeGame?.removeListener(_onActiveGameTick);
     AudioManager.instance.isBgmAllowed = true;
-    if (AudioManager.instance.appInForeground) {
-      AudioManager.instance.resumeBgm();
-    }
+    AudioManager.instance.playDuck = 1.0;
+    AudioManager.instance.updateBgmVolume();
     setState(() {
       _activeGame = null;
     });
   }
 
   void _showSettingsDialog() {
+    AudioManager.instance.isBgmAllowed = true;
+    AudioManager.instance.playDuck = 1.0;
+    AudioManager.instance.updateBgmVolume();
     showDialog(
       context: context,
       builder: (context) {
@@ -456,7 +537,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                     const SizedBox(height: 8),
 
-                    Text( '${I18n.tr('music_bgm')}: ${_save.bgmVolume}',
+                    Text( '${I18n.tr('music_bgm')}: ${_save.bgmVolume == 0 ? I18n.tr('haptic_off') : _save.bgmVolume}',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
@@ -496,51 +577,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       },
                     ),
 
-                    const SizedBox(height: 12),
-
-                    // Game Speed Setting
-                    Text(
-                      I18n.tr('speed'),
-                      style: const TextStyle(
-                        color: Color(0xFFFFD54F),
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: SpeedSetting.values.map((s) {
-                        final isSelected = _save.speed == s;
-                        String label = s.label;
-                        if (s == SpeedSetting.slow) label = I18n.tr('slow');
-                        if (s == SpeedSetting.medium) label = I18n.tr('normal');
-                        if (s == SpeedSetting.fast) label = I18n.tr('fast');
-
-                        return Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: OutlinedButton(
-                              onPressed: () => _save.setSpeed(s),
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: isSelected ? const Color(0x33FFD54F) : Colors.transparent,
-                                side: BorderSide(
-                                  color: isSelected ? const Color(0xFFFFD54F) : Colors.white12,
-                                ),
-                                foregroundColor: isSelected ? const Color(0xFFFFD54F) : Colors.white60,
-                                padding: const EdgeInsets.symmetric(vertical: 0),
-                                minimumSize: const Size(0, 36),
-                              ),
-                              child: Text(
-                                label,
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 16),
                     Text(
                       I18n.tr('metrics_title'),
                       style: const TextStyle(
@@ -550,8 +587,41 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text( '${I18n.tr('metric_sessions')}: ${_save.metricSessions}\n' '${I18n.tr('metric_day2')}: ${_save.metricDay2 ? I18n.tr('metric_yes') : I18n.tr('metric_no')}\n' '${I18n.tr('metric_leave')}: ${_save.metricLevel1Leaves}\n' '${I18n.tr('metric_ad')}: ${_save.metricAdCloses}',
+                      Text(
+                        '${I18n.tr('metric_sessions')}: ${_save.metricSessions}\n'
+                        '${I18n.tr('metric_day2')}: ${_save.metricDay2 ? I18n.tr('metric_yes') : I18n.tr('metric_no')}\n'
+                        '${I18n.tr('metric_leave')}: ${_save.metricLevel1Leaves}\n'
+                        '${I18n.tr('metric_ad')}: ${_save.metricAdCloses}\n'
+                        '${I18n.tr('metric_best')}: ${_save.metricHighestClassicLevel}\n'
+                        '${I18n.tr('metric_last')}: ${_save.playEvents.isEmpty ? '-' : _save.playEvents.last}\n'
+                        '${I18n.tr('progress_code')}: ${_save.progressCode}',
                       style: const TextStyle(color: Colors.white60, fontSize: 12, height: 1.45),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: _save.progressCode));
+                            },
+                            child: Text(I18n.tr('progress_copy'), style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 12)),
+                          ),
+                        ),
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () async {
+                              final data = await Clipboard.getData(Clipboard.kTextPlain);
+                              final applied = await _save.applyProgressCode(data?.text ?? '');
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(applied ? I18n.tr('progress_restored') : I18n.tr('progress_invalid'))),
+                              );
+                            },
+                            child: Text(I18n.tr('progress_paste'), style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 12)),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -600,7 +670,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   if (wasGameOverOrVictory) {
                     AdManager.instance.checkAndShowInterstitial(context, onComplete: () {
                       if (mounted && _activeGame != null) {
-                        _activeGame!.startNewGame(mode);
+                        final resumeBand = mode == GameMode.classic &&
+                            _activeGame!.status == GameStatus.gameOver &&
+                            _save.hasSavedGame(GameMode.classic);
+                        _activeGame!.startNewGame(mode, isResume: resumeBand);
                       }
                     });
                   } else {
@@ -649,11 +722,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           ),
                           onPressed: _showSettingsDialog,
                         ),
-                        GestureDetector(
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const ShopView()),
-                          ),
-                          child: Container(
+                        Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
                               color: const Color(0x80101320),
@@ -671,12 +740,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     fontSize: 15,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.add_circle, color: Color(0xFFFFD54F), size: 14),
                               ],
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -700,8 +766,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   ),
 
                   const SizedBox(height: 10),
-                  _buildTopRewardsBar(),
-                  const SizedBox(height: 12),
 
                   // Main Modes Section (Hero Classic + Chaos Card + Collapsible Extra Arcade Modes)
                   Expanded(
@@ -809,10 +873,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     ),
                   ),
 
-                  // Bottom Floating Navigation Dock
                   Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
                     decoration: BoxDecoration(
                       color: const Color(0xDD101320),
                       borderRadius: BorderRadius.circular(24),
@@ -821,7 +884,12 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         BoxShadow(color: Colors.black54, blurRadius: 16, offset: Offset(0, 4)),
                       ],
                     ),
-                    child: Row(
+                    child: Column(
+                      children: [
+                        _buildTopRewardsBar(),
+                        const SizedBox(height: 6),
+                        Container(height: 1, color: Colors.white10),
+                        Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _buildNavButton(
@@ -857,6 +925,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             MaterialPageRoute(builder: (_) => const UpgradesView()),
                           ),
                         ),
+                        ],
+                      ),
                       ],
                     ),
                   ),
@@ -874,16 +944,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     final canClaimAd = _save.canClaimDailyLoginAd();
     final hasAnyClaim = canClaimDaily || canClaimAd;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: const Color(0x66101320),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white12),
-        ),
-        child: Row(
+    return Row(
           children: [
             // 1. 7 GÜNLÜK GİRİŞ (Compact Pill)
             Expanded(
@@ -1015,9 +1076,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               ),
             ),
           ],
-        ),
-      ),
-    );
+        );
   }
 
   Widget _buildFancyRewardButton({

@@ -1,4 +1,9 @@
+import 'dart:async';
+import 'dart:io' show Platform;
+import 'dart:math' as math;
+
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:vibration/vibration.dart';
 import '../models/game_state.dart';
@@ -13,20 +18,39 @@ enum GameSfx {
 
 class AudioManager {
   static final AudioManager instance = AudioManager._internal();
-  AudioManager._internal();
+  AudioManager._internal() {
+    _bgmLead = _bgmA;
+    _bgmNext = _bgmB;
+    if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+      _bgmA.positionUpdater = null;
+      _bgmB.positionUpdater = null;
+    }
+    _bindBgm(_bgmA);
+    _bindBgm(_bgmB);
+  }
 
   final Map<String, List<AudioPlayer>> _pools = {};
   final Map<String, String> _poolAssets = {};
   final Map<String, int> _poolIndices = {};
   final Map<AudioPlayer, int> _playToken = {};
   final Map<GameSfx, int> _lastSfxAt = {};
-  final AudioPlayer _bgmPlayer = AudioPlayer();
+  final AudioPlayer _bgmA = AudioPlayer();
+  final AudioPlayer _bgmB = AudioPlayer();
+  late AudioPlayer _bgmLead;
+  late AudioPlayer _bgmNext;
+  Duration _bgmDuration = Duration.zero;
+  bool _seamArmed = false;
+  bool _bgmNextReady = false;
+  Timer? _seamTimer;
 
   bool _hasVib = false;
   bool _hasAmp = false;
   int _lastVibTime = 0;
   bool appInForeground = true;
   bool isBgmAllowed = true;
+  double playDuck = 1.0;
+
+  double get _bgmGain => (SaveManager.instance.bgmVolume / 8.0) * 0.32 * playDuck;
 
   Future<void> _loadPool(String key, String path, int count) async {
     try {
@@ -35,6 +59,7 @@ class AudioManager {
       final list = <AudioPlayer>[];
       for (int i = 0; i < count; i++) {
         final p = AudioPlayer();
+        p.positionUpdater = null;
         await p.setPlayerMode(PlayerMode.lowLatency);
         await p.setReleaseMode(ReleaseMode.stop);
         await p.setSource(AssetSource(asset));
@@ -81,17 +106,105 @@ class AudioManager {
       _hasVib = false;
     }
     try {
-      await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
+      await _primeBgm(_bgmA);
+      await _primeBgm(_bgmB);
+      _bgmLead = _bgmA;
+      _bgmNext = _bgmB;
+      _bgmNextReady = true;
+      _seamArmed = false;
       if (isBgmAllowed && appInForeground && SaveManager.instance.bgmVolume > 0) {
-        await _bgmPlayer.play(
-          AssetSource('audio/bgm.wav'),
-          volume: SaveManager.instance.bgmVolume / 8.0 * 0.5,
-        );
+        await _bgmLead.setVolume(_bgmGain);
+        await _bgmLead.resume();
         if (!isBgmAllowed || !appInForeground) {
-          await _bgmPlayer.pause();
+          await _bgmLead.pause();
         }
       }
     } catch (_) {}
+  }
+
+  void _bindBgm(AudioPlayer player) {
+    if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+      return;
+    }
+    player.onDurationChanged.listen((d) {
+      if (d > _bgmDuration) _bgmDuration = d;
+    });
+    player.onPositionChanged.listen((pos) {
+      if (!identical(player, _bgmLead) || _seamArmed || !_bgmNextReady) return;
+      if (!isBgmAllowed || !appInForeground || SaveManager.instance.bgmVolume <= 0) return;
+      if (_bgmDuration == Duration.zero || pos < const Duration(seconds: 2)) return;
+      final left = _bgmDuration - pos;
+      if (left <= const Duration(milliseconds: 320) && left > Duration.zero) {
+        _beginSeam();
+      }
+    });
+    player.onPlayerComplete.listen((_) {
+      _onLeadComplete(player);
+    });
+  }
+
+  Future<void> _primeBgm(AudioPlayer player) async {
+    await player.setReleaseMode(ReleaseMode.stop);
+    await player.setVolume(0);
+    await player.play(AssetSource('audio/bgm.wav'), volume: 0);
+    await player.pause();
+    await player.seek(Duration.zero);
+    await player.setVolume(0);
+  }
+
+  Future<void> _beginSeam() async {
+    if (_seamArmed || !_bgmNextReady) return;
+    _seamArmed = true;
+    try {
+      await _bgmNext.seek(Duration.zero);
+      await _bgmNext.setVolume(0);
+      await _bgmNext.resume();
+      _crossfade();
+    } catch (_) {
+      _seamArmed = false;
+    }
+  }
+
+  void _crossfade() {
+    _seamTimer?.cancel();
+    final outgoing = _bgmLead;
+    final incoming = _bgmNext;
+    const steps = 10;
+    var i = 0;
+    _seamTimer = Timer.periodic(const Duration(milliseconds: 28), (t) {
+      i++;
+      final f = (i / steps).clamp(0.0, 1.0);
+      final g = _bgmGain;
+      outgoing.setVolume(g * math.cos(f * math.pi / 2));
+      incoming.setVolume(g * math.sin(f * math.pi / 2));
+      if (i >= steps) t.cancel();
+    });
+  }
+
+  void _onLeadComplete(AudioPlayer player) {
+    if (!identical(player, _bgmLead)) return;
+    _seamTimer?.cancel();
+    final handoffStarted = _seamArmed;
+    final done = _bgmLead;
+    final next = _bgmNext;
+    _bgmLead = next;
+    _bgmNext = done;
+    _seamArmed = false;
+    _bgmNextReady = true;
+    final g = _bgmGain;
+    _bgmNext.setVolume(0);
+    if (handoffStarted) {
+      _bgmLead.setVolume(g);
+      return;
+    }
+    _bgmLead.setVolume(g);
+    final lead = _bgmLead;
+    unawaited(() async {
+      try {
+        await lead.seek(Duration.zero);
+        await lead.resume();
+      } catch (_) {}
+    }());
   }
 
   Future<void> stopAll() async {
@@ -103,7 +216,9 @@ class AudioManager {
       }
     }
     try {
-      await _bgmPlayer.pause();
+      _seamTimer?.cancel();
+      await _bgmA.pause();
+      await _bgmB.pause();
     } catch (_) {}
     if (_hasVib) {
       try {
@@ -113,7 +228,20 @@ class AudioManager {
   }
   Future<void> pauseBgm() async {
     try {
-      await _bgmPlayer.pause();
+      _seamTimer?.cancel();
+      if (_seamArmed) {
+        final done = _bgmLead;
+        _bgmLead = _bgmNext;
+        _bgmNext = done;
+        _seamArmed = false;
+        _bgmNextReady = true;
+      }
+      await _bgmLead.pause();
+      await _bgmNext.pause();
+      await _bgmNext.setVolume(0);
+      if (isBgmAllowed && appInForeground && SaveManager.instance.bgmVolume > 0) {
+        await resumeBgm();
+      }
     } catch (_) {}
   }
 
@@ -124,22 +252,20 @@ class AudioManager {
       await pauseBgm();
       return;
     }
-    final targetVolume = (vol / 8.0) * 0.5;
+    final targetVolume = _bgmGain;
     try {
-      if (_bgmPlayer.state == PlayerState.playing) {
-        await _bgmPlayer.setVolume(targetVolume);
+      await _bgmNext.setVolume(0);
+      if (_bgmLead.state == PlayerState.playing) {
+        await _bgmLead.setVolume(targetVolume);
         return;
       }
-      if (_bgmPlayer.state == PlayerState.paused) {
-        await _bgmPlayer.setVolume(targetVolume);
-        await _bgmPlayer.resume();
-      } else {
-        await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
-        await _bgmPlayer.play(
-          AssetSource('audio/bgm.wav'),
-          volume: targetVolume,
-        );
+      await _bgmLead.setVolume(targetVolume);
+      if (_bgmLead.state == PlayerState.paused || _bgmLead.state == PlayerState.completed) {
+        await _bgmLead.resume();
+        return;
       }
+      await _bgmLead.setReleaseMode(ReleaseMode.stop);
+      await _bgmLead.play(AssetSource('audio/bgm.wav'), volume: targetVolume);
     } catch (_) {}
   }
 
@@ -148,9 +274,11 @@ class AudioManager {
     if (vol <= 0) {
       pauseBgm();
     } else {
-      final targetVolume = (vol / 8.0) * 0.5;
-      _bgmPlayer.setVolume(targetVolume);
-      if (_bgmPlayer.state != PlayerState.playing && appInForeground && isBgmAllowed) {
+      if (!_seamArmed) {
+        _bgmLead.setVolume(_bgmGain);
+        _bgmNext.setVolume(0);
+      }
+      if (_bgmLead.state != PlayerState.playing && appInForeground && isBgmAllowed) {
         resumeBgm();
       }
     }
@@ -158,6 +286,7 @@ class AudioManager {
 
   void playSfx(GameSfx sfx) {
     if (!appInForeground) return;
+    if (!SaveManager.instance.sfxEnabled) return;
 
     final now = DateTime.now().millisecondsSinceEpoch;
     final lastSame = _lastSfxAt[sfx] ?? 0;

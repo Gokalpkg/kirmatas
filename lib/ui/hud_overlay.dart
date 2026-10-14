@@ -3,6 +3,7 @@ import '../engine/audio_manager.dart';
 import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
 import '../models/game_state.dart';
+import '../models/level_design.dart';
 import '../storage/save_manager.dart';
 import 'pixel_art.dart';
 
@@ -96,9 +97,32 @@ class HudOverlay extends StatelessWidget {
                               ),
                               child: FittedBox(
                                 fit: BoxFit.scaleDown,
-                                child: Text(
-                                  controller.currentMode == GameMode.classic
-                                      ? '${I18n.tr('level').toUpperCase()} ${stats.level}' : controller.currentMode == GameMode.chaos
+                                child: controller.currentMode == GameMode.classic
+                                    ? Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '${I18n.tr('level').toUpperCase()} ${stats.level}',
+                                            style: const TextStyle(
+                                              color: Color(0xFFFFD54F),
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 13,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                          Text(
+                                            LevelDesign.getWorldName(stats.level),
+                                            style: const TextStyle(
+                                              color: Color(0xFFB388FF),
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 9,
+                                              letterSpacing: 0.3,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : Text(
+                                  controller.currentMode == GameMode.chaos
                                           ? '${I18n.tr('chaos').toUpperCase()} ${stats.level}' : I18n.tr(controller.currentMode.name).toUpperCase(),
                                   style: const TextStyle(
                                     color: Color(0xFFFFD54F),
