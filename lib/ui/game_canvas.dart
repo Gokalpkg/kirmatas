@@ -12,6 +12,7 @@ import '../models/ball.dart';
 import '../models/powerup.dart';
 import 'pixel_art.dart';
 import '../models/cosmetics.dart';
+import '../models/sector_data.dart';
 
 class GameCanvas extends StatefulWidget {
   final GameController controller;
@@ -314,6 +315,24 @@ class _GameWorldPainter extends CustomPainter {
       default:
         _drawDefaultBackground(canvas, size);
         break;
+    }
+
+    // Sektör Ambiyans Aurası (Klasik Modda her sektörün kendine has atmosferik ışığı)
+    if (c.currentMode == GameMode.classic) {
+      final sector = SectorData.getSectorForLevel(c.stats.level);
+      final sectorAura = RadialGradient(
+        center: const Alignment(0, -0.65),
+        radius: 1.15,
+        colors: [
+          sector.primaryColor.withValues(alpha: 0.12),
+          sector.accentColor.withValues(alpha: 0.04),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+      _fill.shader = sectorAura;
+      canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _fill);
+      _fill.shader = null;
     }
   }
 

@@ -4,6 +4,7 @@ import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
 import '../models/game_state.dart';
 import '../models/level_design.dart';
+import '../models/sector_data.dart';
 import '../storage/save_manager.dart';
 import 'pixel_art.dart';
 
@@ -136,8 +137,8 @@ class HudOverlay extends StatelessWidget {
                                           ),
                                           Text(
                                             LevelDesign.getWorldName(stats.level),
-                                            style: const TextStyle(
-                                              color: Color(0xFFB388FF),
+                                            style: TextStyle(
+                                              color: SectorData.getSectorForLevel(stats.level).accentColor,
                                               fontWeight: FontWeight.w700,
                                               fontSize: 9,
                                               letterSpacing: 0.3,
