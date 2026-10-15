@@ -19,6 +19,7 @@ import 'daily_quests_dialog.dart';
 import 'shop_view.dart';
 import 'upgrades_view.dart';
 import 'sector_map_view.dart';
+import 'rewards_hub_dialog.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -802,133 +803,93 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                           const SizedBox(height: 12),
 
-                          // COLLAPSIBLE EXTRA ARCADE MODES BUTTON & DRAWER
-                          InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () {
-                              setState(() {
-                                _showArcadeModes = !_showArcadeModes;
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: const Color(0x33101320),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.white12),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    _showArcadeModes ? Icons.grid_view_rounded : Icons.sports_esports_rounded,
-                                    color: const Color(0xFFFFD54F),
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    _showArcadeModes ? I18n.tr('other_modes_hide') : I18n.tr('other_modes_show'),
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Icon(
-                                    _showArcadeModes ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                                    color: Colors.white54,
-                                    size: 18,
-                                  ),
-                                ],
-                              ),
-                            ),
+                          // ARCADE & EXTRA MODES GRID
+                          const SizedBox(height: 10),
+                          _buildArcadeMiniCard(
+                            mode: GameMode.shapes,
+                            title: '${I18n.tr('shapes').toUpperCase()} • 38 FİGÜR',
+                            desc: 'Rastgele piksel figürler, özel desenler ve yüksek tempo',
+                            icon: Icons.palette_rounded,
+                            color1: const Color(0xFFE040FB),
+                            color2: const Color(0xFF7C4DFF),
+                            onTap: () => _launchGame(GameMode.shapes),
                           ),
-
-                          if (_showArcadeModes) ...[
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildArcadeMiniCard(
-                                    mode: GameMode.zen,
-                                    title: I18n.tr('zen'),
-                                    desc: I18n.tr('zen_desc'),
-                                    icon: Icons.spa,
-                                    color1: const Color(0xFF00B4D8),
-                                    color2: const Color(0xFF0077B6),
-                                    onTap: () => _launchGame(GameMode.zen),
-                                  ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildArcadeMiniCard(
+                                  mode: GameMode.zen,
+                                  title: I18n.tr('zen'),
+                                  desc: I18n.tr('zen_desc'),
+                                  icon: Icons.spa_rounded,
+                                  color1: const Color(0xFF00B4D8),
+                                  color2: const Color(0xFF0077B6),
+                                  onTap: () => _launchGame(GameMode.zen),
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: _buildArcadeMiniCard(
-                                    mode: GameMode.descend,
-                                    title: I18n.tr('descend'),
-                                    desc: I18n.tr('descend_desc'),
-                                    icon: Icons.keyboard_double_arrow_down,
-                                    color1: const Color(0xFF9D4EDD),
-                                    color2: const Color(0xFFC77DFF),
-                                    onTap: () => _launchGame(GameMode.descend),
-                                  ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildArcadeMiniCard(
+                                  mode: GameMode.descend,
+                                  title: I18n.tr('descend'),
+                                  desc: I18n.tr('descend_desc'),
+                                  icon: Icons.keyboard_double_arrow_down_rounded,
+                                  color1: const Color(0xFF9D4EDD),
+                                  color2: const Color(0xFFC77DFF),
+                                  onTap: () => _launchGame(GameMode.descend),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            _buildArcadeMiniCard(
-                              mode: GameMode.shapes,
-                              title: I18n.tr('shapes'),
-                              desc: I18n.tr('shapes_desc'),
-                              icon: Icons.palette,
-                              color1: const Color(0xFFD4A373),
-                              color2: const Color(0xFFA98467),
-                              onTap: () => _launchGame(GameMode.shapes),
-                            ),
-                          ],
-
-                          const SizedBox(height: 12),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
                         ],
                       ),
                     ),
                   ),
 
+                  // MODERN CONSOLIDATED FLOATING BOTTOM NAVIGATION DOCK
                   Container(
                     margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xDD101320),
+                      color: const Color(0xEE0E111C),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.white12),
+                      border: Border.all(color: const Color(0x334FC3F7), width: 1.2),
                       boxShadow: const [
-                        BoxShadow(color: Colors.black54, blurRadius: 16, offset: Offset(0, 4)),
+                        BoxShadow(color: Colors.black87, blurRadius: 18, offset: Offset(0, 4)),
                       ],
                     ),
-                    child: Column(
-                      children: [
-                        _buildTopRewardsBar(),
-                        const SizedBox(height: 6),
-                        Container(height: 1, color: Colors.white10),
-                        Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _buildNavButton(
-                          icon: Icons.storefront,
+                          icon: Icons.storefront_rounded,
                           label: I18n.tr('shop'),
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => const ShopView()),
                           ),
                         ),
                         _buildNavButton(
-                          icon: Icons.water,
+                          icon: Icons.water_drop_rounded,
                           label: I18n.tr('aquarium'),
-                          badge: _save.currentAvailableFishGold > 0 ? '' : null,
+                          badge: _save.currentAvailableFishGold > 0 ? '🟡' : null,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => const AquariumView()),
                           ),
                         ),
                         _buildNavButton(
-                          icon: Icons.assignment_turned_in,
+                          icon: Icons.card_giftcard_rounded,
+                          label: 'Ödüller',
+                          badge: (_save.remainingWheelSpins > 0 || _save.canClaimDailyLogin) ? '!' : null,
+                          onTap: () => RewardsHubDialog.show(
+                            context,
+                            save: _save,
+                            onFortuneWheelTap: _openFortuneWheelWithHero,
+                          ),
+                        ),
+                        _buildNavButton(
+                          icon: Icons.assignment_turned_in_rounded,
                           label: I18n.tr('quests'),
                           badge: ((_save.questFishFed && !_save.claimedQuests.contains('feed_fish')) ||
                                   (_save.questBricksBroken >= 100 && !_save.claimedQuests.contains('break_bricks')) ||
@@ -939,14 +900,12 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           ),
                         ),
                         _buildNavButton(
-                          icon: Icons.auto_awesome,
+                          icon: Icons.auto_awesome_rounded,
                           label: I18n.tr('upgrades'),
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => const UpgradesView()),
                           ),
                         ),
-                        ],
-                      ),
                       ],
                     ),
                   ),

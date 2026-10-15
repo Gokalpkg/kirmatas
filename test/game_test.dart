@@ -27,6 +27,7 @@ import 'package:kirmatas/ui/shop_view.dart';
 import 'package:kirmatas/ui/aquarium_view.dart';
 import 'package:kirmatas/ui/fish_hoard_chest.dart';
 import 'package:kirmatas/models/sector_data.dart';
+import 'package:kirmatas/ui/rewards_hub_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -2450,6 +2451,10 @@ void main() {
 
       gc.paddle.laserAmmo = 3;
       gc.paddle.hasLaser = true;
+      gc.paddle.hasDrone = false;
+      gc.paddle.hasRockets = false;
+      gc.diceSalvoRemaining = 0;
+      gc.isDiceRolling = false;
       gc.laserTimer = 0.65;
       gc.projectiles.clear();
       var spawned = 0;
@@ -2908,6 +2913,28 @@ void main() {
       // Start from sector 14 checkpoint (Level 221)
       gc.startNewGame(GameMode.classic, explicitStartLevel: 221);
       expect(gc.stats.level, 221);
+    });
+
+    testWidgets('RewardsHubDialog renders properly with all 3 rewards and actions', (tester) async {
+      final save = SaveManager.instance;
+      await save.init();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RewardsHubDialog(
+              save: save,
+              onFortuneWheelTap: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('ÖDÜL MERKEZİ'), findsOneWidget);
+      expect(find.text('Şans Çarkı'), findsOneWidget);
+      expect(find.text('7 Günlük Giriş Serisi'), findsOneWidget);
+      expect(find.text('Ücretsiz Altın Sandığı'), findsOneWidget);
     });
   });
 }

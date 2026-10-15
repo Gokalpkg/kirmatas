@@ -68,7 +68,7 @@ class _SectorMapViewState extends State<SectorMapView> with SingleTickerProvider
 
   void _onSectorTap(SectorData sector) {
     HapticFeedback.selectionClick();
-    AudioManager.instance.playSfx(GameSfx.buttonClick);
+    AudioManager.instance.playSfx(GameSfx.click);
 
     final highest = widget.save.metricHighestClassicLevel;
     final isUnlocked = sector.isUnlocked(highest);
