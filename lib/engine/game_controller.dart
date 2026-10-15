@@ -2265,13 +2265,29 @@ class GameController extends ChangeNotifier {
     }
   }
 
-  void _freezeArea(double cx, double cy, {double radius = 80.0}) {
+  void _freezeArea(double cx, double cy, {double radius = 90.0}) {
     particles.spawnBurst(cx, cy, const Color(0xFF80D8FF), count: 28, speed: 200.0);
     particles.spawnShockwave(cx, cy, const Color(0xFF00E5FF), maxRadius: radius);
     audio.playSfx(GameSfx.breakBrick);
 
+    // 1. Any TNT / Dynamite blocks in range are guaranteed to freeze!
+    for (final b in bricks) {
+      if (!b.isAlive || b.isSteel || b.isFrozen) continue;
+      if (b.isDynamite) {
+        final bx = b.x + b.width / 2;
+        final by = b.y + b.height / 2;
+        final dist = sqrt((bx - cx) * (bx - cx) + (by - cy) * (by - cy));
+        if (dist <= radius * 1.15) {
+          b.isFrozen = true;
+          particles.spawnBurst(bx, by, const Color(0xFF80D8FF), count: 14, speed: 180.0);
+          particles.spawnShockwave(bx, by, const Color(0xFF00E5FF), maxRadius: 26.0);
+        }
+      }
+    }
+
+    // 2. Also freeze 2 to 4 random neighboring normal bricks
     final candidates = bricks.where((b) {
-      if (!b.isAlive || b.isSteel || b.isTuft || b.isFrozen) return false;
+      if (!b.isAlive || b.isSteel || b.isTuft || b.isFrozen || b.isDynamite) return false;
       final bx = b.x + b.width / 2;
       final by = b.y + b.height / 2;
       final dist = sqrt((bx - cx) * (bx - cx) + (by - cy) * (by - cy));
@@ -2299,7 +2315,15 @@ class GameController extends ChangeNotifier {
       final by = b.y + b.height / 2;
       final dist = sqrt((bx - cx) * (bx - cx) + (by - cy) * (by - cy));
       if (dist <= radius) {
-        _destroyBrick(b);
+        if (b.isFrozen) {
+          // TNT explosions shatter only the ice of frozen bricks! The brick itself survives!
+          b.isFrozen = false;
+          particles.spawnBurst(bx, by, const Color(0xFF80D8FF), count: 18, speed: 190.0);
+          particles.spawnShockwave(bx, by, const Color(0xFF00E5FF), maxRadius: 30.0);
+          audio.playSfx(GameSfx.breakBrick, combo: stats.combo);
+        } else {
+          _destroyBrick(b);
+        }
       }
     }
   }

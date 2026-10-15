@@ -66,6 +66,7 @@ class SaveManager extends ChangeNotifier {
   static const int fishSatietyDurationHours = 3;
   static const int fishPayoutDurationMs = fishFedDurationHours * 3600 * 1000;
   static const int fishSatietyDurationMs = fishSatietyDurationHours * 3600 * 1000;
+  String? lastDailyFishFoodAdDate;
 
   // --- 7-DAY LOGIN STREAK ---
   String? lastDailyClaimDate;
@@ -242,6 +243,7 @@ class SaveManager extends ChangeNotifier {
     chaosSavedLevel = _prefs?.getInt('chaosSavedLevel');
     chaosSavedScore = _prefs?.getInt('chaosSavedScore');
     chaosSavedStock = _prefs?.getInt('chaosSavedStock');
+    lastDailyFishFoodAdDate = _prefs?.getString('lastDailyFishFoodAdDate');
 
     _initialized = true;
     notifyListeners();
@@ -714,6 +716,20 @@ class SaveManager extends ChangeNotifier {
     if (gold < cost) return false;
     await spendGold(cost);
     await addFishFood(count);
+    return true;
+  }
+
+  bool get canClaimDailyFishFoodAd {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    return lastDailyFishFoodAdDate != today;
+  }
+
+  Future<bool> recordDailyFishFoodAdClaimed() async {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    if (lastDailyFishFoodAdDate == today) return false;
+    lastDailyFishFoodAdDate = today;
+    await _prefs?.setString('lastDailyFishFoodAdDate', today);
+    notifyListeners();
     return true;
   }
 

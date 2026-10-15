@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../engine/i18n.dart';
 import '../engine/remove_ads_billing.dart';
 import '../storage/save_manager.dart';
+import 'pixel_art.dart';
 
 class RemoveAdsCard extends StatelessWidget {
   final bool compact;
@@ -41,7 +42,9 @@ class RemoveAdsCard extends StatelessWidget {
                   border: Border.all(color: const Color(0xFF26C6DA), width: 1.4),
                   color: const Color(0x2226C6DA),
                 ),
-                child: Icon(Icons.block, color: const Color(0xFF26C6DA), size: compact ? 20 : 28),
+                child: Center(
+                  child: PixelIcon('no_ads', size: compact ? 20 : 28),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

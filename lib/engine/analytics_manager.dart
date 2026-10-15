@@ -77,4 +77,26 @@ class AnalyticsManager {
       );
     } catch (_) {}
   }
+
+  Future<void> logAdImpressionRevenue({
+    required double value,
+    required String currency,
+    required String adUnitId,
+    required String adFormat,
+    String? network,
+  }) async {
+    try {
+      await _analytics?.logEvent(
+        name: 'ad_impression',
+        parameters: {
+          'value': value,
+          'currency': currency,
+          'ad_platform': 'admob',
+          'ad_source': network ?? 'AdMob',
+          'ad_unit_name': adUnitId,
+          'ad_format': adFormat,
+        },
+      );
+    } catch (_) {}
+  }
 }

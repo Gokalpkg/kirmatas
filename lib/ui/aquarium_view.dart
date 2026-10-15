@@ -149,70 +149,138 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                     ),
                     const SizedBox(height: 12),
 
-                    // Option 1: Watch Ad (High Yield)
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFFF176), Color(0xFFFFB300), Color(0xFFFF8F00)],
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF8F00).withValues(alpha: 0.35),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () {
-                            final messenger = ScaffoldMessenger.of(context);
-                            Navigator.of(dlgContext).pop();
-                            AdManager.instance.watchSkippableAd(
-                              context,
-                              onSuccess: () async {
-                                await _save.addFishFood(3);
-                                AudioManager.instance.playSfx(GameSfx.powerupBuff);
-                                if (mounted) {
-                                  messenger.showSnackBar(
-                                    const SnackBar(
-                                      content: Text(' +3 Balık Yemi Hesabınıza Eklendi!'),
-                                      backgroundColor: Color(0xFF161A29),
-                                    ),
-                                  );
-                                }
-                              },
-                              onDismissedEarly: () {},
-                            );
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            child: Row(
-                              children: [
-                                Icon(Icons.fast_forward_rounded, color: Color(0xFF2E1C00), size: 28),
-                                SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text( 'Kısa Reklam İzle -> +3 Yem Al',
-                                        style: TextStyle(color: Color(0xFF2E1C00), fontWeight: FontWeight.w900, fontSize: 13.5),
-                                      ),
-                                      Text( ' Geçilebilir Reklam • Ücretsiz!',
-                                        style: TextStyle(color: Color(0xFF4E342E), fontWeight: FontWeight.w700, fontSize: 10.5),
-                                      ),
-                                    ],
+                    // Option 1: Watch Ad (Daily 1-per-day Limit)
+                    Builder(
+                      builder: (ctx) {
+                        final canClaim = _save.canClaimDailyFishFoodAd;
+                        final isVip = _save.adsRemoved;
+
+                        return Container(
+                          decoration: BoxDecoration(
+                            gradient: canClaim
+                                ? const LinearGradient(
+                                    colors: [Color(0xFFFFF176), Color(0xFFFFB300), Color(0xFFFF8F00)],
+                                  )
+                                : const LinearGradient(
+                                    colors: [Color(0xFF263238), Color(0xFF1E272E)],
                                   ),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: canClaim ? Colors.transparent : Colors.white12,
+                            ),
+                            boxShadow: canClaim
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFFFF8F00).withValues(alpha: 0.35),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: !canClaim
+                                  ? () {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Günlük yem hakkını zaten aldın. Yarın tekrar gel!'),
+                                          backgroundColor: Color(0xFF161A29),
+                                        ),
+                                      );
+                                    }
+                                  : () {
+                                      final messenger = ScaffoldMessenger.of(context);
+                                      Navigator.of(dlgContext).pop();
+
+                                      if (isVip) {
+                                        // VIP Instant Claim without ad
+                                        _save.recordDailyFishFoodAdClaimed();
+                                        _save.addFishFood(3);
+                                        AudioManager.instance.playSfx(GameSfx.powerupBuff);
+                                        messenger.showSnackBar(
+                                          const SnackBar(
+                                            content: Text('👑 Reklamsız VIP: +3 Balık Yemi Eklendi!'),
+                                            backgroundColor: Color(0xFF00E5FF),
+                                          ),
+                                        );
+                                        return;
+                                      }
+
+                                      AdManager.instance.watchSkippableAd(
+                                        context,
+                                        onSuccess: () async {
+                                          await _save.recordDailyFishFoodAdClaimed();
+                                          await _save.addFishFood(3);
+                                          AudioManager.instance.playSfx(GameSfx.powerupBuff);
+                                          if (mounted) {
+                                            messenger.showSnackBar(
+                                              const SnackBar(
+                                                content: Text(' +3 Balık Yemi Hesabınıza Eklendi!'),
+                                                backgroundColor: Color(0xFF161A29),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                        onDismissedEarly: () {},
+                                      );
+                                    },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      canClaim
+                                          ? (isVip ? Icons.workspace_premium_rounded : Icons.fast_forward_rounded)
+                                          : Icons.check_circle_outline_rounded,
+                                      color: canClaim ? const Color(0xFF2E1C00) : Colors.white38,
+                                      size: 28,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            canClaim
+                                                ? (isVip ? '👑 VIP Yem: +3 Yem Al' : 'Kısa Reklam İzle -> +3 Yem Al')
+                                                : 'Bugünkü Yem Ödülü Alındı',
+                                            style: TextStyle(
+                                              color: canClaim ? const Color(0xFF2E1C00) : Colors.white54,
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 13.5,
+                                            ),
+                                          ),
+                                          Text(
+                                            canClaim
+                                                ? (isVip ? 'Günde 1 Kez • Reklamsız Anında!' : 'Günde 1 Kez • Geçilebilir Reklam')
+                                                : 'Günde 1 kez alınabilir • Yarın tekrar gel!',
+                                            style: TextStyle(
+                                              color: canClaim ? const Color(0xFF4E342E) : Colors.white30,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 10.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      canClaim ? (isVip ? 'VIP AL' : 'ÜCRETSİZ') : 'ALINDI',
+                                      style: TextStyle(
+                                        color: canClaim ? const Color(0xFF2E1C00) : Colors.white38,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                Text('ÜCRETSİZ', style: TextStyle(color: Color(0xFF2E1C00), fontWeight: FontWeight.w900, fontSize: 11)),
-                              ],
+                              ),
                             ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
 
                     const SizedBox(height: 14),

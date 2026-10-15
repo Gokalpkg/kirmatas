@@ -80,25 +80,14 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
 
             if (c.currentMode == GameMode.chaos) {
               if (c.status == GameStatus.playing) {
-                // Check if Turbo / Recall button was tapped
-                const btnW = 96.0;
+                // Check if Turbo / Recall button was tapped (Available after 8 seconds of active turn)
+                const btnW = 100.0;
                 const btnH = 36.0;
-                final btnX = c.screenWidth - btnW - 12.0;
+                final btnX = c.screenWidth - btnW - 14.0;
                 final btnY = c.screenHeight - btnH - 12.0;
                 final btnRect = Rect.fromLTWH(btnX, btnY, btnW, btnH);
                 if (btnRect.contains(event.localPosition)) {
-                  c.toggleChaosTurboOrRecall();
-                  return;
-                }
-
-                // Check if animated Tempo Cue pill was tapped
-                if (c.chaosTurnTime >= 9.0 && !c.chaosRecallActive) {
-                  const cueW = 160.0;
-                  const cueH = 32.0;
-                  final cueX = (c.screenWidth - cueW) / 2;
-                  final cueY = c.screenHeight - 118.0;
-                  final cueRect = Rect.fromLTWH(cueX, cueY, cueW, cueH);
-                  if (cueRect.contains(event.localPosition)) {
+                  if (c.chaosTurnTime >= 8.0 || c.chaosSpeedMultiplier > 1.05 || c.chaosRecallActive) {
                     c.toggleChaosTurboOrRecall();
                     return;
                   }
@@ -869,7 +858,121 @@ class _GameWorldPainter extends CustomPainter {
     canvas.drawLine(Offset(-halfW + 4.0, -halfH + 1.1), Offset(halfW - 4.0, -halfH + 1.1), _stroke);
   }
 
+  void _drawFrozenDynamiteBrick(Canvas canvas, Brick b, Rect rect, double halfW, double halfH) {
+    // === FROZEN TNT BRICK: Buz Tutmuş Dinamit Lokumu + Donmuş Fitil + Buz Sarkıtları + Kristal TNT Rozeti ===
+    final w = rect.width;
+    final h = rect.height;
+    final shimmer = sin(time * 3.5) * 0.5 + 0.5;
+
+    // 1. 3D Frost Arctic Shadow
+    _fill
+      ..style = PaintingStyle.fill
+      ..shader = null
+      ..color = const Color(0xFF031627);
+    canvas.drawRRect(RRect.fromRectAndRadius(rect.translate(0, 2.5), const Radius.circular(5.5)), _fill);
+
+    // 2. 3 Horizontal Chilled Arctic Dynamite Cylinders (Frosted Ice-Cyan / Deep Glacial Blue)
+    final stickH = h / 3.0;
+    for (int s = 0; s < 3; s++) {
+      final sy = -halfH + s * stickH;
+      final stickRect = Rect.fromLTWH(-halfW, sy + 0.3, w, stickH - 0.6);
+      final stickKey = Object.hash('frozen_dyn_stick', s, w.round(), h.round());
+      _fill.shader = _brickShaders.putIfAbsent(stickKey, () {
+        return const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFE0F7FA), // Frosted rime highlight
+            Color(0xFF4FC3F7), // Glacial cyan
+            Color(0xFF0288D1), // Cold deep ice blue
+          ],
+          stops: [0.0, 0.45, 1.0],
+        ).createShader(stickRect);
+      });
+      canvas.drawRRect(RRect.fromRectAndRadius(stickRect, const Radius.circular(3.2)), _fill);
+    }
+    _fill.shader = null;
+
+    // 3. Frozen Cyan & Silver Straps
+    for (final bx in [-halfW * 0.55, halfW * 0.55]) {
+      _fill.color = const Color(0xFF1A3044);
+      canvas.drawRect(Rect.fromLTWH(bx - 2.8, -halfH, 5.6, h), _fill);
+      _fill.color = const Color(0xFF80DEEA);
+      canvas.drawRect(Rect.fromLTWH(bx - 2.8, -halfH + 1.8, 5.6, 2.6), _fill);
+      canvas.drawRect(Rect.fromLTWH(bx - 2.8, halfH - 4.4, 5.6, 2.6), _fill);
+    }
+
+    // 4. Center Frosted Badge
+    final badgeRect = Rect.fromCenter(center: Offset.zero, width: 22.0, height: h - 4.0);
+    final badgeRRect = RRect.fromRectAndRadius(badgeRect, const Radius.circular(3.8));
+    _fill.color = const Color(0xFF081B2D);
+    canvas.drawRRect(badgeRRect, _fill);
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.3
+      ..color = const Color(0xFF80D8FF);
+    canvas.drawRRect(badgeRRect, _stroke);
+
+    // Cyan Frozen "TNT" vector glyph inside badge
+    _stroke
+      ..color = Color.lerp(const Color(0xFF00E5FF), Colors.white, shimmer)!
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.square;
+    // Left 'T'
+    canvas.drawLine(const Offset(-7.2, -2.5), const Offset(-3.8, -2.5), _stroke);
+    canvas.drawLine(const Offset(-5.5, -2.5), const Offset(-5.5, 2.6), _stroke);
+    // Middle 'N'
+    canvas.drawLine(const Offset(-1.8, 2.6), const Offset(-1.8, -2.5), _stroke);
+    canvas.drawLine(const Offset(-1.8, -2.5), const Offset(1.8, 2.6), _stroke);
+    canvas.drawLine(const Offset(1.8, 2.6), const Offset(1.8, -2.5), _stroke);
+    // Right 'T'
+    canvas.drawLine(const Offset(3.8, -2.5), const Offset(7.2, -2.5), _stroke);
+    canvas.drawLine(const Offset(5.5, -2.5), const Offset(5.5, 2.6), _stroke);
+
+    // 5. Frozen Extinguished Wick with Ice Spike on Tip (NO fire)
+    _stroke
+      ..color = const Color(0xFFB0BEC5)
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 1.6;
+    _tempPath
+      ..reset()
+      ..moveTo(0, -halfH + 1.5)
+      ..quadraticBezierTo(5.5, -halfH - 4.5, 11.0, -halfH - 2.5);
+    canvas.drawPath(_tempPath, _stroke);
+
+    // Ice crystal tip on fuse (sharp frozen diamond, not fire spark)
+    final iceTipPos = Offset(11.0, -halfH - 2.5);
+    _fill.color = const Color(0xFFE0F7FA);
+    _tempPath
+      ..reset()
+      ..moveTo(iceTipPos.dx, iceTipPos.dy - 3.2)
+      ..lineTo(iceTipPos.dx + 2.4, iceTipPos.dy)
+      ..lineTo(iceTipPos.dx, iceTipPos.dy + 3.2)
+      ..lineTo(iceTipPos.dx - 2.4, iceTipPos.dy)
+      ..close();
+    canvas.drawPath(_tempPath, _fill);
+    _fill.color = Colors.white;
+    canvas.drawCircle(iceTipPos, 1.2, _fill);
+
+    // 6. Hanging Icicles from bottom edge
+    _fill.color = const Color(0xCCB3E5FC);
+    _tempPath
+      ..reset()
+      ..moveTo(-halfW + 4, halfH)
+      ..lineTo(-halfW + 7, halfH + 4.5)
+      ..lineTo(-halfW + 10, halfH)
+      ..moveTo(halfW - 10, halfH)
+      ..lineTo(halfW - 7, halfH + 5.0)
+      ..lineTo(halfW - 4, halfH)
+      ..close();
+    canvas.drawPath(_tempPath, _fill);
+  }
+
   void _drawDynamiteBrick(Canvas canvas, Brick b, Rect rect, double halfW, double halfH) {
+    if (b.isFrozen) {
+      _drawFrozenDynamiteBrick(canvas, b, rect, halfW, halfH);
+      return;
+    }
     // === STİL A: Üçlü Bağlanmış Kırmızı Dinamit Lokumu + Sarı/Siyah Kemer + TNT Rozeti + Kıvılcımlı Fitil ===
     final w = rect.width;
     final h = rect.height;
@@ -2253,81 +2356,52 @@ class _GameWorldPainter extends CustomPainter {
     _tp.layout();
     _tp.paint(canvas, Offset(ox - _tp.width / 2, oy + 8.0));
 
-    // 4. Floating  2X Turbo / ⏬ Recall Button during active volley
+    // 4. Grounded 2X Turbo / ⏬ Recall Button at the bottom (Appears after 8 seconds of active volley)
     if (c.status == GameStatus.playing) {
-      const btnW = 96.0;
-      const btnH = 36.0;
-      final btnX = c.screenWidth - btnW - 12.0;
-      final btnY = c.screenHeight - btnH - 12.0;
-      final btnRRect = RRect.fromRectAndRadius(Rect.fromLTWH(btnX, btnY, btnW, btnH), const Radius.circular(18.0));
-
       final isTurbo = c.chaosSpeedMultiplier > 1.05;
       final isRecall = c.chaosRecallActive;
+      final isAvailable = c.chaosTurnTime >= 8.0 || isTurbo || isRecall;
 
-      _fill
-        ..style = PaintingStyle.fill
-        ..shader = null
-        ..color = isRecall
-            ? const Color(0xDD00E5FF)
-            : (isTurbo ? const Color(0xDDFF6D00) : const Color(0xCC0D47A1));
-      canvas.drawRRect(btnRRect, _fill);
+      if (isAvailable) {
+        const btnW = 100.0;
+        const btnH = 36.0;
+        final btnX = c.screenWidth - btnW - 14.0;
+        final btnY = c.screenHeight - btnH - 12.0;
+        final btnRRect = RRect.fromRectAndRadius(Rect.fromLTWH(btnX, btnY, btnW, btnH), const Radius.circular(18.0));
 
-      _stroke
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.8
-        ..color = isRecall
-            ? Colors.white
-            : (isTurbo ? const Color(0xFFFFD54F) : const Color(0xFF40C4FF));
-      canvas.drawRRect(btnRRect, _stroke);
-
-      final btnLabel = isRecall
-          ? 'TOPLANIYOR' : (isTurbo ? 'ÇAĞIR' : '2X HIZ');
-
-      _tp.text = TextSpan(
-        text: btnLabel,
-        style: TextStyle(
-          color: isRecall ? Colors.black87 : Colors.white,
-          fontSize: 11.0,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.6,
-        ),
-      );
-      _tp.layout();
-      _tp.paint(canvas, Offset(btnX + (btnW - _tp.width) / 2, btnY + (btnH - _tp.height) / 2));
-
-      // 4b. Pulsing interactive Tempo Cue Pill when balls linger in upper zone
-      if (c.chaosTurnTime >= 9.0 && !isRecall) {
-        final cuePulse = 0.65 + 0.35 * sin(time * 5.0);
-        const cueW = 160.0;
-        const cueH = 32.0;
-        final cueX = (c.screenWidth - cueW) / 2;
-        final cueY = c.screenHeight - 118.0;
-        final cueRRect = RRect.fromRectAndRadius(Rect.fromLTWH(cueX, cueY, cueW, cueH), const Radius.circular(16.0));
+        // Subtle pulsing glow when available
+        final pulse = 0.82 + 0.18 * sin(time * 6.0);
 
         _fill
           ..style = PaintingStyle.fill
           ..shader = null
-          ..color = Color.lerp(const Color(0xDD0D1B2A), const Color(0xDDFF6D00), isTurbo ? 0.45 : 0.15)!;
-        canvas.drawRRect(cueRRect, _fill);
+          ..color = isRecall
+              ? const Color(0xDD00E5FF)
+              : (isTurbo ? const Color(0xDDFF6D00) : const Color(0xCC0D47A1));
+        canvas.drawRRect(btnRRect, _fill);
 
         _stroke
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.4
-          ..color = (isTurbo ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF)).withValues(alpha: cuePulse);
-        canvas.drawRRect(cueRRect, _stroke);
+          ..strokeWidth = 1.8
+          ..color = (isRecall
+              ? Colors.white
+              : (isTurbo ? const Color(0xFFFFD54F) : const Color(0xFF40C4FF))).withValues(alpha: pulse);
+        canvas.drawRRect(btnRRect, _stroke);
 
-        final cueText = isTurbo ? 'TOPLARI ÇAĞIR' : 'HIZLANDIR / ÇAĞIR';
+        final btnLabel = isRecall
+            ? 'TOPLANIYOR' : (isTurbo ? 'ÇAĞIR' : '⚡ 2X HIZ');
+
         _tp.text = TextSpan(
-          text: cueText,
+          text: btnLabel,
           style: TextStyle(
-            color: isTurbo ? const Color(0xFFFFD54F) : const Color(0xFFE0F7FA),
-            fontSize: 10.5,
+            color: isRecall ? Colors.black87 : Colors.white,
+            fontSize: 11.0,
             fontWeight: FontWeight.w900,
-            letterSpacing: 0.8,
+            letterSpacing: 0.6,
           ),
         );
         _tp.layout();
-        _tp.paint(canvas, Offset(cueX + (cueW - _tp.width) / 2, cueY + (cueH - _tp.height) / 2));
+        _tp.paint(canvas, Offset(btnX + (btnW - _tp.width) / 2, btnY + (btnH - _tp.height) / 2));
       }
       return;
     }

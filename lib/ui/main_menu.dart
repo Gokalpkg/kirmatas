@@ -19,6 +19,7 @@ import 'shop_view.dart';
 import 'upgrades_view.dart';
 import 'sector_map_view.dart';
 import 'rewards_hub_dialog.dart';
+import 'pixel_art.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -105,19 +106,81 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF141724),
-          title: Text(I18n.tr('remove_ads_offer_title'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-          content: Text(
-            '${I18n.tr('remove_ads_offer_body')}\n$price',
-            style: const TextStyle(color: Colors.white70, height: 1.35),
+          backgroundColor: const Color(0xF0101320),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: const BorderSide(color: Color(0x3300E5FF), width: 1.5),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0x2200E5FF),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0x6600E5FF)),
+                ),
+                child: const PixelIcon('no_ads', size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  I18n.tr('remove_ads_offer_title'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                    fontSize: 17,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                I18n.tr('remove_ads_offer_body'),
+                style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0x2200E5FF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0x4400E5FF)),
+                ),
+                child: Text(
+                  price,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF00E5FF),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(I18n.tr('remove_ads_later')),
+              child: Text(
+                I18n.tr('remove_ads_later'),
+                style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold),
+              ),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF26C6DA), foregroundColor: Colors.black),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00E5FF),
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              ),
               onPressed: () async {
                 Navigator.of(dialogContext).pop();
                 final opened = await RemoveAdsBilling.instance.buy();
@@ -127,7 +190,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   );
                 }
               },
-              child: Text(I18n.tr('remove_ads_buy'), style: const TextStyle(fontWeight: FontWeight.w900)),
+              child: Text(
+                I18n.tr('remove_ads_buy'),
+                style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.6),
+              ),
             ),
           ],
         );
@@ -738,35 +804,33 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         if (!_save.adsRemoved)
                           InkWell(
                             onTap: _showRemoveAdsOffer,
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(16),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                               decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFE040FB), Color(0xFF7C4DFF)],
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.white30, width: 1.2),
+                                color: const Color(0x80101320),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: const Color(0x4400E5FF), width: 1.2),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFE040FB).withValues(alpha: 0.45),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 2),
+                                    color: const Color(0xFF00E5FF).withValues(alpha: 0.18),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 1),
                                   ),
                                 ],
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.block_rounded, color: Colors.white, size: 14),
-                                  SizedBox(width: 5),
+                                  const PixelIcon('no_ads', size: 14),
+                                  const SizedBox(width: 6),
                                   Text(
-                                    'REKLAMLARI KALDIR',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 11,
-                                      letterSpacing: 0.6,
+                                    I18n.currentLang == 'tr' ? 'REKLAMLARI KALDIR' : 'REMOVE ADS',
+                                    style: const TextStyle(
+                                      color: Color(0xFF00E5FF),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 10.5,
+                                      letterSpacing: 0.8,
                                     ),
                                   ),
                                 ],
@@ -824,6 +888,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 18),
                       child: Column(
                         children: [
+                          // PROMINENT REWARDS HUB BANNER (Göz Önünde Ödül Merkezi)
+                          _buildRewardsHubBanner(),
+                          const SizedBox(height: 12),
+
                           // HERO CLASSIC CARD
                           _buildClassicHeroCard(),
 
@@ -940,6 +1008,175 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRewardsHubBanner() {
+    return ListenableBuilder(
+      listenable: Listenable.merge([_save, AdManager.instance]),
+      builder: (context, _) {
+        final spinsLeft = _save.remainingWheelSpins;
+        final hasSpins = spinsLeft > 0;
+        final canDaily = _save.canClaimDailyLogin();
+        final canGold = AdManager.instance.remainingCooldownSeconds == 0;
+        final readyCount = (hasSpins ? 1 : 0) + (canDaily ? 1 : 0) + (canGold ? 1 : 0);
+
+        return Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1E1435), Color(0xFF2D164D), Color(0xFF15102A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: readyCount > 0 ? const Color(0xFFFFD54F) : const Color(0x33FFD54F),
+              width: readyCount > 0 ? 1.5 : 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: readyCount > 0
+                    ? const Color(0x55FFB300)
+                    : Colors.black45,
+                blurRadius: readyCount > 0 ? 16 : 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => RewardsHubDialog.show(
+                context,
+                save: _save,
+                onFortuneWheelTap: _openFortuneWheelWithHero,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    // Glowing Gift / Wheel Icon
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: const [
+                          BoxShadow(color: Color(0x66FF8F00), blurRadius: 10, offset: Offset(0, 2)),
+                        ],
+                      ),
+                      child: const Icon(Icons.card_giftcard_rounded, color: Colors.black, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+
+                    // Texts
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'ÖDÜL MERKEZİ',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                              if (readyCount > 0) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFF5252),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    '$readyCount YENİ',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            readyCount > 0
+                                ? 'Şans Çarkı, Günlük Giriş ve Altın hazır!'
+                                : 'Şans Çarkı • Günlük Giriş • Hediye Altın',
+                            style: TextStyle(
+                              color: readyCount > 0 ? const Color(0xFFFFE082) : Colors.white60,
+                              fontSize: 11,
+                              fontWeight: readyCount > 0 ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // Action Button
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        gradient: readyCount > 0
+                            ? const LinearGradient(colors: [Color(0xFFFFD54F), Color(0xFFFF9800)])
+                            : const LinearGradient(colors: [Color(0xFF2E334D), Color(0xFF1E2132)]),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: readyCount > 0
+                            ? [
+                                const BoxShadow(
+                                  color: Color(0x55FF9800),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            readyCount > 0 ? 'TOPLA' : 'AÇ',
+                            style: TextStyle(
+                              color: readyCount > 0 ? Colors.black : Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 11,
+                            color: readyCount > 0 ? Colors.black : Colors.white70,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -528,13 +528,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Çarkı parmağınla aşağı kaydırarak çevir veya butona bas!',
-                  style: TextStyle(color: Color(0xFFFFD54F), fontSize: 11.5, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
 
                 // Interactive Animated Wheel with top pointer & Drag-to-spin gesture
                 GestureDetector(

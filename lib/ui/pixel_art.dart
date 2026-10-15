@@ -634,6 +634,32 @@ class _PixelIconPainter extends CustomPainter {
         }
         break;
 
+      case 'no_ads':
+      case 'ad_block':
+      case 'vip':
+        // 8x8 Cyber Ad-Blocker Badge
+        const cyan = Color(0xFF00E5FF);
+        const core = Color(0xFF10192A);
+        const slash = Color(0xFFFF3D71);
+        const matrix = [
+          [0, 1, 1, 1, 1, 1, 1, 0],
+          [1, 3, 2, 2, 2, 2, 2, 1],
+          [1, 2, 3, 2, 2, 2, 2, 1],
+          [1, 2, 2, 3, 2, 2, 2, 1],
+          [1, 2, 2, 2, 3, 2, 2, 1],
+          [1, 2, 2, 2, 2, 3, 2, 1],
+          [0, 1, 2, 2, 2, 2, 3, 0],
+          [0, 0, 1, 1, 1, 1, 0, 0],
+        ];
+        for (int r = 0; r < 8; r++) {
+          for (int c = 0; c < 8; c++) {
+            if (matrix[r][c] == 1) drawPx(c, r, cyan);
+            if (matrix[r][c] == 2) drawPx(c, r, core);
+            if (matrix[r][c] == 3) drawPx(c, r, slash);
+          }
+        }
+        break;
+
       default:
         // Generic 8x8 diamond
         paint.color = customColor ?? const Color(0xFF00E5FF);

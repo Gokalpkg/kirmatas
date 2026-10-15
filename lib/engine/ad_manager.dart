@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../storage/save_manager.dart';
 import 'audio_manager.dart';
+import 'analytics_manager.dart';
 
 class AdManager extends ChangeNotifier {
   static final AdManager instance = AdManager._internal();
@@ -95,6 +96,22 @@ class AdManager extends ChangeNotifier {
     preloadRewardedAd();
   }
 
+  void _setupPaidEventListener(dynamic ad, String format) {
+    try {
+      ad.onPaidEvent = (dynamic loadedAd, double valueMicros, PrecisionType precision, String currencyCode) {
+        final revenue = valueMicros / 1000000.0;
+        AnalyticsManager.instance.logAdImpressionRevenue(
+          value: revenue,
+          currency: currencyCode,
+          adUnitId: (loadedAd.adUnitId as String?) ?? '',
+          adFormat: format,
+        );
+      };
+    } catch (e) {
+      debugPrint('AdManager onPaidEvent setup error: $e');
+    }
+  }
+
   /// Preloads a standard rewarded ad (Tier 3 with test fallback).
   void preloadRewardedAd() {
     if (_rewardedAd != null || _isLoading) return;
@@ -106,6 +123,7 @@ class AdManager extends ChangeNotifier {
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
+          _setupPaidEventListener(ad, 'rewarded');
           _rewardedAd = ad;
           _isLoading = false;
           notifyListeners();
@@ -124,6 +142,7 @@ class AdManager extends ChangeNotifier {
             request: const AdRequest(),
             rewardedAdLoadCallback: RewardedAdLoadCallback(
               onAdLoaded: (testAd) {
+                _setupPaidEventListener(testAd, 'rewarded');
                 _rewardedAd = testAd;
                 _isLoading = false;
                 notifyListeners();
@@ -150,10 +169,20 @@ class AdManager extends ChangeNotifier {
   }) async {
     if (_isShowing) return;
 
+    // 1. VIP No-Ads Pass: Claim reward instantly without ad
+    if (SaveManager.instance.adsRemoved) {
+      SaveManager.instance.addGold(goldRewardAmount);
+      SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
+      SaveManager.instance.recordAdOrWinQuest();
+      AudioManager.instance.playSfx(GameSfx.powerupBuff);
+      onSuccess(goldRewardAmount);
+      return;
+    }
+
     if (remainingCooldownSeconds > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Lütfen bekleyin: $remainingCooldownSeconds saniye sonra tekrar reklam izleyebilirsiniz.'),
+          content: Text('Lütfen bekleyin: $remainingCooldownSeconds saniye sonra tekrar ödül alabilirsiniz.'),
           backgroundColor: const Color(0xFF1E2438),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
@@ -164,6 +193,7 @@ class AdManager extends ChangeNotifier {
 
     if (_interstitialAd == null) {
       preloadInterstitialAd();
+      preloadHighYieldAd();
 
       bool dialogOpen = true;
       showDialog(
@@ -193,7 +223,7 @@ class AdManager extends ChangeNotifier {
                   SizedBox(width: 16),
                   Expanded(
                     child: Text(
-                      'Reklam Hazırlanıyor...',
+                      'Ödül Hazırlanıyor...',
                       style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
@@ -205,7 +235,7 @@ class AdManager extends ChangeNotifier {
       ).then((_) => dialogOpen = false);
 
       final startTime = DateTime.now().millisecondsSinceEpoch;
-      while (_interstitialAd == null && (DateTime.now().millisecondsSinceEpoch - startTime) < 3500) {
+      while (_interstitialAd == null && (DateTime.now().millisecondsSinceEpoch - startTime) < 5500) {
         await Future.delayed(const Duration(milliseconds: 150));
         if (!context.mounted) break;
       }
@@ -215,16 +245,28 @@ class AdManager extends ChangeNotifier {
       }
 
       if (_interstitialAd == null) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Reklam yüklenemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.'),
-              backgroundColor: Color(0xFF1E2438),
-              behavior: SnackBarBehavior.floating,
-              duration: Duration(seconds: 2),
-            ),
+        // Fallback: Check if Rewarded Ad is available
+        if (_highYieldAd != null || _rewardedAd != null) {
+          await watchAdForRevive(
+            context,
+            onReviveSuccess: () {
+              SaveManager.instance.addGold(goldRewardAmount);
+              SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
+              SaveManager.instance.recordAdOrWinQuest();
+              AudioManager.instance.playSfx(GameSfx.powerupBuff);
+              onSuccess(goldRewardAmount);
+            },
+            onDismissedEarly: onDismissedEarly,
           );
+          return;
         }
+
+        // Guaranteed Grace Reward if ads fail to fill
+        SaveManager.instance.addGold(goldRewardAmount);
+        SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
+        SaveManager.instance.recordAdOrWinQuest();
+        AudioManager.instance.playSfx(GameSfx.powerupBuff);
+        onSuccess(goldRewardAmount);
         return;
       }
     }
@@ -395,6 +437,14 @@ class AdManager extends ChangeNotifier {
   }) async {
     if (_isShowing) return;
 
+    // VIP No-Ads Pass: Instant revive without ad
+    if (SaveManager.instance.adsRemoved) {
+      SaveManager.instance.recordAdOrWinQuest();
+      _noteVoluntaryAd();
+      onReviveSuccess();
+      return;
+    }
+
     var adToUse = _highYieldAd ?? _rewardedAd;
     if (adToUse == null) {
       preloadHighYieldAd();
@@ -548,6 +598,7 @@ class AdManager extends ChangeNotifier {
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
           debugPrint('AdManager: Rewarded Tier 1 loaded successfully! ');
+          _setupPaidEventListener(ad, 'rewarded');
           _highYieldAd = ad;
           _isLoadingHighYield = false;
           notifyListeners();
@@ -568,6 +619,7 @@ class AdManager extends ChangeNotifier {
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
           debugPrint('AdManager: Rewarded Tier 2 loaded successfully! ');
+          _setupPaidEventListener(ad, 'rewarded');
           _highYieldAd = ad;
           _isLoadingHighYield = false;
           notifyListeners();
@@ -588,6 +640,7 @@ class AdManager extends ChangeNotifier {
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
           debugPrint('AdManager: Rewarded Tier 3 loaded successfully! ');
+          _setupPaidEventListener(ad, 'rewarded');
           _highYieldAd = ad;
           _isLoadingHighYield = false;
           notifyListeners();
@@ -613,6 +666,7 @@ class AdManager extends ChangeNotifier {
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (testAd) {
           debugPrint('AdManager: Rewarded Test fallback ad loaded.');
+          _setupPaidEventListener(testAd, 'rewarded');
           _highYieldAd = testAd;
           _isLoadingHighYield = false;
           notifyListeners();
@@ -649,6 +703,7 @@ class AdManager extends ChangeNotifier {
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
           debugPrint('AdManager: Interstitial Tier 1 loaded successfully! ');
+          _setupPaidEventListener(ad, 'interstitial');
           _interstitialAd = ad;
           _isLoadingInterstitial = false;
           notifyListeners();
@@ -669,6 +724,7 @@ class AdManager extends ChangeNotifier {
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
           debugPrint('AdManager: Interstitial Tier 2 loaded successfully! ');
+          _setupPaidEventListener(ad, 'interstitial');
           _interstitialAd = ad;
           _isLoadingInterstitial = false;
           notifyListeners();
@@ -689,6 +745,7 @@ class AdManager extends ChangeNotifier {
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
           debugPrint('AdManager: Interstitial Tier 3 loaded successfully! ');
+          _setupPaidEventListener(ad, 'interstitial');
           _interstitialAd = ad;
           _isLoadingInterstitial = false;
           notifyListeners();
@@ -714,6 +771,7 @@ class AdManager extends ChangeNotifier {
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
           debugPrint('AdManager: Interstitial Test Fallback loaded.');
+          _setupPaidEventListener(ad, 'interstitial');
           _interstitialAd = ad;
           _isLoadingInterstitial = false;
           notifyListeners();
