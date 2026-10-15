@@ -80,17 +80,20 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
 
             if (c.currentMode == GameMode.chaos) {
               if (c.status == GameStatus.playing) {
-                // Check if Turbo / Recall button was tapped (Available after 8 seconds of active turn)
-                const btnW = 100.0;
+                // Left button: 2X Speed (Unlocks after 8s)
+                // Right button: Direct Recall
+                const btnW = 98.0;
                 const btnH = 36.0;
-                final btnX = c.screenWidth - btnW - 14.0;
-                final btnY = c.screenHeight - btnH - 12.0;
-                final btnRect = Rect.fromLTWH(btnX, btnY, btnW, btnH);
-                if (btnRect.contains(event.localPosition)) {
-                  if (c.chaosTurnTime >= 8.0 || c.chaosSpeedMultiplier > 1.05 || c.chaosRecallActive) {
-                    c.toggleChaosTurboOrRecall();
-                    return;
-                  }
+                final leftBtnRect = Rect.fromLTWH(14.0, c.screenHeight - btnH - 12.0, btnW, btnH);
+                final rightBtnRect = Rect.fromLTWH(c.screenWidth - btnW - 14.0, c.screenHeight - btnH - 12.0, btnW, btnH);
+
+                if (leftBtnRect.contains(event.localPosition)) {
+                  c.toggleChaosTurbo();
+                  return;
+                }
+                if (rightBtnRect.contains(event.localPosition)) {
+                  c.recallChaosBalls();
+                  return;
                 }
               }
 
@@ -2356,53 +2359,83 @@ class _GameWorldPainter extends CustomPainter {
     _tp.layout();
     _tp.paint(canvas, Offset(ox - _tp.width / 2, oy + 8.0));
 
-    // 4. Grounded 2X Turbo / ⏬ Recall Button at the bottom (Appears after 8 seconds of active volley)
+    // 4. Grounded 2X Speed (Left, 8s lock) & Direct Recall (Right) Buttons
     if (c.status == GameStatus.playing) {
-      final isTurbo = c.chaosSpeedMultiplier > 1.05;
+      const btnW = 98.0;
+      const btnH = 36.0;
+      final pulse = 0.82 + 0.18 * sin(time * 6.0);
+
+      // --- LEFT BUTTON: 2X SPEED (Locks for 8s on every shot) ---
+      final leftBtnX = 14.0;
+      final leftBtnY = c.screenHeight - btnH - 12.0;
+      final leftRRect = RRect.fromRectAndRadius(Rect.fromLTWH(leftBtnX, leftBtnY, btnW, btnH), const Radius.circular(18.0));
+      final isTurboLocked = c.chaosTurnTime < 8.0;
+      final isTurboActive = c.chaosSpeedMultiplier > 1.05;
+
+      _fill
+        ..style = PaintingStyle.fill
+        ..shader = null
+        ..color = isTurboLocked
+            ? const Color(0x991E2430)
+            : (isTurboActive ? const Color(0xEEFF6D00) : const Color(0xCC0D47A1));
+      canvas.drawRRect(leftRRect, _fill);
+
+      _stroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = isTurboLocked
+            ? const Color(0x44FFFFFF)
+            : (isTurboActive ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF)).withValues(alpha: pulse);
+      canvas.drawRRect(leftRRect, _stroke);
+
+      final leftLabel = isTurboLocked
+          ? '🔒 2X (${(8.0 - c.chaosTurnTime).ceil()}s)'
+          : (isTurboActive ? '⚡ 2X AKTİF' : '⚡ 2X HIZ');
+
+      _tp.text = TextSpan(
+        text: leftLabel,
+        style: TextStyle(
+          color: isTurboLocked ? Colors.white60 : Colors.white,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.5,
+        ),
+      );
+      _tp.layout();
+      _tp.paint(canvas, Offset(leftBtnX + (btnW - _tp.width) / 2, leftBtnY + (btnH - _tp.height) / 2));
+
+      // --- RIGHT BUTTON: DIRECT RECALL ---
+      final rightBtnX = c.screenWidth - btnW - 14.0;
+      final rightBtnY = c.screenHeight - btnH - 12.0;
+      final rightRRect = RRect.fromRectAndRadius(Rect.fromLTWH(rightBtnX, rightBtnY, btnW, btnH), const Radius.circular(18.0));
       final isRecall = c.chaosRecallActive;
-      final isAvailable = c.chaosTurnTime >= 8.0 || isTurbo || isRecall;
 
-      if (isAvailable) {
-        const btnW = 100.0;
-        const btnH = 36.0;
-        final btnX = c.screenWidth - btnW - 14.0;
-        final btnY = c.screenHeight - btnH - 12.0;
-        final btnRRect = RRect.fromRectAndRadius(Rect.fromLTWH(btnX, btnY, btnW, btnH), const Radius.circular(18.0));
+      _fill
+        ..style = PaintingStyle.fill
+        ..shader = null
+        ..color = isRecall ? const Color(0xEE00B0FF) : const Color(0xCC311B92);
+      canvas.drawRRect(rightRRect, _fill);
 
-        // Subtle pulsing glow when available
-        final pulse = 0.82 + 0.18 * sin(time * 6.0);
+      _stroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = (isRecall ? Colors.white : const Color(0xFFE040FB)).withValues(alpha: pulse);
+      canvas.drawRRect(rightRRect, _stroke);
 
-        _fill
-          ..style = PaintingStyle.fill
-          ..shader = null
-          ..color = isRecall
-              ? const Color(0xDD00E5FF)
-              : (isTurbo ? const Color(0xDDFF6D00) : const Color(0xCC0D47A1));
-        canvas.drawRRect(btnRRect, _fill);
+      final rightLabel = isRecall ? 'TOPLANIYOR' : '⤹ GERİ ÇAĞIR';
 
-        _stroke
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.8
-          ..color = (isRecall
-              ? Colors.white
-              : (isTurbo ? const Color(0xFFFFD54F) : const Color(0xFF40C4FF))).withValues(alpha: pulse);
-        canvas.drawRRect(btnRRect, _stroke);
+      _tp.text = TextSpan(
+        text: rightLabel,
+        style: TextStyle(
+          color: isRecall ? Colors.black87 : Colors.white,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.5,
+        ),
+      );
+      _tp.layout();
+      _tp.paint(canvas, Offset(rightBtnX + (btnW - _tp.width) / 2, rightBtnY + (btnH - _tp.height) / 2));
 
-        final btnLabel = isRecall
-            ? 'TOPLANIYOR' : (isTurbo ? 'ÇAĞIR' : '⚡ 2X HIZ');
-
-        _tp.text = TextSpan(
-          text: btnLabel,
-          style: TextStyle(
-            color: isRecall ? Colors.black87 : Colors.white,
-            fontSize: 11.0,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.6,
-          ),
-        );
-        _tp.layout();
-        _tp.paint(canvas, Offset(btnX + (btnW - _tp.width) / 2, btnY + (btnH - _tp.height) / 2));
-      }
       return;
     }
 
@@ -3155,6 +3188,16 @@ class _GameWorldPainter extends CustomPainter {
       // "efsanevi toplar sadece köşe vuruşu olduğunda kendi renkleri ile gitsin, onun dışındaki diğer toplar normal hangi iz seçildiyse onu kullansın."
       // Normal trail uses equipped trail skin colors (with subtle animated shimmer)
       Color getBallTrailColor(int index, int total, {bool isGlow = false}) {
+        if (c.activeTrailSkin.id == 't1') {
+          final progress = total > 1 ? index / (total - 1) : 0.0;
+          if (progress < 0.45) {
+            final t = progress / 0.45;
+            return Color.lerp(const Color(0xFFFF3D00), const Color(0xFFFF8F00), t)!;
+          } else {
+            final t = (progress - 0.45) / 0.55;
+            return Color.lerp(const Color(0xFFFF8F00), const Color(0xFFFFEE58), t)!;
+          }
+        }
         return isGlow ? trailGlow : trailPrimary;
       }
 

@@ -308,9 +308,9 @@ class TrailSkin {
       cost: 0,
       rarity: Rarity.common,
       style: TrailStyle.dot,
-      length: 48,
-      primaryColor: Color(0xFF80D8FF),
-      glowColor: Color(0xFF40C4FF),
+      length: 56,
+      primaryColor: Color(0xFFFF6E40),
+      glowColor: Color(0xFFFFD54F),
     ),
     TrailSkin(
       id: 't2',

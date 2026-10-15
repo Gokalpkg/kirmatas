@@ -59,9 +59,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             _openFortuneWheelWithHero();
           }
         });
-        Future.delayed(const Duration(milliseconds: 2200), () {
-          if (mounted && _activeGame == null) _maybeOfferRemoveAds();
-        });
       }
     });
   }
@@ -890,42 +887,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           ),
                           onPressed: _showSettingsDialog,
                         ),
-                        if (!_save.adsRemoved)
-                          InkWell(
-                            onTap: _showRemoveAdsOffer,
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                              decoration: BoxDecoration(
-                                color: const Color(0x80101320),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0x4400E5FF), width: 1.2),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF00E5FF).withValues(alpha: 0.18),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const PixelIcon('no_ads', size: 14),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    I18n.currentLang == 'tr' ? 'REKLAMLARI KALDIR' : 'REMOVE ADS',
-                                    style: const TextStyle(
-                                      color: Color(0xFF00E5FF),
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 10.5,
-                                      letterSpacing: 0.8,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+
                         Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(

@@ -5,7 +5,6 @@ import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
 import 'chest_widget.dart';
-import 'remove_ads_card.dart';
 import 'crate_opening_dialog.dart';
 import 'fortune_wheel_dialog.dart';
 import 'rewarded_ad_button.dart';
@@ -357,11 +356,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
               ],
             ),
           ),
-          body: Column(
-            children: [
-              const RemoveAdsCard(compact: true),
-              Expanded(
-                child: TabBarView(
+          body: TabBarView(
                   controller: _tabController,
                   physics: const ClampingScrollPhysics(),
                   children: [
@@ -371,9 +366,6 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
               _buildTrailsTab(context, save),
               _buildBricksTab(context, save),
               _buildBackgroundsTab(context, save),
-            ],
-                ),
-              ),
             ],
           ),
         ),

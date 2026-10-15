@@ -581,24 +581,41 @@ class GameController extends ChangeNotifier {
     frameTick.ping();
   }
 
-  void toggleChaosTurboOrRecall() {
+  void toggleChaosTurbo({bool bypassCooldown = false}) {
     if (currentMode != GameMode.chaos || status != GameStatus.playing) return;
-    if (chaosRecallActive) return;
+    if (!bypassCooldown && chaosTurnTime < 8.0) {
+      final remaining = (8.0 - chaosTurnTime).ceil();
+      particles.spawnFloatingText(screenWidth * 0.25, chaosFloorY - 55, '$remaining sn kilitli', const Color(0xFFB0BEC5));
+      return;
+    }
     if (chaosSpeedMultiplier <= 1.05) {
       chaosSpeedMultiplier = 2.2;
-      particles.spawnFloatingText(screenWidth / 2, chaosFloorY - 55, I18n.tr('chaos_2x_speed'), const Color(0xFFFFD700), isLarge: true);
+      particles.spawnFloatingText(screenWidth * 0.25, chaosFloorY - 55, I18n.tr('chaos_2x_speed'), const Color(0xFFFFD700), isLarge: true);
       audio.playSfx(GameSfx.wallBounce8);
     } else {
-      recallChaosBalls();
+      chaosSpeedMultiplier = 1.0;
+      particles.spawnFloatingText(screenWidth * 0.25, chaosFloorY - 55, '1X HIZ', const Color(0xFFFFFFFF));
     }
     notifyListeners();
   }
 
+  void toggleChaosTurboOrRecall({bool bypassCooldown = true}) {
+    if (currentMode != GameMode.chaos || status != GameStatus.playing) return;
+    if (chaosRecallActive) return;
+    if (chaosSpeedMultiplier <= 1.05) {
+      toggleChaosTurbo(bypassCooldown: bypassCooldown);
+    } else {
+      recallChaosBalls();
+    }
+  }
+
   void recallChaosBalls() {
     if (currentMode != GameMode.chaos || status != GameStatus.playing) return;
+    if (chaosRecallActive) return;
     chaosRecallActive = true;
     chaosToLaunch = 0;
-    particles.spawnFloatingText(screenWidth / 2, chaosFloorY - 55, I18n.tr('chaos_recall'), const Color(0xFF00E5FF), isLarge: true);
+    chaosSpeedMultiplier = max(chaosSpeedMultiplier, 2.2);
+    particles.spawnFloatingText(screenWidth * 0.75, chaosFloorY - 55, I18n.tr('chaos_recall'), const Color(0xFF00E5FF), isLarge: true);
     audio.playSfx(GameSfx.powerupBuff);
     notifyListeners();
   }

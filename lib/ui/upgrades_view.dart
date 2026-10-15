@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
-import 'remove_ads_card.dart';
 
 class UpgradesView extends StatelessWidget {
   final VoidCallback? onBackToMenu;
@@ -271,7 +270,6 @@ class UpgradesView extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              const RemoveAdsCard(),
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(16),
