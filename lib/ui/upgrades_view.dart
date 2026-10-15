@@ -5,7 +5,8 @@ import '../storage/save_manager.dart';
 import 'remove_ads_card.dart';
 
 class UpgradesView extends StatelessWidget {
-  const UpgradesView({super.key});
+  final VoidCallback? onBackToMenu;
+  const UpgradesView({super.key, this.onBackToMenu});
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +22,13 @@ class UpgradesView extends StatelessWidget {
             elevation: 0,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70, size: 20),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                if (onBackToMenu != null) {
+                  onBackToMenu!();
+                } else if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                }
+              },
             ),
             title: Text(
               I18n.tr('upgrades_title'),

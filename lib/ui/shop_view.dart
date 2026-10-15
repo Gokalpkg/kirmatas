@@ -12,7 +12,8 @@ import 'rewarded_ad_button.dart';
 import 'pixel_art.dart';
 
 class ShopView extends StatefulWidget {
-  const ShopView({super.key});
+  final VoidCallback? onBackToMenu;
+  const ShopView({super.key, this.onBackToMenu});
 
   @override
   State<ShopView> createState() => _ShopViewState();
@@ -244,7 +245,13 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
             elevation: 0,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70, size: 20),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                if (widget.onBackToMenu != null) {
+                  widget.onBackToMenu!();
+                } else if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                }
+              },
             ),
             title: Text(
               I18n.tr('shop_title'),
@@ -355,8 +362,9 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
               const RemoveAdsCard(compact: true),
               Expanded(
                 child: TabBarView(
-            controller: _tabController,
-            children: [
+                  controller: _tabController,
+                  physics: const ClampingScrollPhysics(),
+                  children: [
               _buildCratesTab(context, save),
               _buildBallsTab(context, save),
               _buildPaddlesTab(context, save),
@@ -384,6 +392,21 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                   );
                 },
               ),
+            ),
+          ),
+        if (widget.onBackToMenu != null)
+          Positioned(
+            top: 0,
+            bottom: 0,
+            right: 0,
+            width: 28,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onHorizontalDragEnd: (details) {
+                if ((details.primaryVelocity ?? 0) < -150) {
+                  widget.onBackToMenu!();
+                }
+              },
             ),
           ),
       ],

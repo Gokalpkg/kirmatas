@@ -9,7 +9,8 @@ import 'eco_tank_background.dart';
 import 'fish_hoard_chest.dart';
 
 class AquariumView extends StatefulWidget {
-  const AquariumView({super.key});
+  final VoidCallback? onBackToMenu;
+  const AquariumView({super.key, this.onBackToMenu});
 
   @override
   State<AquariumView> createState() => _AquariumViewState();
@@ -460,7 +461,13 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                             padding: EdgeInsets.zero,
                             icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
                             style: IconButton.styleFrom(backgroundColor: const Color(0x80000000)),
-                            onPressed: () => Navigator.of(context).pop(),
+                            onPressed: () {
+                              if (widget.onBackToMenu != null) {
+                                widget.onBackToMenu!();
+                              } else if (Navigator.of(context).canPop()) {
+                                Navigator.of(context).pop();
+                              }
+                            },
                           ),
                         ),
                         const SizedBox(width: 8),

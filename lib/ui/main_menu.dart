@@ -39,10 +39,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   final GlobalKey _wheelButtonKey = GlobalKey();
   bool _highlightWheelButton = false;
   bool _showArcadeModes = false;
+  late final PageController _pageController;
+  int _currentPage = 1;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: 1);
     _cooldownRefreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && _activeGame == null && AdManager.instance.remainingCooldownSeconds > 0) {
         setState(() {});
@@ -65,9 +68,43 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
   @override
   void dispose() {
+    _pageController.dispose();
     _cooldownRefreshTimer?.cancel();
     _activeGame?.removeListener(_onActiveGameTick);
     super.dispose();
+  }
+
+  void _goToPage(int page) {
+    if (_pageController.hasClients) {
+      _pageController.animateToPage(
+        page,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  Widget _buildPageDot(int index, bool isActive) {
+    return GestureDetector(
+      onTap: () => _goToPage(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: isActive ? 16 : 6,
+        height: 6,
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFFFFD54F) : Colors.white24,
+          borderRadius: BorderRadius.circular(3),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFFFD54F).withValues(alpha: 0.6),
+                    blurRadius: 6,
+                  )
+                ]
+              : null,
+        ),
+      ),
+    );
   }
 
   void _onActiveGameTick() {
@@ -787,10 +824,55 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       listenable: _save,
       builder: (context, _) {
         return Scaffold(
-          body: EcoTankBackground(
-            child: SafeArea(
-              child: Column(
-                children: [
+          backgroundColor: Colors.black,
+          body: PopScope(
+            canPop: _currentPage == 1,
+            onPopInvokedWithResult: (didPop, result) {
+              if (!didPop && _currentPage != 1) {
+                _goToPage(1);
+              }
+            },
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                if (_currentPage != index) {
+                  setState(() {
+                    _currentPage = index;
+                  });
+                }
+              },
+              physics: const ClampingScrollPhysics(),
+              children: [
+                // 0: Mağaza
+                ShopView(
+                  onBackToMenu: () => _goToPage(1),
+                ),
+
+                // 1: Ana Menü
+                _buildMainMenuHome(),
+
+                // 2: Akvaryum
+                AquariumView(
+                  onBackToMenu: () => _goToPage(1),
+                ),
+
+                // 3: Yükseltmeler
+                UpgradesView(
+                  onBackToMenu: () => _goToPage(1),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMainMenuHome() {
+    return EcoTankBackground(
+      child: SafeArea(
+        child: Column(
+          children: [
                   // Top Header Bar
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
@@ -998,6 +1080,66 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     ),
                   ),
 
+                  // SWIPE HINT & PAGE DOTS
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GestureDetector(
+                          onTap: () => _goToPage(0),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.arrow_back_ios_rounded, color: Colors.white38, size: 10),
+                              SizedBox(width: 2),
+                              Text(
+                                'MAĞAZA',
+                                style: TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildPageDot(0, _currentPage == 0),
+                            const SizedBox(width: 5),
+                            _buildPageDot(1, _currentPage == 1),
+                            const SizedBox(width: 5),
+                            _buildPageDot(2, _currentPage == 2),
+                            const SizedBox(width: 5),
+                            _buildPageDot(3, _currentPage == 3),
+                          ],
+                        ),
+                        GestureDetector(
+                          onTap: () => _goToPage(2),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'AKVARYUM',
+                                style: TextStyle(
+                                  color: Color(0x994FC3F7),
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                              SizedBox(width: 2),
+                              Icon(Icons.arrow_forward_ios_rounded, color: Color(0x994FC3F7), size: 10),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                   // MODERN CONSOLIDATED FLOATING BOTTOM NAVIGATION DOCK
                   Container(
                     margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
@@ -1021,17 +1163,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             _buildNavButton(
                               icon: Icons.storefront_rounded,
                               label: I18n.tr('shop'),
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const ShopView()),
-                              ),
+                              onTap: () => _goToPage(0),
                             ),
                             _buildNavButton(
                               icon: Icons.water_drop_rounded,
                               label: I18n.tr('aquarium'),
                               badge: _save.currentAvailableFishGold > 0 ? '' : null,
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const AquariumView()),
-                              ),
+                              onTap: () => _goToPage(2),
                             ),
                             _buildNavButton(
                               icon: Icons.assignment_turned_in_rounded,
@@ -1047,9 +1185,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             _buildNavButton(
                               icon: Icons.auto_awesome_rounded,
                               label: I18n.tr('upgrades'),
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const UpgradesView()),
-                              ),
+                              onTap: () => _goToPage(3),
                             ),
                           ],
                         ),
@@ -1059,10 +1195,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 ],
               ),
             ),
-          ),
-        );
-      },
-    );
+          );
   }
 
   Widget _buildTopRewardsBar() {
