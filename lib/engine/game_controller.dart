@@ -236,7 +236,7 @@ class GameController extends ChangeNotifier {
     return null;
   }
 
-  void startNewGame(GameMode mode, {bool isResume = false}) {
+  void startNewGame(GameMode mode, {bool isResume = false, int? explicitStartLevel}) {
     audio.isBgmAllowed = false;
     audio.pauseBgm();
     rollSessionCosmetics();
@@ -273,10 +273,10 @@ class GameController extends ChangeNotifier {
     }
 
     int startLives = mode == GameMode.zen ? 999 : 3;
-    int startLevel = 1;
+    int startLevel = explicitStartLevel ?? 1;
     int startScore = 0;
 
-    if (isResume) {
+    if (isResume && explicitStartLevel == null) {
       if (mode == GameMode.classic) {
         startLevel = save.classicSavedLevel ?? 1;
         startScore = save.classicSavedScore ?? 0;

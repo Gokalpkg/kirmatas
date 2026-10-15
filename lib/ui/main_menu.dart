@@ -18,6 +18,7 @@ import 'daily_login_dialog.dart';
 import 'daily_quests_dialog.dart';
 import 'shop_view.dart';
 import 'upgrades_view.dart';
+import 'sector_map_view.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -194,13 +195,32 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     }
   }
 
-  void _launchGame(GameMode mode, {bool isResume = false}) {
+  void _launchGame(GameMode mode, {bool isResume = false, int? explicitStartLevel}) {
     AudioManager.instance.isBgmAllowed = false;
     AudioManager.instance.pauseBgm();
     setState(() {
       _activeGame?.removeListener(_onActiveGameTick);
-      _activeGame = GameController()..startNewGame(mode, isResume: isResume);
+      _activeGame = GameController()..startNewGame(mode, isResume: isResume, explicitStartLevel: explicitStartLevel);
       _activeGame!.addListener(_onActiveGameTick);
+    });
+  }
+
+  void _openSectorMap() {
+    HapticFeedback.selectionClick();
+    AudioManager.instance.playSfx(GameSfx.buttonClick);
+    Navigator.of(context).push<int>(
+      MaterialPageRoute(
+        builder: (_) => SectorMapView(
+          save: _save,
+          onStartSectorLevel: (level) {
+            _launchGame(GameMode.classic, explicitStartLevel: level);
+          },
+        ),
+      ),
+    ).then((level) {
+      if (level != null && mounted && _activeGame == null) {
+        _launchGame(GameMode.classic, explicitStartLevel: level);
+      }
     });
   }
 
@@ -1292,6 +1312,25 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 ),
                               ),
                             ),
+                          GestureDetector(
+                            onTap: _openSectorMap,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xDDFFD54F),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                'SEKTÖR ${_save.highestUnlockedSector}/14 🗺️',
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 10),
@@ -1317,17 +1356,50 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     ],
                   ),
                 ),
-                Container(
-                  width: 58,
-                  height: 58,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4)),
-                    ],
-                  ),
-                  child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFFF5722), size: 40),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4)),
+                        ],
+                      ),
+                      child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFFF5722), size: 36),
+                    ),
+                    const SizedBox(height: 6),
+                    GestureDetector(
+                      onTap: _openSectorMap,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xCC000000),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFFD54F), width: 1.0),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.map_rounded, color: Color(0xFFFFD54F), size: 13),
+                            SizedBox(width: 3),
+                            Text(
+                              'HARİTA',
+                              style: TextStyle(
+                                color: Color(0xFFFFD54F),
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

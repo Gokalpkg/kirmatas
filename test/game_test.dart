@@ -26,6 +26,7 @@ import 'package:kirmatas/ui/crate_opening_dialog.dart';
 import 'package:kirmatas/ui/shop_view.dart';
 import 'package:kirmatas/ui/aquarium_view.dart';
 import 'package:kirmatas/ui/fish_hoard_chest.dart';
+import 'package:kirmatas/models/sector_data.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -2842,6 +2843,71 @@ void main() {
       gc.fireChaos();
       expect(gc.status, GameStatus.playing);
       expect(gc.chaosToLaunch, 20);
+    });
+
+    test('SectorData defines 14 sectors spanning exactly 238 levels with valid checkpoints', () {
+      expect(SectorData.allSectors.length, 14);
+      expect(SectorData.allSectors.first.startLevel, 1);
+      expect(SectorData.allSectors.last.endLevel, 238);
+
+      // Verify contiguous boundaries and checkpoints
+      for (int i = 0; i < SectorData.allSectors.length; i++) {
+        final sec = SectorData.allSectors[i];
+        expect(sec.sectorIndex, i + 1);
+        expect(sec.checkpointLevel, sec.startLevel);
+        if (i > 0) {
+          final prev = SectorData.allSectors[i - 1];
+          expect(sec.startLevel, prev.endLevel + 1);
+        }
+      }
+
+      // Specific level to sector mapping
+      expect(SectorData.getSectorForLevel(1).sectorIndex, 1);
+      expect(SectorData.getSectorForLevel(16).sectorIndex, 1);
+      expect(SectorData.getSectorForLevel(17).sectorIndex, 2);
+      expect(SectorData.getSectorForLevel(33).sectorIndex, 2);
+      expect(SectorData.getSectorForLevel(34).sectorIndex, 3);
+      expect(SectorData.getSectorForLevel(238).sectorIndex, 14);
+    });
+
+    test('SaveManager sector unlocking and checkpoint logic works seamlessly', () async {
+      final save = SaveManager.instance;
+      await save.init();
+
+      // At level 1, only sector 1 unlocked
+      save.noteClassicProgress(1);
+      expect(save.highestUnlockedSector, 1);
+      expect(save.isSectorUnlocked(1), true);
+      expect(save.isSectorUnlocked(2), false);
+
+      // Reaching level 17 unlocks sector 2
+      save.noteClassicProgress(17);
+      expect(save.highestUnlockedSector, 2);
+      expect(save.isSectorUnlocked(1), true);
+      expect(save.isSectorUnlocked(2), true);
+      expect(save.isSectorUnlocked(3), false);
+      expect(save.getSectorCheckpoint(2), 17);
+
+      // Reaching level 51 unlocks sector 4
+      save.noteClassicProgress(51);
+      expect(save.highestUnlockedSector, 4);
+      expect(save.isSectorUnlocked(4), true);
+      expect(save.getSectorCheckpoint(4), 51);
+    });
+
+    test('GameController supports starting directly from sector checkpoint with explicitStartLevel', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+
+      // Start from sector 3 checkpoint (Level 34)
+      gc.startNewGame(GameMode.classic, explicitStartLevel: 34);
+      expect(gc.stats.level, 34);
+      expect(gc.currentMode, GameMode.classic);
+      expect(gc.status, GameStatus.ready);
+
+      // Start from sector 14 checkpoint (Level 221)
+      gc.startNewGame(GameMode.classic, explicitStartLevel: 221);
+      expect(gc.stats.level, 221);
     });
   });
 }

@@ -625,6 +625,26 @@ class SaveManager extends ChangeNotifier {
     _notePlayEvent('level', level);
   }
 
+  /// 14 Sektörden kilidi açılmış en yüksek sektör indeksi (1..14)
+  int get highestUnlockedSector {
+    final highest = metricHighestClassicLevel;
+    if (highest < 17) return 1;
+    final sec = (highest ~/ 17) + 1;
+    return sec.clamp(1, 14);
+  }
+
+  /// Belirli bir sektörün kilidi açılmış mı?
+  bool isSectorUnlocked(int sectorIndex) {
+    if (sectorIndex <= 1) return true;
+    return sectorIndex <= highestUnlockedSector;
+  }
+
+  /// Sektörün başlangıç checkpoint seviyesini döner
+  int getSectorCheckpoint(int sectorIndex) {
+    if (sectorIndex <= 1) return 1;
+    return (sectorIndex - 1) * 17;
+  }
+
   void markDayBlessed(String day) {
     dayBlessingDate = day;
     _prefs?.setString('dayBlessingDate', day);
