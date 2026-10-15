@@ -15,10 +15,10 @@ import 'hud_overlay.dart';
 import 'pause_game_over.dart';
 import 'fortune_wheel_dialog.dart';
 import 'daily_quests_dialog.dart';
+import 'daily_login_dialog.dart';
 import 'shop_view.dart';
 import 'upgrades_view.dart';
 import 'sector_map_view.dart';
-import 'rewards_hub_dialog.dart';
 import 'pixel_art.dart';
 
 class MainMenuScreen extends StatefulWidget {
@@ -37,6 +37,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
   static bool _hasAutoShownWheelThisSession = false;
   final GlobalKey _wheelButtonKey = GlobalKey();
+  bool _highlightWheelButton = false;
+  bool _showArcadeModes = false;
 
   @override
   void initState() {
@@ -243,7 +245,12 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       },
     );
 
-
+    if (mounted) {
+      setState(() => _highlightWheelButton = true);
+      Future.delayed(const Duration(milliseconds: 900), () {
+        if (mounted) setState(() => _highlightWheelButton = false);
+      });
+    }
   }
 
   void _startOrPromptResume(GameMode mode) {
@@ -888,10 +895,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 18),
                       child: Column(
                         children: [
-                          // PROMINENT REWARDS HUB BANNER (Göz Önünde Ödül Merkezi)
-                          _buildRewardsHubBanner(),
-                          const SizedBox(height: 12),
-
                           // HERO CLASSIC CARD
                           _buildClassicHeroCard(),
 
@@ -901,45 +904,94 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                           const SizedBox(height: 12),
 
-                          // ARCADE & EXTRA MODES GRID
-                          const SizedBox(height: 10),
-                          _buildArcadeMiniCard(
-                            mode: GameMode.shapes,
-                            title: '${I18n.tr('shapes').toUpperCase()} • 38 FİGÜR',
-                            desc: 'Rastgele piksel figürler, özel desenler ve yüksek tempo',
-                            icon: Icons.palette_rounded,
-                            color1: const Color(0xFFE040FB),
-                            color2: const Color(0xFF7C4DFF),
-                            onTap: () => _launchGame(GameMode.shapes),
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildArcadeMiniCard(
-                                  mode: GameMode.zen,
-                                  title: I18n.tr('zen'),
-                                  desc: I18n.tr('zen_desc'),
-                                  icon: Icons.spa_rounded,
-                                  color1: const Color(0xFF00B4D8),
-                                  color2: const Color(0xFF0077B6),
-                                  onTap: () => _launchGame(GameMode.zen),
+                          // COLLAPSIBLE ARCADE MODES BUTTON
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () {
+                                setState(() {
+                                  _showArcadeModes = !_showArcadeModes;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0x33101320),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.white12),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      _showArcadeModes ? Icons.grid_view_rounded : Icons.sports_esports_rounded,
+                                      color: const Color(0xFFFFD54F),
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _showArcadeModes ? I18n.tr('other_modes_hide') : I18n.tr('other_modes_show'),
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      _showArcadeModes ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                      color: Colors.white54,
+                                      size: 18,
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _buildArcadeMiniCard(
-                                  mode: GameMode.descend,
-                                  title: I18n.tr('descend'),
-                                  desc: I18n.tr('descend_desc'),
-                                  icon: Icons.keyboard_double_arrow_down_rounded,
-                                  color1: const Color(0xFF9D4EDD),
-                                  color2: const Color(0xFFC77DFF),
-                                  onTap: () => _launchGame(GameMode.descend),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
+
+                          if (_showArcadeModes) ...[
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildArcadeMiniCard(
+                                    mode: GameMode.zen,
+                                    title: I18n.tr('zen'),
+                                    desc: I18n.tr('zen_desc'),
+                                    icon: Icons.spa_rounded,
+                                    color1: const Color(0xFF00B4D8),
+                                    color2: const Color(0xFF0077B6),
+                                    onTap: () => _launchGame(GameMode.zen),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _buildArcadeMiniCard(
+                                    mode: GameMode.descend,
+                                    title: I18n.tr('descend'),
+                                    desc: I18n.tr('descend_desc'),
+                                    icon: Icons.keyboard_double_arrow_down_rounded,
+                                    color1: const Color(0xFF9D4EDD),
+                                    color2: const Color(0xFFC77DFF),
+                                    onTap: () => _launchGame(GameMode.descend),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            _buildArcadeMiniCard(
+                              mode: GameMode.shapes,
+                              title: '${I18n.tr('shapes').toUpperCase()} • 38 FİGÜR',
+                              desc: 'Rastgele piksel figürler, özel desenler ve yüksek tempo',
+                              icon: Icons.palette_rounded,
+                              color1: const Color(0xFFE040FB),
+                              color2: const Color(0xFF7C4DFF),
+                              onTap: () => _launchGame(GameMode.shapes),
+                            ),
+                          ],
+
                           const SizedBox(height: 14),
                         ],
                       ),
@@ -949,60 +1001,57 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   // MODERN CONSOLIDATED FLOATING BOTTOM NAVIGATION DOCK
                   Container(
                     margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xEE0E111C),
+                      color: const Color(0xDD101320),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0x334FC3F7), width: 1.2),
+                      border: Border.all(color: Colors.white12),
                       boxShadow: const [
-                        BoxShadow(color: Colors.black87, blurRadius: 18, offset: Offset(0, 4)),
+                        BoxShadow(color: Colors.black54, blurRadius: 16, offset: Offset(0, 4)),
                       ],
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    child: Column(
                       children: [
-                        _buildNavButton(
-                          icon: Icons.storefront_rounded,
-                          label: I18n.tr('shop'),
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const ShopView()),
-                          ),
-                        ),
-                        _buildNavButton(
-                          icon: Icons.water_drop_rounded,
-                          label: I18n.tr('aquarium'),
-                          badge: _save.currentAvailableFishGold > 0 ? '🟡' : null,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const AquariumView()),
-                          ),
-                        ),
-                        _buildNavButton(
-                          icon: Icons.card_giftcard_rounded,
-                          label: 'Ödüller',
-                          badge: (_save.remainingWheelSpins > 0 || _save.canClaimDailyLogin()) ? '!' : null,
-                          onTap: () => RewardsHubDialog.show(
-                            context,
-                            save: _save,
-                            onFortuneWheelTap: _openFortuneWheelWithHero,
-                          ),
-                        ),
-                        _buildNavButton(
-                          icon: Icons.assignment_turned_in_rounded,
-                          label: I18n.tr('quests'),
-                          badge: ((_save.questFishFed && !_save.claimedQuests.contains('feed_fish')) ||
-                                  (_save.questBricksBroken >= 100 && !_save.claimedQuests.contains('break_bricks')) ||
-                                  (_save.questAdOrWinDone && !_save.claimedQuests.contains('ad_or_win'))) ? '!' : null,
-                          onTap: () => DailyQuestsDialog.show(
-                            context,
-                            onPlayToday: () => _launchGame(GameMode.daily),
-                          ),
-                        ),
-                        _buildNavButton(
-                          icon: Icons.auto_awesome_rounded,
-                          label: I18n.tr('upgrades'),
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const UpgradesView()),
-                          ),
+                        _buildTopRewardsBar(),
+                        const SizedBox(height: 6),
+                        Container(height: 1, color: Colors.white10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildNavButton(
+                              icon: Icons.storefront_rounded,
+                              label: I18n.tr('shop'),
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const ShopView()),
+                              ),
+                            ),
+                            _buildNavButton(
+                              icon: Icons.water_drop_rounded,
+                              label: I18n.tr('aquarium'),
+                              badge: _save.currentAvailableFishGold > 0 ? '' : null,
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const AquariumView()),
+                              ),
+                            ),
+                            _buildNavButton(
+                              icon: Icons.assignment_turned_in_rounded,
+                              label: I18n.tr('quests'),
+                              badge: ((_save.questFishFed && !_save.claimedQuests.contains('feed_fish')) ||
+                                      (_save.questBricksBroken >= 100 && !_save.claimedQuests.contains('break_bricks')) ||
+                                      (_save.questAdOrWinDone && !_save.claimedQuests.contains('ad_or_win'))) ? '!' : null,
+                              onTap: () => DailyQuestsDialog.show(
+                                context,
+                                onPlayToday: () => _launchGame(GameMode.daily),
+                              ),
+                            ),
+                            _buildNavButton(
+                              icon: Icons.auto_awesome_rounded,
+                              label: I18n.tr('upgrades'),
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const UpgradesView()),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1016,172 +1065,292 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     );
   }
 
-  Widget _buildRewardsHubBanner() {
-    return ListenableBuilder(
-      listenable: Listenable.merge([_save, AdManager.instance]),
-      builder: (context, _) {
-        final spinsLeft = _save.remainingWheelSpins;
-        final hasSpins = spinsLeft > 0;
-        final canDaily = _save.canClaimDailyLogin();
-        final canGold = AdManager.instance.remainingCooldownSeconds == 0;
-        final readyCount = (hasSpins ? 1 : 0) + (canDaily ? 1 : 0) + (canGold ? 1 : 0);
+  Widget _buildTopRewardsBar() {
+    final canClaimDaily = _save.canClaimDailyLogin();
+    final canClaimAd = _save.canClaimDailyLoginAd();
+    final hasAnyClaim = canClaimDaily || canClaimAd;
 
-        return Container(
+    return Row(
+      children: [
+        // 1. 7 GÜNLÜK GİRİŞ (Compact Pill)
+        Expanded(
+          child: _buildFancyRewardButton(
+            gradientColors: [const Color(0xFF261A08), const Color(0xFF161004)],
+            borderColor: hasAnyClaim ? const Color(0xFFFFD54F) : Colors.white12,
+            glowColor: const Color(0xFFFFA000),
+            isGlowing: hasAnyClaim,
+            iconGradient: const [Color(0xFFFFD54F), Color(0xFFFF8F00)],
+            icon: Icons.calendar_month_rounded,
+            iconColor: const Color(0xFF261500),
+            title: 'GİRİŞ',
+            titleColor: const Color(0xFFFFE082),
+            subtitle: '${_save.currentDailyLoginDay}. Gün',
+            subColor: const Color(0xFFFFB300),
+            badgeText: canClaimDaily ? 'AL!' : (canClaimAd ? '2X' : null),
+            badgeGradient: const [Color(0xFFFF5252), Color(0xFFFF1744)],
+            onTap: () => DailyLoginDialog.show(context),
+          ),
+        ),
+        const SizedBox(width: 6),
+
+        // 2. ŞANS ÇARKI (Compact Pill)
+        Expanded(
+          child: KeyedSubtree(
+            key: _wheelButtonKey,
+            child: ListenableBuilder(
+              listenable: _save,
+              builder: (context, _) {
+                final spinsLeft = _save.remainingWheelSpins;
+                final hasSpins = spinsLeft > 0;
+
+                return _buildFancyRewardButton(
+                  gradientColors: hasSpins
+                      ? const [Color(0xFF0B2135), Color(0xFF160A29)]
+                      : const [Color(0xFF141724), Color(0xFF1A1D2B)],
+                  borderColor: _highlightWheelButton
+                      ? const Color(0xFFFFFF00)
+                      : (hasSpins ? const Color(0xFF00E5FF) : Colors.white12),
+                  glowColor: _highlightWheelButton
+                      ? const Color(0xFFFFD700)
+                      : const Color(0xFF00E5FF),
+                  isGlowing: hasSpins || _highlightWheelButton,
+                  iconGradient: hasSpins
+                      ? const [Color(0xFF00E5FF), Color(0xFFD500F9)]
+                      : const [Color(0xFF455A64), Color(0xFF263238)],
+                  icon: Icons.motion_photos_on_rounded,
+                  iconColor: hasSpins ? Colors.white : Colors.white54,
+                  title: 'ÇARK',
+                  titleColor: hasSpins ? const Color(0xFF80D8FF) : Colors.white60,
+                  subtitle: hasSpins ? '$spinsLeft/3' : 'Bitti',
+                  subColor: hasSpins ? const Color(0xFF00E5FF) : Colors.white38,
+                  badgeText: hasSpins ? '$spinsLeft' : null,
+                  badgeGradient: hasSpins
+                      ? const [Color(0xFF00E5FF), Color(0xFF7C4DFF)]
+                      : null,
+                  onTap: _openFortuneWheelWithHero,
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+
+        // 3. ÜCRETSİZ HEDİYE (Compact Pill)
+        Expanded(
+          child: ListenableBuilder(
+            listenable: AdManager.instance,
+            builder: (context, _) {
+              final cooldown = AdManager.instance.remainingCooldownSeconds;
+              final onCooldown = cooldown > 0;
+              final isLoading = AdManager.instance.isLoading || AdManager.instance.isShowing;
+              final isReady = !onCooldown && !isLoading;
+
+              String sub;
+              if (isLoading) {
+                sub = '...';
+              } else if (onCooldown) {
+                final m = cooldown ~/ 60;
+                final s = cooldown % 60;
+                sub = '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+              } else {
+                sub = '+100';
+              }
+
+              return _buildFancyRewardButton(
+                gradientColors: [const Color(0xFF082B1C), const Color(0xFF061A1D)],
+                borderColor: isReady ? const Color(0xFF00E676) : Colors.white12,
+                glowColor: const Color(0xFF00E676),
+                isGlowing: isReady,
+                iconGradient: const [Color(0xFF69F0AE), Color(0xFF00B0FF)],
+                icon: Icons.card_giftcard_rounded,
+                iconColor: const Color(0xFF00331A),
+                title: 'HEDİYE',
+                titleColor: const Color(0xFFA7FFEB),
+                subtitle: sub,
+                subColor: const Color(0xFF69F0AE),
+                badgeText: isReady ? '+100' : null,
+                badgeGradient: isReady
+                    ? const [Color(0xFF00E676), Color(0xFF00C853)]
+                    : null,
+                onTap: () {
+                  if (isReady) {
+                    AdManager.instance.watchAdForGold(
+                      context,
+                      onSuccess: (reward) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(' +$reward Altın Hesabınıza Eklendi!'),
+                            backgroundColor: const Color(0xFF161A29),
+                          ),
+                        );
+                      },
+                      onDismissedEarly: () {},
+                    );
+                  } else if (onCooldown) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Yeni hediye için kalan süre: $sub'),
+                        backgroundColor: const Color(0xFF161A29),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFancyRewardButton({
+    required List<Color> gradientColors,
+    required Color borderColor,
+    required Color glowColor,
+    required bool isGlowing,
+    required List<Color> iconGradient,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required Color titleColor,
+    required String subtitle,
+    required Color subColor,
+    String? badgeText,
+    List<Color>? badgeGradient,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1E1435), Color(0xFF2D164D), Color(0xFF15102A)],
+            gradient: LinearGradient(
+              colors: gradientColors,
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: readyCount > 0 ? const Color(0xFFFFD54F) : const Color(0x33FFD54F),
-              width: readyCount > 0 ? 1.5 : 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: readyCount > 0
-                    ? const Color(0x55FFB300)
-                    : Colors.black45,
-                blurRadius: readyCount > 0 ? 16 : 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () => RewardsHubDialog.show(
-                context,
-                save: _save,
-                onFortuneWheelTap: _openFortuneWheelWithHero,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  children: [
-                    // Glowing Gift / Wheel Icon
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: const [
-                          BoxShadow(color: Color(0x66FF8F00), blurRadius: 10, offset: Offset(0, 2)),
-                        ],
-                      ),
-                      child: const Icon(Icons.card_giftcard_rounded, color: Colors.black, size: 24),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor, width: isGlowing ? 1.5 : 1.0),
+            boxShadow: isGlowing
+                ? [
+                    BoxShadow(
+                      color: glowColor.withValues(alpha: 0.4),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                      offset: const Offset(0, 2),
                     ),
-                    const SizedBox(width: 14),
-
-                    // Texts
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text(
-                                'ÖDÜL MERKEZİ',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.8,
-                                ),
+                  ]
+                : null,
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: iconGradient,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: iconGradient.first.withValues(alpha: 0.6),
+                          blurRadius: 6,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 1.2),
+                    ),
+                    child: Center(
+                      child: Icon(icon, color: iconColor, size: 17),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: titleColor,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.4,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.8),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
                               ),
-                              if (readyCount > 0) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFF5252),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Text(
-                                    '$readyCount YENİ',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 0.4,
-                                    ),
-                                  ),
-                                ),
-                              ],
                             ],
                           ),
-                          const SizedBox(height: 3),
-                          Text(
-                            readyCount > 0
-                                ? 'Şans Çarkı, Günlük Giriş ve Altın hazır!'
-                                : 'Şans Çarkı • Günlük Giriş • Hediye Altın',
-                            style: TextStyle(
-                              color: readyCount > 0 ? const Color(0xFFFFE082) : Colors.white60,
-                              fontSize: 11,
-                              fontWeight: readyCount > 0 ? FontWeight.w600 : FontWeight.normal,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: subColor,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
                           ),
-                        ],
-                      ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
-
-                    const SizedBox(width: 8),
-
-                    // Action Button
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                      decoration: BoxDecoration(
-                        gradient: readyCount > 0
-                            ? const LinearGradient(colors: [Color(0xFFFFD54F), Color(0xFFFF9800)])
-                            : const LinearGradient(colors: [Color(0xFF2E334D), Color(0xFF1E2132)]),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: readyCount > 0
-                            ? [
-                                const BoxShadow(
-                                  color: Color(0x55FF9800),
-                                  blurRadius: 8,
-                                  offset: Offset(0, 2),
-                                )
-                              ]
-                            : null,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            readyCount > 0 ? 'TOPLA' : 'AÇ',
-                            style: TextStyle(
-                              color: readyCount > 0 ? Colors.black : Colors.white70,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.arrow_forward_ios_rounded,
-                            size: 11,
-                            color: readyCount > 0 ? Colors.black : Colors.white70,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
+              if (badgeText != null)
+                Positioned(
+                  top: -8,
+                  right: -3,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      gradient: badgeGradient != null
+                          ? LinearGradient(colors: badgeGradient)
+                          : null,
+                      color: badgeGradient == null ? Colors.orange : null,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 0.8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (badgeGradient?.first ?? Colors.black).withValues(alpha: 0.6),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      badgeText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
