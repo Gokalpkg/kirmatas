@@ -1,3 +1,4 @@
+import 'analytics_manager.dart';
 import 'dart:math';
 import '../models/black_hole.dart';
 import '../models/portal.dart';
@@ -402,6 +403,7 @@ class GameController extends ChangeNotifier {
 
   void loadLevelBricks() {
     _hasLoadedBricks = true;
+    AnalyticsManager.instance.logLevelStart(stats.level, currentMode.name);
     activeIceVariant = _rand.nextInt(4);
     portals.clear();
     blackHoles.clear();
@@ -2772,6 +2774,7 @@ class GameController extends ChangeNotifier {
 
   void _onGameOver() {
     _haltBackgroundGameplay();
+    AnalyticsManager.instance.logLevelFail(stats.level, currentMode.name, bricksLeft: bricks.where((b) => b.isAlive).length);
     status = GameStatus.gameOver;
     if (currentMode == GameMode.classic) {
       save.saveClassicSession(

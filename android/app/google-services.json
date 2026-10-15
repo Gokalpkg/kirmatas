@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "41152036801",
+    "project_id": "kirmatas-1da71",
+    "storage_bucket": "kirmatas-1da71.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:41152036801:android:70f776869c7938001af940",
+        "android_client_info": {
+          "package_name": "com.kaunos.kirmatas"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBG4l1F8Xi3tP8V8sg258GZ94Ed6Sv_BYs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,3 +1,4 @@
+import '../engine/analytics_manager.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -324,6 +325,7 @@ class SaveManager extends ChangeNotifier {
     if (!ok) return false;
     upgrades[id] = cur + 1;
     await _prefs?.setString('upgrades', jsonEncode(upgrades));
+    AnalyticsManager.instance.logStatUpgraded(id, cur + 1);
     notifyListeners();
     return true;
   }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,10 +8,24 @@ import 'engine/remove_ads_billing.dart';
 import 'engine/asset_cache.dart';
 import 'engine/audio_manager.dart';
 import 'storage/save_manager.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'engine/analytics_manager.dart';
 import 'ui/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase & Crashlytics crash handlers
+  try {
+    await Firebase.initializeApp();
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+    await AnalyticsManager.instance.init();
+  } catch (_) {}
 
   // Set system UI to immersive sticky mode
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
