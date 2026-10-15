@@ -1815,8 +1815,13 @@ class GameController extends ChangeNotifier {
       var vx = sin(bounceAngle) * finalSpeed;
       var vy = -cos(bounceAngle) * finalSpeed;
 
-      // Spin transfer
-      vx += paddle.velocityX * 0.25;
+      // Spin transfer: Paddle motion applies natural spin, normalized to prevent erratic speed spikes
+      vx += (paddle.velocityX * 0.18).clamp(-120.0, 120.0);
+      final spinMag = sqrt(vx * vx + vy * vy);
+      if (spinMag > 0) {
+        vx = (vx / spinMag) * finalSpeed;
+        vy = (vy / spinMag) * finalSpeed;
+      }
 
       // Step 1: Endgame Pacing - Micro-nudge targeting towards remaining 1-2 bricks if stalled > 10s
       final remainingAliveBricks = bricks.where((b) => b.isAlive && !b.isSteel).toList();
