@@ -914,4 +914,70 @@ class CategoryCrateInfo {
   };
 }
 
+class StatUpgrade {
+  final String id;
+  final String nameKey;
+  final String descKey;
+  final IconData icon;
+  final Color color;
+  final List<int> costs;
 
+  const StatUpgrade({
+    required this.id,
+    required this.nameKey,
+    required this.descKey,
+    required this.icon,
+    required this.color,
+    this.costs = const [600, 1500, 3000, 5500, 9500],
+  });
+
+  int get maxLevel => costs.length;
+
+  int getCostForLevel(int currentLevel) {
+    if (currentLevel >= maxLevel) return 0;
+    return costs[currentLevel];
+  }
+
+  static const List<StatUpgrade> all = [
+    StatUpgrade(
+      id: 'paddle_width',
+      nameKey: 'upgrade_paddle_width',
+      descKey: 'upgrade_paddle_width_desc',
+      icon: Icons.straighten_rounded,
+      color: Color(0xFF00E5FF),
+      costs: [600, 1500, 3000, 5500, 9500],
+    ),
+    StatUpgrade(
+      id: 'crit_damage',
+      nameKey: 'upgrade_crit',
+      descKey: 'upgrade_crit_desc',
+      icon: Icons.electric_bolt_rounded,
+      color: Color(0xFFFF5252),
+      costs: [800, 1800, 3500, 6500, 11000],
+    ),
+    StatUpgrade(
+      id: 'magnet',
+      nameKey: 'magnet_title',
+      descKey: 'magnet_desc',
+      icon: Icons.all_inclusive_rounded,
+      color: Color(0xFFE040FB),
+      costs: [500, 1200, 2500, 4800, 8500],
+    ),
+    StatUpgrade(
+      id: 'luck',
+      nameKey: 'luck_title',
+      descKey: 'luck_desc',
+      icon: Icons.stars_rounded,
+      color: Color(0xFFFFD54F),
+      costs: [700, 1600, 3200, 6000, 10000],
+    ),
+    StatUpgrade(
+      id: 'battery',
+      nameKey: 'battery_title',
+      descKey: 'battery_desc',
+      icon: Icons.battery_charging_full_rounded,
+      color: Color(0xFF69F0AE),
+      costs: [500, 1200, 2400, 4500, 8000],
+    ),
+  ];
+}

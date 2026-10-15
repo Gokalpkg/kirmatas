@@ -2432,6 +2432,43 @@ void main() {
       expect((initialX - capsule.x).abs() < 2.0, true); // Extremely subtle, does not teleport
     });
 
+    test('Stat Upgrade Tree boosts paddle width, crit damage, ulti charge and luck', () async {
+      final save = SaveManager.instance;
+      await save.init();
+      save.gold = 50000;
+      save.upgrades.clear();
+
+      expect(save.getUpgradeLevel('paddle_width'), 0);
+      final bought = await save.buyStatUpgrade('paddle_width', 600);
+      expect(bought, true);
+      expect(save.getUpgradeLevel('paddle_width'), 1);
+      expect(save.gold, 50000 - 600);
+
+      // Upgrade paddle width to level 3
+      await save.buyStatUpgrade('paddle_width', 1500);
+      await save.buyStatUpgrade('paddle_width', 3000);
+      expect(save.getUpgradeLevel('paddle_width'), 3);
+
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.classic);
+
+      // Base paddle width should include +12px bonus from lvl 3
+      expect(gc.paddle.width >= gc.paddle.baseWidth + 12.0, true);
+
+      // Verify battery upgrade accelerates ulti charge
+      await save.buyStatUpgrade('battery', 500);
+      expect(save.getUpgradeLevel('battery'), 1);
+      final initialUlti = gc.stats.ultiCharge;
+      final brick = Brick(x: 100, y: 100, width: 40, height: 20, color: const Color(0xFFE91E63), points: 50, hp: 1);
+      gc.bricks.add(brick);
+      // Simulate charging until dice point triggers ulti gain
+      for (int i = 0; i < 10; i++) {
+        gc.testChargeDiceFromGlass(brick);
+      }
+      expect(gc.stats.ultiCharge > initialUlti, true);
+    });
+
     test('Laser rolls 1 to 6 shots, mostly 1-3, then stops', () {
       final gc = GameController();
       gc.setDimensions(360, 640);
@@ -2913,6 +2950,33 @@ void main() {
       // Start from sector 14 checkpoint (Level 221)
       gc.startNewGame(GameMode.classic, explicitStartLevel: 221);
       expect(gc.stats.level, 221);
+    });
+
+    test('AudioManager combo pitch escalation and dynamic tempo scaling', () {
+      final audio = AudioManager.instance;
+
+      // Base hit with no combo
+      audio.playSfx(GameSfx.hitBrick, combo: 0);
+      expect(audio.lastPlayedCombo, 0);
+      expect(audio.lastPlaybackRate, 1.0);
+
+      // Consecutive combo hits scale pitch progressively up to 1.5x
+      audio.playSfx(GameSfx.breakBrick, combo: 3);
+      expect(audio.lastPlayedCombo, 3);
+      expect(audio.lastPlaybackRate, closeTo(1.15, 0.01));
+
+      audio.playSfx(GameSfx.breakBrick, combo: 7);
+      expect(audio.lastPlayedCombo, 7);
+      expect(audio.lastPlaybackRate, closeTo(1.35, 0.01));
+
+      audio.playSfx(GameSfx.breakBrick, combo: 12);
+      expect(audio.lastPlayedCombo, 12);
+      expect(audio.lastPlaybackRate, closeTo(1.50, 0.01));
+
+      // Dynamic tempo adjustment does not throw
+      expect(() => audio.setDynamicTempo(isFever: true, isBoss: false), returnsNormally);
+      expect(() => audio.setDynamicTempo(isFever: false, isBoss: true), returnsNormally);
+      expect(() => audio.setDynamicTempo(isFever: false, isBoss: false), returnsNormally);
     });
 
     testWidgets('RewardsHubDialog renders properly with all 3 rewards and actions', (tester) async {

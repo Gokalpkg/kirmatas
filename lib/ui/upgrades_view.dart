@@ -45,7 +45,8 @@ class UpgradesView extends StatelessWidget {
                   children: [
                     const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
                     const SizedBox(width: 6),
-                    Text( '${save.gold}',
+                    Text(
+                      '${save.gold}',
                       style: const TextStyle(
                         color: Color(0xFFFFD54F),
                         fontWeight: FontWeight.w900,
@@ -60,27 +61,220 @@ class UpgradesView extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Text(
-                I18n.tr('permanent_upgrades'),
-                style: const TextStyle(
-                  color: Color(0xFFFFD54F),
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                  letterSpacing: 1.2,
-                ),
+              // --- SECTION 1: ATTRIBUTE MASTERY (Yetenek Ağacı) ---
+              Row(
+                children: [
+                  const Icon(Icons.bolt_rounded, color: Color(0xFF00E5FF), size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    I18n.tr('stat_tree'),
+                    style: const TextStyle(
+                      color: Color(0xFF00E5FF),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...StatUpgrade.all.map((stat) {
+                final currentLvl = save.getUpgradeLevel(stat.id);
+                final isMax = currentLvl >= stat.maxLevel;
+                final cost = stat.getCostForLevel(currentLvl);
+                final canAfford = !isMax && save.gold >= cost;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        stat.color.withValues(alpha: 0.12),
+                        const Color(0xFF121522),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: isMax
+                          ? const Color(0xFF69F0AE).withValues(alpha: 0.6)
+                          : stat.color.withValues(alpha: 0.35),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      // Icon badge
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: stat.color.withValues(alpha: 0.18),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: stat.color.withValues(alpha: 0.5)),
+                        ),
+                        child: Icon(stat.icon, color: stat.color, size: 26),
+                      ),
+                      const SizedBox(width: 12),
+                      // Details
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    I18n.tr(stat.nameKey),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: isMax
+                                        ? const Color(0x3369F0AE)
+                                        : stat.color.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isMax
+                                          ? const Color(0xFF69F0AE)
+                                          : stat.color.withValues(alpha: 0.5),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    isMax ? I18n.tr('max_level') : '${I18n.tr('lvl')} $currentLvl/${stat.maxLevel}',
+                                    style: TextStyle(
+                                      color: isMax ? const Color(0xFF69F0AE) : stat.color,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              I18n.tr(stat.descKey),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                                height: 1.25,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            // 5-segment pip gauge
+                            Row(
+                              children: List.generate(stat.maxLevel, (index) {
+                                final isFilled = index < currentLvl;
+                                return Expanded(
+                                  child: Container(
+                                    height: 5,
+                                    margin: EdgeInsets.only(right: index < stat.maxLevel - 1 ? 4 : 0),
+                                    decoration: BoxDecoration(
+                                      color: isFilled ? stat.color : const Color(0xFF262C3D),
+                                      borderRadius: BorderRadius.circular(3),
+                                      boxShadow: isFilled
+                                          ? [
+                                              BoxShadow(
+                                                color: stat.color.withValues(alpha: 0.6),
+                                                blurRadius: 4,
+                                              ),
+                                            ]
+                                          : null,
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Action button
+                      if (isMax)
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: Color(0x2269F0AE),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.check_rounded, color: Color(0xFF69F0AE), size: 22),
+                        )
+                      else
+                        ElevatedButton(
+                          onPressed: canAfford
+                              ? () async {
+                                  await save.buyStatUpgrade(stat.id, cost);
+                                }
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFFD54F),
+                            foregroundColor: Colors.black,
+                            disabledBackgroundColor: Colors.white12,
+                            disabledForegroundColor: Colors.white30,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: canAfford ? 3 : 0,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.monetization_on, size: 14, color: Colors.black87),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$cost',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+
+              const SizedBox(height: 20),
+
+              // --- SECTION 2: PERMANENT RELICS ---
+              Row(
+                children: [
+                  const Icon(Icons.auto_awesome_rounded, color: Color(0xFFFFD54F), size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    I18n.tr('permanent_upgrades'),
+                    style: const TextStyle(
+                      color: Color(0xFFFFD54F),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               const RemoveAdsCard(),
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0x33FFD54F), Color(0xFF141724)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: save.hasPermanentRelic ? const Color(0xFFFFD54F) : const Color(0x66FFD54F),
                     width: save.hasPermanentRelic ? 1.8 : 1.2,
@@ -93,8 +287,8 @@ class UpgradesView extends StatelessWidget {
                 child: Row(
                   children: [
                     Container(
-                      width: 56,
-                      height: 56,
+                      width: 50,
+                      height: 50,
                       decoration: BoxDecoration(
                         gradient: const RadialGradient(
                           colors: [Color(0x66FFD54F), Color(0x11FFD54F)],
@@ -102,7 +296,7 @@ class UpgradesView extends StatelessWidget {
                         shape: BoxShape.circle,
                         border: Border.all(color: const Color(0xFFFFD54F), width: 1.5),
                       ),
-                      child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFFFFD54F), size: 30),
+                      child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFFFFD54F), size: 26),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -114,7 +308,7 @@ class UpgradesView extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   I18n.tr('relic_title'),
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15),
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
                                 ),
                               ),
                               if (save.hasPermanentRelic)
@@ -135,16 +329,7 @@ class UpgradesView extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             I18n.tr('relic_body'),
-                            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            save.hasPermanentRelic ? I18n.tr('relic_owned') : I18n.tr('relic_price'),
-                            style: TextStyle(
-                              color: save.hasPermanentRelic ? const Color(0xFF69F0AE) : const Color(0xFFFFD54F),
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: const TextStyle(color: Colors.white70, fontSize: 11, height: 1.3),
                           ),
                         ],
                       ),
@@ -161,25 +346,42 @@ class UpgradesView extends StatelessWidget {
                           backgroundColor: const Color(0xFFFFD54F),
                           foregroundColor: Colors.black,
                           disabledBackgroundColor: Colors.white12,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
-                        child: const Text( '25.000 ',
-                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.monetization_on, size: 14, color: Colors.black87),
+                            SizedBox(width: 4),
+                            Text(
+                              '25.000',
+                              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                            ),
+                          ],
                         ),
                       ),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
-              Text(
-                I18n.tr('pre_match_boosts'),
-                style: const TextStyle(
-                  color: Color(0xFF00E5FF),
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                  letterSpacing: 1.2,
-                ),
+
+              const SizedBox(height: 20),
+
+              // --- SECTION 3: PRE-MATCH BOOSTS ---
+              Row(
+                children: [
+                  const Icon(Icons.flash_on_rounded, color: Color(0xFFFF4081), size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    I18n.tr('pre_match_boosts'),
+                    style: const TextStyle(
+                      color: Color(0xFFFF4081),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               ...BoostItem.allBoosts.map((b) {
@@ -188,47 +390,48 @@ class UpgradesView extends StatelessWidget {
                 final canAfford = save.gold >= cost;
 
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 14),
-                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: const Color(0xFF141724),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(18),
                     border: Border.all(color: Colors.white12),
                   ),
                   child: Row(
                     children: [
                       Container(
-                        width: 52,
-                        height: 52,
+                        width: 46,
+                        height: 46,
                         decoration: BoxDecoration(
                           color: b.color.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                           border: Border.all(color: b.color.withValues(alpha: 0.5)),
                         ),
-                        child: Icon(b.icon, color: b.color, size: 28),
+                        child: Icon(b.icon, color: b.color, size: 24),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               b.name,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15),
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
                             ),
                             const SizedBox(height: 3),
                             Text(
                               b.description,
-                              style: const TextStyle(color: Colors.white60, fontSize: 12),
+                              style: const TextStyle(color: Colors.white60, fontSize: 11),
                             ),
-                            const SizedBox(height: 6),
-                            Text( '${I18n.tr('stock')}: $stock ${I18n.tr('pcs')}',
-                              style: TextStyle(color: b.color, fontSize: 12, fontWeight: FontWeight.bold),
+                            const SizedBox(height: 5),
+                            Text(
+                              '${I18n.tr('stock')}: $stock ${I18n.tr('pcs')}',
+                              style: TextStyle(color: b.color, fontSize: 11, fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       ElevatedButton(
                         onPressed: canAfford
                             ? () async {
@@ -241,10 +444,20 @@ class UpgradesView extends StatelessWidget {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFFFD54F),
                           foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          disabledBackgroundColor: Colors.white12,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: Text( '${b.cost} ',
-                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.monetization_on, size: 14, color: Colors.black87),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${b.cost}',
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                            ),
+                          ],
                         ),
                       ),
                     ],

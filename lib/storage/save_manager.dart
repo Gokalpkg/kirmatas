@@ -314,6 +314,20 @@ class SaveManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  int getUpgradeLevel(String id) => upgrades[id] ?? 0;
+
+  Future<bool> buyStatUpgrade(String id, int cost) async {
+    final cur = getUpgradeLevel(id);
+    if (cur >= 5) return false;
+    if (gold < cost) return false;
+    final ok = await spendGold(cost);
+    if (!ok) return false;
+    upgrades[id] = cur + 1;
+    await _prefs?.setString('upgrades', jsonEncode(upgrades));
+    notifyListeners();
+    return true;
+  }
+
   Future<void> upgradeSkill(String id) async {
     final cur = upgrades[id] ?? 0;
     upgrades[id] = cur + 1;

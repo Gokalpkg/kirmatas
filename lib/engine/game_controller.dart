@@ -354,13 +354,18 @@ class GameController extends ChangeNotifier {
   @visibleForTesting
   void haltBackgroundGameplay() => _haltBackgroundGameplay();
 
+  @visibleForTesting
+  void testChargeDiceFromGlass(Brick b) => _chargeDiceFromGlass(b);
+
   void resetPaddleAndBall() {
     // Step 7: Aquarium Synergy - Passive buffs based on unlocked fish in Eco-Tank
     double fishWidthBonus = 0.0;
     if (save.unlockedFish.contains('guppy')) fishWidthBonus += 4.0;
     if (save.unlockedFish.contains('tetra')) fishWidthBonus += 3.0;
 
-    paddle.width = paddle.baseWidth + fishWidthBonus;
+    final paddleWidthLvl = save.getUpgradeLevel('paddle_width');
+    final upgradeWidthBonus = paddleWidthLvl * 4.0;
+    paddle.width = paddle.baseWidth + fishWidthBonus + upgradeWidthBonus;
     paddle.x = (screenWidth - paddle.width) / 2;
     paddle.y = screenHeight - 110.0;
     paddle.isSticky = false;
@@ -669,7 +674,9 @@ class GameController extends ChangeNotifier {
     if (remainingSolid.isEmpty) {
       final baseGold = 25 + (stats.level * 5).clamp(0, 50);
       final relicBonus = save.hasPermanentRelic ? max(1, (baseGold * 0.05).round()) : 0;
-      final levelGold = baseGold + relicBonus;
+      final luckLvl = save.getUpgradeLevel('luck');
+      final luckBonus = (baseGold * (luckLvl * 0.05)).round();
+      final levelGold = baseGold + relicBonus + luckBonus;
       stats.goldCollected += levelGold;
       save.addGold(levelGold);
 
@@ -1173,6 +1180,7 @@ class GameController extends ChangeNotifier {
         stats.isFever = false;
       }
     }
+    audio.setDynamicTempo(isFever: stats.isFever, isBoss: activeBossBrick != null);
   }
 
   void _updateProjectiles(double dt) {
@@ -1461,7 +1469,7 @@ class GameController extends ChangeNotifier {
           stats.score += 100;
           particles.spawnBurst(splatX, splatY, const Color(0xFFD31018), count: 24, speed: 110.0);
           particles.spawnFloatingText(splatX, splatY - 18.0, 'BZZZ! SPLAT! +100', const Color(0xFFFF1744), isLarge: true);
-          audio.playSfx(GameSfx.breakBrick);
+          audio.playSfx(GameSfx.breakBrick, combo: stats.combo);
         }
       }
 
@@ -2125,7 +2133,7 @@ class GameController extends ChangeNotifier {
       b.isFrozen = false;
       particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFF80D8FF), count: 20);
       particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFF00E5FF), maxRadius: 30.0);
-      audio.playSfx(GameSfx.breakBrick);
+      audio.playSfx(GameSfx.breakBrick, combo: stats.combo);
       return;
     }
     if (b.isTuft) {
@@ -2133,7 +2141,7 @@ class GameController extends ChangeNotifier {
         b.tuftFilled = true;
         b.color = b.tuftColor;
         particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, b.tuftColor, count: 8);
-        audio.playSfx(GameSfx.hitBrick);
+        audio.playSfx(GameSfx.hitBrick, combo: stats.combo);
         _registerCombo(b.points);
       }
       return;
@@ -2146,12 +2154,18 @@ class GameController extends ChangeNotifier {
       if (b.hp <= 0) {
         _destroyBrick(b);
       } else if (b.hp % 6 == 0) {
-        audio.playSfx(GameSfx.hitBrick);
+        audio.playSfx(GameSfx.hitBrick, combo: stats.combo);
       }
       return;
     }
 
-    b.hp--;
+    int dmg = 1;
+    final critLvl = save.getUpgradeLevel('crit_damage');
+    if (critLvl > 0 && _rand.nextDouble() < (critLvl * 0.035)) {
+      dmg = 2;
+      particles.spawnFloatingText(b.x + b.width / 2, b.y - 8, 'KRİTİK!', const Color(0xFFFF5252));
+    }
+    b.hp -= dmg;
     b.jelly = 0.8;
     endgameStallTimer = 0.0;
 
@@ -2172,7 +2186,7 @@ class GameController extends ChangeNotifier {
           }
         }
       } else {
-        audio.playSfx(GameSfx.hitBrick);
+        audio.playSfx(GameSfx.hitBrick, combo: stats.combo);
       }
       _registerCombo(b.points ~/ 2);
     }
@@ -2186,7 +2200,9 @@ class GameController extends ChangeNotifier {
     if (_glassBreaksTowardDice < _blocksUntilDicePoint) return;
     _glassBreaksTowardDice = 0;
     _blocksUntilDicePoint = _rollDiceBlockGap();
-    stats.ultiCharge = (stats.ultiCharge + 1.0).clamp(0.0, 100.0);
+    final batteryLvl = save.getUpgradeLevel('battery');
+    final ultiGain = 1.0 + (batteryLvl * 0.4);
+    stats.ultiCharge = (stats.ultiCharge + ultiGain).clamp(0.0, 100.0);
   }
 
   void _destroyBrick(Brick b) {
@@ -2204,7 +2220,7 @@ class GameController extends ChangeNotifier {
 
     if (currentMode == GameMode.chaos) {
       particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, b.color, count: 4);
-      audio.playSfx(GameSfx.breakBrick);
+      audio.playSfx(GameSfx.breakBrick, combo: stats.combo);
       stats.score += 15;
       _checkLiveNewRecordCelebration();
       if (!bricks.any((br) => br.isAlive && !br.isBallPickup)) {
@@ -2223,7 +2239,7 @@ class GameController extends ChangeNotifier {
     } else {
       particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, b.color, count: 16);
       particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, b.color, maxRadius: 40.0);
-      audio.playSfx(GameSfx.breakBrick);
+      audio.playSfx(GameSfx.breakBrick, combo: stats.combo);
     }
 
     _registerCombo(b.points);
@@ -2809,7 +2825,9 @@ class GameController extends ChangeNotifier {
         levelTransitionTimer = 0.65;
         final baseGold = 25 + (stats.level * 5).clamp(0, 50);
         final relicBonus = save.hasPermanentRelic ? max(1, (baseGold * 0.05).round()) : 0;
-        final levelGold = baseGold + relicBonus;
+        final luckLvl = save.getUpgradeLevel('luck');
+        final luckBonus = (baseGold * (luckLvl * 0.05)).round();
+        final levelGold = baseGold + relicBonus + luckBonus;
         stats.goldCollected += levelGold;
         save.addGold(levelGold);
         stats.level++;

@@ -284,7 +284,30 @@ class AudioManager {
     }
   }
 
-  void playSfx(GameSfx sfx) {
+  int lastPlayedCombo = 0;
+  double lastPlaybackRate = 1.0;
+
+  void setDynamicTempo({bool isFever = false, bool isBoss = false}) {
+    try {
+      double rate = 1.0;
+      if (isFever) {
+        rate = 1.08;
+      } else if (isBoss) {
+        rate = 1.04;
+      }
+      _bgmLead.setPlaybackRate(rate);
+      _bgmNext.setPlaybackRate(rate);
+    } catch (_) {}
+  }
+
+  void playSfx(GameSfx sfx, {int combo = 0}) {
+    lastPlayedCombo = combo;
+    double playbackRate = 1.0;
+    if ((sfx == GameSfx.hitBrick || sfx == GameSfx.breakBrick) && combo > 0) {
+      final step = combo.clamp(0, 10);
+      playbackRate = 1.0 + (step * 0.05);
+    }
+    lastPlaybackRate = playbackRate;
     if (!appInForeground) return;
     if (!SaveManager.instance.sfxEnabled) return;
 
@@ -363,19 +386,24 @@ class AudioManager {
         
         final token = (_playToken[p] ?? 0) + 1;
         _playToken[p] = token;
-        _restart(p, asset, volume, token);
+        _restart(p, asset, volume, token, playbackRate: playbackRate);
       }
     }
 
     _maybeVibrate(sfx, now);
   }
 
-  Future<void> _restart(AudioPlayer player, String asset, double volume, int token) async {
+  Future<void> _restart(AudioPlayer player, String asset, double volume, int token, {double playbackRate = 1.0}) async {
     try {
       await player.stop();
     } catch (_) {}
     if (_playToken[player] != token) return;
     try {
+      if ((playbackRate - 1.0).abs() > 0.02) {
+        await player.setPlaybackRate(playbackRate.clamp(0.5, 2.0));
+      } else {
+        await player.setPlaybackRate(1.0);
+      }
       await player.play(
         AssetSource(asset),
         volume: volume,
