@@ -114,10 +114,9 @@ public struct RewardsCenterView: View {
             Spacer()
 
             HStack(spacing: 5) {
-                Text("🪙")
-                    .font(.system(size: 16))
+                PixelCoin(size: 16)
                 Text("\(save.gold)")
-                    .font(.system(size: 16, weight: .black, design: .rounded))
+                    .font(.system(size: 16, weight: .black, design: .monospaced))
                     .foregroundStyle(Color(hex: 0xFFFFD54F))
             }
             .padding(.horizontal, 12)
@@ -225,16 +224,15 @@ public struct RewardsCenterView: View {
                         Button {
                             let reward = save.claimQuest(id: quest.id)
                             AudioManager.shared.playSfx(.victory)
-                            showToast("+\(reward) 🪙 " + I18n.pick("Alındı!", "Claimed!"))
+                            showToast("+\(reward) G " + I18n.pick("Alındı!", "Claimed!"))
                         } label: {
                             VStack(spacing: 2) {
                                 Text(I18n.pick("AL", "CLAIM"))
                                     .font(.system(size: 12, weight: .black, design: .rounded))
                                 HStack(spacing: 2) {
                                     Text("\(quest.goldReward)")
-                                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    Text("🪙")
-                                        .font(.system(size: 10))
+                                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                    PixelCoin(size: 10)
                                 }
                             }
                             .foregroundStyle(.black)
@@ -248,9 +246,8 @@ public struct RewardsCenterView: View {
                     } else {
                         HStack(spacing: 3) {
                             Text("\(quest.goldReward)")
-                                .font(.system(size: 12, weight: .bold, design: .rounded))
-                            Text("🪙")
-                                .font(.system(size: 11))
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            PixelCoin(size: 11)
                         }
                         .foregroundStyle(Color(hex: 0xFFFFD54F).opacity(0.85))
                         .padding(.horizontal, 10)
@@ -336,8 +333,7 @@ public struct RewardsCenterView: View {
                                     .font(.system(size: 18, weight: .bold))
                                     .foregroundStyle(Color(hex: 0xFF40C4FF))
                             } else {
-                                Text("🪙")
-                                    .font(.system(size: 16))
+                                PixelCoin(size: 16)
                             }
                         }
 
@@ -371,7 +367,7 @@ public struct RewardsCenterView: View {
                 if save.canClaimDailyStreak {
                     let reward = save.claimDailyStreak()
                     AudioManager.shared.playSfx(.victory)
-                    showToast("+\(reward) 🪙 " + I18n.pick("Günlük Seri Ödülü Alındı!", "Daily Streak Reward Claimed!"))
+                    showToast("+\(reward) G " + I18n.pick("Günlük Seri Ödülü Alındı!", "Daily Streak Reward Claimed!"))
                 }
             } label: {
                 HStack(spacing: 8) {

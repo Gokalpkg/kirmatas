@@ -83,6 +83,7 @@
 		A10000550000000000000001 /* TopRewardsBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000550000000000000001 /* TopRewardsBar.swift */; };
 		A10000560000000000000001 /* RewardsCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000560000000000000001 /* RewardsCenterView.swift */; };
 		A100005D0000000000000001 /* EasterEgg.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200005D0000000000000001 /* EasterEgg.swift */; };
+		A100005E0000000000000001 /* PixelIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200005E0000000000000001 /* PixelIcons.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -163,6 +164,7 @@
 		A20000550000000000000001 /* TopRewardsBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopRewardsBar.swift; sourceTree = "<group>"; };
 		A20000560000000000000001 /* RewardsCenterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardsCenterView.swift; sourceTree = "<group>"; };
 		A200005D0000000000000001 /* EasterEgg.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasterEgg.swift; sourceTree = "<group>"; };
+		A200005E0000000000000001 /* PixelIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelIcons.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -248,6 +250,7 @@
 				A20000560000000000000001 /* RewardsCenterView.swift */,
 				A200005A0000000000000001 /* FortuneWheelView.swift */,
 				A200005B0000000000000001 /* LegalView.swift */,
+				A200005E0000000000000001 /* PixelIcons.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -453,6 +456,7 @@
 				A10000550000000000000001 /* TopRewardsBar.swift in Sources */,
 				A10000560000000000000001 /* RewardsCenterView.swift in Sources */,
 				A100005D0000000000000001 /* EasterEgg.swift in Sources */,
+				A100005E0000000000000001 /* PixelIcons.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

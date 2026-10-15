@@ -193,7 +193,7 @@ public enum QuestCatalog {
         StreakReward(day: 4, goldReward: 110, bonusType: nil, bonusDescriptionTR: nil, bonusDescriptionEN: nil),
         StreakReward(day: 5, goldReward: 125, bonusType: .wideBoost, bonusDescriptionTR: "+1 Geniş Raket", bonusDescriptionEN: "+1 Wide Paddle Boost"),
         StreakReward(day: 6, goldReward: 140, bonusType: nil, bonusDescriptionTR: nil, bonusDescriptionEN: nil),
-        StreakReward(day: 7, goldReward: 155, bonusType: .jackpot, bonusDescriptionTR: "Büyük İkramiye (+300 🪙)", bonusDescriptionEN: "Jackpot (+300 🪙)")
+        StreakReward(day: 7, goldReward: 155, bonusType: .jackpot, bonusDescriptionTR: "Büyük İkramiye (+300 Altın)", bonusDescriptionEN: "Jackpot (+300 Gold)")
     ]
 
     public static func rewardForDay(_ day: Int) -> StreakReward {

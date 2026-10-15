@@ -175,11 +175,11 @@ public struct AquariumView: View {
                     Text("ECO-TANK")
                         .font(.system(size: 18, weight: .black, design: .rounded))
                         .foregroundColor(.white)
-                    Text("🐠")
+                    PixelFishIcon(size: 15)
                 }
 
                 // Hourly Gold Rate
-                Text(String(format: I18n.pick("+%.1f 🪙/saat", "+%.1f 🪙/hour"), save.aquariumState.totalGPH()))
+                Text(String(format: I18n.pick("+%.1f G/saat", "+%.1f G/hour"), save.aquariumState.totalGPH()))
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(Color(hex: 0xFF4FC3F7))
             }
@@ -192,7 +192,7 @@ public struct AquariumView: View {
                 showingFoodShop = true
             }) {
                 HStack(spacing: 5) {
-                    Text("🌾")
+                    PixelFood(size: 15)
                     Text("\(save.aquariumState.floraCounts["kelp"] ?? 3)")
                         .font(.system(size: 13, weight: .black))
                         .foregroundColor(.white)
@@ -209,7 +209,7 @@ public struct AquariumView: View {
 
             // Wallet Gold Display
             HStack(spacing: 5) {
-                Text("🪙")
+                PixelCoin(size: 15)
                 Text("\(save.gold)")
                     .font(.system(size: 14, weight: .black, design: .rounded))
                     .foregroundColor(Color(hex: 0xFFFFD54F))
@@ -279,8 +279,7 @@ public struct AquariumView: View {
                 // Feed Button
                 Button(action: handleFeed) {
                     HStack(spacing: 8) {
-                        Text("🌾")
-                            .font(.system(size: 20))
+                        PixelFood(size: 20)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(I18n.pick("YEM AT", "FEED"))
                                 .font(.system(size: 14, weight: .black))
@@ -308,13 +307,12 @@ public struct AquariumView: View {
                 let harvestable = offlineGains.gold + offlineGains.comebackBonus
                 Button(action: handleHarvest) {
                     HStack(spacing: 8) {
-                        Text("🪙")
-                            .font(.system(size: 20))
+                        PixelCoin(size: 20)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(harvestable > 0 ? "+\(harvestable) " + I18n.pick("TOPLA", "COLLECT") : I18n.pick("BİRİKEN", "STORED"))
                                 .font(.system(size: 14, weight: .black))
                                 .foregroundColor(harvestable > 0 ? Color(hex: 0xFFFFD54F) : .white.opacity(0.5))
-                            Text(harvestable > 0 ? (offlineGains.comebackBonus > 0 ? I18n.pick("Bonus Dahil!", "Bonus Included!") : I18n.pick("Altınları Al", "Collect Gold")) : I18n.pick("0 🪙 Bekliyor", "0 🪙 Waiting"))
+                            Text(harvestable > 0 ? (offlineGains.comebackBonus > 0 ? I18n.pick("Bonus Dahil!", "Bonus Included!") : I18n.pick("Altınları Al", "Collect Gold")) : I18n.pick("0 G Bekliyor", "0 G Waiting"))
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundColor(harvestable > 0 ? .white : .white.opacity(0.4))
                         }
@@ -381,10 +379,13 @@ public struct AquariumView: View {
             ZStack {
                 Color(hex: 0xFF0A141E).ignoresSafeArea()
                 VStack(spacing: 20) {
-                    Text(I18n.pick("🌾 Yem Mağazası", "🌾 Food Shop"))
-                        .font(.title2.bold())
-                        .foregroundColor(.white)
-                        .padding(.top, 20)
+                    HStack(spacing: 8) {
+                        PixelFood(size: 22)
+                        Text(I18n.pick("Yem Mağazası", "Food Shop"))
+                    }
+                    .font(.title2.bold())
+                    .foregroundColor(.white)
+                    .padding(.top, 20)
 
                     Text(I18n.pick("Balıklarını doyurarak saatlik altın üretimini 4 saat boyunca aktif tutabilirsin.", "Feed your fish to keep hourly gold production running for 4 hours."))
                         .font(.subheadline)
@@ -414,8 +415,7 @@ public struct AquariumView: View {
 
     private func foodPackRow(count: Int, price: Int) -> some View {
         HStack {
-            Text("🌾")
-                .font(.system(size: 28))
+            PixelFood(size: 24)
             VStack(alignment: .leading, spacing: 3) {
                 Text(I18n.isEnglish ? "\(count) Food" : "\(count) Adet Yem")
                     .font(.headline.bold())
@@ -429,15 +429,15 @@ public struct AquariumView: View {
                 if save.spendGold(price) {
                     save.aquariumState.floraCounts["kelp"] = (save.aquariumState.floraCounts["kelp"] ?? 0) + count
                     AudioManager.shared.playSfx(.powerupBuff)
-                    showToast(I18n.isEnglish ? "+\(count) food bought! 🌾" : "+\(count) Yem satın alındı! 🌾")
+                    showToast(I18n.isEnglish ? "+\(count) food bought!" : "+\(count) Yem satın alındı!")
                 } else {
-                    showToast(I18n.pick("Yetersiz altın! 🪙", "Not enough gold! 🪙"))
+                    showToast(I18n.pick("Yetersiz altın! (G)", "Not enough gold! (G)"))
                 }
             }) {
                 HStack(spacing: 4) {
                     Text("\(price)")
                         .font(.subheadline.bold())
-                    Text("🪙")
+                    PixelCoin(size: 14)
                 }
                 .foregroundColor(Color(hex: 0xFFFFD54F))
                 .padding(.horizontal, 14)
@@ -466,7 +466,7 @@ public struct AquariumView: View {
 
     private func harvestBanner(_ gold: Int) -> some View {
         VStack(spacing: 8) {
-            Text(I18n.pick("🎉 TEBRİKLER! 🎉", "🎉 CONGRATS! 🎉"))
+            Text(I18n.pick(">> TEBRİKLER! <<", ">> CONGRATS! <<"))
                 .font(.system(size: 16, weight: .black))
                 .foregroundColor(Color(hex: 0xFFFFD54F))
             Text("+\(gold) " + I18n.pick("ALTIN TOPLANDI", "GOLD COLLECTED"))
@@ -491,9 +491,9 @@ public struct AquariumView: View {
         dropFood(at: 260, y: 160)
         AudioManager.shared.playSfx(.powerupBuff)
         if result.comebackBonus > 0 {
-            showToast(I18n.pick("🌾 Balıklar doydu! +20 Hoş geldin bonusu kazanıldı!", "🌾 Fish fed! +20 welcome bonus earned!"))
+            showToast(I18n.pick("[YEM] Balıklar doydu! +20 Hoş geldin bonusu kazanıldı!", "[FOOD] Fish fed! +20 welcome bonus earned!"))
         } else {
-            showToast(I18n.pick("🌾 Balıklar doydu! 4 saat altın üretecekler.", "🌾 Fish fed! They will make gold for 4 hours."))
+            showToast(I18n.pick("[YEM] Balıklar doydu! 4 saat altın üretecekler.", "[FOOD] Fish fed! They will make gold for 4 hours."))
         }
     }
 

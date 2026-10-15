@@ -1102,7 +1102,7 @@ final class GameController: ObservableObject {
             let coins = Int.random(in: 1...3)
             stats.goldCollected += coins
             save.addGold(coins)
-            particles.spawnFloatingText(x: cx, y: b.y, text: "+\(coins) 🪙", color: Color(hex: 0xFFFFD54F))
+            particles.spawnFloatingText(x: cx, y: b.y, text: "+\(coins) G", color: Color(hex: 0xFFFFD54F))
         }
     }
 
@@ -1159,7 +1159,7 @@ final class GameController: ObservableObject {
             particles.spawnFloatingText(
                 x: paddle.x + paddle.width / 2.0,
                 y: paddle.y - 28.0,
-                text: "⚡ TRIPLE HIT x3!",
+                text: "TRIPLE HIT x3!",
                 color: Color(hex: 0xFF00E5FF),
                 isLarge: true
             )
@@ -1168,7 +1168,7 @@ final class GameController: ObservableObject {
             particles.spawnFloatingText(
                 x: paddle.x + paddle.width / 2.0,
                 y: paddle.y - 32.0,
-                text: "🔥 MEGA COMBO x5!",
+                text: "MEGA COMBO x5!",
                 color: Color(hex: 0xFFFF9100),
                 isLarge: true
             )
@@ -1177,7 +1177,7 @@ final class GameController: ObservableObject {
             particles.spawnFloatingText(
                 x: paddle.x + paddle.width / 2.0,
                 y: paddle.y - 36.0,
-                text: "💥 ULTRA COMBO x\(stats.combo)!",
+                text: "ULTRA COMBO x\(stats.combo)!",
                 color: Color(hex: 0xFFD500F9),
                 isLarge: true
             )
@@ -1538,7 +1538,7 @@ final class GameController: ObservableObject {
         audio.playSfx(endGameMultiplier == 3 ? .ulti : .powerupBuff)
         particles.spawnFloatingText(
             x: screenWidth / 2, y: screenHeight * 0.45,
-            text: "🎲 ZAR \(rolled) ➔ \(endGameMultiplier)X (+\(bonus) 🪙)",
+            text: "ZAR \(rolled) >> \(endGameMultiplier)X (+\(bonus) G)",
             color: Color(hex: 0xFFFFD54F), isLarge: true
         )
     }

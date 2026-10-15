@@ -174,10 +174,9 @@ public struct ShopView: View {
 
             // Gold Balance Capsule
             HStack(spacing: 6) {
-                Text("🪙")
-                    .font(.system(size: 17))
+                PixelCoin(size: 18)
                 Text("\(save.gold)")
-                    .font(.system(size: 17, weight: .black, design: .rounded))
+                    .font(.system(size: 17, weight: .black, design: .monospaced))
                     .foregroundStyle(Color(hex: 0xFFFFD54F))
             }
             .padding(.horizontal, 14)
@@ -459,9 +458,8 @@ public struct ShopView: View {
                             } label: {
                                 HStack(spacing: 5) {
                                     Text("\(cost)")
-                                        .font(.system(size: 13, weight: .black, design: .rounded))
-                                    Text("🪙")
-                                        .font(.system(size: 12))
+                                        .font(.system(size: 13, weight: .black, design: .monospaced))
+                                    PixelCoin(size: 13)
                                 }
                                 .foregroundStyle(.black)
                                 .padding(.horizontal, 14)
@@ -508,9 +506,8 @@ public struct ShopView: View {
                         } label: {
                             HStack(spacing: 3) {
                                 Text("\(bst.cost)")
-                                    .font(.system(size: 11, weight: .black, design: .rounded))
-                                Text("🪙")
-                                    .font(.system(size: 10))
+                                    .font(.system(size: 11, weight: .black, design: .monospaced))
+                                PixelCoin(size: 11)
                             }
                             .foregroundStyle(stock >= bst.maxStock ? .white.opacity(0.4) : .black)
                             .frame(maxWidth: .infinity)
@@ -625,9 +622,8 @@ private struct CrateCardView: View {
                         .font(.system(size: 13, weight: .black, design: .rounded))
                     HStack(spacing: 3) {
                         Text("\(crate.cost)")
-                            .font(.system(size: 12, weight: .heavy, design: .rounded))
-                        Text("🪙")
-                            .font(.system(size: 11))
+                            .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                        PixelCoin(size: 12)
                     }
                 }
                 .foregroundStyle(canAfford ? .black : .white.opacity(0.4))
@@ -719,9 +715,8 @@ private struct CosmeticCardView<Preview: View>: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text("\(cost)")
-                            .font(.system(size: 11, weight: .black, design: .rounded))
-                        Text("🪙")
-                            .font(.system(size: 10))
+                            .font(.system(size: 11, weight: .black, design: .monospaced))
+                        PixelCoin(size: 11)
                     }
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
@@ -921,9 +916,12 @@ public struct CrateOpeningOverlay: View {
                         Text(I18n.pick("Zaten Sahipsin! İade:", "Already Owned! Refund:"))
                             .font(.system(size: 13, weight: .bold, design: .rounded))
                             .foregroundStyle(.white.opacity(0.75))
-                        Text("+\(result.refundGold) 🪙")
-                            .font(.system(size: 14, weight: .black, design: .rounded))
-                            .foregroundStyle(Color(hex: 0xFFFFD54F))
+                        HStack(spacing: 3) {
+                            Text("+\(result.refundGold)")
+                                .font(.system(size: 14, weight: .black, design: .monospaced))
+                                .foregroundStyle(Color(hex: 0xFFFFD54F))
+                            PixelCoin(size: 14)
+                        }
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)

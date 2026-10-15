@@ -137,10 +137,9 @@ public struct TopRewardsBar: View {
 
             // Gold Balance Capsule
             HStack(spacing: 4) {
-                Text("🪙")
-                    .font(.system(size: 14))
+                PixelCoin(size: 15)
                 Text("\(save.gold)")
-                    .font(.system(size: 14, weight: .black, design: .rounded))
+                    .font(.system(size: 14, weight: .black, design: .monospaced))
                     .foregroundStyle(Color(hex: 0xFFFFD54F))
             }
             .padding(.horizontal, 11)
