@@ -735,6 +735,44 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           ),
                           onPressed: _showSettingsDialog,
                         ),
+                        if (!_save.adsRemoved)
+                          InkWell(
+                            onTap: _showRemoveAdsOffer,
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFE040FB), Color(0xFF7C4DFF)],
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.white30, width: 1.2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFE040FB).withValues(alpha: 0.45),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.block_rounded, color: Colors.white, size: 14),
+                                  SizedBox(width: 5),
+                                  Text(
+                                    'REKLAMLARI KALDIR',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 11,
+                                      letterSpacing: 0.6,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
