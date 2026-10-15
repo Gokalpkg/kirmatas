@@ -7,6 +7,7 @@ enum GameMode: String, CaseIterable, Identifiable {
     case descend
     case daily
     case shapes
+    case chaos
 
     var id: String { rawValue }
 

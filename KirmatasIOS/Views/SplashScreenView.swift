@@ -49,7 +49,7 @@ struct SplashScreenView: View {
                         .frame(maxWidth: 260, maxHeight: 260)
                         .shadow(color: Color(hex: 0xFFFFB300).opacity(0.35), radius: 24, x: 0, y: 8)
 
-                    Text("S U N A R")
+                    Text(I18n.pick("S U N A R", "P R E S E N T S"))
                         .font(.system(size: 13, weight: .black, design: .rounded))
                         .tracking(8)
                         .foregroundStyle(Color(hex: 0xFFFFD54F))

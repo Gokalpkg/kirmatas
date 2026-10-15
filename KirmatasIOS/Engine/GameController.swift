@@ -21,12 +21,49 @@ final class GameController: ObservableObject {
     var bricks: [Brick] = []
     var capsules: [FallingCapsule] = []
     var projectiles: [Projectile] = []
+    var blackHoles: [BlackHole] = []
+    var portals: [Portal] = []
+
+    var activeBee: EasterEggBee? = nil
+    var activeSplat: WindshieldSplat? = nil
+    var beeSpawnCooldown: Double = 25.0
+    var bossWarningTimer: Double = 0.0
+    var levelTransitionTimer: Double = 0.0
+    var hasCelebratedNewRecord: Bool = false
+    var sessionStartingBestScore: Int = 0
+    var bossEnrageAnnounced: Bool = false
 
     var descendTimer: Double = 0.0
     var droneShootTimer: Double = 0.0
     var lightningTimer: Double = 0.0
     var comboTimer: Double = 0.0
     var gameTime: Double = 0.0
+    var endgameStallTimer: Double = 0.0
+    private var blackHoleTimer: Double = 0.0
+
+    var chaosStock = 3
+    var chaosPendingExtraBalls = 0
+    var chaosToLaunch = 0
+    var chaosReturned = 0
+    var chaosShotTimer = 0.0
+    var chaosTurnTime = 0.0
+    var chaosShotVx = 0.0
+    var chaosShotVy = 0.0
+    var chaosHomeX = 180.0
+    var chaosLaunchX = 180.0
+    var chaosAimX = 180.0
+    var chaosAimY = 240.0
+    var chaosSpeedMultiplier = 1.0
+    var chaosAiming = false
+    var chaosHomeLocked = false
+    var chaosRecallActive = false
+    var hasUsedRevive = false
+    var hasClaimedVictoryBonus = false
+    var endGameRolledDice = 0
+    var endGameMultiplier = 0
+    var endGameBonusGoldAdded = 0
+
+    var chaosFloorY: Double { screenHeight - 86 }
 
     private var statusBeforePause: GameStatus = .playing
 
@@ -56,14 +93,49 @@ final class GameController: ObservableObject {
         capsules.removeAll()
         projectiles.removeAll()
         activePowerUps.removeAll()
+        blackHoles.removeAll()
+        portals.removeAll()
+        activeBee = nil
+        activeSplat = nil
+        bossWarningTimer = 0.0
+        levelTransitionTimer = 0.0
+        sessionStartingBestScore = save.highScores[mode.rawValue] ?? 0
+        hasCelebratedNewRecord = false
+        bossEnrageAnnounced = false
+        beeSpawnCooldown = Double.random(in: 25.0...45.0)
+        blackHoleTimer = 0
+        endgameStallTimer = 0
+        hasUsedRevive = false
+        hasClaimedVictoryBonus = false
+        endGameRolledDice = 0
+        endGameMultiplier = 0
+        endGameBonusGoldAdded = 0
+
+        if mode == .chaos {
+            chaosStock = 3
+            chaosPendingExtraBalls = 0
+            chaosHomeX = screenWidth / 2
+            chaosAimX = chaosHomeX
+            chaosAimY = screenHeight * 0.45
+            chaosAiming = false
+            chaosToLaunch = 0
+            chaosReturned = 0
+            chaosHomeLocked = false
+            chaosSpeedMultiplier = 1
+            chaosRecallActive = false
+            save.clearChaosSession()
+        }
 
         resetPaddleAndBall()
         loadLevelBricks()
+        if mode == .classic {
+            save.noteClassicLevel(1)
+        }
         objectWillChange.send()
     }
 
     func resetPaddleAndBall() {
-        paddle.width = paddle.baseWidth
+        applyFishPaddleWidth()
         paddle.x = (screenWidth - paddle.width) / 2.0
         paddle.y = screenHeight - 115.0
         paddle.isSticky = false
@@ -76,6 +148,10 @@ final class GameController: ObservableObject {
         paddle.isClumsy = false
 
         balls.removeAll()
+        if currentMode == .chaos {
+            layoutChaosPile()
+            return
+        }
         balls.append(
             Ball(
                 x: paddle.x + paddle.width / 2.0,
@@ -86,10 +162,30 @@ final class GameController: ObservableObject {
         )
     }
 
+    private func applyFishPaddleWidth() {
+        var bonus = 0.0
+        if save.unlockedFish.contains("guppy") { bonus += 4.0 }
+        if save.unlockedFish.contains("tetra") { bonus += 3.0 }
+        paddle.width = paddle.baseWidth + bonus
+    }
+
     func loadLevelBricks() {
+        portals.removeAll()
+        blackHoles.removeAll()
+        activeBee = nil
+        beeSpawnCooldown = Double.random(in: 25.0...45.0)
+        blackHoleTimer = 0
+        endgameStallTimer = 0
         switch currentMode {
         case .classic:
             bricks = LevelDesign.buildClassicLevel(level: stats.level, screenWidth: screenWidth, screenHeight: screenHeight)
+            if stats.level % 5 == 0 {
+                bossWarningTimer = 2.4
+                bossEnrageAnnounced = false
+                particles.triggerShake(magnitude: 5.0, duration: 0.35)
+                audio.playSfx(.bossHit)
+            }
+            spawnPortalsIfNeeded()
         case .zen:
             bricks = LevelDesign.buildZenLevel(screenWidth: screenWidth, screenHeight: screenHeight)
         case .descend:
@@ -99,6 +195,8 @@ final class GameController: ObservableObject {
             bricks = LevelDesign.buildDailyLevel(date: Date(), screenWidth: screenWidth, screenHeight: screenHeight)
         case .shapes:
             bricks = LevelDesign.buildShapesLevel(level: stats.level, screenWidth: screenWidth, screenHeight: screenHeight)
+        case .chaos:
+            bricks = LevelDesign.buildChaosLevel(wave: stats.level, screenWidth: screenWidth, screenHeight: screenHeight)
         }
     }
 
@@ -117,15 +215,108 @@ final class GameController: ObservableObject {
                 ball.isStuck = false
                 ball.stuckTimer = 0.0
                 let speed = getBaseBallSpeed()
-                let angle = -.pi / 2.0 + Double.random(in: -0.2...0.2)
-                ball.vx = cos(angle) * speed
-                ball.vy = sin(angle) * speed
+                let sign = Bool.random() ? 1.0 : -1.0
+                let tilt = sign * (0.045 + Double.random(in: 0...0.035))
+                ball.vx = speed * sin(tilt)
+                ball.vy = -speed * cos(tilt)
                 anyLaunched = true
             }
         }
         if anyLaunched {
             audio.playSfx(.hitPaddle)
             objectWillChange.send()
+        }
+    }
+
+    func aimChaos(x: Double, y: Double) {
+        guard currentMode == .chaos, status == .ready else { return }
+        chaosAiming = true
+        chaosAimX = min(max(x, 10), screenWidth - 10)
+        chaosAimY = min(y, chaosFloorY - 18)
+    }
+
+    func fireChaos() {
+        guard currentMode == .chaos, status == .ready, chaosStock > 0 else { return }
+        var dx = chaosAimX - chaosHomeX
+        var dy = chaosAimY - chaosFloorY
+        if !chaosAiming || dy >= -10 {
+            dx = 0
+            dy = -1
+        }
+        let angle = min(max(atan2(dy, dx), -.pi + 0.16), -0.16)
+        let speed = getBaseBallSpeed()
+        chaosLaunchX = chaosHomeX
+        chaosShotVx = cos(angle) * speed
+        chaosShotVy = sin(angle) * speed
+        chaosToLaunch = chaosStock
+        chaosReturned = 0
+        chaosHomeLocked = false
+        chaosShotTimer = 0
+        chaosTurnTime = 0
+        chaosAiming = false
+        chaosSpeedMultiplier = 1
+        chaosRecallActive = false
+        balls.removeAll()
+        status = .playing
+        audio.playSfx(.hitPaddle)
+        objectWillChange.send()
+    }
+
+    func toggleChaosTurboOrRecall() {
+        guard currentMode == .chaos, status == .playing, !chaosRecallActive else { return }
+        if chaosSpeedMultiplier <= 1.05 {
+            chaosSpeedMultiplier = 2.2
+            particles.spawnFloatingText(
+                x: screenWidth / 2, y: chaosFloorY - 55,
+                text: I18n.tr("chaos_2x_speed"),
+                color: Color(hex: 0xFFFFD700),
+                isLarge: true
+            )
+            audio.playSfx(.ulti)
+        } else {
+            chaosRecallActive = true
+            particles.spawnFloatingText(
+                x: screenWidth / 2, y: chaosFloorY - 55,
+                text: I18n.tr("chaos_recall"),
+                color: Color(hex: 0xFF00E5FF),
+                isLarge: true
+            )
+            audio.playSfx(.powerupBuff)
+        }
+    }
+
+    private func layoutChaosPile() {
+        balls.removeAll()
+        let y = chaosFloorY - 8
+        for i in 0..<chaosStock {
+            balls.append(
+                Ball(
+                    x: chaosHomeX + Double((i % 3) - 1) * 3.2,
+                    y: y - Double(i / 3) * 3.4,
+                    radius: 5.2,
+                    isStuck: true
+                )
+            )
+        }
+    }
+
+    private func launchChaosVolley(dt: Double) {
+        guard chaosToLaunch > 0 else { return }
+        chaosShotTimer -= dt
+        let interval = min(max(0.050 - Double(chaosStock) * 0.0005, 0.026), 0.050)
+        while chaosShotTimer <= 0 && chaosToLaunch > 0 {
+            balls.append(
+                Ball(
+                    x: chaosLaunchX,
+                    y: chaosFloorY - 10,
+                    vx: chaosShotVx,
+                    vy: chaosShotVy,
+                    radius: 5.2,
+                    isStuck: false
+                )
+            )
+            chaosToLaunch -= 1
+            chaosShotTimer += interval
         }
     }
 
@@ -195,19 +386,116 @@ final class GameController: ObservableObject {
             stats.bulletTimeLeft -= dt
             effectiveDt = dt * 0.45
         }
+        if currentMode == .chaos {
+            effectiveDt *= chaosSpeedMultiplier
+            chaosTurnTime += effectiveDt
+            launchChaosVolley(dt: effectiveDt)
+        }
 
         particles.update(dt: effectiveDt)
         paddle.update(dt: effectiveDt)
+
+        if bossWarningTimer > 0 {
+            bossWarningTimer -= effectiveDt
+            if bossWarningTimer < 0 { bossWarningTimer = 0 }
+        }
+        if levelTransitionTimer > 0 {
+            levelTransitionTimer -= effectiveDt
+            if levelTransitionTimer < 0 { levelTransitionTimer = 0 }
+        }
+        if let splat = activeSplat {
+            splat.update(dt: effectiveDt)
+            if splat.isDead { activeSplat = nil }
+        }
+        updateEasterEgg(dt: effectiveDt)
 
         updatePowerUpTimers(dt: effectiveDt)
         updateCombo(dt: effectiveDt)
         updateProjectiles(dt: effectiveDt)
         updateCapsules(dt: effectiveDt)
         updateBricks(dt: effectiveDt)
+        updateAnomalies(dt: effectiveDt)
+        endgameStallTimer += effectiveDt
         updateBalls(dt: effectiveDt)
         checkGameProgress()
 
         frameTick &+= 1
+    }
+
+    // MARK: - Easter Egg & Live Celebrations
+    func spawnEasterEggBee(customY: Double? = nil, facingRight: Bool? = nil) {
+        let right = facingRight ?? Bool.random()
+        let startX = right ? -35.0 : screenWidth + 35.0
+        let speed = Double.random(in: 48.0...64.0)
+        let vx = right ? speed : -speed
+        var laneY = customY ?? (screenHeight * 0.48 + Double.random(in: -60.0...60.0))
+        laneY = min(max(laneY, 180.0), paddle.y - 70.0)
+
+        activeBee = EasterEggBee(
+            x: startX,
+            baseY: laneY,
+            vx: vx,
+            isFacingRight: right
+        )
+    }
+
+    private func updateEasterEgg(dt: Double) {
+        if currentMode == .chaos { return }
+        if activeBee == nil {
+            beeSpawnCooldown -= dt
+            if beeSpawnCooldown <= 0 {
+                spawnEasterEggBee()
+                beeSpawnCooldown = Double.random(in: 35.0...65.0)
+            }
+        } else if let bee = activeBee {
+            bee.update(dt: dt)
+            if bee.isOffScreen(screenWidth: screenWidth) {
+                activeBee = nil
+            }
+        }
+    }
+
+    func triggerBeeSplat(at splatPoint: CGPoint) {
+        activeBee?.isAlive = false
+        activeBee = nil
+        activeSplat = WindshieldSplat(x: splatPoint.x, y: splatPoint.y, duration: 2.2)
+        stats.score += 100
+        particles.spawnBurst(x: splatPoint.x, y: splatPoint.y, color: Color(hex: 0xFFD31018), count: 24, speed: 110.0)
+        particles.spawnFloatingText(
+            x: splatPoint.x,
+            y: splatPoint.y - 18.0,
+            text: I18n.tr("bee_splat"),
+            color: Color(hex: 0xFFFF1744),
+            isLarge: true
+        )
+        particles.triggerShake(magnitude: 2.5, duration: 0.15)
+        audio.playSfx(.breakBrick)
+        checkLiveNewRecordCelebration()
+    }
+
+    @discardableResult
+    func handleCanvasTap(at point: CGPoint) -> Bool {
+        if let bee = activeBee, bee.isAlive, bee.containsPoint(point) {
+            triggerBeeSplat(at: CGPoint(x: bee.x, y: bee.y))
+            return true
+        }
+        return false
+    }
+
+    func checkLiveNewRecordCelebration() {
+        if !hasCelebratedNewRecord && sessionStartingBestScore > 0 && stats.score > sessionStartingBestScore {
+            hasCelebratedNewRecord = true
+            particles.spawnShockwave(x: screenWidth / 2.0, y: screenHeight * 0.32, color: Color(hex: 0xFFFFD700), maxRadius: 110.0)
+            particles.spawnBurst(x: screenWidth / 2.0, y: screenHeight * 0.32, color: Color(hex: 0xFFFFD54F), count: 35, speed: 210.0)
+            particles.spawnFloatingText(
+                x: screenWidth / 2.0,
+                y: screenHeight * 0.32,
+                text: I18n.tr("new_record_broken"),
+                color: Color(hex: 0xFFFFD700),
+                isLarge: true
+            )
+            audio.playSfx(.victory)
+        }
     }
 
     private func updatePowerUpTimers(dt: Double) {
@@ -467,6 +755,7 @@ final class GameController: ObservableObject {
         for i in stride(from: balls.count - 1, through: 0, by: -1) {
             let ball = balls[i]
             if ball.isStuck {
+                if currentMode == .chaos { continue }
                 if status == .playing {
                     ball.stuckTimer += dt
                     if ball.stuckTimer >= 1.6 || !paddle.isSticky {
@@ -476,7 +765,37 @@ final class GameController: ObservableObject {
                 continue
             }
 
+            if abs(ball.vy) < 28.0 {
+                ball.vy = ball.vy >= 0 ? 35.0 : -35.0
+            }
+            if ball.vx != 0 && abs(ball.vx) < 8.0 {
+                ball.vx = ball.vx >= 0 ? 8.0 : -8.0
+            }
+
+            applyBlackHoleGravity(ball: ball, dt: dt)
+            applyPortalTeleport(ball: ball)
             ball.update(dt: dt)
+
+            // Easter Egg Bee collision
+            if let bee = activeBee, bee.isAlive {
+                let bdx = ball.x - bee.x
+                let bdy = ball.y - bee.y
+                let distSq = bdx * bdx + bdy * bdy
+                let hitDist = ball.radius + bee.hitRadius
+                if distSq <= hitDist * hitDist {
+                    triggerBeeSplat(at: CGPoint(x: bee.x, y: bee.y))
+                }
+            }
+
+            if currentMode == .chaos {
+                if chaosRecallActive {
+                    ball.vx *= 0.88
+                    ball.vy = max(ball.vy, 760)
+                } else {
+                    if abs(ball.vy) < 80 { ball.vy = ball.vy >= 0 ? 100 : -100 }
+                    if chaosTurnTime >= 26 { ball.vy = abs(ball.vy) + 260 }
+                }
+            }
 
             if ball.cornerBoostTimer > 0 {
                 if Double.random(in: 0...1) < 0.35 {
@@ -519,19 +838,39 @@ final class GameController: ObservableObject {
                 audio.playSfx(.hitWall)
             }
 
-            // Bottom fall
-            if ball.y - ball.radius > screenHeight {
+            // Bottom fall / chaos return
+            if currentMode == .chaos {
+                if ball.y > chaosFloorY {
+                    if !chaosHomeLocked {
+                        chaosHomeX = min(max(ball.x, 20), screenWidth - 20)
+                        chaosHomeLocked = true
+                    }
+                    balls.remove(at: i)
+                    chaosReturned += 1
+                    particles.spawnBurst(x: ball.x, y: chaosFloorY, color: Color(hex: 0xFF00E5FF), count: 2, speed: 40)
+                    continue
+                }
+            } else if ball.y - ball.radius > screenHeight {
                 balls.remove(at: i)
                 continue
             }
 
             // Paddle collision
-            if !paddle.isGhost && checkBallPaddleCollision(ball) {
+            if currentMode != .chaos && !paddle.isGhost && checkBallPaddleCollision(ball) {
                 continue
             }
 
             // Brick collision
             checkBallBrickCollision(ball)
+        }
+
+        if currentMode == .chaos {
+            let volleyDone = status == .playing && chaosToLaunch == 0 && chaosReturned > 0
+            if volleyDone && (balls.isEmpty || chaosTurnTime > 28) {
+                balls.removeAll()
+                chaosAdvanceTurn()
+            }
+            return
         }
 
         if balls.isEmpty {
@@ -564,24 +903,42 @@ final class GameController: ObservableObject {
         }
 
         let hitOffset = min(max((ball.x - (paddle.x + paddle.width / 2.0)) / (paddle.width / 2.0), -1.0), 1.0)
-        let bounceAngle = hitOffset * (.pi / 2.8) // Reduced angle slightly to prevent extreme horizontals
-        let baseSpeed = min(ball.speed + 6.0, 680.0)
+        let bounceAngle = hitOffset * (.pi / 2.8)
+        let baseSpeed = min(ball.speed + 4.0, 580.0)
 
         let isCornerHit = abs(hitOffset) >= 0.78
         let speedMultiplier = isCornerHit ? 1.35 : 1.0
-        let finalSpeed = min(max(baseSpeed * speedMultiplier, 100.0), 800.0)
+        let finalSpeed = min(max(baseSpeed * speedMultiplier, 100.0), 680.0)
 
-        ball.vx = sin(bounceAngle) * finalSpeed
-        // Cap the paddle velocity transfer to prevent insane horizontal speeds
         let paddleV = max(min(paddle.velocityX * 0.20, 200.0), -200.0)
-        ball.vx += paddleV
-        
-        // Ensure a minimum vertical velocity so the ball doesn't get stuck bouncing side-to-side
-        ball.vy = -max(abs(cos(bounceAngle) * finalSpeed), 150.0)
+        var vx = sin(bounceAngle) * finalSpeed + paddleV
+        var vy = -max(abs(cos(bounceAngle) * finalSpeed), 150.0)
+
+        let remaining = bricks.filter { $0.isAlive && !$0.isSteel }
+        if !remaining.isEmpty && remaining.count <= 2 && endgameStallTimer >= 10.0 {
+            let target = remaining[0]
+            let dx = (target.x + target.width / 2.0) - ball.x
+            let dy = (target.y + target.height / 2.0) - pr.minY
+            let desired = atan2(dx, -dy)
+            let clamped = min(max(desired, -.pi / 2.8), .pi / 2.8)
+            let blended = bounceAngle * 0.88 + clamped * 0.12
+            vx = sin(blended) * finalSpeed + paddleV
+            vy = -max(abs(cos(blended) * finalSpeed), 150.0)
+        }
+
+        ball.vx = vx
+        ball.vy = vy
 
         ball.y = pr.minY - ball.radius - 1.0
         ball.triggerSquash(-.pi / 2.0)
-        ball.fireballCombo = 0 // Reset combo when hitting paddle
+        ball.fireballCombo = 0
+
+        if ball.isFireball || ball.isPierce {
+            ball.fireballPaddleBounces += 1
+            if ball.fireballPaddleBounces >= 3 {
+                extinguishPiercing(at: ball.x, y: pr.minY)
+            }
+        }
 
         if isCornerHit {
             ball.cornerBoostTimer = 3.2
@@ -613,10 +970,28 @@ final class GameController: ObservableObject {
             let distSq = distX * distX + distY * distY
 
             if distSq <= rSq {
+                if b.isBallPickup {
+                    b.isAlive = false
+                    chaosPendingExtraBalls += 1
+                    let cx = b.x + b.width / 2
+                    let cy = b.y + b.height / 2
+                    particles.spawnBurst(x: cx, y: cy, color: Color(hex: 0xFF00E5FF), count: 18, speed: 110)
+                    particles.spawnShockwave(x: cx, y: cy, color: Color(hex: 0xFF00E5FF), maxRadius: 36)
+                    particles.spawnFloatingText(x: cx, y: b.y - 12, text: I18n.tr("plus_one_ball"), color: Color(hex: 0xFF00E5FF), isLarge: true)
+                    audio.playSfx(.powerupBuff)
+                    continue
+                }
+
                 hitBrick(b, ball: ball)
 
+                if ball.isFireball || ball.isPierce {
+                    ball.fireballPierceCount -= 1
+                    if ball.fireballPierceCount <= 0 {
+                        extinguishPiercing(at: ball.x, y: ball.y)
+                    }
+                }
+
                 if !ball.isFireball && !ball.isPierce {
-                    // Use Minkowski difference for accurate deep-penetration resolution
                     let bcx = b.x + b.width / 2.0
                     let bcy = b.y + b.height / 2.0
                     let dx = bx - bcx
@@ -625,13 +1000,17 @@ final class GameController: ObservableObject {
                     let overlapY = (b.height / 2.0 + r) - abs(dy)
 
                     if overlapX < overlapY {
-                        ball.vx = dx > 0 ? abs(ball.vx) : -abs(ball.vx)
+                        let nx = dx > 0 ? 1.0 : -1.0
+                        ball.vx = nx * abs(ball.vx)
                         ball.x = dx > 0 ? b.x + b.width + r : b.x - r
                         ball.triggerSquash(dx > 0 ? 0 : .pi)
+                        nudgeOutOfPinch(ball: ball, nx: nx, ny: 0)
                     } else {
-                        ball.vy = dy > 0 ? abs(ball.vy) : -abs(ball.vy)
+                        let ny = dy > 0 ? 1.0 : -1.0
+                        ball.vy = ny * abs(ball.vy)
                         ball.y = dy > 0 ? b.y + b.height + r : b.y - r
                         ball.triggerSquash(dy > 0 ? .pi / 2.0 : -.pi / 2.0)
+                        nudgeOutOfPinch(ball: ball, nx: 0, ny: ny)
                     }
                 }
 
@@ -662,7 +1041,24 @@ final class GameController: ObservableObject {
             ball.fireballCombo += 1
         }
 
+        if b.isBoss {
+            audio.playSfx(.bossHit)
+            let hpRatio = Double(b.hp) / Double(max(b.maxHp, 1))
+            if hpRatio <= 0.5 && !bossEnrageAnnounced {
+                bossEnrageAnnounced = true
+                particles.spawnFloatingText(
+                    x: screenWidth / 2.0,
+                    y: screenHeight * 0.35,
+                    text: I18n.tr("boss_enraged"),
+                    color: Color(hex: 0xFFFF1744),
+                    isLarge: true
+                )
+                particles.triggerShake(magnitude: 4.5, duration: 0.25)
+            }
+        }
+
         b.jelly = 0.8
+        endgameStallTimer = 0
 
         if b.hp <= 0 {
             destroyBrick(b)
@@ -683,7 +1079,20 @@ final class GameController: ObservableObject {
         particles.spawnShockwave(x: cx, y: cy, color: b.color, maxRadius: 40.0)
         audio.playSfx(.breakBrick)
 
+        if b.isBoss {
+            particles.spawnFloatingText(
+                x: cx,
+                y: cy - 20.0,
+                text: I18n.tr("boss_defeated"),
+                color: Color(hex: 0xFFFFD700),
+                isLarge: true
+            )
+            particles.spawnBurst(x: cx, y: cy, color: Color(hex: 0xFFFFD700), count: 32, speed: 190.0)
+            audio.playSfx(.victory)
+        }
+
         registerCombo(basePoints: b.points)
+        checkLiveNewRecordCelebration()
 
         stats.ultiCharge = min(max(stats.ultiCharge + 4.0, 0.0), 100.0)
 
@@ -746,7 +1155,34 @@ final class GameController: ObservableObject {
         let points = Int((Double(basePoints) * multiplier).rounded())
         stats.score += points
 
-        if stats.combo > 1 && stats.combo % 3 == 0 {
+        if stats.combo == 3 {
+            particles.spawnFloatingText(
+                x: paddle.x + paddle.width / 2.0,
+                y: paddle.y - 28.0,
+                text: "⚡ TRIPLE HIT x3!",
+                color: Color(hex: 0xFF00E5FF),
+                isLarge: true
+            )
+            particles.triggerShake(magnitude: 2.0, duration: 0.12)
+        } else if stats.combo == 5 {
+            particles.spawnFloatingText(
+                x: paddle.x + paddle.width / 2.0,
+                y: paddle.y - 32.0,
+                text: "🔥 MEGA COMBO x5!",
+                color: Color(hex: 0xFFFF9100),
+                isLarge: true
+            )
+            particles.triggerShake(magnitude: 3.5, duration: 0.18)
+        } else if stats.combo >= 8 && stats.combo % 4 == 0 {
+            particles.spawnFloatingText(
+                x: paddle.x + paddle.width / 2.0,
+                y: paddle.y - 36.0,
+                text: "💥 ULTRA COMBO x\(stats.combo)!",
+                color: Color(hex: 0xFFD500F9),
+                isLarge: true
+            )
+            particles.triggerShake(magnitude: 5.0, duration: 0.22)
+        } else if stats.combo > 1 && stats.combo % 3 == 0 {
             particles.spawnFloatingText(
                 x: paddle.x + paddle.width / 2.0,
                 y: paddle.y - 28.0,
@@ -763,7 +1199,9 @@ final class GameController: ObservableObject {
         let allTypes = PowerUpType.allCases
         let chosen: PowerUpType
         if Double.random(in: 0...1) < 0.80 {
-            let buffs = allTypes.filter { $0.kind == .buff }
+            let buffs = allTypes.filter {
+                $0.kind == .buff && $0 != .mirror && $0 != .multi && $0 != .pierce && $0 != .drone
+            }
             chosen = buffs.randomElement() ?? .wide
         } else {
             let debuffs = allTypes.filter { $0.kind == .debuff }
@@ -844,12 +1282,15 @@ final class GameController: ObservableObject {
             paddle.hasLaser = true
         case .rocket:
             paddle.hasRockets = true
-        case .fireball:
-            for b in balls { b.isFireball = true }
+        case .fireball, .pierce:
+            for b in balls {
+                b.isFireball = true
+                b.isPierce = true
+                b.fireballPierceCount = 12
+                b.fireballPaddleBounces = 0
+            }
         case .bomb:
             for b in balls { b.isBomb = true }
-        case .pierce:
-            for b in balls { b.isPierce = true }
         case .net:
             paddle.hasNet = true
             paddle.netHitsRemaining = 4
@@ -871,7 +1312,7 @@ final class GameController: ObservableObject {
     private func removePowerUp(_ type: PowerUpType) {
         switch type {
         case .wide, .shrink:
-            paddle.resetWidth()
+            applyFishPaddleWidth()
         case .slow, .fastball:
             for b in balls {
                 b.setSpeed(getBaseBallSpeed())
@@ -883,12 +1324,15 @@ final class GameController: ObservableObject {
             paddle.hasLaser = false
         case .rocket:
             paddle.hasRockets = false
-        case .fireball:
-            for b in balls { b.isFireball = false }
+        case .fireball, .pierce:
+            if !activePowerUps.contains(where: { $0.type == .fireball || $0.type == .pierce }) {
+                for b in balls {
+                    b.isFireball = false
+                    b.isPierce = false
+                }
+            }
         case .bomb:
             for b in balls { b.isBomb = false }
-        case .pierce:
-            for b in balls { b.isPierce = false }
         case .net:
             paddle.hasNet = false
         case .drone:
@@ -981,7 +1425,7 @@ final class GameController: ObservableObject {
     }
 
     private func checkGameProgress() {
-        if currentMode == .zen { return }
+        if currentMode == .zen || currentMode == .chaos { return }
 
 
         let remainingBreakable = bricks.filter { $0.isAlive && !$0.isSteel }.count
@@ -989,7 +1433,9 @@ final class GameController: ObservableObject {
             if currentMode == .daily {
                 onVictory()
             } else {
+                levelTransitionTimer = 1.0
                 stats.level += 1
+                save.noteClassicLevel(stats.level)
                 stats.score += 250 * stats.level
                 particles.spawnFloatingText(
                     x: screenWidth / 2.0,
@@ -1013,6 +1459,90 @@ final class GameController: ObservableObject {
         audio.playSfx(.victory)
     }
 
+    private func chaosAdvanceTurn() {
+        chaosSpeedMultiplier = 1
+        chaosRecallActive = false
+        let remainingSolid = bricks.contains { $0.isAlive && !$0.isBallPickup }
+        if !remainingSolid {
+            let baseGold = 25 + min(stats.level * 5, 50)
+            stats.goldCollected += baseGold
+            save.addGold(baseGold)
+            stats.level += 1
+            stats.score += 300 * stats.level
+            chaosStock = 3
+            chaosPendingExtraBalls = 0
+            chaosReturned = 0
+            chaosToLaunch = 0
+            chaosHomeLocked = false
+            save.saveChaosSession(level: stats.level, score: stats.score, stock: chaosStock)
+            loadLevelBricks()
+            status = .ready
+            layoutChaosPile()
+            particles.spawnFloatingText(
+                x: screenWidth / 2, y: screenHeight * 0.4,
+                text: "\(I18n.tr("level").uppercased()) \(stats.level)!",
+                color: Color(hex: 0xFFFFD700), isLarge: true
+            )
+            audio.playSfx(.victory)
+            return
+        }
+
+        chaosStock += chaosPendingExtraBalls
+        chaosPendingExtraBalls = 0
+        let step = LevelDesign.chaosStep
+        for brick in bricks where brick.isAlive {
+            brick.y += step
+            brick.targetY = brick.y
+            if !brick.isBallPickup && brick.y + brick.height >= chaosFloorY - 36 {
+                onGameOver()
+                return
+            }
+        }
+        bricks.removeAll { !$0.isAlive }
+        bricks.removeAll { $0.isBallPickup && $0.y + $0.height >= chaosFloorY - 20 }
+        bricks.append(contentsOf: LevelDesign.buildChaosRow(wave: stats.level, row: 0, screenWidth: screenWidth))
+        save.saveChaosSession(level: stats.level, score: stats.score, stock: chaosStock)
+        chaosReturned = 0
+        chaosToLaunch = 0
+        chaosHomeLocked = false
+        status = .ready
+        layoutChaosPile()
+        audio.playSfx(.hitPaddle)
+    }
+
+    func reviveWithOneLife() {
+        guard !hasUsedRevive else { return }
+        hasUsedRevive = true
+        stats.lives = 1
+        resetPaddleAndBall()
+        status = .ready
+        audio.playSfx(.powerupBuff)
+        particles.spawnFloatingText(
+            x: screenWidth / 2, y: screenHeight * 0.45,
+            text: I18n.tr("second_chance"),
+            color: Color(hex: 0xFFFF1744), isLarge: true
+        )
+    }
+
+    func rollEndGameGoldDice() {
+        guard !hasClaimedVictoryBonus else { return }
+        hasClaimedVictoryBonus = true
+        let baseGold = max(stats.goldCollected, 100)
+        let rolled = Int.random(in: 1...6)
+        endGameRolledDice = rolled
+        endGameMultiplier = rolled >= 4 ? 3 : 2
+        let bonus = baseGold * (endGameMultiplier - 1)
+        endGameBonusGoldAdded = bonus
+        save.addGold(bonus)
+        stats.goldCollected += bonus
+        audio.playSfx(endGameMultiplier == 3 ? .ulti : .powerupBuff)
+        particles.spawnFloatingText(
+            x: screenWidth / 2, y: screenHeight * 0.45,
+            text: "🎲 ZAR \(rolled) ➔ \(endGameMultiplier)X (+\(bonus) 🪙)",
+            color: Color(hex: 0xFFFFD54F), isLarge: true
+        )
+    }
+
     func pause() {
         if status == .playing || status == .ready {
             statusBeforePause = status
@@ -1023,6 +1553,239 @@ final class GameController: ObservableObject {
     func resume() {
         if status == .paused {
             status = statusBeforePause
+        }
+    }
+
+    private func spawnPortalsIfNeeded() {
+        guard PortalCatalog.levels.contains(stats.level) else { return }
+        var rng = SeededRNG(seed: UInt64(max(stats.level, 1) * 1337))
+        var lowest: Double = 120
+        for b in bricks where (b.y + b.height) > lowest {
+            lowest = b.y + b.height
+        }
+        let minY = min(max(lowest + 45.0, 160.0), max(160.0, paddle.y - 140.0))
+        let maxY = min(max(paddle.y - 80.0, minY + 20.0), max(minY + 20.0, paddle.y - 40.0))
+        let rangeY = max(20.0, maxY - minY)
+        let p1 = Portal(
+            x: screenWidth * (0.20 + rng.nextDouble() * 0.14),
+            y: minY + rng.nextDouble() * rangeY * 0.45,
+            radius: 20,
+            color: Color(hex: 0xFF00E5FF),
+            isBlue: true
+        )
+        let p2 = Portal(
+            x: screenWidth * (0.66 + rng.nextDouble() * 0.14),
+            y: minY + rangeY * 0.55 + rng.nextDouble() * rangeY * 0.45,
+            radius: 20,
+            color: Color(hex: 0xFFFF9100),
+            isBlue: false
+        )
+        p1.linkedPortal = p2
+        p2.linkedPortal = p1
+        portals = [p1, p2]
+    }
+
+    private func updateAnomalies(dt: Double) {
+        for portal in portals {
+            portal.update(dt: dt)
+        }
+        var index = blackHoles.count - 1
+        while index >= 0 {
+            let hole = blackHoles[index]
+            hole.update(dt: dt)
+            if hole.timeLeft <= 0 {
+                particles.spawnBurst(x: hole.x, y: hole.y, color: Color(hex: 0xFFB388FF), count: 20, speed: 120)
+                blackHoles.remove(at: index)
+            }
+            index -= 1
+        }
+
+        guard status == .playing, blackHoles.isEmpty, currentMode != .zen, currentMode != .chaos else { return }
+        blackHoleTimer += dt
+        guard blackHoleTimer >= 8.0, Double.random(in: 0...1) < 0.12 else { return }
+
+        var lowestAlive: Double = 0
+        for brick in bricks where brick.isAlive && !brick.isSteel {
+            lowestAlive = max(lowestAlive, brick.y + brick.height)
+        }
+        let minY = lowestAlive + 45.0
+        let maxY = paddle.y - 170.0
+        blackHoleTimer = 0
+        let radius = 13.0 + Double.random(in: 0...1) * 4.0
+        let roll = Double.random(in: 0...1)
+        let isVortexTrap = roll < 0.02
+        let isSupercharged = !isVortexTrap && roll < 0.30
+        let spawnY: Double
+        if maxY > minY + 20.0 {
+            spawnY = minY + Double.random(in: 0...1) * (maxY - minY)
+        } else {
+            let lo = min(160.0, paddle.y - 170.0)
+            let hi = max(160.0, paddle.y - 170.0)
+            spawnY = min(max(paddle.y - 200.0, lo), hi)
+        }
+        let spawnX = min(max(screenWidth * 0.22 + Double.random(in: 0...1) * (screenWidth * 0.56), radius + 20.0), screenWidth - radius - 20.0)
+        let hole = BlackHole(
+            x: spawnX,
+            y: spawnY,
+            radius: radius,
+            mass: radius * 8000.0,
+            timeLeft: isVortexTrap ? 7.5 : (isSupercharged ? 6.5 : (5.5 + Double.random(in: 0...1) * 2.0)),
+            isVortexTrap: isVortexTrap,
+            isSupercharged: isSupercharged
+        )
+        blackHoles.append(hole)
+        audio.playSfx(.laser)
+        if isVortexTrap {
+            particles.spawnFloatingText(
+                x: screenWidth * 0.5,
+                y: spawnY,
+                text: I18n.tr("vortex_black_hole"),
+                color: Color(hex: 0xFFFF1744),
+                isLarge: true
+            )
+            particles.spawnShockwave(x: spawnX, y: spawnY, color: Color(hex: 0xFFFF1744), maxRadius: 80)
+        } else if isSupercharged {
+            particles.spawnShockwave(x: spawnX, y: spawnY, color: Color(hex: 0xFFFF9100), maxRadius: 70)
+        } else {
+            particles.spawnShockwave(x: spawnX, y: spawnY, color: Color(hex: 0xFF7C4DFF), maxRadius: 60)
+        }
+    }
+
+    private func applyBlackHoleGravity(ball: Ball, dt: Double) {
+        let key = ObjectIdentifier(ball)
+        for hole in blackHoles {
+            let dx = hole.x - ball.x
+            let dy = hole.y - ball.y
+            let dist = sqrt(dx * dx + dy * dy)
+            let maxDist = hole.maxInfluenceDist
+            if dist > 1.0 && dist < maxDist {
+                let currentAngle = atan2(ball.y - hole.y, ball.x - hole.x)
+                if let prev = hole.ballAngles[key] {
+                    var delta = currentAngle - prev
+                    while delta > .pi { delta -= 2 * .pi }
+                    while delta < -.pi { delta += 2 * .pi }
+                    let accumulated = (hole.ballAccumulatedAngles[key] ?? 0) + abs(delta)
+                    hole.ballAccumulatedAngles[key] = accumulated
+                    let laps = Int(accumulated / (2 * .pi))
+                    let recorded = hole.ballOrbitLaps[key] ?? 0
+                    if laps > recorded {
+                        hole.ballOrbitLaps[key] = laps
+                        if hole.isSupercharged || hole.isVortexTrap {
+                            ball.setSpeed(min(max(ball.speed * 1.30, getBaseBallSpeed()), 760))
+                            particles.spawnBurst(x: ball.x, y: ball.y, color: Color(hex: 0xFFFF9100), count: 8, speed: 130)
+                            audio.playSfx(.laser)
+                        } else {
+                            ball.setSpeed(min(max(ball.speed * 1.15, getBaseBallSpeed()), 660))
+                            particles.spawnBurst(x: ball.x, y: ball.y, color: Color(hex: 0xFFE040FB), count: 5, speed: 80)
+                        }
+                    }
+                }
+                hole.ballAngles[key] = currentAngle
+
+                let proximity = 1.0 - min(max(dist / maxDist, 0), 1)
+                let falloff = pow(proximity, 0.65)
+                let sizeMult = min(max(hole.radius / 20.0, 1.0), 2.0)
+                let basePull = (hole.isVortexTrap ? 5400.0 : (hole.isSupercharged ? 4400.0 : 3400.0)) * sizeMult
+                let pull = basePull * falloff
+                let nx = dx / dist
+                let ny = dy / dist
+                ball.vx += nx * pull * dt
+                ball.vy += ny * pull * dt
+
+                let tangentX = -ny
+                let tangentY = nx
+                let dragDirection = (ball.vx * tangentX + ball.vy * tangentY) >= 0 ? 1.0 : -1.0
+                let spinDrag = (hole.isVortexTrap ? 1400.0 : (hole.isSupercharged ? 1100.0 : 850.0)) * falloff
+                ball.vx += tangentX * spinDrag * dragDirection * dt
+                ball.vy += tangentY * spinDrag * dragDirection * dt
+
+                if proximity > 0.45 || dist < hole.radius * 3.5 {
+                    ball.vx += tangentX * 280.0 * dragDirection * dt
+                    ball.vy += tangentY * 280.0 * dragDirection * dt
+                    if Double.random(in: 0...1) < 0.25 {
+                        let spark = hole.isSupercharged ? Color(hex: 0xFF00E5FF) : Color(hex: 0xFFE040FB)
+                        particles.spawnBurst(x: ball.x, y: ball.y, color: spark, count: 1, speed: 70)
+                    }
+                }
+
+                if dist <= hole.radius * 0.48 + ball.radius {
+                    let exitSpeed = min(max(max(ball.speed * 1.15, getBaseBallSpeed() * 1.25), getBaseBallSpeed()), 820)
+                    ball.vx = tangentX * exitSpeed * dragDirection
+                    ball.vy = tangentY * exitSpeed * dragDirection
+                    particles.spawnBurst(x: ball.x, y: ball.y, color: Color(hex: 0xFFFFD54F), count: 12, speed: 160)
+                    particles.spawnShockwave(x: hole.x, y: hole.y, color: Color(hex: 0xFFE040FB), maxRadius: 45)
+                    audio.playSfx(.cornerBoost)
+                }
+
+                if ball.speed < getBaseBallSpeed() {
+                    ball.setSpeed(getBaseBallSpeed())
+                }
+                let maxAllowed = (hole.isSupercharged || hole.isVortexTrap) ? 800.0 : 700.0
+                if ball.speed > maxAllowed {
+                    ball.setSpeed(maxAllowed)
+                }
+            } else {
+                if (hole.isSupercharged || hole.isVortexTrap),
+                   (hole.ballAccumulatedAngles[key] ?? 0) >= .pi * 0.65 {
+                    ball.setSpeed(min(max(ball.speed * 1.18, getBaseBallSpeed()), 760))
+                    particles.spawnBurst(x: ball.x, y: ball.y, color: Color(hex: 0xFFFFD54F), count: 8, speed: 140)
+                    audio.playSfx(.hitPaddle)
+                }
+                hole.ballAngles.removeValue(forKey: key)
+                hole.ballAccumulatedAngles.removeValue(forKey: key)
+                hole.ballOrbitLaps.removeValue(forKey: key)
+            }
+        }
+    }
+
+    private func applyPortalTeleport(ball: Ball) {
+        guard ball.anomalyCooldown <= 0 else { return }
+        for portal in portals {
+            let dx = portal.x - ball.x
+            let dy = portal.y - ball.y
+            guard dx * dx + dy * dy <= portal.radius * portal.radius, let target = portal.linkedPortal else { continue }
+            let currentSpeed = ball.speed > 0 ? ball.speed : getBaseBallSpeed()
+            var dirX = ball.vx / currentSpeed
+            var dirY = ball.vy / currentSpeed
+            if abs(dirX) < 0.1 && abs(dirY) < 0.1 {
+                dirX = 0
+                dirY = -1
+            }
+            let eject = target.radius + ball.radius + 6.0
+            ball.x = min(max(target.x + dirX * eject, ball.radius + 8.0), screenWidth - ball.radius - 8.0)
+            ball.y = min(max(target.y + dirY * eject, 42.0), screenHeight - 60.0)
+            ball.setSpeed(min(max(currentSpeed, getBaseBallSpeed()), 850))
+            ball.anomalyCooldown = 0.55
+            particles.spawnBurst(x: portal.x, y: portal.y, color: portal.color, count: 22, speed: 120)
+            particles.spawnShockwave(x: portal.x, y: portal.y, color: portal.color, maxRadius: 38)
+            particles.spawnBurst(x: target.x, y: target.y, color: target.color, count: 26, speed: 140)
+            particles.spawnShockwave(x: target.x, y: target.y, color: target.color, maxRadius: 44)
+            audio.playSfx(.ulti)
+            break
+        }
+    }
+
+    private func extinguishPiercing(at x: Double, y: Double) {
+        for b in balls {
+            b.isFireball = false
+            b.isPierce = false
+            b.fireballPierceCount = 0
+            b.fireballPaddleBounces = 0
+        }
+        let hadPierce = activePowerUps.contains { $0.type == .fireball || $0.type == .pierce }
+        activePowerUps.removeAll { $0.type == .fireball || $0.type == .pierce }
+        if hadPierce {
+            particles.spawnBurst(x: x, y: y, color: Color(hex: 0xFFFF9100), count: 12, speed: 90)
+        }
+    }
+
+    private func nudgeOutOfPinch(ball: Ball, nx: Double, ny: Double) {
+        ball.rapidBounceCount += 1
+        ball.rapidBounceTimer = 0.15
+        if ball.rapidBounceCount >= 5 {
+            ball.x += nx * 2.5
+            ball.y += (ny != 0 ? ny : 1.0) * 2.5
+            ball.rapidBounceCount = 0
         }
     }
 }

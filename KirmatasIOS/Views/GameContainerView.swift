@@ -35,9 +35,15 @@ struct GameContainerView: View {
                     controller.resume()
                 },
                 onRestart: {
-                    controller.startNewGame(mode: controller.currentMode)
+                    AdManager.shared.checkAndShowInterstitial(level: controller.stats.level) {
+                        controller.startNewGame(mode: controller.currentMode)
+                    }
                 },
-                onMainMenu: onExitToMenu
+                onMainMenu: {
+                    AdManager.shared.checkAndShowInterstitial(level: controller.stats.level) {
+                        onExitToMenu()
+                    }
+                }
             )
         }
         #if os(iOS)

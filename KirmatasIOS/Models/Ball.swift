@@ -25,6 +25,11 @@ final class Ball {
     var stuckTimer: Double
     var cornerBoostTimer: Double
     var fireballCombo: Int = 0
+    var fireballPierceCount: Int = 0
+    var fireballPaddleBounces: Int = 0
+    var anomalyCooldown: Double = 0
+    var rapidBounceCount: Int = 0
+    var rapidBounceTimer: Double = 0
 
 
     init(
@@ -92,6 +97,17 @@ final class Ball {
         if cornerBoostTimer > 0 {
             cornerBoostTimer -= dt
             if cornerBoostTimer < 0 { cornerBoostTimer = 0.0 }
+        }
+        if anomalyCooldown > 0 {
+            anomalyCooldown -= dt
+            if anomalyCooldown < 0 { anomalyCooldown = 0 }
+        }
+        if rapidBounceTimer > 0 {
+            rapidBounceTimer -= dt
+            if rapidBounceTimer <= 0 {
+                rapidBounceTimer = 0
+                rapidBounceCount = 0
+            }
         }
 
         if !isStuck {

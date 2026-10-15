@@ -331,6 +331,67 @@ enum LevelDesign {
         }
         return bricks
     }
+
+    static let chaosGap = 8.0
+    static let chaosMargin = 12.0
+    static let chaosCols = 7
+    static let chaosBrickH = 26.0
+    static let chaosStep = chaosBrickH + chaosGap
+
+    static func buildChaosLevel(wave: Int, screenWidth: Double, screenHeight: Double) -> [Brick] {
+        var bricks: [Brick] = []
+        for row in 0..<4 {
+            bricks.append(contentsOf: buildChaosRow(wave: wave, row: row, screenWidth: screenWidth))
+        }
+        return bricks
+    }
+
+    static func buildChaosRow(wave: Int, row: Int, screenWidth: Double) -> [Brick] {
+        var rng = SeededGenerator(seed: UInt64(wave * 20011 + row * 101 + 7))
+        let bw = (screenWidth - chaosMargin * 2 - chaosGap * Double(chaosCols - 1)) / Double(chaosCols)
+        let y = baseTopMargin + Double(row) * chaosStep
+        let pickupCol = rng.nextInt(chaosCols)
+        let emptyCol1 = (pickupCol + 2) % chaosCols
+        let emptyCol2 = (pickupCol + 4) % chaosCols
+        var bricks: [Brick] = []
+
+        for c in 0..<chaosCols {
+            let x = chaosMargin + Double(c) * (bw + chaosGap)
+            if c == pickupCol {
+                bricks.append(
+                    Brick(
+                        x: x, y: y, width: bw, height: chaosBrickH,
+                        hp: 1, maxHp: 1,
+                        color: Color(hex: 0xFF00E5FF),
+                        points: 10,
+                        isBallPickup: true
+                    )
+                )
+                continue
+            }
+            if c == emptyCol1 || (rng.nextDouble() < 0.20 && c != emptyCol2) {
+                continue
+            }
+            let hp: Int
+            if wave <= 1 {
+                hp = 1 + rng.nextInt(row == 0 ? 2 : 3)
+            } else if wave <= 3 {
+                hp = 2 + rng.nextInt(3)
+            } else {
+                hp = (wave - 1) + rng.nextInt(4)
+            }
+            let color = candyPalette[(wave * 3 + row * 2 + c) % candyPalette.count]
+            bricks.append(
+                Brick(
+                    x: x, y: y, width: bw, height: chaosBrickH,
+                    hp: hp, maxHp: hp,
+                    color: color,
+                    points: 5
+                )
+            )
+        }
+        return bricks
+    }
 }
 
 /// Deterministic pseudo-random generator for Daily Level layout consistency.

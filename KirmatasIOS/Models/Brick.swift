@@ -23,6 +23,7 @@ final class Brick {
     var gradient: Gradient
     var points: Int
     var isAlive: Bool
+    var isBallPickup: Bool
 
     init(
         x: Double,
@@ -44,7 +45,8 @@ final class Brick {
         jelly: Double = 0.0,
         color: Color,
         points: Int = 10,
-        isAlive: Bool = true
+        isAlive: Bool = true,
+        isBallPickup: Bool = false
     ) {
         self.x = x
         self.y = y
@@ -67,6 +69,7 @@ final class Brick {
         self.gradient = Gradient(colors: [color.opacity(0.65), color])
         self.points = points
         self.isAlive = isAlive
+        self.isBallPickup = isBallPickup
     }
 
     var rect: CGRect {

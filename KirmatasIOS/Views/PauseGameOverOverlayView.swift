@@ -55,6 +55,42 @@ struct PauseGameOverOverlayView: View {
                     }
 
                     VStack(spacing: 10) {
+                        if isGameOver && !controller.hasUsedRevive && controller.currentMode != .chaos {
+                            Button {
+                                AdManager.shared.watchRewardedAd {
+                                    controller.reviveWithOneLife()
+                                } onEarly: {
+                                    AudioManager.shared.playSfx(.click)
+                                }
+                            } label: {
+                                Label(I18n.tr("second_chance"), systemImage: "heart.fill")
+                                    .font(.system(size: 15, weight: .black, design: .rounded))
+                                    .foregroundStyle(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 48)
+                                    .background(Color(hex: 0xFFFF1744))
+                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        if isVictory && !controller.hasClaimedVictoryBonus {
+                            Button {
+                                AdManager.shared.watchRewardedAd {
+                                    controller.rollEndGameGoldDice()
+                                } onEarly: {}
+                            } label: {
+                                Label(I18n.pick("ZAR x2 / x3", "DICE x2 / x3"), systemImage: "dice.fill")
+                                    .font(.system(size: 15, weight: .black, design: .rounded))
+                                    .foregroundStyle(.black)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 48)
+                                    .background(Color(hex: 0xFF69F0AE))
+                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+
                         if isPaused {
                             Button {
                                 AudioManager.shared.playSfx(.click)

@@ -16,7 +16,7 @@ struct HudOverlayView: View {
                         Image(systemName: "heart.fill")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(Color(hex: 0xFFFF5252))
-                        Text(controller.currentMode == .zen ? "∞" : "\(stats.lives)")
+                        Text(controller.currentMode == .zen ? "∞" : (controller.currentMode == .chaos ? "\(controller.chaosStock)" : "\(stats.lives)"))
                             .font(.system(size: 14, weight: .black, design: .rounded))
                             .foregroundStyle(.white)
                     }
@@ -35,7 +35,9 @@ struct HudOverlayView: View {
                     Text(
                         controller.currentMode == .classic
                             ? "\(I18n.tr("level").uppercased()) \(stats.level)"
-                            : I18n.tr(controller.currentMode.rawValue).uppercased()
+                            : controller.currentMode == .chaos
+                                ? "\(I18n.tr("chaos").uppercased()) \(stats.level)"
+                                : I18n.tr(controller.currentMode.rawValue).uppercased()
                     )
                     .font(.system(size: 13, weight: .black, design: .rounded))
                     .tracking(0.5)
@@ -108,7 +110,7 @@ struct HudOverlayView: View {
             // Ready Launch Banner
             if controller.status == .ready {
                 VStack(spacing: 4) {
-                    Text(I18n.tr("tap_to_launch"))
+                    Text(controller.currentMode == .chaos ? I18n.tr("chaos_aim") : I18n.tr("tap_to_launch"))
                         .font(.system(size: 15, weight: .black, design: .rounded))
                         .tracking(1.0)
                         .foregroundStyle(Color(hex: 0xFFFFD54F))
@@ -132,6 +134,20 @@ struct HudOverlayView: View {
             VStack {
                 Spacer()
                 HStack(alignment: .bottom, spacing: 8) {
+                    if controller.currentMode == .chaos && controller.status == .playing {
+                        Button {
+                            controller.toggleChaosTurboOrRecall()
+                        } label: {
+                            Text(controller.chaosSpeedMultiplier > 1.05 ? I18n.tr("chaos_recall") : "2X")
+                                .font(.system(size: 13, weight: .black, design: .rounded))
+                                .foregroundStyle(.black)
+                                .padding(.horizontal, 12)
+                                .frame(height: 36)
+                                .background(Color(hex: 0xFFFFD54F))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
                     // Active Powerups
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {

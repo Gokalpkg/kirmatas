@@ -17,6 +17,16 @@ enum I18n {
         SaveManager.shared.language
     }
 
+    static var isEnglish: Bool { currentLang == "en" }
+
+    static func pick(_ tr: String, _ en: String) -> String {
+        isEnglish ? en : tr
+    }
+
+    static var deviceDefault: String {
+        (Locale.preferredLanguages.first ?? "tr").hasPrefix("tr") ? "tr" : "en"
+    }
+
     static func tr(_ key: String) -> String {
         let lang = currentLang
         let dict = translations[lang] ?? translations["tr"]!
@@ -36,6 +46,18 @@ enum I18n {
             "classic": "Klasik",
             "mode_classic": "Klasik",
             "classic_desc": "15 Bölüm & Mecha Boss Savaşı",
+            "support_privacy": "DESTEK VE GİZLİLİK",
+            "contact_support": "Destekle İletişim (E-posta)",
+            "privacy_policy": "Gizlilik Politikası ve Şartlar",
+            "chaos": "Kaos",
+            "chaos_desc": "Sık tuğlalar, nişan al, toplar çoğalır",
+            "chaos_aim": "NİŞAN AL, BIRAK",
+            "chaos_2x_speed": "⚡ 2X HIZ!",
+            "chaos_recall": "⏬ TOPLA!",
+            "plus_one_ball": "+1 TOP",
+            "second_chance": "İKİNCİ ŞANS",
+            "watch_ad_spin": "REKLAM İZLE VE ÇEVİR",
+            "free_gold": "ÜCRETSİZ ALTIN",
             "zen": "Zen",
             "mode_zen": "Zen",
             "zen_desc": "Sonsuz ve Sakin Taş Kırma",
@@ -80,6 +102,14 @@ enum I18n {
             "fever_mode": "🔥 ATEŞLİ MOD 🔥",
             "target_locked": "KİLİT HEDEFİ!",
             "combo": "KOMBO",
+            "vortex_black_hole": "🌌 GİRDAP KARADELİK (%1)! 🌌",
+            "boss_incoming_warning": "⚠️  UYARI: BOSS GELİYOR!  ⚠️",
+            "boss_enraged": "😡 BOSS ÖFKELENDİ! 😡",
+            "boss_defeated": "👑 BOSS YENİLDİ! +500 👑",
+            "new_record_broken": "👑 YENİ REKOR KIRILDI! 👑",
+            "level_clear_banner": "✨  BÖLÜM GEÇİLDİ!  ✨",
+            "boss_hit_shrink": "💥 BOSS DARBESİ! RAKET KÜÇÜLDÜ!",
+            "bee_splat": "BZZZ! SPLAT! +100",
             "tap_to_skip": "Geçmek için dokunun",
             "claim": "AL",
             "pup_wide": "Geniş Raket",
@@ -119,6 +149,18 @@ enum I18n {
             "classic": "Classic",
             "mode_classic": "Classic",
             "classic_desc": "15 Levels & Epic Mecha Bosses",
+            "support_privacy": "SUPPORT & PRIVACY",
+            "contact_support": "Contact Support (Email)",
+            "privacy_policy": "Privacy Policy & Terms",
+            "chaos": "Chaos",
+            "chaos_desc": "Dense bricks, aim, balls multiply",
+            "chaos_aim": "AIM AND RELEASE",
+            "chaos_2x_speed": "⚡ 2X SPEED!",
+            "chaos_recall": "⏬ RECALL!",
+            "plus_one_ball": "+1 BALL",
+            "second_chance": "SECOND CHANCE",
+            "watch_ad_spin": "WATCH AD AND SPIN",
+            "free_gold": "FREE GOLD",
             "zen": "Zen",
             "mode_zen": "Zen",
             "zen_desc": "Infinite Calming Experience",
@@ -163,6 +205,14 @@ enum I18n {
             "fever_mode": "🔥 FEVER MODE 🔥",
             "target_locked": "TARGET LOCKED!",
             "combo": "COMBO",
+            "vortex_black_hole": "🌌 VORTEX BLACK HOLE (1%)! 🌌",
+            "boss_incoming_warning": "⚠️  WARNING: BOSS INCOMING!  ⚠️",
+            "boss_enraged": "😡 BOSS ENRAGED! 😡",
+            "boss_defeated": "👑 BOSS DEFEATED! +500 👑",
+            "new_record_broken": "👑 NEW RECORD! 👑",
+            "level_clear_banner": "✨  LEVEL CLEARED!  ✨",
+            "boss_hit_shrink": "💥 BOSS HIT! PADDLE SHRUNK!",
+            "bee_splat": "BZZZ! SPLAT! +100",
             "tap_to_skip": "Tap anywhere to skip",
             "claim": "CLAIM",
             "pup_wide": "Wide Paddle",
@@ -190,5 +240,49 @@ enum I18n {
             "pup_clumsy": "Slippery Ice",
             "pup_invis": "Ghost Paddle"
         ]
+    ]
+
+    /// English names for items whose catalog entries only carry a Turkish default name.
+    static func name(_ turkish: String) -> String {
+        isEnglish ? (englishNames[turkish] ?? turkish) : turkish
+    }
+
+    private static let englishNames: [String: String] = [
+        "Yaygın": "Common", "Nadir": "Rare", "Destansı": "Epic", "Efsanevi": "Legendary",
+        "Ahşap Sandık": "Wooden Crate", "Mercan Sandığı": "Coral Crate", "Derinlik Sandığı": "Abyss Crate",
+        "Klasik Beyaz": "Classic White", "Neon Pembe": "Neon Pink", "Plazma Mavi": "Plasma Blue",
+        "Zümrüt Yeşil": "Emerald Green", "Gölge Mor": "Shadow Purple", "Ateş Topu": "Fireball",
+        "Yıldız Işıltısı": "Starlight", "Saf Altın": "Pure Gold", "Gökkuşağı": "Rainbow",
+        "Siber Fuşya": "Cyber Fuchsia", "Siber Turkuaz": "Cyber Turquoise", "Hayalet Küre": "Ghost Orb",
+        "Siber Klasik": "Cyber Classic", "Buzul Kristali": "Glacier Crystal", "Gece Yarasa": "Night Bat",
+        "Kraliyet Altını": "Royal Gold",
+        "Kısa İz": "Short Trail", "Neon Kuyruk": "Neon Tail", "Kıvılcım İzi": "Spark Trail",
+        "Alev İzi": "Flame Trail", "Gökkuşağı İzi": "Rainbow Trail", "Kozmik Plazma": "Cosmic Plasma",
+        "Klasik Kristal": "Classic Crystal", "Lav Taşları": "Lava Stones", "Buz Bloğu": "Ice Block",
+        "Şeker Neon": "Candy Neon", "Siber Devre": "Cyber Circuit", "Altın Külçe": "Gold Bar",
+        "Kozmik Yıldızlar": "Cosmic Stars", "Mor Bulutsu": "Purple Nebula", "Siber Izgara": "Cyber Grid",
+        "Derin Okyanus": "Deep Ocean", "Retro Gün Batımı": "Retro Sunset", "Güneş Cehennemi": "Solar Inferno",
+        "Kozmik Batarya": "Cosmic Battery", "Plazma Mıknatısı": "Plasma Magnet", "Şans Yıldızı": "Lucky Star",
+        "Ulti göstergesi her seviyede %25 daha hızlı dolar.": "The ultimate meter fills 25% faster per level.",
+        "Düşen güçlendirmeleri 220px mesafeden rakete çeker.": "Pulls falling power-ups to your paddle from 220px away.",
+        "Sandıklardan efsanevi eşya ve oyunda pozitif buff çıkma şansını artırır.": "Raises the chance of legendary crate drops and positive buffs in game.",
+        "+1 Ekstra Can": "+1 Extra Life", "Geniş Raket": "Wide Paddle", "Çoklu Başlangıç": "Multi Start",
+        "Maça 1 fazladan can ile başlayın (3 yerine 4 can).": "Start the match with 1 extra life (4 instead of 3).",
+        "Maça doğrudan genişletilmiş raket ile başlayın.": "Start the match with a wide paddle.",
+        "Maça tek top yerine 3 topla aynı anda başlayın.": "Start the match with 3 balls instead of 1.",
+        "Lepistes (Guppy)": "Guppy", "Diskus (Discus)": "Discus", "Melek Balığı (Angelfish)": "Angelfish",
+        "Pırıltılı Tetra (Glow Tetra)": "Glow Tetra", "Kral Betta (Royal Betta)": "Royal Betta",
+        "Ejder Arowana (Dragon Arowana)": "Dragon Arowana",
+        "Mercan Lepistes": "Coral Guppy", "Safir Lepistes": "Sapphire Guppy", "Zümrüt Lepistes": "Emerald Guppy",
+        "Neon Diskus": "Neon Discus", "Alevli Diskus": "Blazing Discus", "Ametist Diskus": "Amethyst Discus",
+        "Altın Melek Balığı": "Golden Angelfish", "Okyanus Melek Balığı": "Ocean Angelfish",
+        "Yakut Melek Balığı": "Ruby Angelfish", "Pırıltılı Tetra": "Glow Tetra", "Plazma Tetra": "Plasma Tetra",
+        "Zümrüt Tetra": "Emerald Tetra", "Kral Betta": "Royal Betta", "Altın Kanat Betta": "Golden Wing Betta",
+        "Zehir Betta": "Venom Betta", "Efsanevi Altın Ejder": "Legendary Golden Dragon",
+        "Kızıl Ejder Arowana": "Crimson Dragon Arowana", "Platin Ejder Arowana": "Platinum Dragon Arowana",
+        "Su Yosunu (Moss)": "Moss", "Dev Kelp (Kelp)": "Giant Kelp", "Anubias Bitkisi": "Anubias Plant",
+        "Amano Karides": "Amano Shrimp", "Zebra Salyangoz": "Zebra Snail", "Çöpçü Kaya Balığı": "Rock Cleaner Fish",
+        "Gizemli ödül": "Mystery prize", "+1 parça": "+1 shard", "Büyük ödül": "Big prize", "Altın": "Gold",
+        "SANDIK": "CRATE", "PARÇA": "SHARD", "+1 CAN": "+1 LIFE", "Can boostu": "Life boost"
     ]
 }
