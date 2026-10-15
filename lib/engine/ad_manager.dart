@@ -10,24 +10,24 @@ class AdManager extends ChangeNotifier {
   AdManager._internal();
 
   // REWARDED ADS WATERFALL (Canlanma, Çarkıfelek, 3X Zafer, Akvaryum Yem, Menü Altını)
-  // Tier 1: Highest Yield / eCPM Floor Ad Unit ID (yüksek - Ödüllü)
-  static const String tier1RewardedAdUnitId = 'ca-app-pub-9505724609102225/7282413936';
+  // Tier 1: Highest Yield / eCPM Floor Ad Unit ID (Odullu_Yuksek)
+  static const String tier1RewardedAdUnitId = 'ca-app-pub-9694275729123906/6981270843';
 
-  // Tier 2: Medium Yield / Balanced Floor Ad Unit ID (ortadüzey - Ödüllü)
-  static const String tier2RewardedAdUnitId = 'ca-app-pub-9505724609102225/7585576971';
+  // Tier 2: Medium Yield / Balanced Floor Ad Unit ID (Odullu_Orta)
+  static const String tier2RewardedAdUnitId = 'ca-app-pub-9694275729123906/8357756685';
 
-  // Tier 3: Standard / Guaranteed Fill Ad Unit ID (Altın - Ödüllü - Tüm fiyatlar)
-  static const String tier3RewardedAdUnitId = 'ca-app-pub-9505724609102225/1791945382';
+  // Tier 3: Standard / Guaranteed Fill Ad Unit ID (Odullu_Standart - Tüm fiyatlar)
+  static const String tier3RewardedAdUnitId = 'ca-app-pub-9694275729123906/8685059744';
 
   // INTERSTITIAL ADS WATERFALL (3-5 bölümde bir, bölüm geçişinde)
-  // Tier 1: Yüksek Taban Geçiş Reklamı (Gecis_Yuksek - Geçiş)
-  static const String tier1InterstitialAdUnitId = 'ca-app-pub-9505724609102225/2542891443';
+  // Tier 1: Yüksek Taban Geçiş Reklamı (Gecis_Yuksek)
+  static const String tier1InterstitialAdUnitId = 'ca-app-pub-9694275729123906/5731593340';
 
-  // Tier 2: Orta Taban Geçiş Reklamı (Gecis_Orta - Geçiş)
-  static const String tier2InterstitialAdUnitId = 'ca-app-pub-9505724609102225/5776304305';
+  // Tier 2: Orta Taban Geçiş Reklamı (Gecis_Orta)
+  static const String tier2InterstitialAdUnitId = 'ca-app-pub-9694275729123906/4368294806';
 
-  // Tier 3: Düşük Taban / Standart Geçiş Reklamı (Gecis_Standart - Geçiş)
-  static const String tier3InterstitialAdUnitId = 'ca-app-pub-9505724609102225/4463222631';
+  // Tier 3: Düşük Taban / Standart Geçiş Reklamı (Gecis_Standart)
+  static const String tier3InterstitialAdUnitId = 'ca-app-pub-9694275729123906/4863118828';
 
   // Backward-compatibility aliases
   static const String tier1HighYieldAdUnitId = tier1RewardedAdUnitId;

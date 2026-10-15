@@ -1213,7 +1213,7 @@ void main() {
       await save.init();
       
       expect(save.gold, 100);
-      expect(AdManager.rewardedAdUnitId, 'ca-app-pub-9505724609102225/1791945382');
+      expect(AdManager.rewardedAdUnitId, 'ca-app-pub-9694275729123906/8685059744');
       expect(AdManager.cooldownSeconds, 90);
       expect(AdManager.goldRewardAmount, 100);
 
@@ -1357,16 +1357,16 @@ void main() {
 
     test('AdManager cascade waterfall ad units are configured correctly', () {
       // Rewarded Waterfall
-      expect(AdManager.tier1RewardedAdUnitId, 'ca-app-pub-9505724609102225/7282413936');
-      expect(AdManager.tier2RewardedAdUnitId, 'ca-app-pub-9505724609102225/7585576971');
-      expect(AdManager.tier3RewardedAdUnitId, 'ca-app-pub-9505724609102225/1791945382');
+      expect(AdManager.tier1RewardedAdUnitId, 'ca-app-pub-9694275729123906/6981270843');
+      expect(AdManager.tier2RewardedAdUnitId, 'ca-app-pub-9694275729123906/8357756685');
+      expect(AdManager.tier3RewardedAdUnitId, 'ca-app-pub-9694275729123906/8685059744');
       expect(AdManager.instance.isHighYieldAdReady, false); // Not loaded in headless unit test
       expect(AdManager.instance.isLoadingHighYield, false);
 
       // Interstitial Waterfall
-      expect(AdManager.tier1InterstitialAdUnitId, 'ca-app-pub-9505724609102225/2542891443');
-      expect(AdManager.tier2InterstitialAdUnitId, 'ca-app-pub-9505724609102225/5776304305');
-      expect(AdManager.tier3InterstitialAdUnitId, 'ca-app-pub-9505724609102225/4463222631');
+      expect(AdManager.tier1InterstitialAdUnitId, 'ca-app-pub-9694275729123906/5731593340');
+      expect(AdManager.tier2InterstitialAdUnitId, 'ca-app-pub-9694275729123906/4368294806');
+      expect(AdManager.tier3InterstitialAdUnitId, 'ca-app-pub-9694275729123906/4863118828');
       expect(AdManager.instance.isInterstitialReady, false);
       expect(AdManager.instance.isLoadingInterstitial, false);
     });
@@ -1705,8 +1705,8 @@ void main() {
     });
 
     test('AdManager high-yield ad unit is used for wheel, free gift and revive', () {
-      expect(AdManager.tier1RewardedAdUnitId, 'ca-app-pub-9505724609102225/7282413936');
-      expect(AdManager.highYieldAdUnitId, 'ca-app-pub-9505724609102225/7282413936');
+      expect(AdManager.tier1RewardedAdUnitId, 'ca-app-pub-9694275729123906/6981270843');
+      expect(AdManager.highYieldAdUnitId, 'ca-app-pub-9694275729123906/6981270843');
     });
 
     testWidgets('ShopView renders with animated trail preview, ball preview, and paddle preview painters without exceptions', (tester) async {
