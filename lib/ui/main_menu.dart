@@ -14,7 +14,6 @@ import 'game_canvas.dart';
 import 'hud_overlay.dart';
 import 'pause_game_over.dart';
 import 'fortune_wheel_dialog.dart';
-import 'daily_login_dialog.dart';
 import 'daily_quests_dialog.dart';
 import 'shop_view.dart';
 import 'upgrades_view.dart';
@@ -37,8 +36,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
   static bool _hasAutoShownWheelThisSession = false;
   final GlobalKey _wheelButtonKey = GlobalKey();
-  bool _highlightWheelButton = false;
-  bool _showArcadeModes = false;
 
   @override
   void initState() {
@@ -180,12 +177,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       },
     );
 
-    if (mounted) {
-      setState(() => _highlightWheelButton = true);
-      Future.delayed(const Duration(milliseconds: 900), () {
-        if (mounted) setState(() => _highlightWheelButton = false);
-      });
-    }
+
   }
 
   void _startOrPromptResume(GameMode mode) {
@@ -208,7 +200,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
   void _openSectorMap() {
     HapticFeedback.selectionClick();
-    AudioManager.instance.playSfx(GameSfx.buttonClick);
+    AudioManager.instance.playSfx(GameSfx.click);
     Navigator.of(context).push<int>(
       MaterialPageRoute(
         builder: (_) => SectorMapView(
@@ -881,7 +873,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         _buildNavButton(
                           icon: Icons.card_giftcard_rounded,
                           label: 'Ödüller',
-                          badge: (_save.remainingWheelSpins > 0 || _save.canClaimDailyLogin) ? '!' : null,
+                          badge: (_save.remainingWheelSpins > 0 || _save.canClaimDailyLogin()) ? '!' : null,
                           onTap: () => RewardsHubDialog.show(
                             context,
                             save: _save,
@@ -915,295 +907,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildTopRewardsBar() {
-    final canClaimDaily = _save.canClaimDailyLogin();
-    final canClaimAd = _save.canClaimDailyLoginAd();
-    final hasAnyClaim = canClaimDaily || canClaimAd;
-
-    return Row(
-          children: [
-            // 1. 7 GÜNLÜK GİRİŞ (Compact Pill)
-            Expanded(
-              child: _buildFancyRewardButton(
-                gradientColors: [const Color(0xFF261A08), const Color(0xFF161004)],
-                borderColor: hasAnyClaim ? const Color(0xFFFFD54F) : Colors.white12,
-                glowColor: const Color(0xFFFFA000),
-                isGlowing: hasAnyClaim,
-                iconGradient: const [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-                icon: Icons.calendar_month_rounded,
-                iconColor: const Color(0xFF261500),
-                title: 'GİRİŞ',
-                titleColor: const Color(0xFFFFE082),
-                subtitle: '${_save.currentDailyLoginDay}. Gün',
-                subColor: const Color(0xFFFFB300),
-                badgeText: canClaimDaily ? 'AL!' : (canClaimAd ? '2X' : null),
-                badgeGradient: const [Color(0xFFFF5252), Color(0xFFFF1744)],
-                onTap: () => DailyLoginDialog.show(context),
-              ),
-            ),
-            const SizedBox(width: 6),
-
-            // 2. ŞANS ÇARKI (Compact Pill)
-            Expanded(
-              child: KeyedSubtree(
-                key: _wheelButtonKey,
-                child: ListenableBuilder(
-                  listenable: _save,
-                  builder: (context, _) {
-                    final spinsLeft = _save.remainingWheelSpins;
-                    final hasSpins = spinsLeft > 0;
-
-                    return _buildFancyRewardButton(
-                      gradientColors: hasSpins
-                          ? const [Color(0xFF0B2135), Color(0xFF160A29)]
-                          : const [Color(0xFF141724), Color(0xFF1A1D2B)],
-                      borderColor: _highlightWheelButton
-                          ? const Color(0xFFFFFF00)
-                          : (hasSpins ? const Color(0xFF00E5FF) : Colors.white12),
-                      glowColor: _highlightWheelButton
-                          ? const Color(0xFFFFD700)
-                          : const Color(0xFF00E5FF),
-                      isGlowing: hasSpins || _highlightWheelButton,
-                      iconGradient: hasSpins
-                          ? const [Color(0xFF00E5FF), Color(0xFFD500F9)]
-                          : const [Color(0xFF455A64), Color(0xFF263238)],
-                      icon: Icons.motion_photos_on_rounded,
-                      iconColor: hasSpins ? Colors.white : Colors.white54,
-                      title: 'ÇARK',
-                      titleColor: hasSpins ? const Color(0xFF80D8FF) : Colors.white60,
-                      subtitle: hasSpins ? '$spinsLeft/3' : 'Bitti',
-                      subColor: hasSpins ? const Color(0xFF00E5FF) : Colors.white38,
-                      badgeText: hasSpins ? '$spinsLeft' : null,
-                      badgeGradient: hasSpins
-                          ? const [Color(0xFF00E5FF), Color(0xFF7C4DFF)]
-                          : null,
-                      onTap: _openFortuneWheelWithHero,
-                    );
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-
-            // 3. ÜCRETSİZ HEDİYE (Compact Pill)
-            Expanded(
-              child: ListenableBuilder(
-                listenable: AdManager.instance,
-                builder: (context, _) {
-                  final cooldown = AdManager.instance.remainingCooldownSeconds;
-                  final onCooldown = cooldown > 0;
-                  final isLoading = AdManager.instance.isLoading || AdManager.instance.isShowing;
-                  final isReady = !onCooldown && !isLoading;
-
-                  String sub;
-                  if (isLoading) {
-                    sub = '...';
-                  } else if (onCooldown) {
-                    final m = cooldown ~/ 60;
-                    final s = cooldown % 60;
-                    sub = '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-                  } else {
-                    sub = '+100';
-                  }
-
-                  return _buildFancyRewardButton(
-                    gradientColors: [const Color(0xFF082B1C), const Color(0xFF061A1D)],
-                    borderColor: isReady ? const Color(0xFF00E676) : Colors.white12,
-                    glowColor: const Color(0xFF00E676),
-                    isGlowing: isReady,
-                    iconGradient: const [Color(0xFF69F0AE), Color(0xFF00B0FF)],
-                    icon: Icons.card_giftcard_rounded,
-                    iconColor: const Color(0xFF00331A),
-                    title: 'HEDİYE',
-                    titleColor: const Color(0xFFA7FFEB),
-                    subtitle: sub,
-                    subColor: const Color(0xFF69F0AE),
-                    badgeText: isReady ? '+100' : null,
-                    badgeGradient: isReady
-                        ? const [Color(0xFF00E676), Color(0xFF00C853)]
-                        : null,
-                    onTap: () {
-                      if (isReady) {
-                        AdManager.instance.watchAdForGold(
-                          context,
-                          onSuccess: (reward) {
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(' +$reward Altın Hesabınıza Eklendi!'),
-                                backgroundColor: const Color(0xFF161A29),
-                              ),
-                            );
-                          },
-                          onDismissedEarly: () {},
-                        );
-                      } else if (onCooldown) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Yeni hediye için kalan süre: $sub'),
-                            backgroundColor: const Color(0xFF161A29),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-  }
-
-  Widget _buildFancyRewardButton({
-    required List<Color> gradientColors,
-    required Color borderColor,
-    required Color glowColor,
-    required bool isGlowing,
-    required List<Color> iconGradient,
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required Color titleColor,
-    required String subtitle,
-    required Color subColor,
-    String? badgeText,
-    List<Color>? badgeGradient,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: gradientColors,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderColor, width: isGlowing ? 1.5 : 1.0),
-            boxShadow: isGlowing
-                ? [
-                    BoxShadow(
-                      color: glowColor.withValues(alpha: 0.4),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: iconGradient,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: iconGradient.first.withValues(alpha: 0.6),
-                          blurRadius: 6,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 1.2),
-                    ),
-                    child: Center(
-                      child: Icon(icon, color: iconColor, size: 17),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            color: titleColor,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.4,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withValues(alpha: 0.8),
-                                blurRadius: 4,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 1),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            color: subColor,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              if (badgeText != null)
-                Positioned(
-                  top: -8,
-                  right: -3,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                    decoration: BoxDecoration(
-                      gradient: badgeGradient != null
-                          ? LinearGradient(colors: badgeGradient)
-                          : null,
-                      color: badgeGradient == null ? Colors.orange : null,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 0.8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (badgeGradient?.first ?? Colors.black).withValues(alpha: 0.6),
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      badgeText,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 

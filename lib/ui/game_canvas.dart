@@ -2907,8 +2907,7 @@ class _GameWorldPainter extends CustomPainter {
       }
       _tempPath.close();
 
-      _fill
-        ..shader = RadialGradient(
+      _fill.shader = RadialGradient(
           colors: [
             const Color(0xFF05060C),
             deep,

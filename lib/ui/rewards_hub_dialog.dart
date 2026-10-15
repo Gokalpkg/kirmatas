@@ -5,7 +5,6 @@ import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
 import '../storage/save_manager.dart';
 import 'daily_login_dialog.dart';
-import 'fortune_wheel_dialog.dart';
 
 /// Tüm ödülleri (Çark, 7 Günlük Giriş, Ücretsiz Hediye) tek çatı altında toplayan şık Ödül Merkezi
 class RewardsHubDialog extends StatelessWidget {

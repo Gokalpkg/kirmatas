@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -105,7 +104,6 @@ class _SectorMapViewState extends State<SectorMapView> with SingleTickerProvider
     final highest = widget.save.metricHighestClassicLevel;
     final savedLevel = widget.save.classicSavedLevel;
     final isCompleted = sector.isCompleted(highest);
-    final isCurrent = sector.isCurrent(highest);
 
     showModalBottomSheet(
       context: context,
