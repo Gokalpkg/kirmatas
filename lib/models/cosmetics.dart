@@ -981,3 +981,119 @@ class StatUpgrade {
     ),
   ];
 }
+
+enum CosmeticSynergy {
+  none,
+  fireSunset,
+  iceCrystal,
+  cosmicLegendary;
+
+  String get nameTr {
+    switch (this) {
+      case CosmeticSynergy.fireSunset:
+        return '🔥 Ateş / Günbatımı Sinerjisi';
+      case CosmeticSynergy.iceCrystal:
+        return '❄️ Buz / Kristal Sinerjisi';
+      case CosmeticSynergy.cosmicLegendary:
+        return '👑 Kozmik Efsanevi Set';
+      case CosmeticSynergy.none:
+        return 'Sinerji Yok';
+    }
+  }
+
+  String get titleTr => nameTr;
+
+  String get descriptionTr {
+    switch (this) {
+      case CosmeticSynergy.fireSunset:
+        return '+%15 Patlama Yarıçapı ve Kombo İvmesi';
+      case CosmeticSynergy.iceCrystal:
+        return 'Buz/Zırhlı Bloklara Ekstra Hasar & Yavaşlatma Direnci';
+      case CosmeticSynergy.cosmicLegendary:
+        return '+%15 Skor ve Altın Çarpanı';
+      case CosmeticSynergy.none:
+        return 'Uyumlu Raket + Top + İz kuşanarak set bonusu aç!';
+    }
+  }
+
+  String get descTr => descriptionTr;
+
+  Color get color {
+    switch (this) {
+      case CosmeticSynergy.fireSunset:
+        return const Color(0xFFFF5722);
+      case CosmeticSynergy.iceCrystal:
+        return const Color(0xFF00E5FF);
+      case CosmeticSynergy.cosmicLegendary:
+        return const Color(0xFFFFD700);
+      case CosmeticSynergy.none:
+        return const Color(0xFF90A4AE);
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case CosmeticSynergy.fireSunset:
+        return Icons.local_fire_department_rounded;
+      case CosmeticSynergy.iceCrystal:
+        return Icons.ac_unit_rounded;
+      case CosmeticSynergy.cosmicLegendary:
+        return Icons.workspace_premium_rounded;
+      case CosmeticSynergy.none:
+        return Icons.auto_awesome_outlined;
+    }
+  }
+
+  double get explosionRadiusBonus => this == CosmeticSynergy.fireSunset ? 0.15 : 0.0;
+  double get comboMomentumBonus => this == CosmeticSynergy.fireSunset ? 0.15 : 0.0;
+  int get extraIceArmoredDamage => this == CosmeticSynergy.iceCrystal ? 1 : 0;
+  double get slowResistance => this == CosmeticSynergy.iceCrystal ? 0.50 : 0.0;
+  double get scoreMultiplier => this == CosmeticSynergy.cosmicLegendary ? 1.15 : 1.0;
+  double get goldMultiplier => this == CosmeticSynergy.cosmicLegendary ? 1.15 : 1.0;
+}
+
+class CosmeticCatalog {
+  static CosmeticSynergy getActiveSynergy(
+    String? paddleId,
+    String? ballId,
+    String? trailId,
+  ) {
+    final pId = paddleId ?? 'pclassic';
+    final bId = ballId ?? 'classic';
+    final tId = trailId ?? 't1';
+
+    // 1. Fire / Sunset Synergy
+    final isFirePaddle = pId == 'pbat';
+    final isFireBall = bId == 'ates';
+    final isFireTrail = tId == 'fire' || tId == 'spark';
+    if ((isFireBall && isFireTrail) ||
+        (isFireBall && isFirePaddle) ||
+        (isFirePaddle && isFireTrail)) {
+      return CosmeticSynergy.fireSunset;
+    }
+
+    // 2. Ice / Crystal Synergy
+    final isIcePaddle = pId == 'pice';
+    final isIceBall = bId == 'elmas_top' || bId == 'plazma';
+    final isIceTrail = tId == 'plasma' || tId == 't2';
+    if ((isIcePaddle && isIceBall) ||
+        (isIcePaddle && isIceTrail) ||
+        (bId == 'elmas_top' && tId == 't2')) {
+      return CosmeticSynergy.iceCrystal;
+    }
+
+    // 3. Cosmic Legendary Set (3x Epic/Legendary)
+    final bRarity = BallSkin.getById(bId).rarity;
+    final pRarity = PaddleSkin.getById(pId).rarity;
+    final tRarity = TrailSkin.getById(tId).rarity;
+    final isBallHigh = bRarity == Rarity.epic || bRarity == Rarity.legendary;
+    final isPaddleHigh = pRarity == Rarity.epic || pRarity == Rarity.legendary;
+    final isTrailHigh = tRarity == Rarity.epic || tRarity == Rarity.legendary;
+    if (isBallHigh && isPaddleHigh && isTrailHigh) {
+      return CosmeticSynergy.cosmicLegendary;
+    }
+
+    return CosmeticSynergy.none;
+  }
+}
+

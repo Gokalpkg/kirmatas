@@ -13,6 +13,7 @@ import '../models/powerup.dart';
 import 'pixel_art.dart';
 import '../models/cosmetics.dart';
 import '../models/sector_data.dart';
+import '../models/portal.dart';
 
 class GameCanvas extends StatefulWidget {
   final GameController controller;
@@ -31,6 +32,7 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
   Offset? _chaosPointerDownPos;
   int? _touchStartLevel;
   bool _canLaunchOnUp = false;
+  int _lastPointerDownMs = 0;
 
   @override
   void initState() {
@@ -70,6 +72,12 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
           behavior: HitTestBehavior.opaque,
           onPointerDown: (event) {
             final c = widget.controller;
+            final nowMs = DateTime.now().millisecondsSinceEpoch;
+            if (nowMs - _lastPointerDownMs < 350 && c.isUltiReady) {
+              c.triggerUlti();
+            }
+            _lastPointerDownMs = nowMs;
+
             if (c.levelTransitionTimer > 0) {
               _canLaunchOnUp = false;
               _touchStartLevel = null;
@@ -174,9 +182,167 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
             _pointerMoved = false;
             _chaosPointerDownPos = null;
           },
-          child: CustomPaint(
-            size: Size(constraints.maxWidth, constraints.maxHeight),
-            painter: _GameWorldPainter(widget.controller),
+          child: Stack(
+            children: [
+              CustomPaint(
+                size: Size(constraints.maxWidth, constraints.maxHeight),
+                painter: _GameWorldPainter(widget.controller),
+              ),
+              ListenableBuilder(
+                listenable: widget.controller,
+                builder: (context, _) {
+                  final c = widget.controller;
+                  if (c.currentMode != GameMode.chaos) {
+                    return const SizedBox.shrink();
+                  }
+                  return Stack(
+                    children: [
+                      if (c.activeChaosPerks.isNotEmpty)
+                        Positioned(
+                          top: 8,
+                          left: 10,
+                          right: 10,
+                          child: IgnorePointer(
+                            child: Wrap(
+                              key: const Key('active_chaos_perks_hud'),
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: c.activeChaosPerks.toSet().map((perk) {
+                                final count = c.activeChaosPerks.where((p) => p == perk).length;
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xCC101424),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: perk.color.withValues(alpha: 0.7)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(perk.icon, color: perk.color, size: 12),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        count > 1 ? 'x$count' : perk.titleTr.split(' ').last,
+                                        style: TextStyle(
+                                          color: perk.color,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                      if (c.offeredChaosPerks.isNotEmpty)
+                        Positioned.fill(
+                          child: Container(
+                            key: const Key('chaos_perk_selection_overlay'),
+                            color: Colors.black.withValues(alpha: 0.72),
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    '⚡ KAOS GÜÇLENDİRMESİ SEÇ',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Color(0xFFFFD54F),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Dalga ${c.stats.level} Ödülü — Bu koşu boyunca birikir',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ...c.offeredChaosPerks.map((perk) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: InkWell(
+                                        key: Key('chaos_perk_card_${perk.name}'),
+                                        onTap: () => c.selectChaosPerk(perk),
+                                        borderRadius: BorderRadius.circular(14),
+                                        child: Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF14192B),
+                                            borderRadius: BorderRadius.circular(14),
+                                            border: Border.all(
+                                              color: perk.color.withValues(alpha: 0.8),
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 36,
+                                                height: 36,
+                                                decoration: BoxDecoration(
+                                                  color: perk.color.withValues(alpha: 0.18),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Icon(perk.icon, color: perk.color, size: 20),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      perk.titleTr,
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontWeight: FontWeight.w900,
+                                                        fontSize: 13,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      perk.descriptionTr,
+                                                      maxLines: 2,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        color: Colors.white70,
+                                                        fontSize: 11,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Icon(Icons.chevron_right_rounded, color: perk.color, size: 22),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
           ),
         );
       },
@@ -276,6 +442,12 @@ class _GameWorldPainter extends CustomPainter {
 
     _drawBossWarningBanner(canvas, size);
     _drawLevelClearCelebration(canvas, size);
+    if (c.showLevel1DragGuide) {
+      _drawLevel1DragGuide(canvas, c.paddle.rect, time);
+    }
+    if (c.isUltiReady) {
+      _drawUltiReadyCallout(canvas, size, time);
+    }
 
     _drawPlayfieldBorder(canvas, size);
 
@@ -3070,16 +3242,16 @@ class _GameWorldPainter extends CustomPainter {
   void _drawPortals(Canvas canvas) {
     if (c.portals.isEmpty) return;
 
-    // 1. Subtle Quantum Resonance Beam connecting linked portals
+    // 1. Quantum Resonance Conduit with flowing energy packets between linked portals
     if (c.portals.length >= 2 && c.portals[0].linkedPortal != null) {
       final p1 = c.portals[0];
       final p2 = c.portals[1];
-      final beamPulse = 0.18 + 0.12 * sin(time * 3.5);
+      final beamPulse = 0.28 + 0.16 * sin(time * 3.6);
       _stroke
         ..shader = LinearGradient(
           colors: [
             _ca(p1.color, beamPulse),
-            _ca(Colors.white, beamPulse * 1.3),
+            _ca(Colors.white, beamPulse * 1.35),
             _ca(p2.color, beamPulse),
           ],
         ).createShader(Rect.fromPoints(Offset(p1.x, p1.y), Offset(p2.x, p2.y)))
@@ -3093,73 +3265,172 @@ class _GameWorldPainter extends CustomPainter {
         dashSpace: 8.0,
       );
       _stroke.shader = null;
+
+      // Traveling quantum energy packets flowing along the conduit
+      for (int k = 0; k < 2; k++) {
+        final double t = (time * 0.45 + k * 0.5) % 1.0;
+        final double qx = p1.x + (p2.x - p1.x) * t;
+        final double qy = p1.y + (p2.y - p1.y) * t;
+        final Color qCol = Color.lerp(p1.color, p2.color, t)!;
+        _fill.color = _ca(qCol, 0.45);
+        canvas.drawCircle(Offset(qx, qy), 4.2, _fill);
+        _fill.color = Colors.white;
+        canvas.drawCircle(Offset(qx, qy), 1.8, _fill);
+      }
     }
 
-    // 2. High-Tech Dual Rotating Cosmic Portals
+    // 2. Black-Hole Harmonized Cosmic Portals
     for (final p in c.portals) {
       canvas.save();
       canvas.translate(p.x, p.y);
 
-      final pulse = 1.0 + 0.08 * sin(time * 4.0 + (p.isBlue ? 0 : pi));
-      final effRadius = p.radius * pulse;
+      final double pulse = 0.5 + 0.5 * sin(time * 2.6 + (p.isBlue ? 0.0 : pi));
+      final double effRadius = p.radius * (1.0 + 0.06 * pulse);
 
-      // Outer Halo Glow Aura
-      _fill.color = _ca(p.color, 0.16);
-      canvas.drawCircle(Offset.zero, effRadius * 1.55, _fill);
-      _fill.color = _ca(p.color, 0.28);
-      canvas.drawCircle(Offset.zero, effRadius * 1.25, _fill);
+      // Outer field aura wash with soft breathing pulse
+      _fill
+        ..style = PaintingStyle.fill
+        ..maskFilter = null
+        ..shader = RadialGradient(
+          colors: [
+            _ca(p.color, 0.22 + 0.06 * pulse),
+            _ca(p.color, 0.06),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.48, 1.0],
+        ).createShader(Rect.fromCircle(center: Offset.zero, radius: effRadius * 1.95));
+      canvas.drawCircle(Offset.zero, effRadius * 1.90, _fill);
+      _fill.shader = null;
 
-      // Outer Segmented Gear / Pulsar Ring
-      canvas.save();
-      canvas.rotate(p.rotation);
-      _stroke
-        ..color = _ca(p.color, 0.95)
-        ..strokeWidth = 3.0;
-      canvas.drawCircle(Offset.zero, effRadius, _stroke);
-
-      // Orbital Power Nodes on Outer Ring
-      const nodeCount = 6;
-      for (int i = 0; i < nodeCount; i++) {
-        final nodeAngle = (i * 2 * pi) / nodeCount;
-        final nx = cos(nodeAngle) * effRadius;
-        final ny = sin(nodeAngle) * effRadius;
-        _fill.color = Colors.white;
-        canvas.drawCircle(Offset(nx, ny), 2.2, _fill);
-        _fill.color = _ca(p.color, 0.85);
-        canvas.drawCircle(Offset(nx, ny), 4.0, _fill);
+      // Type-specific background ripple effects
+      if (p.type == PortalType.gravity) {
+        final double rip1 = (time * 0.7) % 1.0;
+        final double rip2 = (time * 0.7 + 0.5) % 1.0;
+        _stroke
+          ..strokeWidth = 1.2
+          ..color = _ca(p.color, (1.0 - rip1) * 0.40);
+        canvas.drawCircle(Offset.zero, effRadius * (1.1 + rip1 * 0.8), _stroke);
+        _stroke.color = _ca(p.color, (1.0 - rip2) * 0.40);
+        canvas.drawCircle(Offset.zero, effRadius * (1.1 + rip2 * 0.8), _stroke);
+      } else if (p.type == PortalType.moving) {
+        final double vxSign = cos(p.moveTime * p.moveSpeed + p.movePhase);
+        final double ghostOffset = -vxSign * 10.0;
+        _stroke
+          ..strokeWidth = 1.2
+          ..color = _ca(p.color, 0.22);
+        canvas.drawCircle(Offset(ghostOffset, 0), effRadius * 0.9, _stroke);
+        canvas.drawCircle(Offset(ghostOffset * 1.8, 0), effRadius * 0.8, _stroke);
+      } else if (p.type == PortalType.quantumPhase) {
+        final double phaseShift = sin(time * 3.5) * 4.0;
+        _stroke
+          ..strokeWidth = 1.4
+          ..color = _ca(const Color(0xFF18FFFF), 0.45);
+        canvas.drawCircle(Offset(phaseShift, 0), effRadius * 1.08, _stroke);
+        _stroke.color = _ca(const Color(0xFFFF4081), 0.45);
+        canvas.drawCircle(Offset(-phaseShift, 0), effRadius * 1.08, _stroke);
       }
+
+      // Organic undulating accretion disk with smoothed wave contour (matching black hole language)
+      canvas.save();
+      canvas.rotate(p.rotation * 0.35);
+      final double baseRadius = effRadius * 1.35;
+      const int segments = 24;
+      final List<Offset> pts = List<Offset>.generate(segments, (i) {
+        final double angle = (pi * 2 / segments) * i;
+        final double wave = sin(angle * 4.0 + time * 2.5) * 0.038 + cos(angle * 2.0 - time * 1.6) * 0.020;
+        final double r = baseRadius * (1.0 + wave);
+        return Offset(cos(angle) * r, sin(angle) * r);
+      });
+      _tempPath.reset();
+      final Offset start = Offset((pts[0].dx + pts[1].dx) * 0.5, (pts[0].dy + pts[1].dy) * 0.5);
+      _tempPath.moveTo(start.dx, start.dy);
+      for (int i = 1; i < segments; i++) {
+        final Offset next = pts[(i + 1) % segments];
+        final Offset mid = Offset((pts[i].dx + next.dx) * 0.5, (pts[i].dy + next.dy) * 0.5);
+        _tempPath.quadraticBezierTo(pts[i].dx, pts[i].dy, mid.dx, mid.dy);
+      }
+      _tempPath.close();
+
+      _fill.shader = RadialGradient(
+        colors: [
+          const Color(0xFF03050C),
+          _ca(p.color, 0.35),
+          _ca(p.color, 0.90),
+          _ca(Colors.white, 0.75),
+          _ca(p.color, 0.0),
+        ],
+        stops: const [0.15, 0.38, 0.65, 0.84, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset.zero, radius: baseRadius * 1.06));
+      canvas.drawPath(_tempPath, _fill);
+      _fill.shader = null;
+
+      // Lit glass crescent arc matching black hole and neon tubes
+      _stroke
+        ..strokeWidth = 1.6
+        ..color = _ca(Colors.white, 0.30 + 0.12 * pulse);
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset(-baseRadius * 0.15, -baseRadius * 0.13), radius: baseRadius * 0.72),
+        -2.35,
+        1.40,
+        false,
+        _stroke,
+      );
       canvas.restore();
 
-      // Counter-Rotating Inner Vortex Accretion Swirls
-      canvas.save();
-      canvas.rotate(-p.rotation * 1.4);
-      const swirlCount = 5;
-      for (int i = 0; i < swirlCount; i++) {
-        final angle = (i * 2 * pi) / swirlCount;
-        final rOffset = effRadius * (0.35 + 0.25 * sin(time * 3.0 + i));
-        final sx = cos(angle) * rOffset;
-        final sy = sin(angle) * rOffset;
-
-        _fill.color = _ca(p.color, 0.65);
-        canvas.drawCircle(Offset(sx, sy), effRadius * 0.28, _fill);
-        _fill.color = _ca(Colors.white, 0.55);
-        canvas.drawCircle(Offset(sx, sy), effRadius * 0.14, _fill);
+      // Accelerator outward energy chevrons
+      if (p.type == PortalType.accelerator) {
+        canvas.save();
+        canvas.rotate(p.rotation * 0.8);
+        _stroke
+          ..strokeWidth = 1.8
+          ..color = _ca(const Color(0xFFFFD700), 0.75 + 0.25 * pulse);
+        for (int i = 0; i < 3; i++) {
+          final double ca = i * (2 * pi / 3);
+          final double cr = effRadius * 1.25;
+          final cx = cos(ca) * cr;
+          final cy = sin(ca) * cr;
+          canvas.save();
+          canvas.translate(cx, cy);
+          canvas.rotate(ca + pi / 2);
+          _tempPath.reset();
+          _tempPath.moveTo(-4, -3);
+          _tempPath.lineTo(0, 3);
+          _tempPath.lineTo(4, -3);
+          canvas.drawPath(_tempPath, _stroke);
+          canvas.restore();
+        }
+        canvas.restore();
       }
-      canvas.restore();
 
-      // Center Singularity / Event Horizon Void
-      _fill.color = const Color(0xFF060810);
-      canvas.drawCircle(Offset.zero, effRadius * 0.42, _fill);
+      // Event horizon: Dual photon ring
+      final double photonR = effRadius * 0.52;
       _stroke
-        ..color = _ca(Colors.white, 0.8)
-        ..strokeWidth = 1.4;
-      canvas.drawCircle(Offset.zero, effRadius * 0.42, _stroke);
+        ..strokeWidth = 2.4
+        ..color = _ca(p.color, 0.85 + 0.15 * pulse);
+      canvas.drawCircle(Offset.zero, photonR, _stroke);
+      _stroke
+        ..strokeWidth = 0.8
+        ..color = _ca(Colors.white, 0.95);
+      canvas.drawCircle(Offset.zero, photonR, _stroke);
 
-      // Inner Core Glow Dot
+      // Deep cosmic void center
+      _fill.color = const Color(0xFF020308);
+      canvas.drawCircle(Offset.zero, photonR * 0.78, _fill);
+
+      // Pulsing quantum singularity core dot
       _fill.color = _ca(p.color, 0.95);
-      canvas.drawCircle(Offset.zero, 3.5 * pulse, _fill);
+      canvas.drawCircle(Offset.zero, 3.2 * (0.8 + 0.2 * pulse), _fill);
       _fill.color = Colors.white;
-      canvas.drawCircle(Offset.zero, 1.8, _fill);
+      canvas.drawCircle(Offset.zero, 1.5, _fill);
+
+      // Orbiting quantum sparks / motes
+      final double sparkR = baseRadius * 0.60;
+      final double spin = p.rotation * 1.4;
+      for (int i = 0; i < 3; i++) {
+        final double a = spin + i * (pi * 2 / 3);
+        _fill.color = _ca(i == 0 ? Colors.white : p.color, 0.92);
+        canvas.drawCircle(Offset(cos(a) * sparkR, sin(a) * sparkR), i == 0 ? 1.6 : 1.15, _fill);
+      }
 
       canvas.restore();
     }
@@ -5068,6 +5339,89 @@ class _GameWorldPainter extends CustomPainter {
     );
     _tp.layout();
     _tp.paint(canvas, Offset((size.width - _tp.width) / 2, bannerY - _tp.height / 2));
+  }
+
+  void _drawLevel1DragGuide(Canvas canvas, Rect paddleRect, double time) {
+    final pulse = (sin(time * 5.0) * 0.25 + 0.75).clamp(0.0, 1.0);
+    const text = '◄── KAYDIR ──►';
+    _tp.text = TextSpan(
+      text: text,
+      style: TextStyle(
+        color: _ca(const Color(0xFFFFD54F), pulse),
+        fontSize: 12.0,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 2.0,
+        shadows: [
+          Shadow(
+            color: _ca(const Color(0xFFFF8F00), 0.8 * pulse),
+            blurRadius: 8.0,
+          ),
+          const Shadow(
+            color: Colors.black,
+            offset: Offset(0, 1.5),
+            blurRadius: 3.0,
+          ),
+        ],
+      ),
+    );
+    _tp.layout();
+
+    final x = paddleRect.center.dx - _tp.width / 2;
+    final y = paddleRect.bottom + 12.0;
+    _tp.paint(canvas, Offset(x, y));
+  }
+
+  void _drawUltiReadyCallout(Canvas canvas, Size size, double time) {
+    final pulse = (sin(time * 6.0) * 0.3 + 0.7).clamp(0.0, 1.0);
+    const text = '⚡ ULTİ HAZIR! ÇİFT DOKUN!';
+    _tp.text = TextSpan(
+      text: text,
+      style: TextStyle(
+        color: _ca(const Color(0xFFFFD700), pulse),
+        fontSize: 13.0,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 1.2,
+        shadows: [
+          Shadow(
+            color: _ca(const Color(0xFFFF6D00), 0.9 * pulse),
+            blurRadius: 10.0,
+          ),
+          const Shadow(
+            color: Colors.black,
+            offset: Offset(0, 2),
+            blurRadius: 4.0,
+          ),
+        ],
+      ),
+    );
+    _tp.layout();
+
+    final bannerW = _tp.width + 28.0;
+    final bannerH = _tp.height + 12.0;
+    final bannerX = (size.width - bannerW) / 2;
+    final bannerY = size.height * 0.22;
+    final bannerRRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(bannerX, bannerY, bannerW, bannerH),
+      const Radius.circular(16.0),
+    );
+
+    // Glowing pill background
+    _fill
+      ..style = PaintingStyle.fill
+      ..shader = null
+      ..maskFilter = null
+      ..color = _ca(const Color(0xDD12162A), 0.92);
+    canvas.drawRRect(bannerRRect, _fill);
+
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..shader = null
+      ..maskFilter = null
+      ..color = _ca(const Color(0xFFFFD700), pulse);
+    canvas.drawRRect(bannerRRect, _stroke);
+
+    _tp.paint(canvas, Offset(bannerX + 14.0, bannerY + 6.0));
   }
 
   void _drawBee(Canvas canvas) {

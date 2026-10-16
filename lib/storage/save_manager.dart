@@ -1,9 +1,25 @@
 import '../engine/analytics_manager.dart';
 import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/game_state.dart';
 import '../models/cosmetics.dart';
+
+class LeagueRival {
+  final String name;
+  final int score;
+  final bool isPlayer;
+  int rank;
+
+  LeagueRival({
+    required this.name,
+    required this.score,
+    required this.isPlayer,
+    this.rank = 0,
+  });
+}
 
 class SaveManager extends ChangeNotifier {
   static final SaveManager instance = SaveManager._internal();
@@ -102,6 +118,193 @@ class SaveManager extends ChangeNotifier {
   int metricLevel1Leaves = 0;
   int metricAdCloses = 0;
   int metricHighestClassicLevel = 1;
+
+  int get highestLevel => metricHighestClassicLevel;
+  set highestLevel(int val) {
+    metricHighestClassicLevel = val;
+    _prefs?.setInt('metricHighestClassicLevel', val);
+    notifyListeners();
+  }
+
+  int get totalGold => gold;
+  set totalGold(int val) {
+    gold = val;
+    _prefs?.setInt('gold', val);
+    notifyListeners();
+  }
+
+  bool get isShopUnlocked => highestLevel >= 2 || totalGold >= 100;
+  bool get isWorkshopUnlocked => highestLevel >= 3;
+  bool get isAquariumUnlocked => highestLevel >= 5;
+  bool get isChaosUnlocked => highestLevel >= 5;
+  bool get isLeagueUnlocked => highestLevel >= 7;
+
+  // --- R5: COSMIC MASTERY & PEARLS ---
+  int _pearls = 0;
+  int get pearls => _pearls;
+  set pearls(int val) {
+    _pearls = val;
+    _prefs?.setInt('pearls', val);
+    notifyListeners();
+  }
+
+  int cosmicGoldMasteryLevel = 0;
+  int cosmicPearlMasteryLevel = 0;
+
+  int get cosmicGoldMasteryCost => 1000 + cosmicGoldMasteryLevel * 500;
+  int get cosmicPearlMasteryCost => 5 + cosmicPearlMasteryLevel * 3;
+
+  void addPearls(int amount) {
+    if (amount <= 0) return;
+    pearls += amount;
+  }
+
+  bool spendPearls(int amount) {
+    if (amount <= 0) return true;
+    if (_pearls < amount) return false;
+    pearls -= amount;
+    return true;
+  }
+
+  bool upgradeCosmicGoldMastery() {
+    final cost = cosmicGoldMasteryCost;
+    if (gold < cost) return false;
+    gold -= cost;
+    _prefs?.setInt('gold', gold);
+    cosmicGoldMasteryLevel++;
+    _prefs?.setInt('cosmicGoldMasteryLevel', cosmicGoldMasteryLevel);
+    notifyListeners();
+    return true;
+  }
+
+  bool upgradeCosmicPearlMastery() {
+    final cost = cosmicPearlMasteryCost;
+    if (_pearls < cost) return false;
+    _pearls -= cost;
+    _prefs?.setInt('pearls', _pearls);
+    cosmicPearlMasteryLevel++;
+    _prefs?.setInt('cosmicPearlMasteryLevel', cosmicPearlMasteryLevel);
+    notifyListeners();
+    return true;
+  }
+
+  // --- R6: DAILY BLITZ & PRESTIGE ---
+  String? lastDailyBlitzDate;
+
+  static String formatDailyDate(DateTime d) {
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '${d.year}-$m-$day';
+  }
+
+  bool get isDailyBlitzCompletedToday {
+    final today = formatDailyDate(DateTime.now());
+    return lastDailyBlitzDate == today;
+  }
+
+  bool claimDailyBlitzReward({DateTime? date}) {
+    final d = date ?? DateTime.now();
+    final today = formatDailyDate(d);
+    if (lastDailyBlitzDate == today) return false;
+    lastDailyBlitzDate = today;
+    _prefs?.setString('lastDailyBlitzDate', today);
+    addGold(250);
+    addPearls(3);
+    addShard('balls', 1);
+    notifyListeners();
+    return true;
+  }
+
+  int get prestigeTier {
+    final lvl = classicSavedLevel ?? metricHighestClassicLevel;
+    return lvl > 238 ? ((lvl - 239) ~/ 17) + 1 : 0;
+  }
+
+  static int calculatePrestigeTier(int level) => level > 238 ? ((level - 239) ~/ 17) + 1 : 0;
+
+  // --- R7: SEASONAL TITLES & DYNAMIC RIVALS ---
+  int _leagueTier = 0;
+  int get leagueTier => _leagueTier;
+  set leagueTier(int val) {
+    _leagueTier = val.clamp(0, 4);
+    _prefs?.setInt('leagueTier', _leagueTier);
+    notifyListeners();
+  }
+
+  void setLeagueTier(int tier) {
+    leagueTier = tier;
+  }
+
+  int _weeklyTournamentScore = 0;
+  int get weeklyTournamentScore => _weeklyTournamentScore;
+  set weeklyTournamentScore(int val) {
+    _weeklyTournamentScore = val;
+    _prefs?.setInt('weeklyTournamentScore', _weeklyTournamentScore);
+    notifyListeners();
+  }
+
+  void addTournamentScore(int points) {
+    if (points <= 0) return;
+    weeklyTournamentScore += points;
+  }
+
+  void addTournamentPoints(int points) => addTournamentScore(points);
+
+  static const List<String> seasonalTitles = [
+    'Çaylak Kırıcı',
+    'Neon Avcısı',
+    'Plazma Lordu',
+    'Elmas Hükümdarı',
+    'Kozmik İmparator',
+  ];
+
+  String get seasonalTitle => seasonalTitles[leagueTier.clamp(0, seasonalTitles.length - 1)];
+
+  Color get leagueTierColor {
+    switch (leagueTier) {
+      case 1:
+        return const Color(0xFF00E5FF);
+      case 2:
+        return const Color(0xFFE040FB);
+      case 3:
+        return const Color(0xFF80D8FF);
+      case 4:
+        return const Color(0xFFFFD700);
+      default:
+        return const Color(0xFFCD7F32);
+    }
+  }
+
+  List<LeagueRival> getLeagueRivals() {
+    final rng = math.Random(DateTime.now().year * 100 + DateTime.now().month);
+    final rivalNames = [
+      'DemirBilek', 'PikselUsta', 'NeonFırtına', 'KozmikGezgin',
+      'YıldızAvcısı', 'GlitchKing', 'AuraBreaker', 'GölgeSavaşçı',
+      'NovaKıran', 'SiberPence', 'KuvarsGozu', 'EterYolcusu',
+      'FotonUstası', 'ZirveBekçisi'
+    ];
+
+    final minScores = [600, 2500, 8000, 20000, 50000];
+    final maxScores = [2800, 9500, 24000, 55000, 130000];
+    final tierIdx = leagueTier.clamp(0, 4);
+    final minScore = minScores[tierIdx];
+    final maxScore = maxScores[tierIdx];
+
+    final List<LeagueRival> list = [];
+    for (int i = 0; i < rivalNames.length; i++) {
+      final score = minScore + rng.nextInt(maxScore - minScore);
+      list.add(LeagueRival(name: rivalNames[i], score: score, isPlayer: false));
+    }
+
+    list.add(LeagueRival(name: 'SEN', score: weeklyTournamentScore, isPlayer: true));
+    list.sort((a, b) => b.score.compareTo(a.score));
+
+    for (int i = 0; i < list.length; i++) {
+      list[i].rank = i + 1;
+    }
+    return list;
+  }
+
   bool usedFreeContinue = false;
   String? dayBlessingDate;
   List<String> playEvents = [];
@@ -245,6 +448,13 @@ class SaveManager extends ChangeNotifier {
     chaosSavedStock = _prefs?.getInt('chaosSavedStock');
     lastDailyFishFoodAdDate = _prefs?.getString('lastDailyFishFoodAdDate');
 
+    _pearls = _prefs?.getInt('pearls') ?? 0;
+    cosmicGoldMasteryLevel = _prefs?.getInt('cosmicGoldMasteryLevel') ?? 0;
+    cosmicPearlMasteryLevel = _prefs?.getInt('cosmicPearlMasteryLevel') ?? 0;
+    lastDailyBlitzDate = _prefs?.getString('lastDailyBlitzDate');
+    _leagueTier = (_prefs?.getInt('leagueTier') ?? 0).clamp(0, 4);
+    _weeklyTournamentScore = _prefs?.getInt('weeklyTournamentScore') ?? 0;
+
     _initialized = true;
     notifyListeners();
   }
@@ -317,7 +527,18 @@ class SaveManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  int getUpgradeLevel(String id) => upgrades[id] ?? 0;
+  int getUpgradeLevel(String id) {
+    if (id == 'u_crit' || id == 'crit_damage') {
+      return math.max(upgrades['u_crit'] ?? 0, upgrades['crit_damage'] ?? 0);
+    }
+    if (id == 'u_luck' || id == 'luck') {
+      return math.max(upgrades['u_luck'] ?? 0, upgrades['luck'] ?? 0);
+    }
+    if (id == 'u_gold' || id == 'gold_multiplier') {
+      return math.max(upgrades['u_gold'] ?? 0, upgrades['gold_multiplier'] ?? 0);
+    }
+    return upgrades[id] ?? 0;
+  }
 
   Future<bool> buyStatUpgrade(String id, int cost) async {
     final cur = getUpgradeLevel(id);

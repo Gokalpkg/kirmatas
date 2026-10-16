@@ -40,6 +40,8 @@ enum PowerUpType {
 
   const PowerUpType(this._label, this.color, this.duration, this.kind, this.icon);
 
+  static const PowerUpType multiBall = PowerUpType.multi;
+
   String get label => _label.isNotEmpty ? I18n.tr('pup_$name') : I18n.tr('pup_$name');
 
   bool get isInstant => duration <= 0;

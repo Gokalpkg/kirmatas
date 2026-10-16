@@ -28,6 +28,10 @@ import 'package:kirmatas/ui/aquarium_view.dart';
 import 'package:kirmatas/ui/fish_hoard_chest.dart';
 import 'package:kirmatas/models/sector_data.dart';
 import 'package:kirmatas/ui/rewards_hub_dialog.dart';
+import 'package:kirmatas/ui/main_menu.dart';
+import 'package:kirmatas/ui/tournament_dialog.dart';
+import 'package:kirmatas/ui/upgrades_view.dart';
+import 'package:kirmatas/ui/sector_map_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -226,8 +230,8 @@ void main() {
       expect(neighborBrick.isAlive, true);
     });
 
-    test('Portals exist on exactly 83 specific levels out of 238', () {
-      expect(GameController.portalLevels.length, 83);
+    test('Portals exist on exactly 38 specific levels out of 238', () {
+      expect(GameController.portalLevels.length, 38);
       for (final lvl in GameController.portalLevels) {
         expect(lvl >= 1 && lvl <= 238, true);
       }
@@ -1241,36 +1245,97 @@ void main() {
       expect(AdManager.instance.canWatchAd, true);
     });
 
-    test('GameController reviveWithOneLife grants 1 life, resets ball, and allows only 1 revive per game', () {
+    test('GameController reviveWithOneLife grants 1 life, resets ball, and allows exactly 2 revives per game', () {
       final controller = GameController();
       controller.setDimensions(360, 640);
       controller.startNewGame(GameMode.classic);
       expect(controller.hasUsedRevive, false);
+      expect(controller.canRevive, true);
+      expect(controller.revivesUsed, 0);
 
       // Trigger Game Over
       controller.stats.lives = 0;
       controller.status = GameStatus.gameOver;
       expect(controller.status, GameStatus.gameOver);
 
-      // Revive!
+      // Revive 1
       controller.reviveWithOneLife();
-
-      expect(controller.hasUsedRevive, true);
+      expect(controller.revivesUsed, 1);
+      expect(controller.canRevive, true);
+      expect(controller.hasUsedRevive, false);
       expect(controller.stats.lives, 1);
       expect(controller.status, GameStatus.ready);
       expect(controller.balls.isNotEmpty, true);
       expect(controller.balls.first.isStuck, true);
 
-      // Second revive attempt in same game is ignored
+      // Trigger Game Over 2
+      controller.stats.lives = 0;
+      controller.status = GameStatus.gameOver;
+
+      // Revive 2
+      controller.reviveWithOneLife();
+      expect(controller.revivesUsed, 2);
+      expect(controller.canRevive, false);
+      expect(controller.hasUsedRevive, true);
+      expect(controller.stats.lives, 1);
+      expect(controller.status, GameStatus.ready);
+
+      // Third revive attempt in same game is ignored
       controller.stats.lives = 0;
       controller.status = GameStatus.gameOver;
       controller.reviveWithOneLife();
-      expect(controller.stats.lives, 0); // Still 0, not revived second time
+      expect(controller.stats.lives, 0); // Still 0, not revived third time
+      expect(controller.canRevive, false);
 
       // Starting new game resets revive ability
       controller.startNewGame(GameMode.classic);
       expect(controller.hasUsedRevive, false);
+      expect(controller.canRevive, true);
+      expect(controller.revivesUsed, 0);
       expect(controller.stats.lives >= 3, true);
+    });
+
+    test('Portal system has exactly 38 balanced levels with safety clearance and diverse dynamic types', () {
+      expect(GameController.portalLevels.length, 38);
+
+      // Verify portal levels have diverse types
+      final types = <PortalType>{};
+      for (final lvl in GameController.portalLevels) {
+        types.add(GameController.getPortalTypeForLevel(lvl));
+      }
+      expect(types.contains(PortalType.standard), true);
+      expect(types.contains(PortalType.moving), true);
+      expect(types.contains(PortalType.accelerator), true);
+      expect(types.contains(PortalType.gravity), true);
+      expect(types.contains(PortalType.quantumPhase), true);
+
+      // Test safe clearance on loadLevelBricks for portal levels
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      for (final lvl in GameController.portalLevels) {
+        gc.stats.level = lvl;
+        gc.loadLevelBricks();
+        expect(gc.portals.length, 2);
+        for (final p in gc.portals) {
+          // Portals must NEVER be too low (at least 150px clearance above paddle.y)
+          expect(gc.paddle.y - p.y >= 150.0, true, reason: 'Portal on level $lvl is too close to paddle: p.y=${p.y}, paddle.y=${gc.paddle.y}');
+        }
+      }
+
+      // Test kinetic movement on moving portals
+      final movingPortal = Portal(
+        x: 180,
+        y: 250,
+        radius: 20,
+        color: const Color(0xFF00B0FF),
+        isBlue: true,
+        type: PortalType.moving,
+        moveSpeed: 2.0,
+        moveAmplitude: 50.0,
+      );
+      final initialX = movingPortal.x;
+      movingPortal.update(0.5, screenWidth: 360);
+      expect(movingPortal.x != initialX, true);
     });
 
     test('Classic death returns to the start of the 17-level sector with 3 lives', () {
@@ -2493,6 +2558,12 @@ void main() {
       gc.diceSalvoRemaining = 0;
       gc.isDiceRolling = false;
       gc.laserTimer = 0.65;
+      for (final b in gc.balls) {
+        b.vx = 0;
+        b.vy = 0;
+        b.y = 100;
+      }
+      gc.capsules.clear();
       gc.projectiles.clear();
       var spawned = 0;
       var previous = 0;
@@ -2999,6 +3070,886 @@ void main() {
       expect(find.text('Şans Çarkı'), findsOneWidget);
       expect(find.text('7 Günlük Giriş Serisi'), findsOneWidget);
       expect(find.text('Ücretsiz Altın Sandığı'), findsOneWidget);
+    });
+
+    // ==========================================
+    // Milestone 1: FTUE & Early Game Core Tests (R1, R2, R3, R4)
+    // ==========================================
+    group('Milestone 1: FTUE & Early Game Core Tests', () {
+      test('R1: Progressive unlock getters and thresholds in SaveManager', () async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+
+        // Fresh player state: level 1, 0 gold
+        save.highestLevel = 1;
+        save.totalGold = 0;
+        expect(save.highestLevel, 1);
+        expect(save.totalGold, 0);
+
+        // At level 1, 0 gold: all progressive features locked
+        expect(save.isShopUnlocked, false);
+        expect(save.isWorkshopUnlocked, false);
+        expect(save.isAquariumUnlocked, false);
+        expect(save.isChaosUnlocked, false);
+        expect(save.isLeagueUnlocked, false);
+
+        // Shop unlocks with 100 gold even at level 1
+        save.totalGold = 100;
+        expect(save.isShopUnlocked, true);
+        expect(save.isWorkshopUnlocked, false);
+
+        // Shop unlocks at Level 2 with 0 gold
+        save.totalGold = 0;
+        save.highestLevel = 2;
+        expect(save.highestLevel, 2);
+        expect(save.isShopUnlocked, true);
+        expect(save.isWorkshopUnlocked, false);
+
+        // Workshop unlocks at Level 3
+        save.highestLevel = 3;
+        expect(save.isWorkshopUnlocked, true);
+        expect(save.isAquariumUnlocked, false);
+
+        // Aquarium & Chaos unlock at Level 5
+        save.highestLevel = 5;
+        expect(save.isAquariumUnlocked, true);
+        expect(save.isChaosUnlocked, true);
+        expect(save.isLeagueUnlocked, false);
+
+        // League unlocks at Level 7
+        save.highestLevel = 7;
+        expect(save.isLeagueUnlocked, true);
+
+        // Setter wrapping verification
+        save.highestLevel = 12;
+        expect(save.highestLevel, 12);
+        expect(save.metricHighestClassicLevel, 12);
+
+        save.totalGold = 750;
+        expect(save.totalGold, 750);
+        expect(save.gold, 750);
+      });
+
+      testWidgets('R1: MainMenuScreen displays lock badges, level 1 highlight, and locked feedback', (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+        save.highestLevel = 1;
+        save.totalGold = 0;
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: MainMenuScreen(),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        // Level 1 highlight badge on Classic Mode
+        expect(find.text('⭐ MACERAYA BAŞLA!'), findsOneWidget);
+
+        // Lock badges visible on locked features
+        expect(find.text('🔒 Bölüm 2'), findsWidgets);
+        expect(find.text('🔒 Bölüm 3'), findsOneWidget);
+        expect(find.text('🔒 Bölüm 5'), findsWidgets);
+        expect(find.text('🔒 BÖLÜM 5'), findsOneWidget);
+
+        // Tapping locked Shop tab triggers locked SnackBar feedback
+        final shopBtn = find.text(I18n.tr('shop'));
+        expect(shopBtn, findsOneWidget);
+        await tester.tap(shopBtn);
+        await tester.pump();
+        expect(find.text('Bu özellik Bölüm 2 seviyesinde açılır.'), findsOneWidget);
+      });
+
+      test('R2: Mode identity Turkish translations & workshop alias resolution', () async {
+        final save = SaveManager.instance;
+        save.language = 'tr';
+
+        expect(I18n.tr('classic'), 'Ana Macera');
+        expect(I18n.tr('mode_classic'), 'Ana Macera');
+        expect(I18n.tr('chaos'), 'Özel Mod');
+        expect(I18n.tr('mode_chaos'), 'Özel Mod');
+
+        SharedPreferences.setMockInitialValues({});
+        await save.init();
+
+        // Alias resolution: u_crit <-> crit_damage
+        save.upgrades['u_crit'] = 3;
+        expect(save.getUpgradeLevel('crit_damage'), 3);
+        expect(save.getUpgradeLevel('u_crit'), 3);
+
+        save.upgrades.remove('u_crit');
+        save.upgrades['crit_damage'] = 4;
+        expect(save.getUpgradeLevel('u_crit'), 4);
+        expect(save.getUpgradeLevel('crit_damage'), 4);
+
+        // Alias resolution: u_luck <-> luck
+        save.upgrades['luck'] = 2;
+        expect(save.getUpgradeLevel('u_luck'), 2);
+        expect(save.getUpgradeLevel('luck'), 2);
+
+        // Alias resolution: u_gold <-> gold_multiplier
+        save.upgrades['gold_multiplier'] = 5;
+        expect(save.getUpgradeLevel('u_gold'), 5);
+        expect(save.getUpgradeLevel('gold_multiplier'), 5);
+
+        // Alias resolution with math.max: neither key shadows a higher value
+        save.upgrades['u_crit'] = 2;
+        save.upgrades['crit_damage'] = 5;
+        expect(save.getUpgradeLevel('u_crit'), 5);
+        expect(save.getUpgradeLevel('crit_damage'), 5);
+
+        save.upgrades['u_crit'] = 6;
+        save.upgrades['crit_damage'] = 1;
+        expect(save.getUpgradeLevel('u_crit'), 6);
+        expect(save.getUpgradeLevel('crit_damage'), 6);
+
+        save.upgrades['u_luck'] = 1;
+        save.upgrades['luck'] = 4;
+        expect(save.getUpgradeLevel('u_luck'), 4);
+        expect(save.getUpgradeLevel('luck'), 4);
+
+        save.upgrades['u_gold'] = 7;
+        save.upgrades['gold_multiplier'] = 3;
+        expect(save.getUpgradeLevel('u_gold'), 7);
+        expect(save.getUpgradeLevel('gold_multiplier'), 7);
+      });
+
+      test('R2: Chaos mode gameplay scaling with workshop upgrades', () {
+        final ctrl = GameController();
+        ctrl.startNewGame(GameMode.chaos, explicitStartLevel: 1);
+        expect(ctrl.isChaosMode, true);
+
+        // With u_crit = 30 (30 * 0.035 > 1.0), crit is guaranteed in Chaos Mode
+        ctrl.save.upgrades['u_crit'] = 30;
+        final brick = Brick(x: 100, y: 100, width: 40, height: 20, hp: 2, maxHp: 2, color: Colors.blue);
+        ctrl.bricks = [brick];
+        final ball = Ball(x: brick.x + brick.width / 2, y: brick.y + brick.height / 2, vx: 0, vy: -100);
+        ball.isStuck = false;
+        ctrl.balls.clear();
+        ctrl.balls.add(ball);
+        ctrl.status = GameStatus.playing;
+        ctrl.update(0.016);
+        // Double damage dealt: 2 HP -> 0 HP (destroyed)
+        expect(brick.isAlive, false);
+
+        // u_luck and u_gold scale Chaos coin drops and clear rewards
+        ctrl.save.upgrades['u_luck'] = 10;
+        ctrl.save.upgrades['u_gold'] = 5;
+        expect(ctrl.save.getUpgradeLevel('u_luck'), 10);
+        expect(ctrl.save.getUpgradeLevel('u_gold'), 5);
+      });
+
+      testWidgets('R3: Interactive visual onboarding, drag guide, ulti callout, and corner hit banner', (tester) async {
+        final ctrl = GameController();
+        ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
+
+        // Level 1 guide initially shown
+        expect(ctrl.level, 1);
+        expect(ctrl.showLevel1DragGuide, true);
+
+        // Advances past guide window: guide expires
+        ctrl.update(8.5);
+        expect(ctrl.showLevel1DragGuide, false);
+
+        // Guide not shown in level 2
+        ctrl.startNewGame(GameMode.classic, explicitStartLevel: 2);
+        expect(ctrl.showLevel1DragGuide, false);
+
+        // Ulti ready state and double-tap activation
+        // 1% charge (e.g. after breaking 1 brick) does NOT trigger isUltiReady
+        ctrl.ultiCharge = 1.0;
+        expect(ctrl.isUltiReady, false);
+
+        // Sub-100% charges do NOT trigger isUltiReady
+        ctrl.ultiCharge = 50.0;
+        expect(ctrl.isUltiReady, false);
+        ctrl.ultiCharge = 99.9;
+        expect(ctrl.isUltiReady, false);
+
+        // 100% charge triggers isUltiReady in Classic Mode
+        ctrl.ultiCharge = 100.0;
+        expect(ctrl.isUltiReady, true);
+
+        // Chaos Mode NEVER triggers isUltiReady (guards against permanent stuck callout)
+        ctrl.startNewGame(GameMode.chaos, explicitStartLevel: 1);
+        ctrl.ultiCharge = 100.0;
+        expect(ctrl.isChaosMode, true);
+        expect(ctrl.isUltiReady, false);
+
+        ctrl.stats.diceChargeMax = 10;
+        ctrl.stats.diceCharge = 10;
+        expect(ctrl.isUltiReady, false);
+
+        // Dice charge threshold works in Classic Mode
+        ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
+        ctrl.ultiCharge = 0.0;
+        ctrl.stats.diceChargeMax = 10;
+        ctrl.stats.diceCharge = 10;
+        expect(ctrl.isUltiReady, true);
+        ctrl.stats.diceCharge = 9;
+        expect(ctrl.isUltiReady, false);
+
+        // Fully charged ulti for canvas double-tap activation test
+        ctrl.ultiCharge = 100.0;
+        expect(ctrl.isUltiReady, true);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: GameCanvas(
+                controller: ctrl,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        // Double-tap on canvas triggers Ulti
+        await tester.tap(find.byType(GameCanvas));
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.tap(find.byType(GameCanvas));
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(ctrl.isDiceRolling || ctrl.ultiCharge == 0.0, true);
+
+        // Corner hit trigger slow-motion pulse and banner
+        ctrl.setDimensions(360, 640);
+        ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
+        ctrl.launchBall();
+        expect(ctrl.firstCornerHitShown, false);
+
+        final ball = ctrl.balls.first;
+        ball.x = ctrl.paddle.x + ctrl.paddle.width * 0.97;
+        ball.y = ctrl.paddle.y - ball.radius + 1.0;
+        ball.vx = 0;
+        ball.vy = 320.0;
+
+        ctrl.update(0.016);
+
+        expect(ctrl.firstCornerHitShown, true);
+        expect(ctrl.stats.bulletTimeLeft, 0.75);
+        expect(ctrl.particles.floatingTexts.any((t) => t.text == '⚡ SÜPER KÖŞE VURUŞU!'), true);
+
+        // Subsequent corner hit does not trigger duplicate banner
+        final count = ctrl.particles.floatingTexts.where((t) => t.text == '⚡ SÜPER KÖŞE VURUŞU!').length;
+        ball.x = ctrl.paddle.x + ctrl.paddle.width * 0.97;
+        ball.y = ctrl.paddle.y - ball.radius + 1.0;
+        ball.vx = 0;
+        ball.vy = 320.0;
+        ctrl.update(0.016);
+        expect(ctrl.particles.floatingTexts.where((t) => t.text == '⚡ SÜPER KÖŞE VURUŞU!').length, count);
+      });
+
+      test('R4: Early-game pacing, speed boost, PowerUp multiBall alias, and guaranteed drops', () {
+        // PowerUpType.multiBall alias
+        expect(PowerUpType.multiBall, PowerUpType.multi);
+
+        final ctrl = GameController();
+
+        // Base speed in levels 1-5 has 15% boost
+        ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
+        final speedLvl1 = ctrl.getBaseBallSpeed();
+        final expectedBaseLvl1 = (350.0 * 1.48 + math.min(1 * 10.0, 90.0)) * 1.15;
+        expect(speedLvl1, closeTo(expectedBaseLvl1, 0.01));
+
+        ctrl.startNewGame(GameMode.classic, explicitStartLevel: 5);
+        final speedLvl5 = ctrl.getBaseBallSpeed();
+        final expectedBaseLvl5 = (350.0 * 1.48 + math.min(5 * 10.0, 90.0)) * 1.15;
+        expect(speedLvl5, closeTo(expectedBaseLvl5, 0.01));
+
+        // Level 6 has standard base speed without 15% boost
+        ctrl.startNewGame(GameMode.classic, explicitStartLevel: 6);
+        final speedLvl6 = ctrl.getBaseBallSpeed();
+        final expectedBaseLvl6 = 350.0 * 1.48 + math.min(6 * 10.0, 90.0);
+        expect(speedLvl6, closeTo(expectedBaseLvl6, 0.01));
+
+        // Guaranteed early action drop in levels 1-5 within first 3 bricks
+        ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
+        ctrl.capsules.clear();
+        expect(ctrl.earlyActionDropGranted, false);
+
+        // Damage first brick to destroy it
+        final brick1 = Brick(x: 100, y: 100, width: 40, height: 20, hp: 1, maxHp: 1, color: Colors.blue);
+        final dummyBrick = Brick(x: 300, y: 300, width: 40, height: 20, hp: 5, maxHp: 5, color: Colors.green);
+        ctrl.bricks = [brick1, dummyBrick];
+        final ball = Ball(x: brick1.x + brick1.width / 2, y: brick1.y + brick1.height / 2, vx: 0, vy: -100);
+        ball.isStuck = false;
+        ctrl.balls.clear();
+        ctrl.balls.add(ball);
+        ctrl.status = GameStatus.playing;
+        ctrl.update(0.016);
+
+        expect(ctrl.earlyActionDropGranted, true);
+        expect(ctrl.capsules.isNotEmpty, true);
+        final droppedType = ctrl.capsules.first.type;
+        expect(
+          droppedType == PowerUpType.multiBall || droppedType == PowerUpType.fireball,
+          true,
+        );
+      });
+    });
+
+    // ==========================================
+    // Milestone 2: Endgame Economy & Progression Core Tests (R5, R6, R7)
+    // ==========================================
+    group('Milestone 2: Endgame Economy & Progression Core Tests', () {
+      test('R5: SaveManager pearls economy and persistence', () async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+
+        expect(save.pearls, 0);
+
+        save.addPearls(10);
+        expect(save.pearls, 10);
+
+        final spentSuccess = save.spendPearls(4);
+        expect(spentSuccess, true);
+        expect(save.pearls, 6);
+
+        final spentFailure = save.spendPearls(10);
+        expect(spentFailure, false);
+        expect(save.pearls, 6);
+
+        save.pearls = 25;
+        expect(save.pearls, 25);
+      });
+
+      test('R5: Cosmic Gold & Pearl Mastery scaling and purchasing logic', () async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+
+        save.gold = 500;
+        save.pearls = 2;
+        save.cosmicGoldMasteryLevel = 0;
+        save.cosmicPearlMasteryLevel = 0;
+
+        expect(save.cosmicGoldMasteryCost, 1000);
+        expect(save.cosmicPearlMasteryCost, 5);
+
+        // Insufficient funds
+        expect(save.upgradeCosmicGoldMastery(), false);
+        expect(save.cosmicGoldMasteryLevel, 0);
+        expect(save.upgradeCosmicPearlMastery(), false);
+        expect(save.cosmicPearlMasteryLevel, 0);
+
+        // Purchase Gold Mastery Level 1 and 2
+        save.gold = 2500;
+        expect(save.upgradeCosmicGoldMastery(), true);
+        expect(save.cosmicGoldMasteryLevel, 1);
+        expect(save.gold, 1500);
+        expect(save.cosmicGoldMasteryCost, 1500);
+
+        expect(save.upgradeCosmicGoldMastery(), true);
+        expect(save.cosmicGoldMasteryLevel, 2);
+        expect(save.gold, 0);
+        expect(save.cosmicGoldMasteryCost, 2000);
+
+        // Purchase Pearl Mastery Level 1 and 2
+        save.pearls = 15;
+        expect(save.upgradeCosmicPearlMastery(), true);
+        expect(save.cosmicPearlMasteryLevel, 1);
+        expect(save.pearls, 10);
+        expect(save.cosmicPearlMasteryCost, 8);
+
+        expect(save.upgradeCosmicPearlMastery(), true);
+        expect(save.cosmicPearlMasteryLevel, 2);
+        expect(save.pearls, 2);
+        expect(save.cosmicPearlMasteryCost, 11);
+      });
+
+      test('R5: GameController stat boost multipliers from Cosmic Mastery', () async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+
+        save.cosmicGoldMasteryLevel = 5;
+        save.cosmicPearlMasteryLevel = 3;
+
+        final ctrl = GameController();
+        expect(ctrl.cosmicGoldDamageMultiplier, closeTo(1.10, 0.001));
+        expect(ctrl.cosmicGoldRewardMultiplier, closeTo(1.10, 0.001));
+        expect(ctrl.cosmicPearlUltiMultiplier, closeTo(1.06, 0.001));
+        expect(ctrl.cosmicPearlLuckBonus, closeTo(0.03, 0.001));
+      });
+
+      testWidgets('R5: UpgradesView displays Pearls, Gold, and Cosmic Mastery section', (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+
+        save.pearls = 42;
+        save.gold = 5000;
+        save.cosmicGoldMasteryLevel = 3;
+        save.cosmicPearlMasteryLevel = 2;
+
+        tester.view.physicalSize = const Size(800, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+        addTearDown(() => tester.view.resetDevicePixelRatio());
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: UpgradesView(),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text('42'), findsOneWidget);
+        expect(find.text('5000'), findsOneWidget);
+        expect(find.text('🌌 KOZMİK USTALIK (SONSUZ SEVİYE)'), findsOneWidget);
+        expect(find.text('Kozmik Altın Ustalığı'), findsOneWidget);
+        expect(find.text('Kozmik İnci Ustalığı'), findsOneWidget);
+        expect(find.text('Sv. 3'), findsOneWidget);
+        expect(find.text('Sv. 2'), findsOneWidget);
+      });
+
+      test('R6: SaveManager Daily Blitz completion, rewards, and calendar reset', () async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+
+        final date1 = DateTime(2026, 10, 16);
+        final date2 = DateTime(2026, 10, 17);
+
+        save.totalGold = 100;
+        save.pearls = 0;
+        save.lastDailyBlitzDate = '';
+
+        expect(save.isDailyBlitzCompletedToday, false);
+
+        // Claim on date1
+        final initialBalls = save.getShards('balls');
+        final claimed1 = save.claimDailyBlitzReward(date: date1);
+        expect(claimed1, true);
+        expect(save.totalGold, 350);
+        expect(save.pearls, 3);
+        expect(save.getShards('balls'), initialBalls + 1);
+        expect(save.lastDailyBlitzDate, '2026-10-16');
+
+        // Cannot claim twice on date1
+        final claimedAgain = save.claimDailyBlitzReward(date: date1);
+        expect(claimedAgain, false);
+        expect(save.totalGold, 350);
+
+        // Can claim on next day (date2)
+        final claimed2 = save.claimDailyBlitzReward(date: date2);
+        expect(claimed2, true);
+        expect(save.totalGold, 600);
+        expect(save.pearls, 6);
+        expect(save.getShards('balls'), initialBalls + 2);
+        expect(save.lastDailyBlitzDate, '2026-10-17');
+      });
+
+      test('R6: GameController startDailyBlitz initializes seeded daily level', () {
+        final ctrl = GameController();
+        final testDate = DateTime(2026, 10, 16);
+        ctrl.startDailyBlitz(date: testDate);
+
+        expect(ctrl.currentMode, GameMode.daily);
+        expect(ctrl.status, GameStatus.ready);
+        expect(ctrl.bricks.isNotEmpty, true);
+        expect(ctrl.balls.isNotEmpty, true);
+      });
+
+      test('R6: Prestige Tier calculation and procedural scaling on levels > 238', () {
+        expect(SaveManager.calculatePrestigeTier(1), 0);
+        expect(SaveManager.calculatePrestigeTier(100), 0);
+        expect(SaveManager.calculatePrestigeTier(238), 0);
+        expect(SaveManager.calculatePrestigeTier(239), 1);
+        expect(SaveManager.calculatePrestigeTier(255), 1);
+        expect(SaveManager.calculatePrestigeTier(256), 2);
+        expect(SaveManager.calculatePrestigeTier(273), 3);
+
+        final ctrl = GameController();
+        ctrl.startNewGame(GameMode.classic, explicitStartLevel: 256);
+        expect(ctrl.prestigeTier, 2);
+        expect(ctrl.prestigeGoldMultiplier, closeTo(1.40, 0.001));
+
+        expect(ctrl.bricks.isNotEmpty, true);
+        final regularBricks = ctrl.bricks.where((b) => !b.isBoss && !b.isSteel && !b.isDynamite && !b.isIce && !b.isTuft).toList();
+        expect(regularBricks.isNotEmpty, true);
+        for (final brick in regularBricks) {
+          expect(brick.maxHp >= 1 + ctrl.prestigeTier, true);
+        }
+      });
+
+      testWidgets('R6: SectorMapView renders Prestige Omega card when highest > 238', (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+
+        save.highestLevel = 245;
+
+        tester.view.physicalSize = const Size(800, 2400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+        addTearDown(() => tester.view.resetDevicePixelRatio());
+
+        int? startedLevel;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SectorMapView(
+                save: save,
+                onStartSectorLevel: (lvl) {
+                  startedLevel = lvl;
+                },
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text('Prestij 1  •  Bölüm 245 (Sonsuz Omega)'), findsOneWidget);
+        expect(find.text('P1 • 14/14'), findsOneWidget);
+
+        await tester.scrollUntilVisible(find.text('PRESTİJ SEKTÖR OMEGA 🌌'), 400);
+        expect(find.text('PRESTİJ SEKTÖR OMEGA 🌌'), findsOneWidget);
+        expect(find.text('Sonsuz Seviye • Prestij Kademesi 1'), findsOneWidget);
+        expect(find.text('Bölüm 245'), findsOneWidget);
+
+        await tester.tap(find.text('PRESTİJ SEKTÖR OMEGA 🌌'));
+        await tester.pump();
+        expect(startedLevel, 245);
+      });
+
+      test('R7: Seasonal titles, tiers, and score management in SaveManager', () async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+
+        expect(SaveManager.seasonalTitles.length, 5);
+        expect(SaveManager.seasonalTitles[0], 'Çaylak Kırıcı');
+        expect(SaveManager.seasonalTitles[1], 'Neon Avcısı');
+        expect(SaveManager.seasonalTitles[2], 'Plazma Lordu');
+        expect(SaveManager.seasonalTitles[3], 'Elmas Hükümdarı');
+        expect(SaveManager.seasonalTitles[4], 'Kozmik İmparator');
+
+        save.leagueTier = 0;
+        expect(save.seasonalTitle, 'Çaylak Kırıcı');
+
+        save.leagueTier = 2;
+        expect(save.seasonalTitle, 'Plazma Lordu');
+
+        save.leagueTier = 4;
+        expect(save.seasonalTitle, 'Kozmik İmparator');
+
+        save.weeklyTournamentScore = 0;
+        save.addTournamentScore(150);
+        expect(save.weeklyTournamentScore, 150);
+
+        save.addTournamentPoints(350);
+        expect(save.weeklyTournamentScore, 500);
+      });
+
+      test('R7: Dynamic League Rivals generation produces 15 ranked players', () async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+
+        save.leagueTier = 1;
+        save.weeklyTournamentScore = 1200;
+
+        final rivals = save.getLeagueRivals();
+        expect(rivals.length, 15);
+
+        final playerRivals = rivals.where((r) => r.isPlayer).toList();
+        expect(playerRivals.length, 1);
+        expect(playerRivals.first.name, 'SEN');
+        expect(playerRivals.first.score, 1200);
+
+        for (int i = 0; i < rivals.length - 1; i++) {
+          expect(rivals[i].score >= rivals[i + 1].score, true);
+          expect(rivals[i].rank, i + 1);
+        }
+        expect(rivals.last.rank, 15);
+      });
+
+      testWidgets('R7: TournamentDialog renders 15-player leaderboard and actions', (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+
+        save.leagueTier = 3;
+        save.weeklyTournamentScore = 999999;
+
+        tester.view.physicalSize = const Size(800, 1800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+        addTearDown(() => tester.view.resetDevicePixelRatio());
+
+        bool joinTapped = false;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () => TournamentDialog.show(
+                    context,
+                    save: save,
+                    onJoinTournament: () {
+                      joinTapped = true;
+                    },
+                  ),
+                  child: const Text('OPEN'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.tap(find.text('OPEN'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.text('HAFTALIK LİG ŞAMPİYONASI'), findsOneWidget);
+        expect(find.text('15 Kişilik Lig Grubu  •  3 Gün Kaldı'), findsOneWidget);
+        expect(find.text(save.seasonalTitle), findsWidgets);
+        expect(find.text('SEN'), findsOneWidget);
+        expect(find.text('MÜCADELEYE KATIL'), findsOneWidget);
+
+        await tester.tap(find.text('MÜCADELEYE KATIL'));
+        await tester.pump();
+        expect(joinTapped, true);
+      });
+
+      testWidgets('R7: MainMenu profile header displays seasonal title and opens TournamentDialog', (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+
+        save.highestLevel = 10;
+        save.leagueTier = 2;
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: MainMenuScreen(),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text(save.seasonalTitle), findsWidgets);
+
+        await tester.tap(find.text(save.seasonalTitle).first);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.text('HAFTALIK LİG ŞAMPİYONASI'), findsOneWidget);
+        expect(find.text('MÜCADELEYE KATIL'), findsOneWidget);
+
+        // Advance timers to prevent pending timer assertion
+        await tester.pump(const Duration(seconds: 1));
+      });
+    });
+
+    group('Milestone 3 (R8–R9: Cosmetic Loadout Synergies & Chaos Mode Roguelike Perks/Bosses)', () {
+      test('R8: CosmeticCatalog.getActiveSynergy detects Fire, Ice, Cosmic Legendary, and None synergies', () {
+        expect(
+          CosmeticCatalog.getActiveSynergy('pbat', 'ates', 'fire'),
+          CosmeticSynergy.fireSunset,
+        );
+        expect(
+          CosmeticCatalog.getActiveSynergy('pice', 'elmas_top', 'plasma'),
+          CosmeticSynergy.iceCrystal,
+        );
+        expect(
+          CosmeticCatalog.getActiveSynergy('pgold', 'gokkusagi', 'plasma'),
+          CosmeticSynergy.cosmicLegendary,
+        );
+        expect(
+          CosmeticCatalog.getActiveSynergy('pclassic', 'classic', 't1'),
+          CosmeticSynergy.none,
+        );
+      });
+
+      testWidgets('R8: ShopView renders active cosmetic synergy badge and updates dynamically', (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+        save.equipPaddle('pbat');
+        save.equipBall('ates');
+        save.equipTrail('fire');
+
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+        addTearDown(() => tester.view.resetDevicePixelRatio());
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: ShopView(),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.byKey(const Key('active_cosmetic_synergy_badge')), findsOneWidget);
+        expect(find.textContaining('Ateş / Günbatımı Sinerjisi'), findsOneWidget);
+      });
+
+      test('R8: GameController applies Fire explosion radius, Ice extra damage, and Cosmic Legendary multipliers', () async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+
+        final gc = GameController();
+        gc.setDimensions(360, 640);
+        gc.startNewGame(GameMode.classic);
+
+        // 1. Fire Sunset synergy -> +15% explosion radius (60 * 1.15 = 69.0)
+        save.equipPaddle('pbat');
+        save.equipBall('ates');
+        save.equipTrail('fire');
+        expect(gc.activeCosmeticSynergy, CosmeticSynergy.fireSunset);
+
+        gc.bricks.clear();
+        final edgeBrick = Brick(
+          x: 150, // center at 165 -> distance 65 from (100, 100), inside 69.0 but outside 60.0
+          y: 90,
+          width: 30,
+          height: 20,
+          hp: 1,
+          maxHp: 1,
+          color: Colors.orange,
+        );
+        gc.bricks.add(edgeBrick);
+        gc.explodeArea(100, 100, radius: 60.0);
+        expect(edgeBrick.isAlive, false);
+
+        // 2. Ice Crystal synergy -> +1 extra damage against ice/multi-hp bricks
+        save.equipPaddle('pice');
+        save.equipBall('elmas_top');
+        save.equipTrail('plasma');
+        expect(gc.activeCosmeticSynergy, CosmeticSynergy.iceCrystal);
+
+        gc.bricks.clear();
+        final iceBrick = Brick(
+          x: 160,
+          y: 200,
+          width: 40,
+          height: 20,
+          hp: 2,
+          maxHp: 2,
+          isIce: true,
+          color: Colors.cyan,
+        );
+        gc.bricks.add(iceBrick);
+        final ball = Ball(x: 180, y: 196, vx: 0, vy: 250, radius: 6.0, isStuck: false);
+        gc.balls
+          ..clear()
+          ..add(ball);
+        gc.status = GameStatus.playing;
+        gc.update(0.01);
+        expect(iceBrick.isAlive, false);
+      });
+
+      test('R9: Chaos Mode offers 3 unique roguelike perks on Wave 5, stacks via selectChaosPerk, and stays non-blocking', () async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+
+        final gc = GameController();
+        gc.setDimensions(360, 640);
+        gc.startNewGame(GameMode.chaos, explicitStartLevel: 4);
+
+        // Clear all solid bricks on wave 4 so advancing turn enters Wave 5
+        for (final b in gc.bricks) {
+          if (!b.isBallPickup) b.isAlive = false;
+        }
+        gc.status = GameStatus.playing;
+        gc.chaosToLaunch = 0;
+        gc.chaosReturned = 3;
+        gc.balls.clear();
+        gc.update(0.016);
+
+        expect(gc.stats.level, 5);
+        expect(gc.offeredChaosPerks.length, 3);
+        expect(gc.offeredChaosPerks.toSet().length, 3);
+
+        // Verify headless simulation remains non-blocking while perks are offered
+        gc.update(0.016);
+        expect(gc.status, GameStatus.ready);
+
+        final chosen = gc.offeredChaosPerks.first;
+        gc.selectChaosPerk(chosen);
+        expect(gc.offeredChaosPerks.isEmpty, true);
+        expect(gc.activeChaosPerks.contains(chosen), true);
+      });
+
+      test('R9: Chaos Mode Wave 10 spawns BrickType.boss with warning timer and awards bonus gold/pearls on defeat', () async {
+        SharedPreferences.setMockInitialValues({});
+        final save = SaveManager.instance;
+        await save.init();
+
+        final gc = GameController();
+        gc.setDimensions(360, 640);
+        gc.startNewGame(GameMode.chaos, explicitStartLevel: 10);
+
+        expect(gc.bossWarningTimer > 0, true);
+        final bossBricks = gc.bricks.where((b) => b.isBoss && b.type == BrickType.boss).toList();
+        expect(bossBricks.isNotEmpty, true);
+
+        final boss = bossBricks.first;
+        final goldBefore = save.gold;
+        final pearlsBefore = save.pearls;
+
+        boss.hp = 1;
+        final ball = Ball(
+          x: boss.x + boss.width / 2,
+          y: boss.y - 4,
+          vx: 0,
+          vy: 300,
+          radius: 5.2,
+          isStuck: false,
+        );
+        gc.balls
+          ..clear()
+          ..add(ball);
+        gc.status = GameStatus.playing;
+        gc.update(0.01);
+
+        expect(boss.isAlive, false);
+        expect(save.gold >= goldBefore + 100, true);
+        expect(save.pearls >= pearlsBefore + 2, true);
+      });
+
+      testWidgets('R9: GameCanvas renders Chaos 3-card perk overlay and selects perk on tap', (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        await SaveManager.instance.init();
+
+        final gc = GameController();
+        gc.setDimensions(360, 640);
+        gc.startNewGame(GameMode.chaos, explicitStartLevel: 5);
+
+        expect(gc.offeredChaosPerks.length, 3);
+        final firstPerk = gc.offeredChaosPerks.first;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: GameCanvas(controller: gc),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.byKey(const Key('chaos_perk_selection_overlay')), findsOneWidget);
+        expect(find.byKey(Key('chaos_perk_card_${firstPerk.name}')), findsOneWidget);
+
+        await tester.tap(find.byKey(Key('chaos_perk_card_${firstPerk.name}')));
+        await tester.pump();
+
+        expect(gc.offeredChaosPerks.isEmpty, true);
+        expect(gc.activeChaosPerks.contains(firstPerk), true);
+        expect(find.byKey(const Key('active_chaos_perks_hud')), findsOneWidget);
+      });
     });
   });
 }

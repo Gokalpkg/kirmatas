@@ -466,27 +466,36 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                 ),
               ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 // Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const SizedBox(width: 32),
-                    const Row(
-                      children: [
-                        Icon(Icons.stars, color: Color(0xFFFFD54F), size: 24),
-                        SizedBox(width: 8),
-                        Text( 'ŞANS ÇARKI',
-                          style: TextStyle(
-                            color: Color(0xFFFFD54F),
-                            fontWeight: FontWeight.w900,
-                            fontSize: 20,
-                            letterSpacing: 1.2,
+                    Flexible(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.stars, color: Color(0xFFFFD54F), size: 22),
+                          SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'ŞANS ÇARKI',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Color(0xFFFFD54F),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 18,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     IconButton(
                       onPressed: _isSpinning ? null : () => Navigator.of(context).pop(),
@@ -498,7 +507,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
 
                 // Daily Spins Badge Chip
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: canSpin ? const Color(0x2E00E5FF) : const Color(0x33FF5252),
                     borderRadius: BorderRadius.circular(14),
@@ -516,13 +525,18 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                         size: 14,
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        canSpin
-                            ? 'Bugün Kalan Hak: $spinsLeft / 3' : 'Günlük Hak Bitti (0/3) - Yarın Tekrar Gel!',
-                        style: TextStyle(
-                          color: canSpin ? const Color(0xFF00E5FF) : const Color(0xFFFF8A80),
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w900,
+                      Flexible(
+                        child: Text(
+                          canSpin
+                              ? 'Bugün Kalan Hak: $spinsLeft / 3'
+                              : 'Günlük Hak Bitti (0/3)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: canSpin ? const Color(0xFF00E5FF) : const Color(0xFFFF8A80),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
                     ],
@@ -705,9 +719,10 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                             ] else if (!canSpin) ...[
                               const Icon(Icons.timer_outlined, color: Colors.white54, size: 20),
                               const SizedBox(width: 10),
-                              const Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              Flexible(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text( 'GÜNLÜK HAK BİTTİ (0 / 3)',
                                     style: TextStyle(
@@ -725,6 +740,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                     ),
                                   ),
                                 ],
+                                ),
                               ),
                             ] else ...[
                               Container(
@@ -742,19 +758,24 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                 child: const Icon(Icons.fast_forward_rounded, color: Color(0xFFFFD54F), size: 18),
                               ),
                               const SizedBox(width: 10),
-                              Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              Flexible(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text( ' ŞANSINI DENE & ÇEVİR! ($spinsLeft / 3)',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       color: Color(0xFF2E1C00),
                                       fontWeight: FontWeight.w900,
-                                      fontSize: 14,
-                                      letterSpacing: 0.5,
+                                      fontSize: 13,
+                                      letterSpacing: 0.4,
                                     ),
                                   ),
                                   const Text( ' Geçilebilir Kısa Reklam İzle & Çevir',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: Color(0xFF4E342E),
                                       fontWeight: FontWeight.w700,
@@ -762,6 +783,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                     ),
                                   ),
                                 ],
+                                ),
                               ),
                             ],
                           ],
@@ -772,7 +794,8 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                 ),
               ],
             ),
-          );
+          ),
+        );
         },
       ),
     );

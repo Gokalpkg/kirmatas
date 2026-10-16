@@ -40,23 +40,48 @@ class UpgradesView extends StatelessWidget {
             ),
             actions: [
               Container(
-                margin: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                margin: const EdgeInsets.only(right: 6, top: 10, bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF22162B),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0x66E040FB)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.lens_blur_rounded, color: Color(0xFFE040FB), size: 15),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${save.pearls}',
+                      style: const TextStyle(
+                        color: Color(0xFFE040FB),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(right: 8, top: 10, bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1C2234),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0x33FFD54F)),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
-                    const SizedBox(width: 6),
+                    const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 15),
+                    const SizedBox(width: 4),
                     Text(
                       '${save.gold}',
                       style: const TextStyle(
                         color: Color(0xFFFFD54F),
                         fontWeight: FontWeight.w900,
-                        fontSize: 14,
+                        fontSize: 13,
                       ),
                     ),
                   ],
@@ -72,13 +97,17 @@ class UpgradesView extends StatelessWidget {
                 children: [
                   const Icon(Icons.bolt_rounded, color: Color(0xFF00E5FF), size: 18),
                   const SizedBox(width: 6),
-                  Text(
-                    I18n.tr('stat_tree'),
-                    style: const TextStyle(
-                      color: Color(0xFF00E5FF),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13,
-                      letterSpacing: 1.2,
+                  Flexible(
+                    child: Text(
+                      I18n.tr('stat_tree'),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: const TextStyle(
+                        color: Color(0xFF00E5FF),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                   ),
                 ],
@@ -258,13 +287,17 @@ class UpgradesView extends StatelessWidget {
                 children: [
                   const Icon(Icons.auto_awesome_rounded, color: Color(0xFFFFD54F), size: 18),
                   const SizedBox(width: 6),
-                  Text(
-                    I18n.tr('permanent_upgrades'),
-                    style: const TextStyle(
-                      color: Color(0xFFFFD54F),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13,
-                      letterSpacing: 1.2,
+                  Flexible(
+                    child: Text(
+                      I18n.tr('permanent_upgrades'),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: const TextStyle(
+                        color: Color(0xFFFFD54F),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                   ),
                 ],
@@ -377,13 +410,17 @@ class UpgradesView extends StatelessWidget {
                 children: [
                   const Icon(Icons.flash_on_rounded, color: Color(0xFFFF4081), size: 18),
                   const SizedBox(width: 6),
-                  Text(
-                    I18n.tr('pre_match_boosts'),
-                    style: const TextStyle(
-                      color: Color(0xFFFF4081),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13,
-                      letterSpacing: 1.2,
+                  Flexible(
+                    child: Text(
+                      I18n.tr('pre_match_boosts'),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: const TextStyle(
+                        color: Color(0xFFFF4081),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                   ),
                 ],
@@ -469,6 +506,215 @@ class UpgradesView extends StatelessWidget {
                   ),
                 );
               }),
+
+              const SizedBox(height: 24),
+              // --- SECTION 4: COSMIC MASTERY (Sonsuz Seviye) ---
+              Row(
+                children: const [
+                  Icon(Icons.auto_awesome_rounded, color: Color(0xFFE040FB), size: 18),
+                  SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      '🌌 KOZMİK USTALIK (SONSUZ SEVİYE)',
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: Color(0xFFE040FB),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Card 1: Cosmic Gold Mastery
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFFFFD54F).withValues(alpha: 0.12),
+                      const Color(0xFF141724),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFFFD54F).withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFD54F).withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFFFD54F).withValues(alpha: 0.5)),
+                      ),
+                      child: const Icon(Icons.stars_rounded, color: Color(0xFFFFD54F), size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Flexible(
+                                child: Text(
+                                  'Kozmik Altın Ustalığı',
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFD54F).withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'Sv. ${save.cosmicGoldMasteryLevel}',
+                                  style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '+${save.cosmicGoldMasteryLevel * 2}% Tuğla/Kritik Hasar & +${save.cosmicGoldMasteryLevel * 2}% Altın Kazancı',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: save.gold >= save.cosmicGoldMasteryCost
+                          ? () {
+                              save.upgradeCosmicGoldMastery();
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFD54F),
+                        foregroundColor: Colors.black,
+                        disabledBackgroundColor: Colors.white12,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.monetization_on, size: 14, color: Colors.black87),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${save.cosmicGoldMasteryCost}',
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Card 2: Cosmic Pearl Mastery
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFFE040FB).withValues(alpha: 0.12),
+                      const Color(0xFF141724),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFE040FB).withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE040FB).withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFE040FB).withValues(alpha: 0.5)),
+                      ),
+                      child: const Icon(Icons.all_inclusive_rounded, color: Color(0xFFE040FB), size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Flexible(
+                                child: Text(
+                                  'Kozmik İnci Ustalığı',
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE040FB).withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'Sv. ${save.cosmicPearlMasteryLevel}',
+                                  style: const TextStyle(color: Color(0xFFE040FB), fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '+${save.cosmicPearlMasteryLevel * 2}% Ulti Dolum Hızı & +${save.cosmicPearlMasteryLevel}% Şans Bonusu',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: save.pearls >= save.cosmicPearlMasteryCost
+                          ? () {
+                              save.upgradeCosmicPearlMastery();
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE040FB),
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.white12,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.lens_blur_rounded, size: 14, color: Colors.white),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${save.cosmicPearlMasteryCost}',
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         );

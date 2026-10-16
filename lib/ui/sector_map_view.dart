@@ -330,7 +330,9 @@ class _SectorMapViewState extends State<SectorMapView> with SingleTickerProvider
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Bölüm $highest / 238  •  %$percent Tamamlandı',
+                          highest > 238
+                              ? 'Prestij ${widget.save.prestigeTier}  •  Bölüm $highest (Sonsuz Omega)'
+                              : 'Bölüm $highest / 238  •  %$percent Tamamlandı',
                           style: const TextStyle(
                             color: Color(0xFFFFD54F),
                             fontSize: 11.5,
@@ -354,7 +356,9 @@ class _SectorMapViewState extends State<SectorMapView> with SingleTickerProvider
                         const Icon(Icons.shield_rounded, color: Color(0xFFFFD54F), size: 16),
                         const SizedBox(width: 4),
                         Text(
-                          '${widget.save.highestUnlockedSector}/14',
+                          highest > 238
+                              ? 'P${widget.save.prestigeTier} • 14/14'
+                              : '${widget.save.highestUnlockedSector}/14',
                           style: const TextStyle(
                             color: Color(0xFFFFD54F),
                             fontWeight: FontWeight.w900,
@@ -377,13 +381,27 @@ class _SectorMapViewState extends State<SectorMapView> with SingleTickerProvider
                     controller: _scrollController,
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                    itemCount: SectorData.allSectors.length,
+                    itemCount: SectorData.allSectors.length + (highest > 238 ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (index == SectorData.allSectors.length) {
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildPathConnector(isUnlocked: true),
+                            _buildPrestigeOmegaCard(
+                              prestigeTier: widget.save.prestigeTier,
+                              highestLevel: highest,
+                              pulse: _pulseController.value,
+                            ),
+                          ],
+                        );
+                      }
+
                       final sector = SectorData.allSectors[index];
                       final isUnlocked = sector.isUnlocked(highest);
                       final isCompleted = sector.isCompleted(highest);
                       final isCurrent = sector.isCurrent(highest);
-                      final isLast = index == SectorData.allSectors.length - 1;
+                      final isLast = index == SectorData.allSectors.length - 1 && highest <= 238;
 
                       // Alternating left/center/right alignment to create a dynamic winding path
                       final alignment = (index % 3 == 0)
@@ -563,6 +581,123 @@ class _SectorMapViewState extends State<SectorMapView> with SingleTickerProvider
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrestigeOmegaCard({
+    required int prestigeTier,
+    required int highestLevel,
+    required double pulse,
+  }) {
+    return Container(
+      width: 320,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF6A1B9A).withValues(alpha: 0.85),
+            const Color(0xFF1A237E).withValues(alpha: 0.95),
+            const Color(0xFFD500F9).withValues(alpha: 0.6),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: Color.lerp(const Color(0xFFFFD700), const Color(0xFFE040FB), pulse)!,
+          width: 2.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFE040FB).withValues(alpha: 0.35 + pulse * 0.25),
+            blurRadius: 18 + pulse * 8,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            HapticFeedback.heavyImpact();
+            widget.onStartSectorLevel?.call(highestLevel);
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFD700), Color(0xFFE040FB)],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.all_inclusive_rounded, color: Colors.white, size: 26),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'PRESTİJ SEKTÖR OMEGA 🌌',
+                          style: TextStyle(
+                            color: Color(0xFFFFD700),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Sonsuz Seviye • Prestij Kademesi $prestigeTier',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFD700),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Bölüm $highestLevel',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                '238. Bölüm sonrası sonsuz kozmik zorluk! Güçlendirilmiş tuğla dayanıklılığı ve prestij altın kazanç çarpanı aktif.',
+                style: TextStyle(color: Colors.white60, fontSize: 11, height: 1.35),
+              ),
+            ],
+          ),
         ),
       ),
     );

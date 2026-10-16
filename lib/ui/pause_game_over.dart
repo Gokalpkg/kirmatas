@@ -269,7 +269,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    if (isGameOver && !controller.hasUsedRevive) ...[
+                    if (isGameOver && controller.canRevive) ...[
                       _buildReviveButton(context),
                       const SizedBox(height: 10),
                     ],
@@ -414,7 +414,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            I18n.tr('extra_life_badge'),
+                            '${I18n.tr('extra_life_badge')} (${controller.revivesUsed + 1}/${GameController.maxRevivesPerGame})',
                             style: const TextStyle(
                               color: Color(0xFFFFEB3B),
                               fontWeight: FontWeight.w900,

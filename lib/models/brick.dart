@@ -1,6 +1,17 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+enum BrickType {
+  normal,
+  boss,
+  steel,
+  heavySteel,
+  ice,
+  dynamite,
+  tuft,
+  ballPickup,
+}
+
 class Brick {
   double x;
   double y;
@@ -31,6 +42,7 @@ class Brick {
   Color? originalColor;
   int points;
   bool isAlive;
+  BrickType? _explicitType;
 
   Brick({
     required this.x,
@@ -50,7 +62,7 @@ class Brick {
     this.moverVx = 60.0,
     this.minX = 10.0,
     this.maxX = 380.0,
-    this.isBoss = false,
+    bool isBoss = false,
     this.bossVx = 70.0,
     this.shootTimer = 2.0,
     this.isTuft = false,
@@ -61,7 +73,27 @@ class Brick {
     required this.color,
     this.points = 10,
     this.isAlive = true,
-  }) : targetY = targetY ?? y;
+    BrickType? type,
+  })  : targetY = targetY ?? y,
+        isBoss = isBoss || type == BrickType.boss,
+        _explicitType = type;
+
+  BrickType get type {
+    if (_explicitType != null) return _explicitType!;
+    if (isBoss) return BrickType.boss;
+    if (isHeavySteel) return BrickType.heavySteel;
+    if (isSteel) return BrickType.steel;
+    if (isIce) return BrickType.ice;
+    if (isDynamite) return BrickType.dynamite;
+    if (isTuft) return BrickType.tuft;
+    if (isBallPickup) return BrickType.ballPickup;
+    return BrickType.normal;
+  }
+
+  set type(BrickType v) {
+    _explicitType = v;
+    if (v == BrickType.boss) isBoss = true;
+  }
 
   bool get isEnraged => isBoss && hp <= maxHp * 0.35 && hp > 0;
 

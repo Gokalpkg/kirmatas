@@ -17,15 +17,137 @@ import 'ad_manager.dart';
 import 'i18n.dart';
 import 'particle_system.dart';
 
+enum ChaosPerkType {
+  emberCore,
+  chainShock,
+  microBlast,
+  magnetPull,
+  sniperSight,
+  goldenVolley;
+
+  String get titleTr {
+    switch (this) {
+      case ChaosPerkType.emberCore:
+        return '🔥 Kor Çekirdek';
+      case ChaosPerkType.chainShock:
+        return '⚡ Zincirleme Şok';
+      case ChaosPerkType.microBlast:
+        return '💣 Mikro Patlama';
+      case ChaosPerkType.magnetPull:
+        return '🧲 Manyetik Çekim';
+      case ChaosPerkType.sniperSight:
+        return '🎯 Keskin Nişancı';
+      case ChaosPerkType.goldenVolley:
+        return '🪙 Altın Yağmuru';
+    }
+  }
+
+  String get nameTr => titleTr;
+
+  String get descriptionTr {
+    switch (this) {
+      case ChaosPerkType.emberCore:
+        return 'Tuğlalara +1 ekstra kor hasarı verir.';
+      case ChaosPerkType.chainShock:
+        return 'Her 8 vuruşta komşu tuğlalara elektrik arkı sıçratır.';
+      case ChaosPerkType.microBlast:
+        return 'Kırılan her 6. tuğla çevresine mikro şok dalgası vurur.';
+      case ChaosPerkType.magnetPull:
+        return '+1 Top kapsüllerini toplara doğru manyetik olarak çeker.';
+      case ChaosPerkType.sniperSight:
+        return 'Nişan lazerini uzatır ve ilk vuruşlara ekstra güç katar.';
+      case ChaosPerkType.goldenVolley:
+        return 'Dalga sonu ve boss altın ödüllerini +%35 artırır.';
+    }
+  }
+
+  String get descTr => descriptionTr;
+
+  IconData get icon {
+    switch (this) {
+      case ChaosPerkType.emberCore:
+        return Icons.local_fire_department_rounded;
+      case ChaosPerkType.chainShock:
+        return Icons.bolt_rounded;
+      case ChaosPerkType.microBlast:
+        return Icons.flare_rounded;
+      case ChaosPerkType.magnetPull:
+        return Icons.attractions_rounded;
+      case ChaosPerkType.sniperSight:
+        return Icons.gps_fixed_rounded;
+      case ChaosPerkType.goldenVolley:
+        return Icons.monetization_on_rounded;
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case ChaosPerkType.emberCore:
+        return const Color(0xFFFF5722);
+      case ChaosPerkType.chainShock:
+        return const Color(0xFF00E5FF);
+      case ChaosPerkType.microBlast:
+        return const Color(0xFFFF9100);
+      case ChaosPerkType.magnetPull:
+        return const Color(0xFFE040FB);
+      case ChaosPerkType.sniperSight:
+        return const Color(0xFF69F0AE);
+      case ChaosPerkType.goldenVolley:
+        return const Color(0xFFFFD54F);
+    }
+  }
+}
+
 class TickNotifier extends ChangeNotifier { void ping() => notifyListeners(); }
 
 class GameController extends ChangeNotifier {
-  static final Set<int> portalLevels = () {
-    final rand = Random(2026);
-    final all = List.generate(238, (i) => i + 1);
-    all.shuffle(rand);
-    return all.take(83).toSet();
-  }();
+  static const Set<int> portalLevels = {
+    6, 12, 18, 24, 30, 35, 41, 47, 53, 56,
+    62, 68, 74, 80, 86, 92, 98, 104, 107, 113,
+    119, 125, 131, 137, 143, 149, 155, 161, 167, 170,
+    176, 182, 188, 194, 200, 206, 212, 220,
+  };
+
+  static PortalType getPortalTypeForLevel(int level) {
+    switch (level) {
+      case 18:
+      case 30:
+      case 53:
+      case 74:
+      case 86:
+      case 107:
+      case 125:
+      case 149:
+      case 167:
+      case 182:
+      case 206:
+        return PortalType.moving;
+      case 35:
+      case 68:
+      case 98:
+      case 131:
+      case 161:
+      case 194:
+      case 220:
+        return PortalType.accelerator;
+      case 47:
+      case 80:
+      case 113:
+      case 143:
+      case 170:
+      case 200:
+        return PortalType.gravity;
+      case 56:
+      case 92:
+      case 119:
+      case 155:
+      case 188:
+      case 212:
+        return PortalType.quantumPhase;
+      default:
+        return PortalType.standard;
+    }
+  }
   final TickNotifier frameTick = TickNotifier();
   final List<BlackHole> blackHoles = [];
   final List<Portal> portals = [];
@@ -56,6 +178,41 @@ class GameController extends ChangeNotifier {
   double chaosAimY = 240;
   double chaosSpeedMultiplier = 1.0;
   bool chaosRecallActive = false;
+  final List<ChaosPerkType> offeredChaosPerks = [];
+  final List<ChaosPerkType> activeChaosPerks = [];
+  int chaosTurnCounter = 0;
+  int _chaosHitCounter = 0;
+
+  CosmeticSynergy get activeCosmeticSynergy => CosmeticCatalog.getActiveSynergy(
+        save.activePaddle,
+        save.activeBall,
+        save.activeTrail,
+      );
+
+  bool get awaitingChaosPerkSelection => offeredChaosPerks.isNotEmpty;
+
+  void offerChaosPerksForWave() {
+    final pool = List<ChaosPerkType>.from(ChaosPerkType.values)..shuffle(_rand);
+    offeredChaosPerks
+      ..clear()
+      ..addAll(pool.take(3));
+    notifyListeners();
+  }
+
+  void selectChaosPerk(ChaosPerkType perk) {
+    activeChaosPerks.add(perk);
+    offeredChaosPerks.clear();
+    audio.playSfx(GameSfx.powerupBuff);
+    particles.spawnBurst(screenWidth * 0.5, screenHeight * 0.5, perk.color, count: 20);
+    particles.spawnFloatingText(
+      screenWidth * 0.5,
+      screenHeight * 0.42,
+      perk.titleTr,
+      perk.color,
+      isLarge: true,
+    );
+    notifyListeners();
+  }
 
   double get chaosFloorY => screenHeight - 86;
 
@@ -185,7 +342,10 @@ class GameController extends ChangeNotifier {
     }
   }
 
-  bool hasUsedRevive = false;
+  int revivesUsed = 0;
+  static const int maxRevivesPerGame = 2;
+  bool get canRevive => revivesUsed < maxRevivesPerGame;
+  bool get hasUsedRevive => revivesUsed >= maxRevivesPerGame;
   bool pendingLevelInterstitial = false;
   bool hasClaimedVictoryBonus = false;
   int endGameRolledDice = 0;
@@ -199,6 +359,21 @@ class GameController extends ChangeNotifier {
   double endgameStallTimer = 0.0;
   String? activeTipText;
   double tipTimer = 0.0;
+
+  // R3 & R4: Onboarding, Pacing, and Progressive Feature Tracking
+  bool firstCornerHitShown = false;
+  double level1GuideTimer = 0.0;
+  int levelBricksBroken = 0;
+  bool earlyActionDropGranted = false;
+
+  bool get isChaosMode => currentMode == GameMode.chaos;
+  bool get isZenMode => currentMode == GameMode.zen;
+  int get level => stats.level;
+  set level(int v) => stats.level = v;
+  double get ultiCharge => stats.ultiCharge;
+  set ultiCharge(double v) => stats.ultiCharge = v;
+  bool get isUltiReady => !isChaosMode && ((stats.diceChargeMax > 0 && stats.diceCharge >= stats.diceChargeMax) || stats.ultiCharge >= 100.0);
+  bool get showLevel1DragGuide => level == 1 && !isChaosMode && !isZenMode && level1GuideTimer < 8.0;
 
   void showMicroTip(String tipId, String text) {
     if (stats.level <= 10 && !save.hasSeenTip(tipId)) {
@@ -243,7 +418,7 @@ class GameController extends ChangeNotifier {
     rollSessionCosmetics();
     currentMode = mode;
     status = GameStatus.ready;
-    hasUsedRevive = false;
+    revivesUsed = 0;
     hasClaimedVictoryBonus = false;
     endGameRolledDice = 0;
     endGameMultiplier = 0;
@@ -254,6 +429,10 @@ class GameController extends ChangeNotifier {
     _glassBreaksTowardDice = 0;
     _blocksUntilDicePoint = _rollDiceBlockGap();
     checkpointBannerTimer = 0.0;
+    firstCornerHitShown = false;
+    level1GuideTimer = 0.0;
+    levelBricksBroken = 0;
+    earlyActionDropGranted = false;
 
     if (mode == GameMode.shapes) {
       shapesPermutation = List<int>.generate(LevelDesign.allShapes.length, (i) => i)..shuffle();
@@ -271,6 +450,10 @@ class GameController extends ChangeNotifier {
       chaosToLaunch = 0;
       chaosReturned = 0;
       chaosHomeLocked = false;
+      offeredChaosPerks.clear();
+      activeChaosPerks.clear();
+      chaosTurnCounter = 0;
+      _chaosHitCounter = 0;
     }
 
     int startLives = mode == GameMode.zen ? 999 : 3;
@@ -332,6 +515,29 @@ class GameController extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  DateTime? dailyBlitzDate;
+
+  void startDailyBlitz({DateTime? date}) {
+    final targetDate = date ?? DateTime.now();
+    dailyBlitzDate = targetDate;
+    startNewGame(GameMode.daily);
+    bricks = LevelDesign.buildDailyLevel(targetDate, screenWidth, screenHeight);
+    _hasLoadedBricks = bricks.isNotEmpty;
+    _loadedBricksRef = bricks;
+    status = GameStatus.ready;
+    notifyListeners();
+  }
+
+  // --- R6: PRESTIGE TIER & MULTIPLIERS ---
+  int get prestigeTier => stats.level > 238 ? ((stats.level - 239) ~/ 17) + 1 : 0;
+  double get prestigeGoldMultiplier => prestigeTier > 0 ? (1.0 + prestigeTier * 0.20) : 1.0;
+
+  // --- R5: COSMIC MASTERY MULTIPLIERS ---
+  double get cosmicGoldDamageMultiplier => 1.0 + save.cosmicGoldMasteryLevel * 0.02;
+  double get cosmicGoldRewardMultiplier => 1.0 + save.cosmicGoldMasteryLevel * 0.02;
+  double get cosmicPearlUltiMultiplier => 1.0 + save.cosmicPearlMasteryLevel * 0.02;
+  double get cosmicPearlLuckBonus => save.cosmicPearlMasteryLevel * 0.01;
 
   void _haltBackgroundGameplay() {
     balls.clear();
@@ -410,9 +616,24 @@ class GameController extends ChangeNotifier {
     activeBee = null;
     beeSpawnCooldown = 25.0 + _rand.nextDouble() * 25.0;
     _blackHoleTimer = 0.0;
+    levelBricksBroken = 0;
+    earlyActionDropGranted = false;
     switch (currentMode) {
       case GameMode.classic:
         bricks = LevelDesign.buildClassicLevel(stats.level, screenWidth, screenHeight);
+        if (prestigeTier > 0) {
+          for (final b in bricks) {
+            if (!b.isSteel && !b.isDynamite && !b.isIce && !b.isTuft) {
+              if (b.isBoss) {
+                b.hp += prestigeTier * 25;
+                b.maxHp += prestigeTier * 25;
+              } else {
+                b.hp += prestigeTier;
+                b.maxHp += prestigeTier;
+              }
+            }
+          }
+        }
         if (LevelDesign.isBossLevelNumber(stats.level)) {
           bossWarningTimer = 2.2;
           particles.triggerShake(5.0, 0.35);
@@ -426,26 +647,63 @@ class GameController extends ChangeNotifier {
               lowestAliveBrickY = b.y + b.height;
             }
           }
-          final minY = (lowestAliveBrickY + 45.0).clamp(160.0, paddle.y - 140.0);
-          final maxY = (paddle.y - 80.0).clamp(minY + 20.0, paddle.y - 40.0);
-          final rangeY = max(20.0, maxY - minY);
+          // Enforce strict safety margin:
+          // Portals are NEVER placed too close to the paddle (at least 165px clearance above paddle.y)
+          // ensuring the ball will never escape immediately before the player can react!
+          final double maxSafePortalY = paddle.y - 165.0;
+          final double minSafePortalY = (lowestAliveBrickY + 36.0).clamp(140.0, maxSafePortalY - 50.0);
+          final double availableSpan = max(30.0, maxSafePortalY - minSafePortalY);
 
-          final p1Y = minY + levelRand.nextDouble() * rangeY * 0.45;
-          final p2Y = minY + rangeY * 0.55 + levelRand.nextDouble() * rangeY * 0.45;
+          final p1Y = minSafePortalY + levelRand.nextDouble() * (availableSpan * 0.42);
+          final p2Y = minSafePortalY + (availableSpan * 0.52) + levelRand.nextDouble() * (availableSpan * 0.45);
+
+          final portalType = getPortalTypeForLevel(stats.level);
+          Color color1;
+          Color color2;
+          switch (portalType) {
+            case PortalType.moving:
+              color1 = const Color(0xFF00B0FF); // Cyber Azure
+              color2 = const Color(0xFFFF5252); // Neon Coral
+              break;
+            case PortalType.accelerator:
+              color1 = const Color(0xFFFFD700); // Hyper Gold
+              color2 = const Color(0xFFE040FB); // Electric Violet
+              break;
+            case PortalType.gravity:
+              color1 = const Color(0xFF00E676); // Emerald Jade
+              color2 = const Color(0xFF1DE9B6); // Teal Singularity
+              break;
+            case PortalType.quantumPhase:
+              color1 = const Color(0xFFFF4081); // Prismatic Magenta
+              color2 = const Color(0xFF7C4DFF); // Deep Plasma
+              break;
+            case PortalType.standard:
+              color1 = const Color(0xFF00E5FF); // Quantum Cyan
+              color2 = const Color(0xFFFF9100); // Solar Amber
+              break;
+          }
 
           final p1 = Portal(
-            x: screenWidth * (0.20 + levelRand.nextDouble() * 0.14),
+            x: screenWidth * (0.22 + levelRand.nextDouble() * 0.12),
             y: p1Y,
             radius: 20.0,
             isBlue: true,
-            color: const Color(0xFF00E5FF),
+            color: color1,
+            type: portalType,
+            moveSpeed: 1.4 + levelRand.nextDouble() * 0.6,
+            moveAmplitude: 45.0 + levelRand.nextDouble() * 25.0,
+            movePhase: 0.0,
           );
           final p2 = Portal(
-            x: screenWidth * (0.66 + levelRand.nextDouble() * 0.14),
+            x: screenWidth * (0.66 + levelRand.nextDouble() * 0.12),
             y: p2Y,
             radius: 20.0,
             isBlue: false,
-            color: const Color(0xFFFF9100),
+            color: color2,
+            type: portalType,
+            moveSpeed: 1.4 + levelRand.nextDouble() * 0.6,
+            moveAmplitude: 45.0 + levelRand.nextDouble() * 25.0,
+            movePhase: pi,
           );
           p1.linkedPortal = p2;
           p2.linkedPortal = p1;
@@ -461,7 +719,7 @@ class GameController extends ChangeNotifier {
         descendTimer = 13.0;
         break;
       case GameMode.daily:
-        bricks = LevelDesign.buildDailyLevel(DateTime.now(), screenWidth, screenHeight);
+        bricks = LevelDesign.buildDailyLevel(dailyBlitzDate ?? DateTime.now(), screenWidth, screenHeight);
         break;
       case GameMode.shapes:
         bricks = LevelDesign.buildShapesLevel(
@@ -473,6 +731,14 @@ class GameController extends ChangeNotifier {
         break;
       case GameMode.chaos:
         bricks = LevelDesign.buildChaosLevel(stats.level, screenWidth, screenHeight);
+        if (stats.level > 0 && stats.level % 5 == 0 && offeredChaosPerks.isEmpty) {
+          offerChaosPerksForWave();
+        }
+        if (stats.level >= 10 && stats.level % 10 == 0) {
+          bossWarningTimer = 2.2;
+          particles.triggerShake(5.5, 0.40);
+          audio.playSfx(GameSfx.bossHit);
+        }
         break;
     }
     _loadedBricksRef = bricks;
@@ -693,9 +959,14 @@ class GameController extends ChangeNotifier {
     if (remainingSolid.isEmpty) {
       final baseGold = 25 + (stats.level * 5).clamp(0, 50);
       final relicBonus = save.hasPermanentRelic ? max(1, (baseGold * 0.05).round()) : 0;
-      final luckLvl = save.getUpgradeLevel('luck');
+      final luckLvl = save.getUpgradeLevel('u_luck');
       final luckBonus = (baseGold * (luckLvl * 0.05)).round();
-      final levelGold = baseGold + relicBonus + luckBonus;
+      final goldLvl = save.getUpgradeLevel('u_gold');
+      final goldBonus = (baseGold * (goldLvl * 0.10)).round();
+      final goldenStacks = activeChaosPerks.where((p) => p == ChaosPerkType.goldenVolley).length;
+      final perkGoldMult = 1.0 + goldenStacks * 0.35;
+      final synergyGoldMult = activeCosmeticSynergy.goldMultiplier;
+      final levelGold = ((baseGold + relicBonus + luckBonus + goldBonus) * perkGoldMult * synergyGoldMult).round();
       stats.goldCollected += levelGold;
       save.addGold(levelGold);
 
@@ -720,6 +991,7 @@ class GameController extends ChangeNotifier {
       return;
     }
 
+    chaosTurnCounter++;
     chaosStock += chaosPendingExtraBalls;
     chaosPendingExtraBalls = 0;
     const step = LevelDesign.chaosStep;
@@ -735,7 +1007,17 @@ class GameController extends ChangeNotifier {
     bricks.removeWhere((brick) => !brick.isAlive);
     bricks.removeWhere((brick) => brick.isBallPickup && brick.y + brick.height >= chaosFloorY - 20);
 
-    bricks.addAll(LevelDesign.buildChaosRow(stats.level, 0, screenWidth));
+    final effectiveWave = (chaosTurnCounter > 0 && chaosTurnCounter % 10 == 0 && stats.level < 10)
+        ? chaosTurnCounter
+        : stats.level;
+    bricks.addAll(LevelDesign.buildChaosRow(effectiveWave, 0, screenWidth));
+    if ((stats.level > 0 && stats.level % 5 == 0 || (chaosTurnCounter > 0 && chaosTurnCounter % 5 == 0)) &&
+        offeredChaosPerks.isEmpty) {
+      offerChaosPerksForWave();
+    }
+    if (effectiveWave >= 10 && effectiveWave % 10 == 0) {
+      bossWarningTimer = 2.2;
+    }
     save.saveChaosSession(level: stats.level, score: stats.score, stock: chaosStock);
     chaosReturned = 0;
     chaosToLaunch = 0;
@@ -752,7 +1034,11 @@ class GameController extends ChangeNotifier {
       return 420.0 * pace;
     }
     final base = 350.0 * pace;
-    return base + min(stats.level * 10.0, 90.0);
+    final levelSpeed = base + min(stats.level * 10.0, 90.0);
+    if (stats.level <= 5 && !isChaosMode && !isZenMode) {
+      return levelSpeed * 1.15;
+    }
+    return levelSpeed;
   }
 
   void movePaddleTo(double targetX) {
@@ -846,6 +1132,10 @@ class GameController extends ChangeNotifier {
   void update(double dt) {
     gameTime += dt;
 
+    if (level == 1 && !isChaosMode && !isZenMode) {
+      level1GuideTimer += dt;
+    }
+
     // Update micro-onboarding tip timer
     if (tipTimer > 0) {
       tipTimer -= dt;
@@ -927,6 +1217,7 @@ class GameController extends ChangeNotifier {
       stats.bulletTimeLeft -= dt;
       effectiveDt = dt * 0.45;
     }
+
 
     if (currentMode == GameMode.chaos) {
       effectiveDt *= chaosSpeedMultiplier;
@@ -1360,7 +1651,7 @@ class GameController extends ChangeNotifier {
 
   void _updateAnomalies(double dt) {
     for (final p in portals) {
-      p.update(dt);
+      p.update(dt, screenWidth: screenWidth);
     }
 
     for (int i = blackHoles.length - 1; i >= 0; i--) {
@@ -1605,6 +1896,21 @@ class GameController extends ChangeNotifier {
         }
       }
 
+      // Gravitational attraction from gravity portals
+      for (final p in portals) {
+        if (p.type == PortalType.gravity) {
+          final dx = p.x - ball.x;
+          final dy = p.y - ball.y;
+          final distSq = dx * dx + dy * dy;
+          if (distSq > p.radius * p.radius && distSq < 75.0 * 75.0) {
+            final dist = sqrt(distSq);
+            final force = (1.0 - dist / 75.0) * 130.0;
+            ball.vx += (dx / dist) * force * dt;
+            ball.vy += (dy / dist) * force * dt;
+          }
+        }
+      }
+
       // Portal teleportation
       if (ball.anomalyCooldown <= 0) {
         for (final p in portals) {
@@ -1621,11 +1927,28 @@ class GameController extends ChangeNotifier {
               dirX = 0.0;
             }
 
+            // Safe human-reactable exit angle: If directed downward, avoid pure vertical missile dive
+            if (dirY > 0.85) {
+              dirX = (dirX.sign == 0 ? (ball.x > screenWidth / 2 ? -0.4 : 0.4) : dirX.sign * 0.45);
+              dirY = sqrt(max(0.1, 1.0 - dirX * dirX));
+            }
+
             // Safe ejection distance outside target portal's event horizon
             final ejectDist = target.radius + ball.radius + 6.0;
-            ball.x = (target.x + dirX * ejectDist).clamp(ball.radius + 8.0, screenWidth - ball.radius - 8.0);
-            ball.y = (target.y + dirY * ejectDist).clamp(42.0, screenHeight - 60.0);
-            ball.setSpeed(currentSpd.clamp(getBaseBallSpeed(), 850.0));
+            ball.x = (target.x + dirX * ejectDist).clamp(ball.radius + 12.0, screenWidth - ball.radius - 12.0);
+            // Critical safeguard: Ejection point is NEVER lower than paddle.y - 100.0,
+            // preventing the ball from instantly escaping past the paddle!
+            ball.y = (target.y + dirY * ejectDist).clamp(42.0, paddle.y - 100.0);
+
+            // Accelerator portal supercharge:
+            if (target.type == PortalType.accelerator || p.type == PortalType.accelerator) {
+              ball.setSpeed((currentSpd * 1.15).clamp(getBaseBallSpeed(), 850.0));
+              ball.cornerBoostTimer = max(ball.cornerBoostTimer, 2.5);
+              particles.spawnBurst(target.x, target.y, const Color(0xFFFFD700), count: 32, speed: 160.0);
+              particles.spawnShockwave(target.x, target.y, const Color(0xFFFFD700), maxRadius: 50.0);
+            } else {
+              ball.setSpeed(currentSpd.clamp(getBaseBallSpeed(), 850.0));
+            }
             ball.anomalyCooldown = 0.55;
 
             // Spawn portal warp effects
@@ -1876,12 +2199,26 @@ class GameController extends ChangeNotifier {
         ball.cornerHitCount++;
         ball.cornerBoostTimer = 3.2; // Speeds up for 3.2 seconds
 
+        if (!firstCornerHitShown) {
+          firstCornerHitShown = true;
+          stats.bulletTimeLeft = 0.75; // Brief slow-motion pulse
+          particles.triggerShake(6.0, 0.28);
+          particles.spawnShockwave(ball.x, pr.top, const Color(0xFFFFD700), maxRadius: 85.0);
+          particles.spawnFloatingText(
+            screenWidth / 2,
+            screenHeight * 0.38,
+            '⚡ SÜPER KÖŞE VURUŞU!',
+            const Color(0xFFFFD700),
+            isLarge: true,
+          );
+        }
+
         // Outer 10% tip save bonus (silent bonus, no extra overlapping text!)
         final isClutchSave = hitOffset.abs() >= 0.90 && balls.length == 1;
         if (isClutchSave) {
           stats.score += 150;
         }
-        stats.ultiCharge = (stats.ultiCharge + 3.0).clamp(0.0, 100.0);
+        stats.ultiCharge = (stats.ultiCharge + 3.0 * cosmicPearlUltiMultiplier).clamp(0.0, 100.0);
 
         if (ball.cornerHitCount >= 8) {
           ball.isPurple = true;
@@ -2167,9 +2504,38 @@ class GameController extends ChangeNotifier {
     }
 
     if (currentMode == GameMode.chaos) {
-      b.hp--;
+      int dmg = 1;
+      final emberStacks = activeChaosPerks.where((p) => p == ChaosPerkType.emberCore).length;
+      if (emberStacks > 0) {
+        dmg += emberStacks;
+      }
+      if (activeCosmeticSynergy == CosmeticSynergy.iceCrystal &&
+          (b.isIce || b.maxHp > 1 || b.isHeavySteel)) {
+        dmg += activeCosmeticSynergy.extraIceArmoredDamage;
+      }
+      final critLvl = save.getUpgradeLevel('u_crit');
+      final cosmicBonus = save.cosmicGoldMasteryLevel * 0.02;
+      if (critLvl > 0 && _rand.nextDouble() < (critLvl * 0.035 + cosmicBonus * 0.5)) {
+        dmg += 1;
+        if (cosmicBonus > 0 && _rand.nextDouble() < cosmicBonus) dmg += 1;
+        particles.spawnFloatingText(b.x + b.width / 2, b.y - 8, 'KRİTİK!', const Color(0xFFFF5252));
+      } else if (cosmicBonus > 0 && _rand.nextDouble() < cosmicBonus) {
+        dmg += 1;
+      }
+      b.hp -= dmg;
       b.jelly = 0.35;
-      stats.score += 1;
+      stats.score += (dmg * activeCosmeticSynergy.scoreMultiplier).round();
+      _chaosHitCounter++;
+      if (activeChaosPerks.contains(ChaosPerkType.chainShock) && _chaosHitCounter % 8 == 0) {
+        final neighbors = bricks.where((nb) => nb.isAlive && !nb.isBallPickup && nb != b).take(2).toList();
+        for (final nb in neighbors) {
+          nb.hp -= 1;
+          particles.spawnBurst(nb.x + nb.width / 2, nb.y + nb.height / 2, const Color(0xFF00E5FF), count: 5);
+          if (nb.hp <= 0) {
+            _destroyBrick(nb);
+          }
+        }
+      }
       if (b.hp <= 0) {
         _destroyBrick(b);
       } else if (b.hp % 6 == 0) {
@@ -2179,10 +2545,18 @@ class GameController extends ChangeNotifier {
     }
 
     int dmg = 1;
+    if (activeCosmeticSynergy == CosmeticSynergy.iceCrystal &&
+        (b.isIce || b.maxHp > 1 || b.isHeavySteel)) {
+      dmg += activeCosmeticSynergy.extraIceArmoredDamage;
+    }
     final critLvl = save.getUpgradeLevel('crit_damage');
-    if (critLvl > 0 && _rand.nextDouble() < (critLvl * 0.035)) {
-      dmg = 2;
+    final cosmicBonus = save.cosmicGoldMasteryLevel * 0.02;
+    if (critLvl > 0 && _rand.nextDouble() < (critLvl * 0.035 + cosmicBonus * 0.5)) {
+      dmg += 1;
+      if (cosmicBonus > 0 && _rand.nextDouble() < cosmicBonus) dmg += 1;
       particles.spawnFloatingText(b.x + b.width / 2, b.y - 8, 'KRİTİK!', const Color(0xFFFF5252));
+    } else if (cosmicBonus > 0 && _rand.nextDouble() < cosmicBonus) {
+      dmg += 1;
     }
     b.hp -= dmg;
     b.jelly = 0.8;
@@ -2220,13 +2594,14 @@ class GameController extends ChangeNotifier {
     _glassBreaksTowardDice = 0;
     _blocksUntilDicePoint = _rollDiceBlockGap();
     final batteryLvl = save.getUpgradeLevel('battery');
-    final ultiGain = 1.0 + (batteryLvl * 0.4);
+    final ultiGain = (1.0 + (batteryLvl * 0.4)) * cosmicPearlUltiMultiplier;
     stats.ultiCharge = (stats.ultiCharge + ultiGain).clamp(0.0, 100.0);
   }
 
   void _destroyBrick(Brick b) {
     b.isAlive = false;
     stats.bricksBroken++;
+    levelBricksBroken++;
     save.recordBrickBrokenQuest();
     _chargeDiceFromGlass(b);
     if (currentMode == GameMode.classic && stats.level <= 3 && !save.seenFirstShot) {
@@ -2240,8 +2615,58 @@ class GameController extends ChangeNotifier {
     if (currentMode == GameMode.chaos) {
       particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, b.color, count: 4);
       audio.playSfx(GameSfx.breakBrick, combo: stats.combo);
-      stats.score += 15;
+      stats.score += (15 * activeCosmeticSynergy.scoreMultiplier).round();
       _checkLiveNewRecordCelebration();
+
+      if (b.isBoss) {
+        final goldenStacks = activeChaosPerks.where((p) => p == ChaosPerkType.goldenVolley).length;
+        final bossGold = ((100 + (stats.level ~/ 10) * 50) * (1.0 + goldenStacks * 0.35) * activeCosmeticSynergy.goldMultiplier).round();
+        stats.goldCollected += bossGold;
+        save.addGold(bossGold);
+        save.addPearls(2);
+        particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD700), maxRadius: 100.0);
+        particles.spawnFloatingText(b.x + b.width / 2, b.y - 16, '+$bossGold ALTIN! +2 İNCİ!', const Color(0xFFFFD700), isLarge: true);
+        audio.playSfx(GameSfx.explosion);
+      }
+
+      if (activeChaosPerks.contains(ChaosPerkType.microBlast) && stats.bricksBroken % 6 == 0) {
+        final cx = b.x + b.width / 2;
+        final cy = b.y + b.height / 2;
+        particles.spawnShockwave(cx, cy, const Color(0xFFFF9100), maxRadius: 65.0);
+        for (final nb in bricks) {
+          if (!nb.isAlive || nb.isBallPickup || nb == b) continue;
+          final nbx = nb.x + nb.width / 2;
+          final nby = nb.y + nb.height / 2;
+          if (sqrt((nbx - cx) * (nbx - cx) + (nby - cy) * (nby - cy)) <= 65.0) {
+            nb.hp -= 2;
+            if (nb.hp <= 0) {
+              nb.isAlive = false;
+              stats.bricksBroken++;
+            }
+          }
+        }
+      }
+
+      // Coin drops in Chaos Mode scaled by u_luck and u_gold
+      final luckLvl = save.getUpgradeLevel('u_luck');
+      final dropRate = 0.20 + (luckLvl * 0.04) + cosmicPearlLuckBonus;
+      if (_rand.nextDouble() < dropRate) {
+        final goldLvl = save.getUpgradeLevel('u_gold');
+        int coins = 1 + _rand.nextInt(3);
+        coins = (coins * (1.0 + goldLvl * 0.10)).round();
+        if (save.cosmicGoldMasteryLevel > 0) {
+          coins = (coins * cosmicGoldRewardMultiplier).round();
+        }
+        if (activeCosmeticSynergy == CosmeticSynergy.cosmicLegendary) {
+          coins = (coins * activeCosmeticSynergy.goldMultiplier).round();
+        }
+        if (coins > 0) {
+          stats.goldCollected += coins;
+          save.addGold(coins);
+          particles.spawnFloatingText(b.x + b.width / 2, b.y, '+$coins ', const Color(0xFFFFD54F));
+        }
+      }
+
       if (!bricks.any((br) => br.isAlive && !br.isBallPickup)) {
         _chaosAllSolidBroken = true;
       }
@@ -2269,13 +2694,39 @@ class GameController extends ChangeNotifier {
       _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 90.0);
     }
 
+    // R4: Guaranteed Action Capsule Drop in Levels 1–5
+    bool actionDropped = false;
+    if (stats.level <= 5 && !isChaosMode && !isZenMode && !earlyActionDropGranted) {
+      if (levelBricksBroken <= 3) {
+        final shouldDrop = levelBricksBroken == 1 || (levelBricksBroken == 3 && !earlyActionDropGranted);
+        if (shouldDrop) {
+          earlyActionDropGranted = true;
+          actionDropped = true;
+          final actionType = _rand.nextBool() ? PowerUpType.multiBall : PowerUpType.fireball;
+          capsules.add(FallingCapsule(x: b.x + b.width / 2, y: b.y + b.height / 2, type: actionType));
+        }
+      }
+    }
+
     // Roll powerup drop
-    _rollCapsuleDrop(b.x + b.width / 2, b.y + b.height / 2);
+    if (!actionDropped) {
+      _rollCapsuleDrop(b.x + b.width / 2, b.y + b.height / 2);
+    }
 
     // Balanced coin gain: 30% drop rate, 2-5 coins + combo bonus
-    if (_rand.nextDouble() < 0.30) {
+    final luckLvl = save.getUpgradeLevel('u_luck');
+    final coinDropRate = 0.30 + (luckLvl * 0.04) + cosmicPearlLuckBonus;
+    if (_rand.nextDouble() < coinDropRate) {
+      final goldLvl = save.getUpgradeLevel('u_gold');
       int coins = 2 + _rand.nextInt(4);
       if (stats.combo >= 5) coins += 2;
+      coins = (coins * (1.0 + goldLvl * 0.10)).round();
+      if (save.cosmicGoldMasteryLevel > 0) {
+        coins = (coins * cosmicGoldRewardMultiplier).round();
+      }
+      if (activeCosmeticSynergy == CosmeticSynergy.cosmicLegendary) {
+        coins = (coins * activeCosmeticSynergy.goldMultiplier).round();
+      }
       stats.goldCollected += coins;
       save.addGold(coins);
       particles.spawnFloatingText(b.x + b.width / 2, b.y, '+$coins ', const Color(0xFFFFD54F));
@@ -2320,9 +2771,13 @@ class GameController extends ChangeNotifier {
     }
   }
 
+  void explodeArea(double cx, double cy, {double radius = 60.0}) =>
+      _explodeArea(cx, cy, radius: radius);
+
   void _explodeArea(double cx, double cy, {double radius = 60.0}) {
+    final effectiveRadius = radius * (1.0 + activeCosmeticSynergy.explosionRadiusBonus);
     particles.spawnBurst(cx, cy, const Color(0xFFFF5722), count: 28, speed: 240.0);
-    particles.spawnShockwave(cx, cy, const Color(0xFFFF9800), maxRadius: radius);
+    particles.spawnShockwave(cx, cy, const Color(0xFFFF9800), maxRadius: effectiveRadius);
     particles.triggerShake(5.0, 0.22);
     audio.playSfx(GameSfx.explosion);
 
@@ -2331,7 +2786,7 @@ class GameController extends ChangeNotifier {
       final bx = b.x + b.width / 2;
       final by = b.y + b.height / 2;
       final dist = sqrt((bx - cx) * (bx - cx) + (by - cy) * (by - cy));
-      if (dist <= radius) {
+      if (dist <= effectiveRadius) {
         if (b.isFrozen) {
           // TNT explosions shatter only the ice of frozen bricks! The brick itself survives!
           b.isFrozen = false;
@@ -2360,18 +2815,18 @@ class GameController extends ChangeNotifier {
     if (stats.combo > stats.maxCombo) {
       stats.maxCombo = stats.combo;
     }
-    comboTimer = 2.4;
+    comboTimer = 2.4 * (1.0 + activeCosmeticSynergy.comboMomentumBonus);
 
-    double multiplier = 1.0;
+    double multiplier = activeCosmeticSynergy.scoreMultiplier;
     if (stats.combo >= 8) {
-      multiplier = 3.0;
+      multiplier *= 3.0;
       if (!stats.isFever) {
         stats.isFever = true;
         stats.feverTimeLeft = 6.0;
         particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.35, I18n.tr('fever_mode'), const Color(0xFFFF9100), isLarge: true);
       }
     } else if (stats.combo >= 4) {
-      multiplier = 2.0;
+      multiplier *= 2.0;
     }
 
     if (activePowerUps.any((p) => p.type == PowerUpType.doublescore)) {
@@ -2419,7 +2874,7 @@ class GameController extends ChangeNotifier {
   void _rollCapsuleDrop(double x, double y) {
     if (activePowerUps.length >= 3) return; // Limit to 3 active power-ups
     final luckLevel = save.upgrades['luck'] ?? 0;
-    final dropChance = 0.14 + luckLevel * 0.04;
+    final dropChance = 0.14 + luckLevel * 0.04 + cosmicPearlLuckBonus;
     if (_rand.nextDouble() > dropChance) return;
 
     final allTypes = PowerUpType.values;
@@ -2547,8 +3002,9 @@ class GameController extends ChangeNotifier {
         paddle.width = paddle.baseWidth * 0.65;
         break;
       case PowerUpType.slow:
+        final slowFactor = activeCosmeticSynergy == CosmeticSynergy.iceCrystal ? 0.82 : 0.65;
         for (final b in balls) {
-          b.setSpeed(getBaseBallSpeed() * 0.65);
+          b.setSpeed(getBaseBallSpeed() * slowFactor);
         }
         break;
       case PowerUpType.fastball:
@@ -2741,7 +3197,7 @@ class GameController extends ChangeNotifier {
 
   void triggerUlti() {
     if (currentMode == GameMode.chaos) return;
-    if (stats.ultiCharge < 100.0 || isDiceRolling || diceSalvoRemaining > 0) return;
+    if (!isUltiReady || isDiceRolling || diceSalvoRemaining > 0) return;
     stats.ultiCharge = 0.0;
 
     isDiceRolling = true;
@@ -2750,8 +3206,9 @@ class GameController extends ChangeNotifier {
     diceDisplayTimer = 0.0;
     diceSalvoRemaining = 0;
 
-    // 25% chance of jackpot double dice
-    isDoubleDice = _rand.nextDouble() < 0.25;
+    // 25% base chance of jackpot double dice + pearl mastery luck bonus
+    final jackpotChance = 0.25 + cosmicPearlLuckBonus;
+    isDoubleDice = _rand.nextDouble() < jackpotChance;
     dice1Value = 1 + _rand.nextInt(6);
     dice2Value = 1 + _rand.nextInt(6);
     diceDisplay1 = 1 + _rand.nextInt(6);
@@ -2860,9 +3317,12 @@ class GameController extends ChangeNotifier {
       _hasLoadedBricks = false;
       _haltBackgroundGameplay();
       if (currentMode == GameMode.daily ||
-          (currentMode == GameMode.classic && stats.level >= 238) ||
+          (currentMode == GameMode.classic && stats.level == 238) ||
           (currentMode == GameMode.shapes && stats.level >= 38)) {
         if (AdManager.instance.registerLevelClear()) pendingLevelInterstitial = true;
+        if (currentMode == GameMode.daily) {
+          save.claimDailyBlitzReward();
+        }
         _onVictory();
       } else {
         // Immediate next level load with celebratory transition freeze!
@@ -2871,7 +3331,13 @@ class GameController extends ChangeNotifier {
         final relicBonus = save.hasPermanentRelic ? max(1, (baseGold * 0.05).round()) : 0;
         final luckLvl = save.getUpgradeLevel('luck');
         final luckBonus = (baseGold * (luckLvl * 0.05)).round();
-        final levelGold = baseGold + relicBonus + luckBonus;
+        int levelGold = baseGold + relicBonus + luckBonus;
+        if (prestigeTier > 0) {
+          levelGold = (levelGold * prestigeGoldMultiplier).round();
+        }
+        if (save.cosmicGoldMasteryLevel > 0) {
+          levelGold = (levelGold * cosmicGoldRewardMultiplier).round();
+        }
         stats.goldCollected += levelGold;
         save.addGold(levelGold);
         stats.level++;
@@ -2904,8 +3370,12 @@ class GameController extends ChangeNotifier {
       save.clearChaosSession();
     }
     save.updateHighScore(currentMode, stats.score);
-    save.addGold(100);
-    stats.goldCollected += 100;
+    int victoryGold = 100;
+    if (save.cosmicGoldMasteryLevel > 0) {
+      victoryGold = (victoryGold * cosmicGoldRewardMultiplier).round();
+    }
+    save.addGold(victoryGold);
+    stats.goldCollected += victoryGold;
     save.recordAdOrWinQuest();
     audio.playSfx(GameSfx.victory);
   }
@@ -2933,8 +3403,8 @@ class GameController extends ChangeNotifier {
   }
 
   void reviveWithOneLife() {
-    if (hasUsedRevive) return;
-    hasUsedRevive = true;
+    if (!canRevive) return;
+    revivesUsed++;
     stats.lives = 1;
     resetPaddleAndBall();
     status = GameStatus.ready;
@@ -2943,7 +3413,8 @@ class GameController extends ChangeNotifier {
     }
     audio.playSfx(GameSfx.powerupBuff);
     particles.spawnShockwave(screenWidth / 2, paddle.y, const Color(0xFFFF1744), maxRadius: 100.0);
-    particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.45, I18n.tr('second_chance_life'), const Color(0xFFFF1744), isLarge: true);
+    final text = '${I18n.tr('second_chance_life')} ($revivesUsed/$maxRevivesPerGame)';
+    particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.45, text, const Color(0xFFFF1744), isLarge: true);
     notifyListeners();
   }
 

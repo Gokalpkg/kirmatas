@@ -356,16 +356,23 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
               ],
             ),
           ),
-          body: TabBarView(
+          body: Column(
+            children: [
+              _buildActiveSynergyBadge(context, save),
+              Expanded(
+                child: TabBarView(
                   controller: _tabController,
                   physics: const ClampingScrollPhysics(),
                   children: [
-              _buildCratesTab(context, save),
-              _buildBallsTab(context, save),
-              _buildPaddlesTab(context, save),
-              _buildTrailsTab(context, save),
-              _buildBricksTab(context, save),
-              _buildBackgroundsTab(context, save),
+                    _buildCratesTab(context, save),
+                    _buildBallsTab(context, save),
+                    _buildPaddlesTab(context, save),
+                    _buildTrailsTab(context, save),
+                    _buildBricksTab(context, save),
+                    _buildBackgroundsTab(context, save),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -406,6 +413,65 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
   },
 );
 }
+
+  Widget _buildActiveSynergyBadge(BuildContext context, SaveManager save) {
+    final synergy = CosmeticCatalog.getActiveSynergy(
+      save.activePaddle,
+      save.activeBall,
+      save.activeTrail,
+    );
+    final isActive = synergy != CosmeticSynergy.none;
+    final badgeColor = synergy.color;
+
+    return Container(
+      key: const Key('active_cosmetic_synergy_badge'),
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isActive ? badgeColor.withValues(alpha: 0.14) : const Color(0xFF141828),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isActive ? badgeColor.withValues(alpha: 0.65) : Colors.white12,
+          width: isActive ? 1.4 : 1.0,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(synergy.icon, color: badgeColor, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  synergy.nameTr,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isActive ? Colors.white : Colors.white70,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
+                ),
+                Text(
+                  synergy.descriptionTr,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isActive ? badgeColor : Colors.white54,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildCategoryCrateHeader(BuildContext context, SaveManager save, String category) {
     final crateInfo = CategoryCrateInfo.categoryCrates[category]!;

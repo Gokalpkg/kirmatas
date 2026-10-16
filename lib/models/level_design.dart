@@ -1301,6 +1301,9 @@ class LevelDesign {
     final emptyCol1 = (pickupCol + 2) % chaosCols;
     final emptyCol2 = (pickupCol + 4) % chaosCols;
 
+    final bool isBossWaveRow = wave >= 10 && wave % 10 == 0 && row == 0;
+    final int bossCol = (pickupCol + 1) % chaosCols;
+
     for (int c = 0; c < chaosCols; c++) {
       if (c == pickupCol) {
         // Collectible +1 Ball Orb
@@ -1313,8 +1316,31 @@ class LevelDesign {
             hp: 1,
             maxHp: 1,
             isBallPickup: true,
+            type: BrickType.ballPickup,
             color: const Color(0xFF00E5FF),
             points: 10,
+          ),
+        );
+        continue;
+      }
+
+      if (isBossWaveRow && c == bossCol) {
+        final bossHp = 40 + (wave ~/ 10) * 30;
+        bricks.add(
+          Brick(
+            x: chaosMargin + c * (bw + chaosGap),
+            y: y,
+            width: bw,
+            height: chaosBrickH,
+            hp: bossHp,
+            maxHp: bossHp,
+            isBoss: true,
+            type: BrickType.boss,
+            bossVx: 0.0,
+            minX: chaosMargin,
+            maxX: screenWidth - chaosMargin,
+            color: const Color(0xFFFF1744),
+            points: 200,
           ),
         );
         continue;

@@ -20,6 +20,7 @@ import 'shop_view.dart';
 import 'upgrades_view.dart';
 import 'sector_map_view.dart';
 import 'pixel_art.dart';
+import 'tournament_dialog.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -34,6 +35,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   bool _levelAdBusy = false;
   bool _offerBusy = false;
   Timer? _cooldownRefreshTimer;
+  Timer? _autoWheelTimer;
 
   static bool _hasAutoShownWheelThisSession = false;
   final GlobalKey _wheelButtonKey = GlobalKey();
@@ -52,9 +54,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_hasAutoShownWheelThisSession && mounted) {
+      if (!_hasAutoShownWheelThisSession && mounted && _save.isShopUnlocked) {
         _hasAutoShownWheelThisSession = true;
-        Future.delayed(const Duration(milliseconds: 600), () {
+        _autoWheelTimer = Timer(const Duration(milliseconds: 600), () {
           if (mounted && _activeGame == null) {
             _openFortuneWheelWithHero();
           }
@@ -65,13 +67,50 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
   @override
   void dispose() {
+    _autoWheelTimer?.cancel();
     _pageController.dispose();
     _cooldownRefreshTimer?.cancel();
     _activeGame?.removeListener(_onActiveGameTick);
     super.dispose();
   }
 
+  void _showLockedFeedback(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.lock_rounded, color: Color(0xFFFFD54F), size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF161A29),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   void _goToPage(int page) {
+    if (page == 0 && !_save.isShopUnlocked) {
+      _showLockedFeedback('Bu özellik Bölüm 2 seviyesinde açılır.');
+      return;
+    }
+    if (page == 2 && !_save.isAquariumUnlocked) {
+      _showLockedFeedback('Bu özellik Bölüm 5 seviyesinde açılır.');
+      return;
+    }
+    if (page == 3 && !_save.isWorkshopUnlocked) {
+      _showLockedFeedback('Bu özellik Bölüm 3 seviyesinde açılır.');
+      return;
+    }
     if (_pageController.hasClients) {
       _pageController.animateToPage(
         page,
@@ -301,6 +340,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     setState(() {
       _activeGame?.removeListener(_onActiveGameTick);
       _activeGame = GameController()..startNewGame(mode, isResume: isResume, explicitStartLevel: explicitStartLevel);
+      _activeGame!.addListener(_onActiveGameTick);
+    });
+  }
+
+  void _launchDailyBlitz() {
+    AudioManager.instance.isBgmAllowed = false;
+    AudioManager.instance.pauseBgm();
+    setState(() {
+      _activeGame?.removeListener(_onActiveGameTick);
+      _activeGame = GameController()..startDailyBlitz();
       _activeGame!.addListener(_onActiveGameTick);
     });
   }
@@ -832,6 +881,21 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             child: PageView(
               controller: _pageController,
               onPageChanged: (index) {
+                if (index == 0 && !_save.isShopUnlocked) {
+                  _goToPage(1);
+                  _showLockedFeedback('Bu özellik Bölüm 2 seviyesinde açılır.');
+                  return;
+                }
+                if (index == 2 && !_save.isAquariumUnlocked) {
+                  _goToPage(1);
+                  _showLockedFeedback('Bu özellik Bölüm 5 seviyesinde açılır.');
+                  return;
+                }
+                if (index == 3 && !_save.isWorkshopUnlocked) {
+                  _goToPage(1);
+                  _showLockedFeedback('Bu özellik Bölüm 3 seviyesinde açılır.');
+                  return;
+                }
                 if (_currentPage != index) {
                   setState(() {
                     _currentPage = index;
@@ -888,27 +952,83 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           onPressed: _showSettingsDialog,
                         ),
 
-                        Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0x80101320),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: const Color(0x4DFFD54F)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 18),
-                                const SizedBox(width: 6),
-                                Text( '${_save.gold}',
-                                  style: const TextStyle(
-                                    color: Color(0xFFFFD54F),
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 15,
-                                  ),
+                        // Seasonal Title & League Avatar Frame Badge
+                        Flexible(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: GestureDetector(
+                              onTap: () {
+                                if (!_save.isLeagueUnlocked) {
+                                  _showLockedFeedback('Haftalık Lig Bölüm 7 seviyesinde açılır.');
+                                  return;
+                                }
+                                TournamentDialog.show(
+                                  context,
+                                  save: _save,
+                                  onJoinTournament: () => _launchGame(GameMode.classic),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0x99101320),
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(color: _save.leagueTierColor, width: 1.5),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: _save.leagueTierColor.withValues(alpha: 0.35),
+                                      blurRadius: 8,
+                                    ),
+                                  ],
                                 ),
-                              ],
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.military_tech_rounded, color: _save.leagueTierColor, size: 16),
+                                    const SizedBox(width: 5),
+                                    Flexible(
+                                      child: Text(
+                                        _save.seasonalTitle,
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                        style: TextStyle(
+                                          color: _save.leagueTierColor,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 11.5,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
+                        ),
+
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0x80101320),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0x4DFFD54F)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 18),
+                              const SizedBox(width: 5),
+                              Text(
+                                '${_save.gold}',
+                                style: const TextStyle(
+                                  color: Color(0xFFFFD54F),
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -974,13 +1094,17 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                       size: 18,
                                     ),
                                     const SizedBox(width: 8),
-                                    Text(
-                                      _showArcadeModes ? I18n.tr('other_modes_hide') : I18n.tr('other_modes_show'),
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 0.5,
+                                    Flexible(
+                                      child: Text(
+                                        _showArcadeModes ? I18n.tr('other_modes_hide') : I18n.tr('other_modes_show'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.5,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 6),
@@ -1007,7 +1131,14 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     icon: Icons.spa_rounded,
                                     color1: const Color(0xFF00B4D8),
                                     color2: const Color(0xFF0077B6),
-                                    onTap: () => _launchGame(GameMode.zen),
+                                    badge: !_save.isLeagueUnlocked ? '🔒 Bölüm 7' : null,
+                                    onTap: () {
+                                      if (!_save.isLeagueUnlocked) {
+                                        _showLockedFeedback('Bu özellik Bölüm 7 seviyesinde açılır.');
+                                        return;
+                                      }
+                                      _launchGame(GameMode.zen);
+                                    },
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -1033,6 +1164,48 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               color1: const Color(0xFFE040FB),
                               color2: const Color(0xFF7C4DFF),
                               onTap: () => _launchGame(GameMode.shapes),
+                            ),
+                            const SizedBox(height: 10),
+                            _buildArcadeMiniCard(
+                              mode: GameMode.daily,
+                              title: 'GÜNÜN OPERASYONU • GÜNLÜK MÜCADELE',
+                              desc: _save.isDailyBlitzCompletedToday
+                                  ? 'Bugünkü görev tamamlandı! 250 Altın + 3 İnci + 1 Parça alındı.'
+                                  : 'Özel günlük tohumlu bölüm: 250 Altın + 3 İnci + 1 Parça',
+                              icon: Icons.bolt_rounded,
+                              color1: const Color(0xFFFF9100),
+                              color2: const Color(0xFFFF5252),
+                              badge: !_save.isLeagueUnlocked
+                                  ? '🔒 Bölüm 7'
+                                  : (_save.isDailyBlitzCompletedToday ? 'TAMAMLANDI ✓' : '250G + 3İ'),
+                              onTap: () {
+                                if (!_save.isLeagueUnlocked) {
+                                  _showLockedFeedback('Günün Operasyonu Bölüm 7 seviyesinde açılır.');
+                                  return;
+                                }
+                                _launchDailyBlitz();
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                            _buildArcadeMiniCard(
+                              mode: GameMode.classic,
+                              title: 'HAFTALIK LİG ŞAMPİYONASI',
+                              desc: '${_save.seasonalTitle} • 15 Kişilik Lig Grubu & Sıralama',
+                              icon: Icons.military_tech_rounded,
+                              color1: _save.leagueTierColor,
+                              color2: const Color(0xFF1E88E5),
+                              badge: !_save.isLeagueUnlocked ? '🔒 Bölüm 7' : 'LİG SEZONU',
+                              onTap: () {
+                                if (!_save.isLeagueUnlocked) {
+                                  _showLockedFeedback('Haftalık Lig Bölüm 7 seviyesinde açılır.');
+                                  return;
+                                }
+                                TournamentDialog.show(
+                                  context,
+                                  save: _save,
+                                  onJoinTournament: () => _launchGame(GameMode.classic),
+                                );
+                              },
                             ),
                           ],
 
@@ -1120,34 +1293,45 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         const SizedBox(height: 6),
                         Container(height: 1, color: Colors.white10),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
-                            _buildNavButton(
-                              icon: Icons.storefront_rounded,
-                              label: I18n.tr('shop'),
-                              onTap: () => _goToPage(0),
-                            ),
-                            _buildNavButton(
-                              icon: Icons.water_drop_rounded,
-                              label: I18n.tr('aquarium'),
-                              badge: _save.currentAvailableFishGold > 0 ? '' : null,
-                              onTap: () => _goToPage(2),
-                            ),
-                            _buildNavButton(
-                              icon: Icons.assignment_turned_in_rounded,
-                              label: I18n.tr('quests'),
-                              badge: ((_save.questFishFed && !_save.claimedQuests.contains('feed_fish')) ||
-                                      (_save.questBricksBroken >= 100 && !_save.claimedQuests.contains('break_bricks')) ||
-                                      (_save.questAdOrWinDone && !_save.claimedQuests.contains('ad_or_win'))) ? '!' : null,
-                              onTap: () => DailyQuestsDialog.show(
-                                context,
-                                onPlayToday: () => _launchGame(GameMode.daily),
+                            Expanded(
+                              child: _buildNavButton(
+                                icon: Icons.storefront_rounded,
+                                label: I18n.tr('shop'),
+                                badge: !_save.isShopUnlocked ? '🔒 Bölüm 2' : null,
+                                onTap: () => _goToPage(0),
                               ),
                             ),
-                            _buildNavButton(
-                              icon: Icons.auto_awesome_rounded,
-                              label: I18n.tr('upgrades'),
-                              onTap: () => _goToPage(3),
+                            Expanded(
+                              child: _buildNavButton(
+                                icon: Icons.water_drop_rounded,
+                                label: I18n.tr('aquarium'),
+                                badge: !_save.isAquariumUnlocked
+                                    ? '🔒 Bölüm 5'
+                                    : (_save.currentAvailableFishGold > 0 ? '' : null),
+                                onTap: () => _goToPage(2),
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildNavButton(
+                                icon: Icons.assignment_turned_in_rounded,
+                                label: I18n.tr('quests'),
+                                badge: ((_save.questFishFed && !_save.claimedQuests.contains('feed_fish')) ||
+                                        (_save.questBricksBroken >= 100 && !_save.claimedQuests.contains('break_bricks')) ||
+                                        (_save.questAdOrWinDone && !_save.claimedQuests.contains('ad_or_win'))) ? '!' : null,
+                                onTap: () => DailyQuestsDialog.show(
+                                  context,
+                                  onPlayToday: () => _launchGame(GameMode.daily),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildNavButton(
+                                icon: Icons.auto_awesome_rounded,
+                                label: I18n.tr('upgrades'),
+                                badge: !_save.isWorkshopUnlocked ? '🔒 Bölüm 3' : null,
+                                onTap: () => _goToPage(3),
+                              ),
                             ),
                           ],
                         ),
@@ -1197,32 +1381,47 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               builder: (context, _) {
                 final spinsLeft = _save.remainingWheelSpins;
                 final hasSpins = spinsLeft > 0;
+                final isLocked = !_save.isShopUnlocked;
 
                 return _buildFancyRewardButton(
-                  gradientColors: hasSpins
-                      ? const [Color(0xFF0B2135), Color(0xFF160A29)]
-                      : const [Color(0xFF141724), Color(0xFF1A1D2B)],
-                  borderColor: _highlightWheelButton
-                      ? const Color(0xFFFFFF00)
-                      : (hasSpins ? const Color(0xFF00E5FF) : Colors.white12),
+                  gradientColors: isLocked
+                      ? const [Color(0xFF141724), Color(0xFF1A1D2B)]
+                      : (hasSpins
+                          ? const [Color(0xFF0B2135), Color(0xFF160A29)]
+                          : const [Color(0xFF141724), Color(0xFF1A1D2B)]),
+                  borderColor: isLocked
+                      ? Colors.white12
+                      : (_highlightWheelButton
+                          ? const Color(0xFFFFFF00)
+                          : (hasSpins ? const Color(0xFF00E5FF) : Colors.white12)),
                   glowColor: _highlightWheelButton
                       ? const Color(0xFFFFD700)
                       : const Color(0xFF00E5FF),
-                  isGlowing: hasSpins || _highlightWheelButton,
-                  iconGradient: hasSpins
-                      ? const [Color(0xFF00E5FF), Color(0xFFD500F9)]
-                      : const [Color(0xFF455A64), Color(0xFF263238)],
-                  icon: Icons.motion_photos_on_rounded,
-                  iconColor: hasSpins ? Colors.white : Colors.white54,
+                  isGlowing: !isLocked && (hasSpins || _highlightWheelButton),
+                  iconGradient: isLocked
+                      ? const [Color(0xFF455A64), Color(0xFF263238)]
+                      : (hasSpins
+                          ? const [Color(0xFF00E5FF), Color(0xFFD500F9)]
+                          : const [Color(0xFF455A64), Color(0xFF263238)]),
+                  icon: isLocked ? Icons.lock_rounded : Icons.motion_photos_on_rounded,
+                  iconColor: isLocked ? Colors.white54 : (hasSpins ? Colors.white : Colors.white54),
                   title: 'ÇARK',
-                  titleColor: hasSpins ? const Color(0xFF80D8FF) : Colors.white60,
-                  subtitle: hasSpins ? '$spinsLeft/3' : 'Bitti',
-                  subColor: hasSpins ? const Color(0xFF00E5FF) : Colors.white38,
-                  badgeText: hasSpins ? '$spinsLeft' : null,
-                  badgeGradient: hasSpins
-                      ? const [Color(0xFF00E5FF), Color(0xFF7C4DFF)]
-                      : null,
-                  onTap: _openFortuneWheelWithHero,
+                  titleColor: isLocked ? Colors.white60 : (hasSpins ? const Color(0xFF80D8FF) : Colors.white60),
+                  subtitle: isLocked ? 'Kilitli' : (hasSpins ? '$spinsLeft/3' : 'Bitti'),
+                  subColor: isLocked ? Colors.white38 : (hasSpins ? const Color(0xFF00E5FF) : Colors.white38),
+                  badgeText: isLocked ? '🔒 Bölüm 2' : (hasSpins ? '$spinsLeft' : null),
+                  badgeGradient: isLocked
+                      ? const [Color(0xFF455A64), Color(0xFF37474F)]
+                      : (hasSpins
+                          ? const [Color(0xFF00E5FF), Color(0xFF7C4DFF)]
+                          : null),
+                  onTap: () {
+                    if (isLocked) {
+                      _showLockedFeedback('Bu özellik Bölüm 2 seviyesinde açılır.');
+                      return;
+                    }
+                    _openFortuneWheelWithHero();
+                  },
                 );
               },
             ),
@@ -1451,6 +1650,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
   Widget _buildClassicHeroCard() {
     final best = _save.getHighScore(GameMode.classic);
+    final isNewPlayer = _save.highestLevel < 2;
 
     return Container(
       decoration: BoxDecoration(
@@ -1460,8 +1660,15 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(color: Color(0x66FF5722), blurRadius: 18, offset: Offset(0, 6)),
+        border: isNewPlayer
+            ? Border.all(color: const Color(0xFFFFD54F), width: 2.0)
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: isNewPlayer ? const Color(0x99FF5722) : const Color(0x66FF5722),
+            blurRadius: isNewPlayer ? 24 : 18,
+            offset: const Offset(0, 6),
+          ),
         ],
       ),
       child: Material(
@@ -1482,6 +1689,26 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         runSpacing: 6,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
+                          if (isNewPlayer)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF00E676),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: const [
+                                  BoxShadow(color: Color(0x6600E676), blurRadius: 6, offset: Offset(0, 1)),
+                                ],
+                              ),
+                              child: const Text(
+                                '⭐ MACERAYA BAŞLA!',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
@@ -1522,7 +1749,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                'SEKTÖR ${_save.highestUnlockedSector}/14 🗺️',
+                                _save.prestigeTier > 0
+                                    ? 'PRESTİJ ${_save.prestigeTier} • SEKTÖR 14/14 🌌'
+                                    : 'SEKTÖR ${_save.highestUnlockedSector}/14 🗺️',
                                 style: const TextStyle(
                                   color: Colors.black,
                                   fontSize: 10,
@@ -1612,24 +1841,39 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
   Widget _buildChaosHeroCard() {
     final best = _save.getHighScore(GameMode.chaos);
+    final isLocked = !_save.isChaosUnlocked;
 
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFD50000), Color(0xFFFF3D00), Color(0xFFFF6E40)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: isLocked
+            ? const LinearGradient(
+                colors: [Color(0xFF2C2D35), Color(0xFF1E1F26), Color(0xFF14151B)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : const LinearGradient(
+                colors: [Color(0xFFD50000), Color(0xFFFF3D00), Color(0xFFFF6E40)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(color: Color(0x66FF1744), blurRadius: 18, offset: Offset(0, 6)),
-        ],
+        boxShadow: isLocked
+            ? const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))]
+            : const [
+                BoxShadow(color: Color(0x66FF1744), blurRadius: 18, offset: Offset(0, 6)),
+              ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: () => _startOrPromptResume(GameMode.chaos),
+          onTap: () {
+            if (isLocked) {
+              _showLockedFeedback('Bu özellik Bölüm 5 seviyesinde açılır.');
+              return;
+            }
+            _startOrPromptResume(GameMode.chaos);
+          },
           child: Padding(
             padding: const EdgeInsets.all(18),
             child: Row(
@@ -1643,58 +1887,87 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         runSpacing: 6,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.black26,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              I18n.tr('chaos_desc'),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          if (_save.hasSavedGame(GameMode.chaos))
+                          if (isLocked)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xDDFFD54F),
+                                color: const Color(0xFFE53935),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Text( 'BÖLÜM ${_save.chaosSavedLevel} ',
-                                style: const TextStyle(
-                                  color: Colors.black,
+                              child: const Text(
+                                '🔒 BÖLÜM 5',
+                                style: TextStyle(
+                                  color: Colors.white,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 0.5,
                                 ),
                               ),
+                            )
+                          else ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black26,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                I18n.tr('chaos_desc'),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
+                            if (_save.hasSavedGame(GameMode.chaos))
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xDDFFD54F),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  'BÖLÜM ${_save.chaosSavedLevel} ',
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          Text(
-                            I18n.tr('chaos').toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.0,
+                          Flexible(
+                            child: Text(
+                              I18n.tr('chaos').toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: isLocked ? Colors.white60 : Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.0,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Icon(Icons.flash_on_rounded, color: Color(0xFFFFD54F), size: 24),
+                          Icon(
+                            isLocked ? Icons.lock_rounded : Icons.flash_on_rounded,
+                            color: isLocked ? Colors.white38 : const Color(0xFFFFD54F),
+                            size: 24,
+                          ),
                         ],
                       ),
                       if (best > 0) ...[
                         const SizedBox(height: 4),
-                        Text( '${I18n.tr('high_score')}: $best',
+                        Text(
+                          '${I18n.tr('high_score')}: $best',
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 12,
@@ -1708,14 +1981,18 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 Container(
                   width: 58,
                   height: 58,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
+                  decoration: BoxDecoration(
+                    color: isLocked ? Colors.white24 : Colors.white,
                     shape: BoxShape.circle,
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4)),
                     ],
                   ),
-                  child: const Icon(Icons.bolt_rounded, color: Color(0xFFD50000), size: 38),
+                  child: Icon(
+                    isLocked ? Icons.lock_rounded : Icons.bolt_rounded,
+                    color: isLocked ? Colors.white70 : const Color(0xFFD50000),
+                    size: 38,
+                  ),
                 ),
               ],
             ),
@@ -1733,6 +2010,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     required Color color1,
     required Color color2,
     required VoidCallback onTap,
+    String? badge,
   }) {
     final best = _save.getHighScore(mode);
 
@@ -1771,7 +2049,23 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       ),
                       child: Icon(icon, color: Colors.white, size: 20),
                     ),
-                    if (best > 0)
+                    if (badge != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE53935),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          badge,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      )
+                    else if (best > 0)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
@@ -1827,7 +2121,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1862,6 +2156,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             const SizedBox(height: 3),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w800),
             ),
           ],

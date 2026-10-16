@@ -41,6 +41,8 @@ class MatchStats {
   int bricksBroken = 0;
   int goldCollected = 0;
   double ultiCharge = 0.0; // 0.0 to 100.0
+  int diceCharge = 0;
+  int diceChargeMax = 0;
   bool isFever = false;
   double feverTimeLeft = 0.0;
   double bulletTimeLeft = 0.0;
@@ -56,6 +58,8 @@ class MatchStats {
     bricksBroken = 0;
     goldCollected = 0;
     ultiCharge = 0.0;
+    diceCharge = 0;
+    diceChargeMax = 0;
     isFever = false;
     feverTimeLeft = 0.0;
     bulletTimeLeft = 0.0;
