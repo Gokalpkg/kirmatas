@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kırmataş - English Promo Video Studio (1080x1920 60 FPS WebM Exporter)</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @font-face {
+      font-family: 'Rajdhani';
+      src: url('../assets/fonts/Rajdhani-Bold.ttf') format('truetype');
+      font-weight: 700;
+    }
+    @font-face {
+      font-family: 'Rajdhani';
+      src: url('../assets/fonts/Rajdhani-SemiBold.ttf') format('truetype');
+      font-weight: 600;
+    }
+    body {
+      background: #090d16;
+      color: #f1f5f9;
+      font-family: 'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .phone-frame {
+      width: 320px;
+      height: 568px;
+      box-shadow: 0 0 50px rgba(0, 245, 212, 0.25), 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    }
+    @media (min-width: 1200px) {
+      .phone-frame {
+        width: 360px;
+        height: 640px;
+      }
+    }
+    .hud-glow {
+      text-shadow: 0 0 12px rgba(0, 245, 212, 0.6);
+    }
+  </style>
+</head>
+<body class="p-3 md:p-6 min-h-screen flex items-center justify-center select-none">
+  <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-2xl max-w-6xl w-full backdrop-blur-xl">
+    <div class="flex flex-col lg:flex-row gap-6 items-center justify-between">
+      
+      <!-- LEFT: 9:16 Vertical Phone Preview Frame with 1080x1920 HD Canvas -->
+      <div class="relative flex-shrink-0 rounded-[32px] overflow-hidden border-4 border-slate-700/80 phone-frame bg-black group">
+        <!-- Phone Camera Notch / Dynamic Island -->
+        <div class="absolute top-2.5 left-1/2 -translate-x-1/2 w-24 h-4 bg-slate-900/90 rounded-full z-20 pointer-events-none border border-slate-700/50 flex items-center justify-center">
+          <div class="w-2 h-2 rounded-full bg-cyan-500/60 mr-2"></div>
+          <div class="w-1.5 h-1.5 rounded-full bg-slate-700"></div>
+        </div>
+        
+        <!-- Live 1080x1920 Canvas Surface -->
+        <canvas id="adCanvas" width="1080" height="1920" class="w-full h-full block cursor-pointer" title="Click to Play / Pause"></canvas>
+        
+        <!-- Recording Overlay Pill on Phone Preview -->
+        <div id="recIndicator" class="hidden absolute top-4 right-4 bg-rose-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full z-20 flex items-center gap-1 shadow-lg animate-pulse">
+          <span class="w-2 h-2 rounded-full bg-white"></span> REC 60 FPS
+        </div>
+      </div>
+
+      <!-- RIGHT: Interactive Video Studio Control Panel -->
+      <div class="flex-1 flex flex-col justify-between w-full h-auto lg:h-[640px] py-1">
+        <div>
+          <!-- Header Bar -->
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 tracking-wider">
+              🇺🇸 EN PROMO STUDIO (9:16 • 1080p • 60 FPS)
+            </span>
+            <span id="timeDisplay" class="text-sm font-mono font-bold text-cyan-400 hud-glow">00.0s / 18.0s</span>
+          </div>
+
+          <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+            <span>Kırmataş</span>
+            <span class="text-xs font-semibold px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-md">
+              Viral Thought-Experiment & Roguelike Showcase
+            </span>
+          </h1>
+          <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+            Curiosity-driven hook: Kurzgesagt 25,000 mph iron marble drop &rarr; Joe's Diner Corner Deflection &rarr; Real Gameplay, Chaos Perks & Wave-10 Boss.
+          </p>
+
+          <!-- Timeline Scrubber Bar -->
+          <div class="mt-4">
+            <div class="flex justify-between text-[11px] text-slate-400 mb-1 font-semibold">
+              <span>Timeline Progress</span>
+              <span id="pctDisplay">0%</span>
+            </div>
+            <div class="w-full h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-700/80 cursor-pointer relative shadow-inner" id="timelineBar" title="Click to seek">
+              <div id="progressFill" class="h-full bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-amber-400 w-0 transition-none"></div>
+              <!-- Scene Markers -->
+              <div class="absolute top-0 bottom-0 left-[19.4%] w-0.5 bg-slate-600 pointer-events-none" title="3.5s"></div>
+              <div class="absolute top-0 bottom-0 left-[41.6%] w-0.5 bg-slate-600 pointer-events-none" title="7.5s"></div>
+              <div class="absolute top-0 bottom-0 left-[75.0%] w-0.5 bg-slate-600 pointer-events-none" title="13.5s"></div>
+            </div>
+          </div>
+
+          <!-- 4 Scene Jump Buttons -->
+          <div class="grid grid-cols-2 gap-2.5 mt-3.5">
+            <button onclick="jumpTo(0.0)" id="sceneBtn0" class="text-left p-2.5 rounded-xl border border-slate-700/80 bg-slate-800/60 hover:border-cyan-400/70 hover:bg-slate-800 transition shadow">
+              <div class="text-xs font-bold text-cyan-400 flex items-center justify-between">
+                <span>1. SPACE HOOK</span>
+                <span class="text-[10px] text-slate-400 font-mono">0.0 – 3.5s</span>
+              </div>
+              <div class="text-[11px] text-slate-300 truncate mt-0.5">25,000 mph • 5,000°F Fe-56 Marble</div>
+            </button>
+
+            <button onclick="jumpTo(3.5)" id="sceneBtn1" class="text-left p-2.5 rounded-xl border border-slate-700/80 bg-slate-800/60 hover:border-amber-400/70 hover:bg-slate-800 transition shadow">
+              <div class="text-xs font-bold text-amber-400 flex items-center justify-between">
+                <span>2. COSMIC PIVOT</span>
+                <span class="text-[10px] text-slate-400 font-mono">3.5 – 7.5s</span>
+              </div>
+              <div class="text-[11px] text-slate-300 truncate mt-0.5">Joe's Diner • 30 Fireball Obliteration</div>
+            </button>
+
+            <button onclick="jumpTo(7.5)" id="sceneBtn2" class="text-left p-2.5 rounded-xl border border-slate-700/80 bg-slate-800/60 hover:border-fuchsia-400/70 hover:bg-slate-800 transition shadow">
+              <div class="text-xs font-bold text-fuchsia-400 flex items-center justify-between">
+                <span>3. GAMEPLAY</span>
+                <span class="text-[10px] text-slate-400 font-mono">7.5 – 13.5s</span>
+              </div>
+              <div class="text-[11px] text-slate-300 truncate mt-0.5">Ulti Lightning + Chaos Perks + Eco-Tank</div>
+            </button>
+
+            <button onclick="jumpTo(13.5)" id="sceneBtn3" class="text-left p-2.5 rounded-xl border border-slate-700/80 bg-slate-800/60 hover:border-rose-400/70 hover:bg-slate-800 transition shadow">
+              <div class="text-xs font-bold text-rose-400 flex items-center justify-between">
+                <span>4. CHAOS BOSS</span>
+                <span class="text-[10px] text-slate-400 font-mono">13.5 – 18.0s</span>
+              </div>
+              <div class="text-[11px] text-slate-300 truncate mt-0.5">Wave-10 Mecha Boss & Kaunos CTA</div>
+            </button>
+          </div>
+
+          <!-- Active English Narration & Subtitle Monitor -->
+          <div class="mt-3.5 p-3 rounded-2xl bg-slate-950/80 border border-slate-800 shadow-inner">
+            <div class="text-xs font-bold text-cyan-400 mb-1 flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <span>🎙️</span> Synchronized English Voiceover & Captions:
+              </span>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer text-xs text-slate-400 hover:text-slate-200">
+                <input type="checkbox" id="ttsToggle" checked class="accent-cyan-400 w-3.5 h-3.5" />
+                <span>Voice Audio (AudioContext/TTS)</span>
+              </label>
+            </div>
+            <p id="voText" class="text-xs text-slate-200 italic leading-relaxed min-h-[38px] font-sans">
+              "Drop an iron marble from space? 25,000 miles per hour at 5,000 degrees!"
+            </p>
+          </div>
+        </div>
+
+        <!-- Bottom Controls: Playback, Audio & One-Click 1080p WebM Exporter -->
+        <div class="flex flex-col gap-2.5 mt-4">
+          <div class="flex items-center gap-2.5">
+            <button id="playBtn" onclick="togglePlay()" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-cyan-400 hover:bg-cyan-300 text-slate-950 transition flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20">
+              <span id="playIcon">⏸</span> <span id="playLabel">Pause</span>
+            </button>
+            <button onclick="restartVideo()" class="py-2.5 px-4 rounded-xl font-semibold text-xs border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 transition">
+              🔄 Restart
+            </button>
+            <button id="muteBtn" onclick="toggleMute()" class="py-2.5 px-4 rounded-xl font-semibold text-xs border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 transition">
+              🔊 Audio ON
+            </button>
+          </div>
+
+          <!-- One-Click 18s HD WebM Exporter -->
+          <button id="exportBtn" onclick="exportWebMVideo()" class="w-full py-3 px-5 rounded-2xl font-bold text-sm bg-gradient-to-r from-cyan-500 via-fuchsia-600 to-amber-500 hover:opacity-95 text-white transition flex items-center justify-center gap-2.5 shadow-xl shadow-fuchsia-900/30">
+            <span class="text-base">🎥</span>
+            <span id="exportLabel">Record & Download 18s HD Video (.webm / 1080x1920 60 FPS)</span>
+          </button>
+          
+          <div id="exportProgressBarContainer" class="hidden w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-700">
+            <div id="exportProgressFill" class="h-full bg-cyan-400 w-0 transition-all duration-100"></div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>

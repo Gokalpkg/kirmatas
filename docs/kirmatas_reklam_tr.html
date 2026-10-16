@@ -1,0 +1,1692 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kırmataş - Türkçe Reklam Videosu Stüdyosu (1080x1920 • 60 FPS)</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <!-- Base64 Asset Bundle for 100% Offline Portability -->
+  <script src="ad_assets/ad_data_tr.js"></script>
+  <style>
+    @font-face {
+      font-family: 'Rajdhani';
+      font-weight: 700;
+      src: url('../assets/fonts/Rajdhani-Bold.ttf') format('truetype');
+    }
+    @font-face {
+      font-family: 'Rajdhani';
+      font-weight: 600;
+      src: url('../assets/fonts/Rajdhani-SemiBold.ttf') format('truetype');
+    }
+    body {
+      background: radial-gradient(circle at 50% 20%, #0d1326 0%, #060812 100%);
+      font-family: 'Rajdhani', system-ui, -apple-system, sans-serif;
+    }
+    .phone-shadow {
+      box-shadow: 0 0 50px rgba(6, 182, 212, 0.3), 0 20px 40px rgba(0, 0, 0, 0.8);
+    }
+    .neon-border {
+      border: 2px solid rgba(6, 182, 212, 0.6);
+    }
+    .pulse-glow {
+      animation: pulseGlow 2s infinite ease-in-out;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); }
+      50% { box-shadow: 0 0 30px rgba(6, 182, 212, 0.8), 0 0 45px rgba(245, 158, 11, 0.4); }
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen p-4 flex flex-col items-center justify-center select-none">
+
+  <!-- Ana Stüdyo Konteyneri -->
+  <div class="w-full max-w-5xl bg-slate-900/90 border border-slate-800 rounded-3xl p-5 backdrop-blur-xl shadow-2xl">
+    
+    <!-- Üst Başlık & Durum Çubuğu -->
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-3 mb-4">
+      <div class="flex items-center gap-3">
+        <span class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 tracking-wider">
+          🇹🇷 TR REKLAM STÜDYOSU (9:16)
+        </span>
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30">
+          1080x1920 • 60 FPS
+        </span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="fpsBadge" class="text-xs font-mono text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">60.0 FPS</span>
+        <span id="timeDisplay" class="text-sm font-mono font-bold text-cyan-400 bg-slate-950 px-3 py-1 rounded-xl border border-slate-800">00.0s / 18.0s</span>
+      </div>
+    </div>
+
+    <!-- İki Kolonlu Stüdyo Izgarası -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+
+      <!-- SOL: Telefon Mockup ve 1080x1920 Canvas -->
+      <div class="lg:col-span-5 flex justify-center">
+        <div class="relative rounded-[40px] p-2 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-950 phone-shadow neon-border">
+          
+          <!-- Telefon Ekran Çerçevesi (9:16 Aspect Ratio) -->
+          <div class="relative w-[288px] h-[512px] sm:w-[324px] sm:h-[576px] rounded-[32px] overflow-hidden bg-black flex items-center justify-center">
+            
+            <!-- Dinamik Ada / Kamera Çentiği -->
+            <div class="absolute top-2 left-1/2 -translate-x-1/2 w-24 h-4 bg-black rounded-full z-30 flex items-center justify-center gap-2 border border-slate-800/60 pointer-events-none">
+              <div class="w-2 h-2 rounded-full bg-slate-900 border border-slate-700"></div>
+              <div class="w-1.5 h-1.5 rounded-full bg-cyan-950 border border-cyan-800"></div>
+            </div>
+
+            <!-- 1080x1920 HD Master Canvas -->
+            <canvas id="adCanvas" width="1080" height="1920" class="w-full h-full block cursor-pointer object-cover" title="Oynat / Duraklat için tıkla"></canvas>
+
+            <!-- Canlı Kayıt Efekti Göstergesi -->
+            <div id="recIndicator" class="hidden absolute top-4 right-4 z-30 flex items-center gap-1.5 bg-red-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg animate-pulse">
+              <span class="w-2 h-2 rounded-full bg-white"></span> REC
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <!-- SAĞ: Sahne Seçiciler, Ses Kontrolü, Scrubber & HD Exporter -->
+      <div class="lg:col-span-7 flex flex-col justify-between space-y-4">
+        
+        <div>
+          <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+            Kırmataş <span class="text-cyan-400 font-light">—</span> <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-amber-300 to-rose-400">"Hasan Usta & Kaos"</span>
+          </h1>
+          <p class="text-xs text-slate-400 mt-1">
+            Kurzgesagt Uzay Kancası (40.000 km/h) ➔ İzmir Hasan Usta Süper Köşe Vuruşu ➔ 30x Ateş Topu & Gerçek Kırmataş Oynanışı.
+          </p>
+        </div>
+
+        <!-- İnteraktif Zaman Çizgisi (Scrubber) -->
+        <div class="space-y-1.5 bg-slate-950/70 p-3 rounded-2xl border border-slate-800">
+          <div class="flex justify-between text-xs text-slate-400 font-semibold">
+            <span>⏱️ Zaman Çizgisi (Sürükle / Tıkla)</span>
+            <span id="scrubTime" class="font-mono text-cyan-300">00.0s</span>
+          </div>
+          <div id="timelineContainer" class="relative w-full h-3 bg-slate-800 rounded-full cursor-pointer overflow-hidden border border-slate-700/60">
+            <div id="progressFill" class="h-full bg-gradient-to-r from-cyan-400 via-amber-400 to-rose-500 w-0 transition-none"></div>
+            <!-- Sahne Kırılım Noktaları -->
+            <div class="absolute top-0 bottom-0 left-[19.4%] w-0.5 bg-white/40 pointer-events-none" title="3.5s Hasan Usta"></div>
+            <div class="absolute top-0 bottom-0 left-[41.6%] w-0.5 bg-white/40 pointer-events-none" title="7.5s Oynanış"></div>
+            <div class="absolute top-0 bottom-0 left-[75.0%] w-0.5 bg-white/40 pointer-events-none" title="13.5s Boss & CTA"></div>
+          </div>
+        </div>
+
+        <!-- 4 Sahne Hızlı Atlama Düğmeleri -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <button onclick="jumpTo(0.0)" id="btnScene0" class="group p-2.5 text-left rounded-2xl bg-slate-950 border border-slate-800 hover:border-cyan-400/80 transition-all shadow">
+            <div class="text-xs font-bold text-cyan-400 group-hover:text-cyan-300">1. UZAY KANCASI (0.0s)</div>
+            <div class="text-[11px] text-slate-400">Kurzgesagt & 40.000 km/h Bilye</div>
+          </button>
+          
+          <button onclick="jumpTo(3.5)" id="btnScene1" class="group p-2.5 text-left rounded-2xl bg-slate-950 border border-slate-800 hover:border-amber-400/80 transition-all shadow">
+            <div class="text-xs font-bold text-amber-400 group-hover:text-amber-300">2. HASAN USTA (3.5s)</div>
+            <div class="text-[11px] text-slate-400">Süper Köşe & 30x Ateş Topu</div>
+          </button>
+
+          <button onclick="jumpTo(7.5)" id="btnScene2" class="group p-2.5 text-left rounded-2xl bg-slate-950 border border-slate-800 hover:border-purple-400/80 transition-all shadow">
+            <div class="text-xs font-bold text-purple-400 group-hover:text-purple-300">3. GERÇEK OYNANIŞ (7.5s)</div>
+            <div class="text-[11px] text-slate-400">Ulti Silme • Kaos Kart • Akvaryum</div>
+          </button>
+
+          <button onclick="jumpTo(13.5)" id="btnScene3" class="group p-2.5 text-left rounded-2xl bg-slate-950 border border-slate-800 hover:border-rose-400/80 transition-all shadow">
+            <div class="text-xs font-bold text-rose-400 group-hover:text-rose-300">4. KAOS BOSS & CTA (13.5s)</div>
+            <div class="text-[11px] text-slate-400">10. Dalga Boss & Kaunos End Card</div>
+          </button>
+        </div>
+
+        <!-- Canlı Altyazı ve Seslendirme Durumu -->
+        <div class="bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
+          <div class="flex items-center justify-between text-xs font-bold text-slate-300 mb-1">
+            <span class="flex items-center gap-1.5 text-cyan-400">
+              🎙️ <span>Türkçe Seslendirme (Tolga) & TikTok Altyazı:</span>
+            </span>
+            <label class="inline-flex items-center gap-1.5 cursor-pointer text-xs text-slate-400 hover:text-white">
+              <input type="checkbox" id="voiceToggle" checked class="accent-cyan-400 rounded cursor-pointer" />
+              <span>Seslendirme Aktif</span>
+            </label>
+          </div>
+          <p id="captionBox" class="text-xs italic text-amber-200/90 min-h-[36px] flex items-center leading-relaxed">
+            "Uzaydan demir bilye bıraksan ne olur? Saatte 40 bin kilometre hız ve 3 bin derece ısı!"
+          </p>
+        </div>
+
+        <!-- Oynatma & Ses Kontrolleri -->
+        <div class="flex items-center gap-2">
+          <button id="playBtn" onclick="togglePlay()" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20">
+            <span id="playIcon">⏸</span> <span id="playLabel">Duraklat</span>
+          </button>
+          <button onclick="restartVideo()" class="py-2.5 px-4 rounded-xl font-semibold text-xs bg-slate-800 hover:bg-slate-700 text-white transition flex items-center gap-1.5 border border-slate-700">
+            🔄 Baştan
+          </button>
+          <button id="muteBtn" onclick="toggleMute()" class="py-2.5 px-4 rounded-xl font-semibold text-xs bg-slate-800 hover:bg-slate-700 text-white transition flex items-center gap-1.5 border border-slate-700">
+            🔊 Ses Açık
+          </button>
+        </div>
+
+        <!-- 1080x1920 60 FPS WebM Video Kaydedici Butonu & İlerleme Çubuğu -->
+        <div class="space-y-2">
+          <button id="exportBtn" onclick="exportWebMVideo()" class="w-full py-3.5 px-5 rounded-2xl font-black text-sm bg-gradient-to-r from-amber-500 via-rose-500 to-cyan-500 hover:from-amber-400 hover:via-rose-400 hover:to-cyan-400 text-slate-950 transition-all flex items-center justify-center gap-2.5 shadow-xl shadow-rose-900/30 pulse-glow">
+            <span class="text-base">🎥</span>
+            <span id="exportLabel">18 Sn HD Videoyu Kaydet & İndir (.webm / 1080x1920 • 60 FPS)</span>
+          </button>
+
+          <!-- Dışa Aktarma İlerleme Çubuğu -->
+          <div id="exportProgressBox" class="hidden bg-slate-950 p-2.5 rounded-xl border border-rose-500/40">
+            <div class="flex justify-between text-xs font-mono text-rose-300 mb-1">
+              <span id="exportStatusText">🔴 Kaydediliyor...</span>
+              <span id="exportPercentText">%0</span>
+            </div>
+            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+              <div id="exportProgressBar" class="h-full bg-rose-500 w-0 transition-all"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Gizli Görsel Yükleyiciler (ad_assets/ üzerinden doğrudan DOM referansı) -->
+  <div class="hidden">
+    <img id="img_game_canvas_action" src="ad_assets/game_canvas_action.png" alt="" />
+    <img id="img_chaos_perks" src="ad_assets/chaos_perks.png" alt="" />
+    <img id="img_aquarium_view" src="ad_assets/aquarium_view.png" alt="" />
+    <img id="img_shop_synergies" src="ad_assets/shop_synergies.png" alt="" />
+    <img id="img_tournament_league" src="ad_assets/tournament_league.png" alt="" />
+    <img id="img_chaos_boss" src="ad_assets/chaos_boss.png" alt="" />
+    <img id="img_kaunos_games" src="../assets/images/kaunos_games.png" alt="" />
+  </div>
+
+<script>
+// ============================================================================
+// KIRMATAS 1080x1920 60 FPS TURKISH PROMO VIDEO STUDIO & EXPORTER
+// ============================================================================
+
+const canvas = document.getElementById('adCanvas');
+const ctx = canvas.getContext('2d');
+const W = 1080, H = 1920;
+const DURATION = 18.0;
+
+let currentTime = 0;
+let isPlaying = true;
+let isMuted = false;
+let isRecording = false;
+let lastFrameTime = performance.now();
+let fpsSmoothed = 60;
+let currentVoiceScene = -1;
+
+// ----------------------------------------------------------------------------
+// 1. ASSET CACHE & DATA URI RESOLVER (100% Offline Portability)
+// ----------------------------------------------------------------------------
+const ASSETS = {
+  images: {},
+  audioBuffers: {}
+};
+
+function getAssetDataUri(key) {
+  if (window.AD_ASSETS && window.AD_ASSETS[key]) {
+    return window.AD_ASSETS[key];
+  }
+  return null;
+}
+
+function initImages() {
+  const imageKeys = [
+    'game_canvas_action', 'chaos_perks', 'aquarium_view',
+    'shop_synergies', 'tournament_league', 'chaos_boss', 'kaunos_games'
+  ];
+
+  imageKeys.forEach(key => {
+    const img = new Image();
+    const dataUri = getAssetDataUri(key);
+    if (dataUri) {
+      img.src = dataUri;
+    } else {
+      const el = document.getElementById('img_' + key);
+      if (el) img.src = el.src;
+    }
+    ASSETS.images[key] = img;
+  });
+}
+initImages();
+
+// ----------------------------------------------------------------------------
+// 2. WEB AUDIO API MASTER GRAPH (BGM + 5 SFX + Voiceover + 71% Ducking)
+// ----------------------------------------------------------------------------
+let audioCtx = null;
+let audioDest = null;
+let masterGain = null;
+let sfxGain = null;
+let voiceGain = null;
+let bgmGain = null;
+let bgmNode = null;
+let isVoiceDucked = false;
+
+function initAudioGraph() {
+  if (audioCtx) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+
+  audioCtx = new AC();
+  audioDest = audioCtx.createMediaStreamDestination();
+
+  masterGain = audioCtx.createGain();
+  masterGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+  masterGain.connect(audioCtx.destination);
+  masterGain.connect(audioDest);
+
+  sfxGain = audioCtx.createGain();
+  sfxGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
+  sfxGain.connect(masterGain);
+
+  voiceGain = audioCtx.createGain();
+  voiceGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+  voiceGain.connect(masterGain);
+
+  bgmGain = audioCtx.createGain();
+  bgmGain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+  bgmGain.connect(masterGain);
+
+  decodePreloadedAudio();
+  startSynthBgm();
+}
+
+// Convert base64 data URI to ArrayBuffer for Web Audio decoding
+function dataUriToArrayBuffer(dataUri) {
+  const binary = atob(dataUri.split(',')[1]);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+function decodePreloadedAudio() {
+  if (!audioCtx || !window.AD_ASSETS) return;
+
+  const audioKeys = [
+    'cam_kirilma', 'glass_shatter', 'custom_laser',
+    'custom_explosion', 'custom_bounce',
+    'voice_scene1', 'voice_scene2', 'voice_scene3', 'voice_scene4'
+  ];
+
+  audioKeys.forEach(key => {
+    if (window.AD_ASSETS[key]) {
+      try {
+        const buf = dataUriToArrayBuffer(window.AD_ASSETS[key]);
+        audioCtx.decodeAudioData(buf.slice(0), decoded => {
+          ASSETS.audioBuffers[key] = decoded;
+        }, err => {
+          console.warn('Decode error for ' + key, err);
+        });
+      } catch (e) {
+        console.warn('Error parsing base64 for ' + key, e);
+      }
+    }
+  });
+}
+
+function playAudioBuffer(key, targetGainNode = sfxGain, volume = 1.0) {
+  if (isMuted || !audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  const buffer = ASSETS.audioBuffers[key];
+  if (buffer) {
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(volume, audioCtx.currentTime);
+    src.connect(g);
+    g.connect(targetGainNode);
+    src.start();
+    return src;
+  }
+  return null;
+}
+
+// Dynamic 71% BGM Ducking during voiceover
+function setVoiceoverDucking(active) {
+  if (!bgmGain || !audioCtx) return;
+  isVoiceDucked = active;
+  const now = audioCtx.currentTime;
+  const target = active ? 0.10 : 0.35; // 71% ducking
+  bgmGain.gain.cancelScheduledValues(now);
+  bgmGain.gain.linearRampToValueAtTime(target, now + 0.18);
+}
+
+// Procedural high-energy Phonk/Synthwave BGM loop
+function startSynthBgm() {
+  if (!audioCtx) return;
+  const bpm = 128;
+  const beatInterval = 60 / bpm; // 0.46875s
+  let beatCounter = 0;
+
+  setInterval(() => {
+    if (isMuted || !isPlaying || !audioCtx) return;
+    if (audioCtx.state === 'suspended') return;
+
+    const t = audioCtx.currentTime;
+    const isKick = (beatCounter % 2 === 0);
+    const isSnare = (beatCounter % 4 === 2);
+    
+    // Bass note sweep
+    const bassOsc = audioCtx.createOscillator();
+    const bassGain = audioCtx.createGain();
+    bassOsc.type = 'sawtooth';
+    const notes = [55, 55, 65.4, 73.4, 82.4, 73.4, 65.4, 49.0];
+    const freq = notes[beatCounter % notes.length];
+    bassOsc.frequency.setValueAtTime(freq, t);
+    bassGain.gain.setValueAtTime(0.22, t);
+    bassGain.gain.exponentialRampToValueAtTime(0.01, t + beatInterval * 0.9);
+    bassOsc.connect(bassGain);
+    bassGain.connect(bgmGain);
+    bassOsc.start(t);
+    bassOsc.stop(t + beatInterval * 0.9);
+
+    if (isKick) {
+      const kickOsc = audioCtx.createOscillator();
+      const kickG = audioCtx.createGain();
+      kickOsc.frequency.setValueAtTime(140, t);
+      kickOsc.frequency.exponentialRampToValueAtTime(38, t + 0.12);
+      kickG.gain.setValueAtTime(0.45, t);
+      kickG.gain.exponentialRampToValueAtTime(0.01, t + 0.14);
+      kickOsc.connect(kickG);
+      kickG.connect(bgmGain);
+      kickOsc.start(t);
+      kickOsc.stop(t + 0.14);
+    }
+
+    beatCounter++;
+  }, beatInterval * 1000);
+}
+
+// Fallback Procedural SFX Generators
+function playSynthTone(freq, duration, type = 'sine', vol = 0.18, slide = null) {
+  if (isMuted || !audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  if (slide) osc.frequency.exponentialRampToValueAtTime(slide, audioCtx.currentTime + duration);
+  g.gain.setValueAtTime(vol, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+  osc.connect(g);
+  g.connect(sfxGain);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function playSubBassDrop() {
+  if (isMuted || !audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(95, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(32, audioCtx.currentTime + 0.8);
+  g.gain.setValueAtTime(0.85, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.9);
+  osc.connect(g);
+  g.connect(sfxGain);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.9);
+}
+
+// ----------------------------------------------------------------------------
+// 3. SYNCHRONIZED SCENE VOICEOVER & TIKTOK CAPTIONS ENGINE
+// ----------------------------------------------------------------------------
+const scenes = [
+  {
+    id: 0,
+    start: 0.0,
+    end: 3.5,
+    audioKey: 'voice_scene1',
+    text: "Uzaydan demir bilye bıraksan ne olur? Saatte 40 bin kilometre hız ve 3 bin derece ısı!",
+    words: [
+      { text: "Uzaydan", start: 0.0, end: 0.42 },
+      { text: "demir", start: 0.42, end: 0.78 },
+      { text: "bilye", start: 0.78, end: 1.15 },
+      { text: "bıraksan", start: 1.15, end: 1.55 },
+      { text: "ne", start: 1.55, end: 1.75 },
+      { text: "olur?", start: 1.75, end: 2.05 },
+      { text: "Saatte", start: 2.05, end: 2.38 },
+      { text: "40.000 km", start: 2.38, end: 2.85 },
+      { text: "hız!", start: 2.85, end: 3.35 }
+    ]
+  },
+  {
+    id: 1,
+    start: 3.5,
+    end: 7.5,
+    audioKey: 'voice_scene2',
+    text: "Krater mi açacak? Hayır! Hasan Usta süper köşe vuruşuyla 30 ateş topuna böldü!",
+    words: [
+      { text: "Krater", start: 3.5, end: 3.85 },
+      { text: "mi?", start: 3.85, end: 4.15 },
+      { text: "HAYIR!", start: 4.15, end: 4.75 },
+      { text: "Hasan", start: 4.75, end: 5.15 },
+      { text: "Usta", start: 5.15, end: 5.50 },
+      { text: "süper", start: 5.50, end: 5.85 },
+      { text: "köşe", start: 5.85, end: 6.15 },
+      { text: "vuruşuyla", start: 6.15, end: 6.65 },
+      { text: "30", start: 6.65, end: 6.95 },
+      { text: "ATEŞ", start: 6.95, end: 7.20 },
+      { text: "TOPU!", start: 7.20, end: 7.49 }
+    ]
+  },
+  {
+    id: 2,
+    start: 7.5,
+    end: 13.5,
+    audioKey: 'voice_scene3',
+    text: "Tek dokunuşla Ulti şimşeği, 3'lü Kaos kartları ve kendi zen akvaryumun!",
+    words: [
+      { text: "Tek", start: 7.5, end: 7.85 },
+      { text: "dokunuşla", start: 7.85, end: 8.35 },
+      { text: "Ulti", start: 8.35, end: 8.75 },
+      { text: "şimşeği,", start: 8.75, end: 9.35 },
+      { text: "3'lü", start: 9.35, end: 9.75 },
+      { text: "Kaos", start: 9.75, end: 10.15 },
+      { text: "kartları", start: 10.15, end: 10.75 },
+      { text: "ve", start: 10.75, end: 11.05 },
+      { text: "kendi", start: 11.05, end: 11.45 },
+      { text: "zen", start: 11.45, end: 11.85 },
+      { text: "akvaryumun!", start: 11.85, end: 12.65 }
+    ]
+  },
+  {
+    id: 3,
+    start: 13.5,
+    end: 18.0,
+    audioKey: 'voice_scene4',
+    text: "10. dalga Kaos Boss'unu geçebilir misin? Kırmataş'ı hemen ücretsiz indir, stresini sıfırla!",
+    words: [
+      { text: "10.", start: 13.5, end: 13.85 },
+      { text: "dalga", start: 13.85, end: 14.25 },
+      { text: "Kaos", start: 14.25, end: 14.65 },
+      { text: "Boss'unu", start: 14.65, end: 15.15 },
+      { text: "geçebilir", start: 15.15, end: 15.65 },
+      { text: "misin?", start: 15.65, end: 16.05 },
+      { text: "Kırmataş'ı", start: 16.05, end: 16.65 },
+      { text: "hemen", start: 16.65, end: 17.05 },
+      { text: "ücretsiz", start: 17.05, end: 17.45 },
+      { text: "indir!", start: 17.45, end: 17.95 }
+    ]
+  }
+];
+
+function triggerSceneAudio(sceneIdx) {
+  if (isMuted || !document.getElementById('voiceToggle').checked) return;
+  initAudioGraph();
+
+  const sc = scenes[sceneIdx];
+  if (!sc) return;
+
+  setVoiceoverDucking(true);
+
+  // If buffer available, play through Web Audio (captured into WebM!)
+  const played = playAudioBuffer(sc.audioKey, voiceGain, 1.0);
+  if (!played && 'speechSynthesis' in window) {
+    // Fallback to Web Speech API preview
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(sc.text);
+    u.lang = 'tr-TR';
+    u.rate = 1.35;
+    u.pitch = 1.02;
+    u.onend = () => setVoiceoverDucking(false);
+    window.speechSynthesis.speak(u);
+  } else if (played) {
+    // Reset ducking after buffer length
+    setTimeout(() => {
+      setVoiceoverDucking(false);
+    }, (sc.end - sc.start) * 1000);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 4. ENTITY SYSTEMS & PARTICLES (Max 350 Object Pool)
+// ----------------------------------------------------------------------------
+const stars = [];
+for (let i = 0; i < 140; i++) {
+  stars.push({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    r: Math.random() < 0.7 ? 1.5 : (Math.random() < 0.9 ? 3.0 : 4.5),
+    layer: Math.floor(Math.random() * 3) + 1,
+    twinkle: Math.random() * Math.PI * 2
+  });
+}
+
+const particles = [];
+const shockwaves = [];
+const floatingTexts = [];
+const fireballs = [];
+const bricks = [];
+
+function initBricks() {
+  bricks.length = 0;
+  const cols = 7, rows = 8;
+  const padX = 75, startY = 460;
+  const bw = (W - padX * 2 - (cols - 1) * 14) / cols;
+  const bh = 56;
+  const colors = ['#00f5d4', '#ff2a85', '#fee440', '#9b5de5', '#00bbf9', '#ff5500'];
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      bricks.push({
+        x: padX + c * (bw + 14),
+        y: startY + r * (bh + 14),
+        w: bw,
+        h: bh,
+        color: colors[(r + c) % colors.length],
+        hp: r < 2 ? 2 : 1,
+        maxHp: r < 2 ? 2 : 1,
+        alive: true,
+        isDynamite: (r === 3 && (c === 2 || c === 4))
+      });
+    }
+  }
+}
+initBricks();
+
+function spawnExplosion(x, y, color, count = 24) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 4 + Math.random() * 20;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size: 5 + Math.random() * 12,
+      color,
+      alpha: 1.0,
+      decay: 0.02 + Math.random() * 0.025
+    });
+  }
+}
+
+function spawnShockwave(x, y, color = '#ffd700', maxR = 260) {
+  shockwaves.push({ x, y, r: 10, maxR, color, alpha: 1.0 });
+}
+
+function spawnFloatingText(text, x, y, color = '#ffd700', size = 56) {
+  floatingTexts.push({ text, x, y, color, size, alpha: 1.0, vy: -3.5 });
+}
+
+// ----------------------------------------------------------------------------
+// 5. VECTOR GRAPHIC HELPERS (Kurzgesagt Style & 3D Tactile)
+// ----------------------------------------------------------------------------
+function drawRoundedRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawStarGlint(cx, cy, r, angle, color = '#ffffff') {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(0, -r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.quadraticCurveTo(0, 0, 0, r);
+  ctx.quadraticCurveTo(0, 0, -r, 0);
+  ctx.quadraticCurveTo(0, 0, 0, -r);
+  ctx.fill();
+  ctx.restore();
+}
+
+// ----------------------------------------------------------------------------
+// 6. SCENE 1: KURZGESAGT VECTOR HOOK (0.0s – 3.5s)
+// ----------------------------------------------------------------------------
+function renderScene1(t) {
+  // Deep cosmic void
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, '#030514');
+  bgGrad.addColorStop(0.6, '#080c26');
+  bgGrad.addColorStop(1, '#050718');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Parallax starfield (3 layers accelerating downward as camera plunges)
+  const plungeSpeed = 30 + Math.pow(t / 3.5, 2.5) * 350;
+  stars.forEach(st => {
+    st.y = (st.y + st.layer * plungeSpeed * 0.016) % H;
+    const alpha = 0.5 + 0.5 * Math.sin(t * 4 + st.twinkle);
+    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Procedural vector Earth curvature (approaching from bottom)
+  const earthY = 2800 - (t / 3.5) * 850;
+  const earthRadius = 1350;
+
+  // 5-Stage atmospheric limb glow (#00f5d4, #38bdf8, #4338ca, #ffffff)
+  const limbGrad = ctx.createRadialGradient(W / 2, earthY, earthRadius * 0.92, W / 2, earthY, earthRadius * 1.04);
+  limbGrad.addColorStop(0.00, 'rgba(15, 23, 42, 1.0)');     // Terrestrial surface
+  limbGrad.addColorStop(0.35, 'rgba(67, 56, 202, 0.95)');    // Stratosphere #4338ca
+  limbGrad.addColorStop(0.65, 'rgba(56, 189, 248, 0.85)');    // Mesosphere #38bdf8
+  limbGrad.addColorStop(0.85, 'rgba(0, 245, 212, 0.75)');    // Exosphere #00f5d4
+  limbGrad.addColorStop(1.00, 'rgba(255, 255, 255, 0.0)');   // Vacuum
+  
+  ctx.fillStyle = limbGrad;
+  ctx.beginPath();
+  ctx.arc(W / 2, earthY, earthRadius * 1.04, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Continental landmasses (procedural green vector bezier patches)
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(W / 2, earthY, earthRadius * 0.98, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = '#059669';
+  ctx.beginPath();
+  ctx.ellipse(W / 2 - 200, earthY - 950, 280, 160, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#10b981';
+  ctx.beginPath();
+  ctx.ellipse(W / 2 + 350, earthY - 920, 220, 140, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Vector Satellite / Release Mechanism (0.0s - 1.2s)
+  if (t < 1.6) {
+    const satAlpha = Math.max(0, 1 - (t - 0.8) / 0.8);
+    ctx.save();
+    ctx.globalAlpha = satAlpha;
+    const satX = 760 - t * 80;
+    const satY = 420 + t * 40;
+
+    // Solar panels
+    ctx.fillStyle = '#0284c7';
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 3;
+    drawRoundedRect(satX - 160, satY - 25, 90, 50, 6);
+    ctx.fill(); ctx.stroke();
+    drawRoundedRect(satX + 70, satY - 25, 90, 50, 6);
+    ctx.fill(); ctx.stroke();
+
+    // Satellite body (Gold Foil)
+    ctx.fillStyle = '#f59e0b';
+    ctx.strokeStyle = '#fbbf24';
+    drawRoundedRect(satX - 60, satY - 40, 120, 80, 12);
+    ctx.fill(); ctx.stroke();
+
+    // Telemetry antenna & blinking LED
+    ctx.fillStyle = '#22c55e';
+    ctx.beginPath();
+    ctx.arc(satX, satY - 50, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Chrome Fe-56 Iron Marble (14g) Position & Trajectory
+  const marbleProgress = Math.min(1.0, t / 3.5);
+  const mx = 540;
+  const my = 480 + Math.pow(marbleProgress, 2.4) * 980;
+  const mr = 42 + marbleProgress * 28;
+
+  // Supersonic Mach 32 Bow Shock Cone & Shock Rings (t >= 1.6s)
+  if (t >= 1.6) {
+    const shockIntensity = Math.min(1.0, (t - 1.6) / 1.4);
+    
+    // Expanding Mach shock rings
+    const ringPhase = (t * 8) % 1.0;
+    ctx.strokeStyle = `rgba(0, 245, 212, ${ (1 - ringPhase) * 0.7 * shockIntensity })`;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(mx, my - ringPhase * 160, mr * (1.2 + ringPhase * 2.2), 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Supersonic Bow Shock Flame Cone
+    const flameGrad = ctx.createRadialGradient(mx, my + mr * 0.4, mr * 0.8, mx, my - mr * 2.2, mr * 3.5);
+    flameGrad.addColorStop(0.0, 'rgba(255, 255, 255, 0.95)');
+    flameGrad.addColorStop(0.2, 'rgba(0, 245, 212, 0.85)');
+    flameGrad.addColorStop(0.5, 'rgba(244, 63, 94, 0.75)');
+    flameGrad.addColorStop(0.8, 'rgba(255, 85, 0, 0.45)');
+    flameGrad.addColorStop(1.0, 'rgba(255, 85, 0, 0.0)');
+
+    ctx.fillStyle = flameGrad;
+    ctx.beginPath();
+    ctx.moveTo(mx - mr * 2.8, my - mr * 2.5);
+    ctx.quadraticCurveTo(mx - mr * 2.0, my + mr * 1.5, mx, my + mr * 2.0);
+    ctx.quadraticCurveTo(mx + mr * 2.0, my + mr * 1.5, mx + mr * 2.8, my - mr * 2.5);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Chrome Fe-56 Marble Specular Sphere
+  const chromeGrad = ctx.createRadialGradient(mx - mr * 0.35, my - mr * 0.35, mr * 0.08, mx, my, mr);
+  chromeGrad.addColorStop(0.0, '#ffffff');
+  chromeGrad.addColorStop(0.3, '#cbd5e1');
+  chromeGrad.addColorStop(0.7, '#475569');
+  chromeGrad.addColorStop(0.9, '#1e293b');
+  chromeGrad.addColorStop(1.0, '#0f172a');
+
+  ctx.fillStyle = chromeGrad;
+  ctx.beginPath();
+  ctx.arc(mx, my, mr, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Specular rotating star glint
+  drawStarGlint(mx - mr * 0.35, my - mr * 0.35, mr * 0.9, t * 2.5, '#ffffff');
+
+  // Specular rim stroke
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Kurzgesagt Infographic Floating Callout Bracket
+  if (t < 2.8) {
+    ctx.save();
+    ctx.strokeStyle = '#00f5d4';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(mx + mr + 20, my - 30);
+    ctx.lineTo(mx + mr + 80, my - 60);
+    ctx.lineTo(mx + mr + 260, my - 60);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 32px sans-serif';
+    ctx.fillText('Fe-56 BİLYE (14g)', mx + mr + 90, my - 70);
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '600 24px sans-serif';
+    ctx.fillText('SAF KROM DEMİR', mx + mr + 90, my - 25);
+    ctx.restore();
+  }
+
+  // Speedometer Gauge (0 -> 40,000 km/h) & Thermometer Gauge (0 -> 3,000°C)
+  const speed = Math.min(40000, Math.floor(Math.pow(Math.max(0, t - 0.4) / 3.0, 2.3) * 40000));
+  const temp = Math.min(3000, Math.floor(Math.pow(Math.max(0, t - 0.4) / 3.0, 2.0) * 3000));
+
+  // Speedometer HUD Card (Top-Left)
+  drawRoundedRect(50, 70, 460, 160, 24);
+  ctx.fillStyle = 'rgba(6, 11, 26, 0.88)';
+  ctx.fill();
+  ctx.strokeStyle = '#00f5d4';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '700 24px sans-serif';
+  ctx.fillText('GİRİŞ HIZI (MACH 32)', 80, 115);
+  ctx.fillStyle = speed > 30000 ? '#f43f5e' : (speed > 15000 ? '#f59e0b' : '#00f5d4');
+  ctx.font = '900 56px sans-serif';
+  ctx.fillText(speed.toLocaleString('tr-TR') + ' km/h', 80, 185);
+
+  // Thermometer HUD Card (Top-Right)
+  drawRoundedRect(570, 70, 460, 160, 24);
+  ctx.fillStyle = 'rgba(6, 11, 26, 0.88)';
+  ctx.fill();
+  ctx.strokeStyle = temp > 2000 ? '#f43f5e' : '#f59e0b';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '700 24px sans-serif';
+  ctx.fillText('SÜRTÜNME ISISI', 600, 115);
+  ctx.fillStyle = temp > 2000 ? '#f43f5e' : '#f59e0b';
+  ctx.font = '900 56px sans-serif';
+  ctx.fillText(temp.toLocaleString('tr-TR') + ' °C', 600, 185);
+}
+
+// ----------------------------------------------------------------------------
+// 7. SCENE 2: HASAN USTA COMEDIC PIVOT & 30x FIREBALLS (3.5s – 7.5s)
+// ----------------------------------------------------------------------------
+let scene2FlashTriggered = false;
+let scene2FireballsSpawned = false;
+
+function renderScene2(t) {
+  const localT = t - 3.5;
+
+  // İzmir Ground Zero & Skyline Background
+  const cityGrad = ctx.createLinearGradient(0, 0, 0, H);
+  cityGrad.addColorStop(0, '#0a0f1d');
+  cityGrad.addColorStop(0.5, '#1e1b4b');
+  cityGrad.addColorStop(0.85, '#311028');
+  cityGrad.addColorStop(1, '#0f051d');
+  ctx.fillStyle = cityGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Cloud Plunge / Dispersal (3.5s – 4.3s)
+  if (localT < 0.9) {
+    const cloudAlpha = 1.0 - localT / 0.9;
+    ctx.fillStyle = `rgba(255, 255, 255, ${cloudAlpha * 0.75})`;
+    for (let c = 0; c < 8; c++) {
+      ctx.beginPath();
+      ctx.arc(W * (c / 7), 200 + c * 40, 180, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Stylized İzmir Saat Kulesi (Konak Clock Tower) Silhouette in distance
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath();
+  ctx.rect(140, 1050, 90, 420);
+  ctx.rect(120, 920, 130, 130);
+  ctx.rect(150, 780, 70, 140);
+  ctx.moveTo(185, 700); ctx.lineTo(150, 780); ctx.lineTo(220, 780);
+  ctx.fill();
+
+  // Clock Face
+  ctx.fillStyle = '#fde047';
+  ctx.beginPath();
+  ctx.arc(185, 985, 30, 0, Math.PI * 2);
+  ctx.fill();
+
+  // İzmir Kumrucusu Hasan Usta (1984) Neon Storefront Sign
+  drawRoundedRect(280, 1160, 520, 190, 24);
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+  ctx.fill();
+  const neonGlow = 0.7 + 0.3 * Math.sin(t * 12);
+  ctx.strokeStyle = `rgba(244, 63, 94, ${neonGlow})`;
+  ctx.lineWidth = 5;
+  ctx.stroke();
+
+  ctx.fillStyle = '#fde047';
+  ctx.font = '900 42px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#f43f5e';
+  ctx.shadowBlur = 18;
+  ctx.fillText('İZMİR KUMRUCUSU', 540, 1225);
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = '800 36px sans-serif';
+  ctx.fillText('HASAN USTA (1984)', 540, 1285);
+  ctx.shadowBlur = 0;
+  ctx.textAlign = 'start';
+
+  // Matrix Slow-Mo Snap at t = 4.5s (localT = 1.0s)
+  if (localT >= 1.0 && !scene2FlashTriggered) {
+    scene2FlashTriggered = true;
+    playSubBassDrop();
+    playAudioBuffer('cam_kirilma', sfxGain, 1.0);
+    spawnShockwave(540, 1480, '#ffd700', 380);
+    spawnFloatingText('⚡ SÜPER KÖŞE VURUŞU!', 540, 960, '#ffd700', 64);
+  }
+
+  // White Flash on Matrix Snap
+  if (localT >= 1.0 && localT < 1.18) {
+    const flashAlpha = 1.0 - (localT - 1.0) / 0.18;
+    ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Cosmic Legendary Paddle Interception
+  const paddleW = 280, paddleH = 48;
+  let paddleX = 540 - paddleW / 2;
+  const paddleY = 1460;
+
+  if (localT < 1.0) {
+    paddleX = 1100 - (localT / 1.0) * 700; // Streaking in from right
+  } else {
+    paddleX = 540 - paddleW * 0.88; // Corner hit alignment (hitOffset = 0.88)
+  }
+
+  // Draw Glowing Cosmic Legendary Paddle
+  const padGrad = ctx.createLinearGradient(paddleX, paddleY, paddleX + paddleW, paddleY + paddleH);
+  padGrad.addColorStop(0, '#00f5d4');
+  padGrad.addColorStop(0.5, '#ec4899');
+  padGrad.addColorStop(1, '#f59e0b');
+  drawRoundedRect(paddleX, paddleY, paddleW, paddleH, 20);
+  ctx.fillStyle = padGrad;
+  ctx.fill();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  // Meteor plunge until paddle hit, then 30 Fireballs burst!
+  if (localT < 1.0) {
+    // Single meteor falling fast
+    const my = 400 + (localT / 1.0) * 1050;
+    ctx.fillStyle = '#ff4500';
+    ctx.beginPath();
+    ctx.arc(540, my, 46, 0, Math.PI * 2);
+    ctx.fill();
+    drawStarGlint(540, my, 50, t * 4, '#ffffff');
+  } else if (!scene2FireballsSpawned && localT >= 1.0) {
+    scene2FireballsSpawned = true;
+    playAudioBuffer('custom_bounce', sfxGain, 1.0);
+    playAudioBuffer('custom_explosion', sfxGain, 0.9);
+
+    // Spawn 30 Fireballs fanning out upwards
+    fireballs.length = 0;
+    for (let i = 0; i < 30; i++) {
+      const angle = -Math.PI * 0.12 - (i / 29) * Math.PI * 0.76; // Fan -20° to -160°
+      const speed = 20 + Math.random() * 12;
+      fireballs.push({
+        x: 540,
+        y: paddleY - 20,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        r: 16,
+        color: '#ff6b00'
+      });
+    }
+  }
+
+  // Update and draw 30 Fireballs pulverizing the 7x8 Brick Wall
+  if (scene2FireballsSpawned) {
+    fireballs.forEach(fb => {
+      fb.x += fb.vx;
+      fb.y += fb.vy;
+
+      // Bounce off walls
+      if (fb.x < 30 || fb.x > W - 30) fb.vx *= -1;
+
+      // Check collision with bricks
+      bricks.forEach(b => {
+        if (b.alive && fb.x > b.x && fb.x < b.x + b.w && fb.y > b.y && fb.y < b.y + b.h) {
+          b.hp--;
+          if (b.hp <= 0) {
+            b.alive = false;
+            spawnExplosion(b.x + b.w / 2, b.y + b.h / 2, b.color, 16);
+            if (b.isDynamite) {
+              spawnShockwave(b.x, b.y, '#ff3333', 180);
+              playAudioBuffer('custom_explosion', sfxGain, 0.7);
+            }
+          }
+          fb.vy *= -1;
+        }
+      });
+
+      // Draw fireball with fiery tail
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(fb.x, fb.y, fb.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = fb.color;
+      ctx.beginPath();
+      ctx.arc(fb.x, fb.y, fb.r * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Draw active bricks
+    bricks.forEach(b => {
+      if (b.alive) {
+        drawRoundedRect(b.x, b.y, b.w, b.h, 12);
+        ctx.fillStyle = b.color;
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    });
+
+    // Combo Banners
+    if (localT > 1.8) {
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.font = '900 64px sans-serif';
+      ctx.fillStyle = '#fde047';
+      ctx.shadowColor = '#ff2a85';
+      ctx.shadowBlur = 25;
+      ctx.fillText('🔥 30x ATEŞ TOPU!', W / 2, 360);
+      ctx.fillStyle = '#00f5d4';
+      ctx.font = '900 48px sans-serif';
+      ctx.fillText('💥 45 KOMBO! +3,500 ALTIN', W / 2, 430);
+      ctx.restore();
+    }
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 8. SCENE 3: REAL IN-GAME FOOTAGE SHOWCASE (7.5s – 13.5s)
+// ----------------------------------------------------------------------------
+let scene3UltiFired = false;
+
+function renderScene3(t) {
+  const localT = t - 7.5; // 0.0 to 6.0s
+
+  // Part A (0.0s – 2.0s): Real GameCanvas Action & Ulti Wipe
+  if (localT < 2.0) {
+    const imgAction = ASSETS.images.game_canvas_action;
+    if (imgAction && imgAction.complete && imgAction.naturalWidth > 0) {
+      ctx.drawImage(imgAction, 0, 0, W, H);
+    } else {
+      // Procedural action canvas fallback
+      ctx.fillStyle = '#06071b';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Ulti Callout Banner at y = 420
+    const pulse = 1.0 + 0.08 * Math.sin(t * 14);
+    ctx.save();
+    ctx.translate(W / 2, 420);
+    ctx.scale(pulse, pulse);
+    drawRoundedRect(-380, -45, 760, 90, 24);
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.fill();
+    ctx.strokeStyle = '#fde047';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    ctx.fillStyle = '#fde047';
+    ctx.font = '900 44px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#f59e0b';
+    ctx.shadowBlur = 20;
+    ctx.fillText('⚡ ULTİ HAZIR! ÇİFT DOKUN!', 0, 15);
+    ctx.restore();
+
+    // Trigger Ulti Lightning strike at localT = 1.0s
+    if (localT >= 1.0 && !scene3UltiFired) {
+      scene3UltiFired = true;
+      playAudioBuffer('custom_laser', sfxGain, 1.0);
+      spawnShockwave(540, 900, '#00f5d4', 400);
+      spawnFloatingText('✨ EKRAN SİLİNDİ! (JACKPOT 12)', 540, 700, '#00f5d4', 58);
+    }
+
+    // Screen-Clearing Lightning Projectiles
+    if (localT >= 1.0 && localT < 1.45) {
+      ctx.strokeStyle = '#00f5d4';
+      ctx.lineWidth = 14;
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 30;
+      for (let l = 0; l < 5; l++) {
+        ctx.beginPath();
+        ctx.moveTo(180 + l * 180, 0);
+        ctx.lineTo(160 + l * 190, 600);
+        ctx.lineTo(200 + l * 170, 1200);
+        ctx.lineTo(180 + l * 180, 1920);
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  // Part B (2.0s – 4.0s): Real Chaos Mode 3-Card Perks & Shop Synergies
+  else if (localT < 4.0) {
+    const imgPerks = ASSETS.images.chaos_perks;
+    if (imgPerks && imgPerks.complete && imgPerks.naturalWidth > 0) {
+      ctx.drawImage(imgPerks, 0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Sub-card reveal for Shop Cosmic Set Synergies in lower screen
+    const imgShop = ASSETS.images.shop_synergies;
+    if (imgShop && imgShop.complete && imgShop.naturalWidth > 0) {
+      ctx.save();
+      ctx.beginPath();
+      drawRoundedRect(60, 1140, W - 120, 420, 28);
+      ctx.clip();
+      ctx.drawImage(imgShop, 0, 500, W, 800, 60, 1140, W - 120, 420);
+      ctx.restore();
+      drawRoundedRect(60, 1140, W - 120, 420, 28);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 5;
+      ctx.stroke();
+    }
+
+    // Floating Perk Selection Callout
+    ctx.fillStyle = '#fde047';
+    ctx.font = '900 48px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('👑 3\'LÜ ROGUELIKE KAOS KARTLARI', W / 2, 280);
+    ctx.textAlign = 'start';
+  }
+
+  // Part C (4.0s – 6.0s): Real Aquarium Eco-Tank & Weekly League #1
+  else {
+    const imgAqua = ASSETS.images.aquarium_view;
+    if (imgAqua && imgAqua.complete && imgAqua.naturalWidth > 0) {
+      ctx.drawImage(imgAqua, 0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#071626';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Live 60 FPS Swimming Fishes Overlay
+    for (let f = 0; f < 4; f++) {
+      const fx = (t * 140 + f * 280) % (W + 200) - 100;
+      const fy = 650 + f * 180 + Math.sin(t * 3 + f) * 40;
+      ctx.fillStyle = f % 2 === 0 ? '#f43f5e' : '#38bdf8';
+      ctx.beginPath();
+      ctx.ellipse(fx, fy, 45, 22, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Fish tail wag
+      ctx.beginPath();
+      ctx.moveTo(fx - 40, fy);
+      ctx.lineTo(fx - 70, fy - 20 + Math.sin(t * 10) * 12);
+      ctx.lineTo(fx - 70, fy + 20 - Math.sin(t * 10) * 12);
+      ctx.fill();
+    }
+
+    // Top-right overlay for Tournament League Leaderboard
+    const imgLeague = ASSETS.images.tournament_league;
+    if (imgLeague && imgLeague.complete && imgLeague.naturalWidth > 0) {
+      ctx.save();
+      drawRoundedRect(520, 220, 500, 720, 28);
+      ctx.clip();
+      ctx.drawImage(imgLeague, 0, 200, W, 1000, 520, 220, 500, 720);
+      ctx.restore();
+      drawRoundedRect(520, 220, 500, 720, 28);
+      ctx.strokeStyle = '#00f5d4';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+    }
+
+    // Callout Banner
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '900 46px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🌿 STRES SIFIRLAYAN ZEN AKVARYUMU', W / 2, 180);
+    ctx.textAlign = 'start';
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 9. SCENE 4: WAVE-10 CHAOS BOSS & KAUNOS END CARD (13.5s – 18.0s)
+// ----------------------------------------------------------------------------
+let scene4BossShattered = false;
+
+function renderScene4(t) {
+  const localT = t - 13.5; // 0.0 to 4.5s
+
+  // Part A (0.0s – 2.0s): Wave-10 Chaos Boss Encounter & Armor Shatter
+  if (localT < 2.0) {
+    const imgBoss = ASSETS.images.chaos_boss;
+    if (imgBoss && imgBoss.complete && imgBoss.naturalWidth > 0) {
+      ctx.drawImage(imgBoss, 0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#141724';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Flashing Boss Warning Hazard Bar
+    const hazardFlash = Math.sin(t * 16) > 0;
+    drawRoundedRect(60, 140, W - 120, 90, 20);
+    ctx.fillStyle = hazardFlash ? 'rgba(239, 68, 68, 0.92)' : 'rgba(15, 23, 42, 0.92)';
+    ctx.fill();
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 44px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚠️ DALGA 10 CHAOS BOSS UYARISI ⚠️', W / 2, 202);
+    ctx.textAlign = 'start';
+
+    // Boss Armor Shatter Explosion at localT = 1.3s
+    if (localT >= 1.3 && !scene4BossShattered) {
+      scene4BossShattered = true;
+      playAudioBuffer('custom_explosion', sfxGain, 1.0);
+      playAudioBuffer('glass_shatter', sfxGain, 0.9);
+      spawnExplosion(540, 680, '#f59e0b', 60);
+      spawnShockwave(540, 680, '#ffd700', 420);
+      spawnFloatingText('+5 İNCİ! +2,500 ALTIN!', 540, 520, '#fde047', 62);
+    }
+  }
+
+  // Part B (2.0s – 4.5s): Kaunos Games High-Converting End Card
+  else {
+    // Deep obsidian background with warm golden ambient bokeh
+    const endGrad = ctx.createLinearGradient(0, 0, 0, H);
+    endGrad.addColorStop(0, '#060814');
+    endGrad.addColorStop(0.5, '#13112a');
+    endGrad.addColorStop(1, '#080510');
+    ctx.fillStyle = endGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Kaunos Games Studio Logo
+    const imgLogo = ASSETS.images.kaunos_games;
+    if (imgLogo && imgLogo.complete && imgLogo.naturalWidth > 0) {
+      ctx.save();
+      const logoW = 340, logoH = 170;
+      ctx.drawImage(imgLogo, W / 2 - logoW / 2, 260, logoW, logoH);
+      ctx.restore();
+    }
+
+    // 3D Carved Terracotta-Amber Game Title
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = '900 96px sans-serif';
+    ctx.shadowColor = '#c85a32';
+    ctx.shadowBlur = 35;
+    ctx.fillStyle = '#f5b041';
+    ctx.fillText('K I R M A T A Ş', W / 2, 540);
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '700 36px sans-serif';
+    ctx.fillText('İzmir Kumrucusundan Kozmik Evrene!', W / 2, 610);
+
+    // Feature Badges
+    drawRoundedRect(160, 680, W - 320, 80, 24);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.fill();
+    ctx.strokeStyle = '#f5b041';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#fde047';
+    ctx.font = '800 32px sans-serif';
+    ctx.fillText('⭐ 4.9 YILDIZ • 500+ BÖLÜM • ÇEVRİMDIŞI OYNA', W / 2, 732);
+
+    // High-Converting Turkish CTA Button
+    const btnPulse = 1.0 + 0.04 * Math.sin(t * 8);
+    ctx.save();
+    ctx.translate(W / 2, 1100);
+    ctx.scale(btnPulse, btnPulse);
+    
+    // 3D tactile button body
+    drawRoundedRect(-360, -75, 720, 150, 36);
+    const ctaGrad = ctx.createLinearGradient(0, -75, 0, 75);
+    ctaGrad.addColorStop(0, '#f59e0b');
+    ctaGrad.addColorStop(0.5, '#f43f5e');
+    ctaGrad.addColorStop(1, '#c026d3');
+    ctx.fillStyle = ctaGrad;
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 6;
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 52px sans-serif';
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 15;
+    ctx.fillText('📲 HEMEN ÜCRETSİZ İNDİR', 0, 18);
+    ctx.restore();
+
+    // Secondary CTA Subtitle
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '700 30px sans-serif';
+    ctx.fillText('Google Play & App Store\'da Ücretsiz!', W / 2, 1240);
+
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = '800 34px sans-serif';
+    ctx.fillText('"Günün Bütün Stresini Kırıp Geç!"', W / 2, 1310);
+    ctx.restore();
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 10. TIKTOK / REELS ANIMATED WORD-BY-WORD CAPTIONS
+// ----------------------------------------------------------------------------
+function renderTikTokCaptions(t) {
+  // Find active scene
+  let currentScene = scenes[0];
+  for (let sc of scenes) {
+    if (t >= sc.start && t < sc.end) {
+      currentScene = sc;
+      break;
+    }
+  }
+
+  // Update DOM caption box
+  document.getElementById('captionBox').textContent = `"${currentScene.text}"`;
+
+  // Draw on Lower Third of Canvas (y = 1600)
+  const capY = 1620;
+  ctx.save();
+  ctx.textAlign = 'center';
+
+  // Frosted pill box container
+  drawRoundedRect(60, capY - 70, W - 120, 140, 36);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(6, 182, 212, 0.55)';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  // Draw words with active highlight & bounce punch
+  const words = currentScene.words;
+  if (!words || words.length === 0) {
+    ctx.restore();
+    return;
+  }
+
+  // Measure text spacing
+  ctx.font = '900 52px "Rajdhani", sans-serif';
+  const totalText = words.map(w => w.text).join(' ');
+  const totalW = ctx.measureText(totalText).width;
+  let curX = W / 2 - totalW / 2;
+
+  words.forEach(w => {
+    const isSpoken = (t >= w.start && t < w.end);
+    const isPast = (t >= w.end);
+    const wordWidth = ctx.measureText(w.text + ' ').width;
+
+    ctx.save();
+    ctx.translate(curX + wordWidth / 2, capY + 16);
+
+    if (isSpoken) {
+      // 1.20x bounce punch
+      const wordProgress = (t - w.start) / (w.end - w.start);
+      const scale = 1.0 + 0.20 * Math.sin(wordProgress * Math.PI);
+      ctx.scale(scale, scale);
+      ctx.fillStyle = '#ffe600'; // Yellow highlight
+      ctx.shadowColor = '#ff5500';
+      ctx.shadowBlur = 24;
+    } else if (isPast) {
+      ctx.fillStyle = '#ffffff';
+    } else {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+    }
+
+    // Heavy 14px black outline for ultra readability
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 14;
+    ctx.lineJoin = 'round';
+    ctx.strokeText(w.text, 0, 0);
+    ctx.fillText(w.text, 0, 0);
+
+    ctx.restore();
+    curX += wordWidth;
+  });
+
+  ctx.restore();
+}
+
+// ----------------------------------------------------------------------------
+// 11. PARTICLES & FLOATING HUD UPDATER
+// ----------------------------------------------------------------------------
+function updateAndDrawParticles() {
+  // Shard particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.35; // gravity
+    p.alpha -= p.decay;
+    if (p.alpha <= 0) {
+      particles.splice(i, 1);
+      continue;
+    }
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = p.alpha;
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+    ctx.globalAlpha = 1.0;
+  }
+
+  // Shockwaves
+  for (let i = shockwaves.length - 1; i >= 0; i--) {
+    const sw = shockwaves[i];
+    sw.r += 12;
+    sw.alpha = Math.max(0, 1 - sw.r / sw.maxR);
+    if (sw.alpha <= 0) {
+      shockwaves.splice(i, 1);
+      continue;
+    }
+    ctx.strokeStyle = sw.color;
+    ctx.globalAlpha = sw.alpha;
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+  }
+
+  // Floating texts
+  for (let i = floatingTexts.length - 1; i >= 0; i--) {
+    const ft = floatingTexts[i];
+    ft.y += ft.vy;
+    ft.alpha -= 0.015;
+    if (ft.alpha <= 0) {
+      floatingTexts.splice(i, 1);
+      continue;
+    }
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = `900 ${ft.size}px sans-serif`;
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 10;
+    ctx.globalAlpha = ft.alpha;
+    ctx.strokeText(ft.text, ft.x, ft.y);
+    ctx.fillStyle = ft.color;
+    ctx.fillText(ft.text, ft.x, ft.y);
+    ctx.restore();
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 12. MASTER 60 FPS RENDER LOOP
+// ----------------------------------------------------------------------------
+function renderFrame(now) {
+  const dt = (now - lastFrameTime) / 1000;
+  lastFrameTime = now;
+
+  // FPS calculation
+  fpsSmoothed = fpsSmoothed * 0.95 + (1 / Math.max(0.001, dt)) * 0.05;
+  document.getElementById('fpsBadge').textContent = fpsSmoothed.toFixed(1) + ' FPS';
+
+  if (isPlaying) {
+    currentTime += dt;
+    if (currentTime >= DURATION) {
+      if (isRecording) {
+        finishRecording();
+      } else {
+        currentTime = 0; // Loop playback
+      }
+    }
+  }
+
+  // Check scene voiceover triggers
+  const activeSceneIdx = Math.min(3, Math.floor(
+    currentTime < 3.5 ? 0 : (currentTime < 7.5 ? 1 : (currentTime < 13.5 ? 2 : 3))
+  ));
+
+  if (activeSceneIdx !== currentVoiceScene) {
+    currentVoiceScene = activeSceneIdx;
+    triggerSceneAudio(activeSceneIdx);
+  }
+
+  // Update UI scrubber
+  const progressRatio = Math.min(1.0, currentTime / DURATION);
+  document.getElementById('progressFill').style.width = (progressRatio * 100) + '%';
+  document.getElementById('timeDisplay').textContent = `${currentTime.toFixed(1)}s / 18.0s`;
+  document.getElementById('scrubTime').textContent = `${currentTime.toFixed(1)}s`;
+
+  // Render scenes based on timeline
+  ctx.clearRect(0, 0, W, H);
+
+  if (currentTime < 3.5) {
+    renderScene1(currentTime);
+  } else if (currentTime < 7.5) {
+    renderScene2(currentTime);
+  } else if (currentTime < 13.5) {
+    renderScene3(currentTime);
+  } else {
+    renderScene4(currentTime);
+  }
+
+  // Render live particle layer
+  updateAndDrawParticles();
+
+  // Render TikTok / Reels animated subtitles
+  renderTikTokCaptions(currentTime);
+
+  requestAnimationFrame(renderFrame);
+}
+
+// ----------------------------------------------------------------------------
+// 13. INTERACTIVE CONTROLS
+// ----------------------------------------------------------------------------
+function togglePlay() {
+  initAudioGraph();
+  isPlaying = !isPlaying;
+  document.getElementById('playIcon').textContent = isPlaying ? '⏸' : '▶️';
+  document.getElementById('playLabel').textContent = isPlaying ? 'Duraklat' : 'Oynat';
+  if (!isPlaying && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+}
+
+function restartVideo() {
+  initAudioGraph();
+  currentTime = 0;
+  currentVoiceScene = -1;
+  scene2FlashTriggered = false;
+  scene2FireballsSpawned = false;
+  scene3UltiFired = false;
+  scene4BossShattered = false;
+  initBricks();
+  isPlaying = true;
+  document.getElementById('playIcon').textContent = '⏸';
+  document.getElementById('playLabel').textContent = 'Duraklat';
+}
+
+function jumpTo(sec) {
+  initAudioGraph();
+  currentTime = sec;
+  currentVoiceScene = -1;
+  scene2FlashTriggered = false;
+  scene2FireballsSpawned = false;
+  scene3UltiFired = false;
+  scene4BossShattered = false;
+  initBricks();
+  isPlaying = true;
+  document.getElementById('playIcon').textContent = '⏸';
+  document.getElementById('playLabel').textContent = 'Duraklat';
+}
+
+function toggleMute() {
+  initAudioGraph();
+  isMuted = !isMuted;
+  document.getElementById('muteBtn').textContent = isMuted ? '🔇 Ses Kapalı' : '🔊 Ses Açık';
+  if (isMuted && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+}
+
+canvas.addEventListener('click', togglePlay);
+
+// Draggable Scrubber Logic
+const timelineContainer = document.getElementById('timelineContainer');
+let isDraggingScrubber = false;
+
+function handleScrub(e) {
+  const rect = timelineContainer.getBoundingClientRect();
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  jumpTo(ratio * DURATION);
+}
+
+timelineContainer.addEventListener('mousedown', (e) => {
+  isDraggingScrubber = true;
+  handleScrub(e);
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (isDraggingScrubber) handleScrub(e);
+});
+
+window.addEventListener('mouseup', () => {
+  isDraggingScrubber = false;
+});
+
+// ----------------------------------------------------------------------------
+// 14. 1080x1920 60 FPS WEBM VIDEO RECORDER & DOWNLOADER
+// ----------------------------------------------------------------------------
+let mediaRecorder = null;
+let recordedChunks = [];
+
+function exportWebMVideo() {
+  if (isRecording) return;
+  initAudioGraph();
+  isRecording = true;
+  recordedChunks = [];
+
+  const exportBtn = document.getElementById('exportBtn');
+  const exportLabel = document.getElementById('exportLabel');
+  const progressBox = document.getElementById('exportProgressBox');
+  const recIndicator = document.getElementById('recIndicator');
+
+  progressBox.classList.remove('hidden');
+  recIndicator.classList.remove('hidden');
+  exportBtn.classList.add('opacity-50', 'pointer-events-none');
+
+  // Canvas 60 FPS Stream + Master Audio Track Merging
+  const canvasStream = canvas.captureStream(60);
+  const audioTracks = (audioDest && audioDest.stream) ? audioDest.stream.getAudioTracks() : [];
+  
+  const exportStream = new MediaStream([
+    ...canvasStream.getVideoTracks(),
+    ...audioTracks
+  ]);
+
+  // Codec negotiation
+  const mimeTypes = [
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8,opus',
+    'video/webm'
+  ];
+  let selectedMime = 'video/webm';
+  for (let m of mimeTypes) {
+    if (MediaRecorder.isTypeSupported(m)) {
+      selectedMime = m;
+      break;
+    }
+  }
+
+  mediaRecorder = new MediaRecorder(exportStream, {
+    mimeType: selectedMime,
+    videoBitsPerSecond: 12000000, // 12 Mbps broadcast quality
+    audioBitsPerSecond: 192000    // 192 kbps Opus
+  });
+
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+  };
+
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'kirmatas_reklam_tr.webm';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    progressBox.classList.add('hidden');
+    recIndicator.classList.add('hidden');
+    exportBtn.classList.remove('opacity-50', 'pointer-events-none');
+    exportLabel.textContent = '✅ Video İndirildi! Tekrar Kaydetmek İçin Tıkla';
+    isRecording = false;
+  };
+
+  restartVideo();
+  mediaRecorder.start(250);
+
+  // Monitor export progress
+  const exportInterval = setInterval(() => {
+    if (!isRecording) {
+      clearInterval(exportInterval);
+      return;
+    }
+    const pct = Math.min(100, Math.floor((currentTime / DURATION) * 100));
+    document.getElementById('exportPercentText').textContent = `%${pct}`;
+    document.getElementById('exportStatusText').textContent = `🔴 Kaydediliyor... (${currentTime.toFixed(1)}s / 18.0s)`;
+    document.getElementById('exportProgressBar').style.width = pct + '%';
+  }, 100);
+}
+
+function finishRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+}
+
+// Start master animation loop
+requestAnimationFrame(renderFrame);
+
+</script>
+</body>
+</html>

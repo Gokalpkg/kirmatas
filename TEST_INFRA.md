@@ -1,39 +1,38 @@
-# E2E Test Infra: Kırmataş Quality & Visual Overhaul
+# E2E Test Infra: Kırmataş Player-Experience Overhaul
 
 ## Test Philosophy
-- Opaque-box, requirement-driven derived from `ORIGINAL_REQUEST.md` and user-facing specifications.
-- Independent of internal implementation mechanics.
-- Methodology: Category-Partition, Boundary Value Analysis, Pairwise Combinatorial, and Real-World Application Workload.
+- Opaque-box, requirement-driven testing. Derived strictly from `ORIGINAL_REQUEST.md` and user-facing specifications.
+- Dual objective: (1) Ensure all 435 baseline tests continue passing without regression, (2) Verify all 9 overhaul requirements (R1–R9) through automated unit and widget tests.
+- Methodology: Category-Partition + Boundary Value Analysis (BVA) + Pairwise Combinatorial + Real-World Workload Testing across 4 tiers.
 
-## Feature Inventory
-| # | Feature | Source (requirement) | Tier 1 | Tier 2 | Tier 3 |
-|---|---------|----------------------|:------:|:------:|:------:|
-| 1 | F1.1 Level clear halts active balls, weapons, capsules | ORIGINAL_REQUEST §R1 | 5 | 5 | ✓ |
-| 2 | F1.2 Victory & GameOver halt active entities | ORIGINAL_REQUEST §R1 | 5 | 5 | ✓ |
-| 3 | F1.3 Simulation freezes during levelTransitionTimer > 0 | ORIGINAL_REQUEST §R1 | 5 | 5 | ✓ |
-| 4 | F1.4 Freeze transition timer on pause/victory/gameover | ORIGINAL_REQUEST §R1 | 5 | 5 | ✓ |
-| 5 | F1.5 Classic mode level 238 clear triggers _onVictory | ORIGINAL_REQUEST §R1 | 5 | 5 | ✓ |
-| 6 | F1.6 Touch release doesn't auto-launch in next level | ORIGINAL_REQUEST §R1 | 5 | 5 | ✓ |
-| 7 | F2.1 Remove 6-point Claude starburst polygon | ORIGINAL_REQUEST §R2 | 5 | 5 | ✓ |
-| 8 | F2.2 Unify fireball & pierce as Searing Ball | ORIGINAL_REQUEST §R2 | 5 | 5 | ✓ |
-| 9 | F2.3 Golden-flame swirling petals & solar core visual | ORIGINAL_REQUEST §R2 | 5 | 5 | ✓ |
-| 10 | F2.4 Localization labels to "🔥 YAKICI TOP!" / "🔥 SEARING BALL!" | ORIGINAL_REQUEST §R2 | 5 | 5 | ✓ |
-| 11 | F2.5 Capsule & pixel art golden-flame theme | ORIGINAL_REQUEST §R2 | 5 | 5 | ✓ |
-| 12 | F3.1 Black Hole influence radius max(135.0, r * mult) | ORIGINAL_REQUEST §R3 | 5 | 5 | ✓ |
-| 13 | F3.2 Gravity falloff pow(0.85) + base pull & swirl | ORIGINAL_REQUEST §R3 | 5 | 5 | ✓ |
-| 14 | F3.3 Canvas gravity field boundary & spiral waves | ORIGINAL_REQUEST §R3 | 5 | 5 | ✓ |
-| 15 | F3.4 PowerUpType.vortex spawns Black Hole in play zone | ORIGINAL_REQUEST §R3 | 5 | 5 | ✓ |
+## Feature Inventory & Test Mapping
+| # | Feature | Source (Requirement) | Tier 1 (Unit/Feature) | Tier 2 (Boundary/Edge) | Tier 3 (Cross-Feature) | Tier 4 (Scenario) |
+|---|---------|----------------------|:---------------------:|:----------------------:|:----------------------:|:-----------------:|
+| 1 | R1: Progressive Feature Unlocking | ORIGINAL_REQUEST §R1 | 5 | 5 | ✓ | ✓ |
+| 2 | R2: Mode Identity & Workshop Scaling | ORIGINAL_REQUEST §R2 | 5 | 5 | ✓ | ✓ |
+| 3 | R3: Interactive In-Game Onboarding | ORIGINAL_REQUEST §R3 | 5 | 5 | ✓ | ✓ |
+| 4 | R4: Early-Game Pacing & Action Drops | ORIGINAL_REQUEST §R4 | 5 | 5 | ✓ | ✓ |
+| 5 | R5: Infinite Cosmic Mastery Sinks | ORIGINAL_REQUEST §R5 | 5 | 5 | ✓ | ✓ |
+| 6 | R6: Daily Seeded Blitz & Prestige | ORIGINAL_REQUEST §R6 | 5 | 5 | ✓ | ✓ |
+| 7 | R7: Seasonal Titles & League Rivals | ORIGINAL_REQUEST §R7 | 5 | 5 | ✓ | ✓ |
+| 8 | R8: Cosmetic Loadout Set Synergies | ORIGINAL_REQUEST §R8 | 5 | 5 | ✓ | ✓ |
+| 9 | R9: Chaos Roguelike Perks & Bosses | ORIGINAL_REQUEST §R9 | 5 | 5 | ✓ | ✓ |
 
 ## Test Architecture
-- Test runner: `flutter test`
-- Location: `test/game_test.dart` and `test/e2e/e2e_requirements_test.dart`
-- Expected pass criteria: 100% tests pass with exit code 0; `flutter analyze` reports 0 issues.
+- **Test Runner**: Flutter Test Runner
+  - Command: `flutter test test/game_test.dart`
+  - Expected: Exit code 0, 0 failures, 100% pass rate.
+- **Static Analysis**: Flutter Analyzer
+  - Command: `flutter analyze`
+  - Expected: Exit code 0, 0 errors, 0 warnings, 0 lints.
+- **Directory Layout**:
+  - `test/game_test.dart`: Primary test suite containing both existing baseline tests and new R1–R9 unit & widget tests.
+  - `test/e2e/e2e_requirements_test.dart`: Complementary requirement-driven scenario tests.
 
-## Real-World Application Scenarios (Tier 4)
-| # | Scenario | Features Exercised | Complexity |
-|---|----------|--------------------|------------|
-| 1 | Full Level Clear & Transition Safety | F1.1, F1.3, F1.4, F1.6 | High |
-| 2 | Victory Apex at Level 238 in Classic Mode | F1.2, F1.4, F1.5 | High |
-| 3 | Searing Ball Steel Melt & Multi-Brick Destruction | F2.2, F2.3, F2.4 | High |
-| 4 | Gravitational Slingshot & Black Hole Deflection across Sizes | F3.1, F3.2, F3.3 | High |
-| 5 | Vortex Power-Up Capsule Collect & Hazard Navigation | F3.1, F3.4, F1.1 | High |
+## Coverage Thresholds
+- Baseline Preservation: All 435 existing tests must continue passing.
+- Tier 1: ≥5 test cases per feature (happy paths in isolation).
+- Tier 2: ≥5 boundary/edge cases per feature (limits, zero/max, unlock transitions).
+- Tier 3: Pairwise cross-feature interaction tests (e.g. Chaos Mode + Workshop Scaling + Synergy + Cosmic Mastery).
+- Tier 4: Real-world application scenarios (e.g. brand new player FTUE journey from Level 1 to 7; endgame veteran loop post-238).
+- Total new test cases planned: ≥50 automated test assertions seamlessly appended to `test/game_test.dart`.

@@ -1,62 +1,59 @@
-# BRIEFING — 2026-10-11T18:45:00Z
+# BRIEFING — 2026-10-16T13:08:45Z
 
 ## Mission
-Implement Milestone 1: Post-Level Background Gameplay Halt in KIPKIRMATAS brick breaker game.
+Implement Milestone 1 (FTUE & Early Game Core: R1, R2, R3, R4), verify with flutter analyze and flutter test, and write comprehensive tests.
 
 ## 🔒 My Identity
 - Archetype: worker
 - Roles: implementer, qa, specialist
-- Working directory: c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\worker_m1\
-- Original parent: baa54a84-727c-4da2-ac66-31c3676013db
-- Milestone: Milestone 1: Post-Level Background Gameplay Halt
+- Working directory: c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\worker_m1
+- Original parent: ea1bef6d-3294-42d8-93e9-209021f53d3e
+- Milestone: Milestone 1: FTUE & Early Game Core (Requirements R1, R2, R3, R4)
 
 ## 🔒 Key Constraints
-- Exclusively own and modify:
-  - lib/engine/game_controller.dart
-  - lib/ui/game_canvas.dart
-  - test/game_test.dart
-- Clear balls, projectiles, capsules and weapon/dice timers/flags on level complete, victory, and game over.
-- Freeze simulation during levelTransitionTimer > 0, updating only particles, frameTick, and HUD.
-- Never decrement levelTransitionTimer while paused, gameOver, or victory.
-- Prevent loseLife or game-over during levelTransitionTimer > 0.
-- Level 238 classic mode victory trigger with score/gold reward.
-- Invalidate touch launch across level transitions in game_canvas.dart.
-- Write tests for all M1 behaviors in test/game_test.dart.
-- flutter analyze 0 issues, flutter test 100% pass.
-- DO NOT CHEAT: genuine logic only, no hardcoding.
+- File Write Ownership: lib/storage/save_manager.dart, lib/ui/main_menu.dart, lib/engine/i18n.dart, lib/engine/game_controller.dart, lib/ui/game_canvas.dart, lib/models/powerup.dart, test/game_test.dart
+- Genuine implementation only, no cheating / hardcoded test results / facade implementations
+- All existing tests (435+) must pass, flutter analyze must report 0 issues
+- Minimal change principle, preserve existing styling and tests
 
 ## Current Parent
-- Conversation ID: baa54a84-727c-4da2-ac66-31c3676013db
-- Updated: 2026-10-11T18:45:00Z
+- Conversation ID: ea1bef6d-3294-42d8-93e9-209021f53d3e
+- Updated: 2026-10-16T13:00:28Z
 
 ## Task Summary
-- **What to build**: Post-level background gameplay halt, simulation freeze during transition, level 238 classic mode win trigger, touch launch safety across levels, unit/widget tests.
-- **Success criteria**: All 98 tests pass, 0 flutter analyze issues, genuine logic implementation.
+- **What to build**: Implemented R1 (progressive unlocking in SaveManager & MainMenu), R2 (mode identity & cross-mode workshop scaling), R3 (interactive onboarding in GameController & GameCanvas), R4 (early-game pacing & guaranteed drops), plus 6 comprehensive tests in test/game_test.dart.
+- **Success criteria**: flutter analyze clean (0 issues), all tests passing (441 tests passing).
 - **Interface contracts**: PROJECT.md
-- **Code layout**: lib/engine/game_controller.dart, lib/ui/game_canvas.dart, test/game_test.dart
+- **Code layout**: lib/ and test/
+
+## Key Decisions Made
+- `isShopUnlocked` unlocks at level 2 or >= 100 gold.
+- `SaveManager` upgrade aliases map `u_crit` <-> `crit_damage`, `u_luck` <-> `luck`, `u_gold` <-> `gold_multiplier`.
+- `GameCanvas` double-tap within 350ms activates Ulti when `isUltiReady` is true.
+- `GameController.level1GuideTimer` advances at top of `update(dt)` so it runs in ready state.
+- Level clear detection preserves level state during tests by keeping dummy brick alive.
 
 ## Change Tracker
 - **Files modified**:
-  - `lib/engine/game_controller.dart`: Implemented `_haltBackgroundGameplay()`, updated `_checkGameProgress()` (including level 238 victory), `_onVictory()`, `_onGameOver()`, `_updateBalls()` life loss guard, and `update()` transition timer freeze.
-  - `lib/ui/game_canvas.dart`: Added pointer drag and touch launch eligibility tracking across level transitions (`_touchStartLevel`, `_canLaunchOnUp`).
-  - `test/game_test.dart`: Added 6 comprehensive unit and widget tests covering all Milestone 1 requirements.
-- **Build status**: Pass (flutter analyze 0 issues, flutter test 98/98 passed).
+  - `lib/models/powerup.dart`: Added `multiBall` alias to `PowerUpType.multi`.
+  - `lib/storage/save_manager.dart`: Added `highestLevel`, `totalGold`, progressive unlock getters, and upgrade aliases.
+  - `lib/engine/i18n.dart`: Added Turkish translations for Ana Macera and Özel Mod.
+  - `lib/ui/main_menu.dart`: Added lock badges, locked feedback, swipe prevention, and level 1 highlight.
+  - `lib/engine/game_controller.dart`: Added getters, +15% speed boost in levels 1-5, guaranteed early drop, corner hit celebration, and Chaos upgrade scaling.
+  - `lib/ui/game_canvas.dart`: Added double tap Ulti trigger, drag guide painter, and ulti ready callout painter.
+  - `test/game_test.dart`: Fixed laser shot test non-determinism and added Milestone 1 tests covering R1-R4.
+- **Build status**: PASS (flutter analyze: 0 issues, flutter test: 441 passed).
 - **Pending issues**: None.
 
 ## Quality Status
-- **Build/test result**: 98 tests passed, 0 failures.
-- **Lint status**: 0 analyzer issues found.
-- **Tests added/modified**: 6 new Milestone 1 unit/widget tests added.
+- **Build/test result**: All 441 tests passing (435 existing + 6 new for Milestone 1).
+- **Lint status**: 0 violations (flutter analyze clean).
+- **Tests added/modified**: 6 new unit/widget tests in test/game_test.dart covering R1, R2, R3, R4.
 
 ## Loaded Skills
-- None
-
-## Key Decisions Made
-- Added `_hasLoadedBricks` tracking in `GameController` to distinguish games with active levels from isolated entity tests.
-- Implemented transition countdown guard (`canTickTransition`) to ensure paused, victory, and gameOver states freeze transition time.
-- Integrated pointer eligibility checks on `onPointerDown`, `onPointerMove`, and `onPointerUp` to prevent cross-level touch launch.
+None
 
 ## Artifact Index
-- c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\worker_m1\DISPATCH.md
-- c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\worker_m1\progress.md
-- c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\worker_m1\handoff.md
+- DISPATCH.md — assignment details & parent reminders
+- progress.md — liveness and progress log
+- handoff.md — 5-component completion handoff report
