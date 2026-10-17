@@ -50,7 +50,12 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   late final AnimationController _volumetricRaysController;
   late final AnimationController _chromaticController;
   late final AnimationController _starsPopController;
+  late final AnimationController _landingDustController;
+  late final AnimationController _popDustController;
+  late final AnimationController _bouncingLootController;
   bool _impactTriggered = false;
+  bool _openThumpFired = false;
+  bool _openJingleFired = false;
 
   int _tapCount = 0; // 0 (start), 1, 2, 3 (open)
   Rarity _currentRarity = Rarity.common;
@@ -145,28 +150,45 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
     _openController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 750),
+      duration: const Duration(milliseconds: 650),
     );
-    _openAnimation = CurvedAnimation(
-      parent: _openController,
-      curve: Curves.easeOutBack,
-    );
+    _openController.addListener(_onOpenTick);
+    _openAnimation = TweenSequence<double>([
+      // Step 2 Snap: explosive lid pop with hinge overshoot
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.0, end: 1.18).chain(CurveTween(curve: Curves.easeOutBack)),
+        weight: 60,
+      ),
+      // Recoil bounce back
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.18, end: 0.94).chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 20,
+      ),
+      // Settle smoothly to fully open
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.94, end: 1.0).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 20,
+      ),
+    ]).animate(_openController);
 
     _squashController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 220),
     );
     _squashAnimation = TweenSequence<double>([
+      // Step 2 Snap: Deep squash compression down
       TweenSequenceItem(
-        tween: Tween<double>(begin: 0.0, end: 1.0).chain(CurveTween(curve: Curves.easeOutCubic)),
+        tween: Tween<double>(begin: 0.0, end: 1.0).chain(CurveTween(curve: Curves.easeInQuad)),
         weight: 35,
       ),
+      // Explosive upward snap recoil
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: -0.30).chain(CurveTween(curve: Curves.easeInOutCubic)),
+        tween: Tween<double>(begin: 1.0, end: -0.45).chain(CurveTween(curve: Curves.easeOutCubic)),
         weight: 35,
       ),
+      // Elastic settle
       TweenSequenceItem(
-        tween: Tween<double>(begin: -0.30, end: 0.0).chain(CurveTween(curve: Curves.elasticOut)),
+        tween: Tween<double>(begin: -0.45, end: 0.0).chain(CurveTween(curve: Curves.elasticOut)),
         weight: 30,
       ),
     ]).animate(_squashController);
@@ -252,15 +274,47 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       duration: const Duration(milliseconds: 900),
     );
 
+    _landingDustController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 550),
+    );
+
+    _popDustController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+
+    _bouncingLootController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+
     _rollReward();
 
     _dropController.forward().then((_) {
       if (mounted) {
         _impactController.forward(from: 0.0);
+        _landingDustController.forward(from: 0.0);
         AudioManager.instance.playSfx(GameSfx.hitPaddle);
         HapticFeedback.heavyImpact();
       }
     });
+  }
+
+  void _onOpenTick() {
+    if (!mounted) return;
+    // Step 3 Sound: Thump as lid reaches its hinge stop
+    if (!_openThumpFired && _openController.value >= 0.25) {
+      _openThumpFired = true;
+      AudioManager.instance.playSfx(GameSfx.bossHit, playbackRate: 0.82);
+      HapticFeedback.heavyImpact();
+    }
+    // Step 3 Sound: Little jingle as treasure is exposed
+    if (!_openJingleFired && _openController.value >= 0.48) {
+      _openJingleFired = true;
+      AudioManager.instance.playSfx(GameSfx.bubble, playbackRate: 1.6);
+      AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.45);
+    }
   }
 
   void _onCardFlipTick() {
@@ -285,6 +339,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
   @override
   void dispose() {
+    _openController.removeListener(_onOpenTick);
     _cardFlipController.removeListener(_onCardFlipTick);
     _dropController.dispose();
     _shakeController.dispose();
@@ -306,6 +361,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     _volumetricRaysController.dispose();
     _chromaticController.dispose();
     _starsPopController.dispose();
+    _landingDustController.dispose();
+    _popDustController.dispose();
+    _bouncingLootController.dispose();
     super.dispose();
   }
 
@@ -366,11 +424,8 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       // 3. Dokunuş: Destansı -> Efsanevi kontrolü & AÇILIŞ!
       _tapCount = 3;
       _isOpening = true;
-      _squashController.forward(from: 0.0);
-      _shockwaveController.forward(from: 0.0);
-      _pillarController.forward(from: 0.0);
-      _flashController.forward(from: 0.0);
-      _crystalFlareController.forward(from: 0.0);
+      _openThumpFired = false;
+      _openJingleFired = false;
 
       final isLegendary = _rewardRarity == Rarity.legendary;
       if (isLegendary) {
@@ -381,9 +436,27 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         HapticFeedback.heavyImpact();
       }
 
+      // Step 1: Make chests shake before it opens (anticipation rattle tremor)
+      _shakeController.duration = const Duration(milliseconds: 320);
       await _shakeController.forward(from: 0.0);
       if (!mounted) return;
-      await _openController.forward();
+
+      // Step 2: Snap - squash it down then pop the lid so it bounces!
+      _squashController.forward(from: 0.0);
+      // Step 3 Sound: Creak as stone/metal hinges strain under mechanical compression
+      AudioManager.instance.playSfx(GameSfx.steel, playbackRate: 0.65);
+      HapticFeedback.mediumImpact();
+
+      // Step 4 & 5: Fire opening visual effects (pillar of light, flash, pop dust, and bouncing loot)
+      _shockwaveController.forward(from: 0.0);
+      _pillarController.forward(from: 0.0);
+      _flashController.forward(from: 0.0);
+      _crystalFlareController.forward(from: 0.0);
+      _popDustController.forward(from: 0.0);
+      _bouncingLootController.forward(from: 0.0);
+
+      // Pop the lid! Thump & Little Jingle are executed on precise hinge ticks via _onOpenTick
+      await _openController.forward(from: 0.0);
       if (!mounted) return;
 
       setState(() {
@@ -398,7 +471,6 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
       // Stage 1: Arcane rising charge sound on card emergence
       AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 0.95);
-      HapticFeedback.selectionClick();
     }
   }
 
@@ -855,6 +927,78 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                         ),
                                       ),
 
+                                    // Step 4: Light pouring out from inside the chest (colored by reward rarity)
+                                    AnimatedBuilder(
+                                      animation: _openAnimation,
+                                      builder: (context, _) {
+                                        if (_openAnimation.value <= 0.03) return const SizedBox.shrink();
+                                        return Positioned(
+                                          top: 15,
+                                          child: CustomPaint(
+                                            size: const Size(190, 150),
+                                            painter: _ChestInteriorGlowPainter(
+                                              openProgress: _openAnimation.value,
+                                              color: _rewardRarity.primaryColor,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+
+                                    // Step 4: Landing Dust when chest impacts ground
+                                    AnimatedBuilder(
+                                      animation: _landingDustController,
+                                      builder: (context, _) {
+                                        if (!_landingDustController.isAnimating) return const SizedBox.shrink();
+                                        return Positioned(
+                                          bottom: 12,
+                                          child: CustomPaint(
+                                            size: const Size(220, 45),
+                                            painter: _FloorDustPainter(
+                                              progress: _landingDustController.value,
+                                              color: const Color(0xFFCFD8DC),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+
+                                    // Step 4: Pop Dust kicked up when lid bursts open
+                                    AnimatedBuilder(
+                                      animation: _popDustController,
+                                      builder: (context, _) {
+                                        if (!_popDustController.isAnimating) return const SizedBox.shrink();
+                                        return Positioned(
+                                          bottom: 12,
+                                          child: CustomPaint(
+                                            size: const Size(240, 50),
+                                            painter: _FloorDustPainter(
+                                              progress: _popDustController.value,
+                                              color: _rewardRarity.primaryColor,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+
+                                    // Step 5: Bouncing Loot (Coins, Gems, Shards launching & bouncing)
+                                    AnimatedBuilder(
+                                      animation: _bouncingLootController,
+                                      builder: (context, _) {
+                                        if (!_bouncingLootController.isAnimating) return const SizedBox.shrink();
+                                        return Positioned(
+                                          top: 0,
+                                          child: CustomPaint(
+                                            size: const Size(240, 160),
+                                            painter: _BouncingLootPainter(
+                                              progress: _bouncingLootController.value,
+                                              color: _rewardRarity.primaryColor,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+
                                     // 6. 3D Animated Floating, Tilting, Squash-and-Stretch Shaking Chest
                                     AnimatedBuilder(
                                       animation: Listenable.merge([
@@ -865,15 +1009,18 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                       ]),
                                       builder: (context, _) {
                                         final squash = _squashAnimation.value;
-                                        final scaleX = (1.0 + squash * 0.14) * _chestScale;
-                                        final scaleY = (1.0 - squash * 0.14) * _chestScale;
+                                        final scaleX = (1.0 + squash * 0.18) * _chestScale;
+                                        final scaleY = (1.0 - squash * 0.18) * _chestScale;
+                                        // Step 1: High frequency anticipation tremor shake before opening
+                                        final shakeMult = _isOpening ? (5.5 + 3.5 * _shakeController.value) : (3.5 + _tapCount * 1.5);
+                                        final shakeFreq = _isOpening ? 22.0 : 10.0;
                                         return Transform.translate(
                                           offset: Offset(
-                                            sin(_shakeController.value * pi * 10) * (3.5 + _tapCount * 1.5),
-                                            sin(_auraController.value * 2 * pi) * 2.8 + squash * 3.5,
+                                            sin(_shakeController.value * pi * shakeFreq) * shakeMult,
+                                            sin(_auraController.value * 2 * pi) * 2.8 + squash * 4.0,
                                           ),
                                           child: Transform.rotate(
-                                            angle: sin(_shakeController.value * pi * 10) * (0.08 + _tapCount * 0.03) * (1.0 - _shakeController.value),
+                                            angle: sin(_shakeController.value * pi * shakeFreq) * (0.08 + _tapCount * 0.03) * (1.0 - _shakeController.value),
                                             child: Transform.scale(
                                               scaleX: scaleX,
                                               scaleY: scaleY,
@@ -2426,4 +2573,232 @@ class _MythicStarsRow extends StatelessWidget {
       }),
     );
   }
+}
+
+class _FloorDustPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _FloorDustPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0.0 || progress >= 1.0) return;
+    final alpha = (1.0 - progress).clamp(0.0, 1.0);
+    final cx = size.width * 0.5;
+    final baseY = size.height * 0.75;
+
+    final dustPaint = Paint()..style = PaintingStyle.fill;
+    final rand = Random(55);
+
+    // Billowing dust clouds kicking left and right
+    const puffCount = 14;
+    for (int i = 0; i < puffCount; i++) {
+      final isLeft = i.isEven;
+      final seed = rand.nextDouble();
+      final speed = 0.6 + seed * 0.8;
+      final dist = (22.0 + seed * 68.0) * Curves.easeOutCubic.transform(progress * speed);
+      final px = cx + (isLeft ? -dist : dist);
+      final py = baseY - sin(progress * pi) * (6.0 + seed * 16.0);
+      final radius = (6.0 + seed * 10.0) * (0.6 + progress * 0.8);
+
+      final puffAlpha = (alpha * (0.35 + (1.0 - seed) * 0.35)).clamp(0.0, 1.0);
+      dustPaint.color = (i % 3 == 0 ? color : const Color(0xFFCFD8DC)).withValues(alpha: puffAlpha);
+      dustPaint.maskFilter = MaskFilter.blur(BlurStyle.normal, 3.5 + seed * 2.0);
+      canvas.drawCircle(Offset(px, py), radius, dustPaint);
+    }
+
+    // High-speed flying stone debris sparks
+    final sparkPaint = Paint()..style = PaintingStyle.fill;
+    for (int j = 0; j < 10; j++) {
+      final isLeft = j.isEven;
+      final seed = rand.nextDouble();
+      final dist = (35.0 + seed * 75.0) * Curves.easeOutQuad.transform(progress);
+      final px = cx + (isLeft ? -dist : dist);
+      final py = baseY - (seed * 22.0 * sin(progress * pi));
+      final sparkAlpha = (alpha * 0.85).clamp(0.0, 1.0);
+      sparkPaint.color = Colors.white.withValues(alpha: sparkAlpha);
+      canvas.drawCircle(Offset(px, py), 1.2 + seed * 1.2, sparkPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _FloorDustPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
+}
+
+class _ChestInteriorGlowPainter extends CustomPainter {
+  final double openProgress;
+  final Color color;
+
+  _ChestInteriorGlowPainter({required this.openProgress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (openProgress <= 0.03) return;
+    final cx = size.width * 0.5;
+    final mouthY = size.height * 0.60;
+    final effectiveP = (openProgress.clamp(0.0, 1.0));
+
+    // 1. Broad radial glow pouring out of chest chamber
+    final glowRect = Rect.fromCenter(
+      center: Offset(cx, mouthY),
+      width: size.width * 0.85 * effectiveP,
+      height: size.height * 0.90 * effectiveP,
+    );
+
+    final glowShader = RadialGradient(
+      colors: [
+        Colors.white.withValues(alpha: (0.85 * effectiveP).clamp(0.0, 1.0)),
+        color.withValues(alpha: (0.75 * effectiveP).clamp(0.0, 1.0)),
+        color.withValues(alpha: (0.25 * effectiveP).clamp(0.0, 1.0)),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.28, 0.65, 1.0],
+    ).createShader(glowRect);
+
+    canvas.drawOval(glowRect, Paint()..shader = glowShader);
+
+    // 2. Upward fanning volumetric light beam cone
+    final coneW = (size.width * 0.40) * effectiveP;
+    final coneTopW = (size.width * 0.70) * effectiveP;
+    final conePath = Path()
+      ..moveTo(cx - coneW * 0.5, mouthY)
+      ..lineTo(cx + coneW * 0.5, mouthY)
+      ..lineTo(cx + coneTopW * 0.5, 0)
+      ..lineTo(cx - coneTopW * 0.5, 0)
+      ..close();
+
+    final coneGrad = LinearGradient(
+      begin: Alignment.bottomCenter,
+      end: Alignment.topCenter,
+      colors: [
+        Colors.white.withValues(alpha: 0.75 * effectiveP),
+        color.withValues(alpha: 0.45 * effectiveP),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.40, 1.0],
+    );
+
+    canvas.drawPath(
+      conePath,
+      Paint()
+        ..shader = coneGrad.createShader(Rect.fromLTWH(cx - coneTopW * 0.5, 0, coneTopW, mouthY))
+        ..blendMode = BlendMode.screen,
+    );
+
+    // 3. Floating starlight motes rising out of the interior
+    final rand = Random(33);
+    final sparkPaint = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < 8; i++) {
+      final seedX = (rand.nextDouble() - 0.5) * coneW * 0.9;
+      final seedY = rand.nextDouble() * mouthY * effectiveP;
+      final px = cx + seedX;
+      final py = mouthY - seedY;
+      sparkPaint.color = (i.isEven ? Colors.white : color).withValues(alpha: 0.85 * effectiveP);
+      canvas.drawCircle(Offset(px, py), 1.5 + rand.nextDouble() * 1.5, sparkPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ChestInteriorGlowPainter oldDelegate) =>
+      oldDelegate.openProgress != openProgress || oldDelegate.color != color;
+}
+
+class _BouncingLootPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _BouncingLootPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0.0 || progress >= 1.0) return;
+    final cx = size.width * 0.5;
+    final originY = size.height * 0.55;
+    final groundY = size.height * 0.82;
+
+    final alpha = (1.0 - (progress - 0.65).clamp(0.0, 0.35) / 0.35).clamp(0.0, 1.0);
+    final rand = Random(99);
+
+    const count = 16;
+    for (int i = 0; i < count; i++) {
+      final angle = -pi * 0.5 + (rand.nextDouble() - 0.5) * 1.45;
+      final speed = 110.0 + rand.nextDouble() * 140.0;
+      final vx = cos(angle) * speed;
+      final vy0 = sin(angle) * speed;
+
+      final t = progress * 1.4;
+      final g = 380.0;
+
+      final tPeak = -vy0 / g;
+      final tImpact = 2 * tPeak;
+
+      double px = cx + vx * t;
+      double py;
+      if (t < tImpact) {
+        py = originY + vy0 * t + 0.5 * g * t * t;
+      } else {
+        final tAfter = t - tImpact;
+        final vyBounce = -vy0 * 0.52;
+        py = groundY + vyBounce * tAfter + 0.5 * g * tAfter * tAfter;
+        if (py > groundY) py = groundY;
+      }
+
+      if (py > groundY) py = groundY;
+
+      final isCoin = i < 8;
+      final isGem = i >= 8 && i < 12;
+
+      canvas.save();
+      canvas.translate(px, py);
+      canvas.rotate((t * 6.0 + i) * (i.isEven ? 1.0 : -1.0));
+
+      if (isCoin) {
+        final coinRadius = 4.5 + rand.nextDouble() * 2.0;
+        final coinGrad = RadialGradient(
+          colors: [
+            Colors.white.withValues(alpha: alpha),
+            const Color(0xFFFFD54F).withValues(alpha: alpha),
+            const Color(0xFFFFA000).withValues(alpha: alpha),
+          ],
+          stops: const [0.0, 0.65, 1.0],
+        );
+        final coinPaint = Paint()..shader = coinGrad.createShader(Rect.fromCircle(center: Offset.zero, radius: coinRadius));
+        canvas.drawCircle(Offset.zero, coinRadius, coinPaint);
+        canvas.drawCircle(
+          Offset.zero,
+          coinRadius,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 0.9
+            ..color = const Color(0xFFFF8F00).withValues(alpha: alpha),
+        );
+      } else if (isGem) {
+        final gemSize = 5.0 + rand.nextDouble() * 2.5;
+        final gemPath = Path()
+          ..moveTo(0, -gemSize)
+          ..lineTo(gemSize * 0.7, 0)
+          ..lineTo(0, gemSize)
+          ..lineTo(-gemSize * 0.7, 0)
+          ..close();
+        final gemPaint = Paint()
+          ..style = PaintingStyle.fill
+          ..color = (i.isEven ? color : const Color(0xFF00E5FF)).withValues(alpha: alpha * 0.95);
+        canvas.drawPath(gemPath, gemPaint);
+      } else {
+        final sparkSize = 2.5 + rand.nextDouble() * 1.5;
+        final sparkPaint = Paint()
+          ..style = PaintingStyle.fill
+          ..color = Colors.white.withValues(alpha: alpha);
+        canvas.drawCircle(Offset.zero, sparkSize, sparkPaint);
+      }
+
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BouncingLootPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
 }
