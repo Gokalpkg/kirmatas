@@ -44,6 +44,13 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   late final AnimationController _cardFlipController;
   late final AnimationController _shineSweepController;
   late final AnimationController _revealController;
+  late final AnimationController _suctionController;
+  late final AnimationController _floorRunesController;
+  late final AnimationController _lightningController;
+  late final AnimationController _volumetricRaysController;
+  late final AnimationController _chromaticController;
+  late final AnimationController _starsPopController;
+  bool _impactTriggered = false;
 
   int _tapCount = 0; // 0 (start), 1, 2, 3 (open)
   Rarity _currentRarity = Rarity.common;
@@ -203,6 +210,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       vsync: this,
       duration: const Duration(milliseconds: 850),
     );
+    _cardFlipController.addListener(_onCardFlipTick);
 
     _shineSweepController = AnimationController(
       vsync: this,
@@ -212,6 +220,36 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     _revealController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
+    );
+
+    _suctionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+
+    _floorRunesController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 750),
+    );
+
+    _lightningController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+
+    _volumetricRaysController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+
+    _chromaticController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+
+    _starsPopController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
     );
 
     _rollReward();
@@ -225,8 +263,29 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     });
   }
 
+  void _onCardFlipTick() {
+    if (!_impactTriggered && _cardFlipController.value >= 0.52 && mounted) {
+      _impactTriggered = true;
+      _floorRunesController.forward(from: 0.0);
+      _lightningController.forward(from: 0.0);
+      _chromaticController.forward(from: 0.0);
+      _shineSweepController.forward(from: 0.0);
+      _volumetricRaysController.forward(from: 0.0);
+      _starsPopController.forward(from: 0.0);
+
+      // Arcane climax audio & tactile burst:
+      // Bass drop + Boss rumble + Celestial choir chime + Victory
+      AudioManager.instance.playSfx(GameSfx.explosion, playbackRate: 0.75);
+      AudioManager.instance.playSfx(GameSfx.bossHit, playbackRate: 0.85);
+      AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.4);
+      AudioManager.instance.playSfx(GameSfx.victory);
+      HapticFeedback.heavyImpact();
+    }
+  }
+
   @override
   void dispose() {
+    _cardFlipController.removeListener(_onCardFlipTick);
     _dropController.dispose();
     _shakeController.dispose();
     _openController.dispose();
@@ -241,6 +300,12 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     _cardFlipController.dispose();
     _shineSweepController.dispose();
     _revealController.dispose();
+    _suctionController.dispose();
+    _floorRunesController.dispose();
+    _lightningController.dispose();
+    _volumetricRaysController.dispose();
+    _chromaticController.dispose();
+    _starsPopController.dispose();
     super.dispose();
   }
 
@@ -324,14 +389,16 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       setState(() {
         _opened = true;
         _isOpening = false;
+        _impactTriggered = false;
       });
 
+      _suctionController.forward(from: 0.0);
       _cardFlipController.forward(from: 0.0);
       _revealController.forward(from: 0.0);
-      _shineSweepController.forward(from: 0.0);
 
-      AudioManager.instance.playSfx(GameSfx.victory);
-      HapticFeedback.heavyImpact();
+      // Stage 1: Arcane rising charge sound on card emergence
+      AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 0.95);
+      HapticFeedback.selectionClick();
     }
   }
 
@@ -882,7 +949,50 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                         clipBehavior: Clip.none,
                         alignment: Alignment.center,
                         children: [
-                          // 1. Confetti / Starburst Celebration Particles
+                          // Step 4b. Volumetric Light Rays Fountain (behind everything)
+                          Positioned(
+                            top: -45,
+                            child: AnimatedBuilder(
+                              animation: _volumetricRaysController,
+                              builder: (context, _) => CustomPaint(
+                                size: const Size(280, 240),
+                                painter: _VolumetricRaysFountainPainter(
+                                  progress: _volumetricRaysController.value,
+                                  color: _rewardRarity.primaryColor,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Step 1c. Inward Glowing Energy Orbs Suction
+                          Positioned.fill(
+                            child: AnimatedBuilder(
+                              animation: _suctionController,
+                              builder: (context, _) => CustomPaint(
+                                painter: _InwardEnergyOrbsPainter(
+                                  progress: _suctionController.value,
+                                  color: _rewardRarity.primaryColor,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Step 3a. Expanding Floor Runes upon Impact
+                          Positioned(
+                            top: 80,
+                            child: AnimatedBuilder(
+                              animation: _floorRunesController,
+                              builder: (context, _) => CustomPaint(
+                                size: const Size(280, 95),
+                                painter: _ExpandingFloorRunesPainter(
+                                  progress: _floorRunesController.value,
+                                  color: _rewardRarity.primaryColor,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Confetti / Starburst Celebration Particles
                           Positioned(
                             top: -15,
                             child: CustomPaint(
@@ -894,7 +1004,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                             ),
                           ),
 
-                          // 1b. Rising Stellar Dust Motes drifting around the opened tablet
+                          // Rising Stellar Dust Motes drifting around the opened tablet
                           Positioned.fill(
                             child: AnimatedBuilder(
                               animation: _auraController,
@@ -907,7 +1017,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                             ),
                           ),
 
-                          // 2. Holographic Reward Presentation Card (3D Obsidian Crystal Tablet)
+                          // Holographic Reward Presentation Card (3D Obsidian Crystal Tablet)
                           ScaleTransition(
                             scale: CurvedAnimation(
                               parent: _revealController,
@@ -921,65 +1031,132 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  // 3D Flip Card Container
+                                  // Step 2 & 5: 3D Flip Card Container with Float, Vibration, Freeze-Frame & Elastic Snap Landing
                                   AnimatedBuilder(
-                                    animation: _cardFlipController,
+                                    animation: Listenable.merge([
+                                      _cardFlipController,
+                                      _suctionController,
+                                      _chromaticController,
+                                      _lightningController,
+                                      _shineSweepController,
+                                    ]),
                                     builder: (context, child) {
-                                      final angle = (1.0 - _cardFlipController.value) * pi * 0.5;
-                                      return Transform(
-                                        alignment: Alignment.center,
-                                        transform: Matrix4.identity()
-                                          ..setEntry(3, 2, 0.0018)
-                                          ..rotateY(angle),
-                                        child: child,
+                                      final t = _cardFlipController.value;
+                                      double translateY = 0.0;
+                                      double vibeX = 0.0;
+                                      double vibeY = 0.0;
+                                      double angle;
+                                      double scale = 1.0;
+
+                                      if (t < 0.46) {
+                                        // Step 1: Float card up, violent vibration during inward energy suction
+                                        final p = (t / 0.46).clamp(0.0, 1.0);
+                                        translateY = -32.0 * sin(p * pi * 0.5);
+                                        vibeX = sin(t * 85.0) * (3.5 * p);
+                                        vibeY = cos(t * 75.0) * (2.5 * p);
+                                        angle = (1.0 - Curves.easeInQuad.transform(p)) * (pi * 0.5);
+                                      } else if (t <= 0.52) {
+                                        // Step 2: Brief dramatic freeze-frame suspension apex
+                                        translateY = -32.0;
+                                        vibeX = sin(t * 120.0) * 0.8;
+                                        angle = 0.06 * sin((t - 0.46) / 0.06 * pi);
+                                      } else {
+                                        // Step 2 & 3: Bouncy elastic snap landing from apex to zero
+                                        final p = ((t - 0.52) / 0.48).clamp(0.0, 1.0);
+                                        final elastic = Curves.elasticOut.transform(p);
+                                        translateY = -32.0 * (1.0 - elastic);
+                                        angle = (1.0 - elastic) * 0.15;
+                                        scale = 0.92 + 0.08 * elastic;
+                                      }
+
+                                      final cardWithTransform = Transform.translate(
+                                        offset: Offset(vibeX, translateY + vibeY),
+                                        child: Transform(
+                                          alignment: Alignment.center,
+                                          transform: Matrix4.identity()
+                                            ..setEntry(3, 2, 0.0018)
+                                            ..rotateY(angle)
+                                            ..multiply(Matrix4.diagonal3Values(scale, scale, 1.0)),
+                                          child: child,
+                                        ),
                                       );
+
+                                      // Step 5: Chromatic Aberration RGB channel split pulse on impact
+                                      return _buildCardWithChromaticAberration(cardWithTransform);
                                     },
-                                    child: KaunosCard(
-                                      width: 138,
-                                      height: 138,
-                                      borderRadius: 26,
-                                      bottomBevelDepth: 5.0,
-                                      bevelColor: KaunosPalette.crystalBevelShadow,
-                                      backgroundColor: KaunosPalette.obsidianGlassElevated,
-                                      borderColor: _rewardRarity.primaryColor.withValues(alpha: 0.85),
-                                      showSpecularRim: true,
-                                      showCornerBrackets: true,
-                                      padding: EdgeInsets.zero,
-                                      child: Stack(
-                                        alignment: Alignment.center,
-                                        children: [
-                                          // Rotating background rune aura inside card
-                                          Transform.rotate(
-                                            angle: _auraController.value * 2 * pi,
-                                            child: CustomPaint(
-                                              size: const Size(116, 116),
-                                              painter: _CardRuneAuraPainter(
-                                                color: _rewardRarity.primaryColor,
-                                              ),
-                                            ),
-                                          ),
-                                          // High-detail Item visual
-                                          Center(
-                                            child: _buildRewardIcon(),
-                                          ),
-                                          // Specular shine sweep across card
-                                          if (_shineSweepController.value > 0.0 && _shineSweepController.value < 1.0)
-                                            Positioned.fill(
-                                              child: ClipRRect(
-                                                borderRadius: BorderRadius.circular(24),
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        KaunosCard(
+                                          width: 138,
+                                          height: 138,
+                                          borderRadius: 26,
+                                          bottomBevelDepth: 5.0,
+                                          bevelColor: KaunosPalette.crystalBevelShadow,
+                                          backgroundColor: KaunosPalette.obsidianGlassElevated,
+                                          borderColor: _rewardRarity.primaryColor.withValues(alpha: 0.85),
+                                          showSpecularRim: true,
+                                          showCornerBrackets: true,
+                                          padding: EdgeInsets.zero,
+                                          child: Stack(
+                                            alignment: Alignment.center,
+                                            children: [
+                                              // Rotating background rune aura inside card
+                                              Transform.rotate(
+                                                angle: _auraController.value * 2 * pi,
                                                 child: CustomPaint(
-                                                  painter: _CardShineSweepPainter(
-                                                    progress: _shineSweepController.value,
+                                                  size: const Size(116, 116),
+                                                  painter: _CardRuneAuraPainter(
+                                                    color: _rewardRarity.primaryColor,
                                                   ),
                                                 ),
                                               ),
+                                              // High-detail Item visual
+                                              Center(
+                                                child: _buildRewardIcon(),
+                                              ),
+                                              // Step 4a: Prismatic Rainbow Sheen sweep across art
+                                              if (_shineSweepController.value > 0.0 && _shineSweepController.value < 1.0)
+                                                Positioned.fill(
+                                                  child: ClipRRect(
+                                                    borderRadius: BorderRadius.circular(24),
+                                                    child: CustomPaint(
+                                                      painter: _PrismaticRainbowSheenPainter(
+                                                        progress: _shineSweepController.value,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+
+                                        // Step 3b: Crackling Golden Lightning from card corners
+                                        if (_lightningController.isAnimating)
+                                          Positioned.fill(
+                                            child: CustomPaint(
+                                              painter: _CracklingGoldenLightningPainter(
+                                                progress: _lightningController.value,
+                                              ),
                                             ),
-                                        ],
-                                      ),
+                                          ),
+                                      ],
                                     ),
                                   ),
 
-                                  const SizedBox(height: 14),
+                                  const SizedBox(height: 10),
+
+                                  // Step 6: Sequential Mythic Rarity Stars Pop
+                                  AnimatedBuilder(
+                                    animation: _starsPopController,
+                                    builder: (context, _) => _MythicStarsRow(
+                                      rarity: _rewardRarity,
+                                      progress: _starsPopController.value,
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 8),
 
                                   // Status Badge (New or Duplicate)
                                   if (_isDuplicate)
@@ -1231,6 +1408,46 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
           );
         },
       ),
+    );
+  }
+
+  Widget _buildCardWithChromaticAberration(Widget cardWidget) {
+    if (_chromaticController.value <= 0.0 || _chromaticController.value >= 1.0) {
+      return cardWidget;
+    }
+    final progress = _chromaticController.value;
+    final splitDist = (1.0 - progress) * 6.5;
+    final ghostAlpha = ((1.0 - progress) * 0.45).clamp(0.0, 1.0);
+
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
+        // Cyan color channel split (shifted left)
+        Transform.translate(
+          offset: Offset(-splitDist, 0),
+          child: ColorFiltered(
+            colorFilter: ColorFilter.mode(
+              const Color(0xFF00E5FF).withValues(alpha: ghostAlpha),
+              BlendMode.screen,
+            ),
+            child: cardWidget,
+          ),
+        ),
+        // Red-Orange color channel split (shifted right)
+        Transform.translate(
+          offset: Offset(splitDist, 0),
+          child: ColorFiltered(
+            colorFilter: ColorFilter.mode(
+              const Color(0xFFFF1744).withValues(alpha: ghostAlpha),
+              BlendMode.screen,
+            ),
+            child: cardWidget,
+          ),
+        ),
+        // Center razor-sharp obsidian crystal card
+        cardWidget,
+      ],
     );
   }
 
@@ -1580,35 +1797,6 @@ class _CardRuneAuraPainter extends CustomPainter {
   bool shouldRepaint(covariant _CardRuneAuraPainter oldDelegate) => oldDelegate.color != color;
 }
 
-class _CardShineSweepPainter extends CustomPainter {
-  final double progress;
-
-  _CardShineSweepPainter({required this.progress});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (progress <= 0.0 || progress >= 1.0) return;
-    final rect = Offset.zero & size;
-    final sweepX = size.width * 2.0 * progress - size.width * 0.5;
-
-    final shinePaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.transparent,
-          Colors.white.withValues(alpha: 0.45),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.5, 1.0],
-      ).createShader(Rect.fromLTWH(sweepX, 0, size.width * 0.5, size.height));
-
-    canvas.drawRect(rect, shinePaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _CardShineSweepPainter oldDelegate) => oldDelegate.progress != progress;
-}
 
 class _CrateSunburstPainter extends CustomPainter {
   final Color color;
@@ -1842,4 +2030,400 @@ class _StellarDustPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _StellarDustPainter oldDelegate) =>
       oldDelegate.time != time || oldDelegate.color != color;
+}
+
+class _InwardEnergyOrbsPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _InwardEnergyOrbsPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0.0 || progress >= 1.0) return;
+    final cx = size.width * 0.5;
+    final cy = size.height * 0.5;
+    final center = Offset(cx, cy);
+
+    final p = Curves.easeInCubic.transform(progress);
+    final alpha = (sin(progress * pi)).clamp(0.0, 1.0);
+
+    final dotPaint = Paint()..style = PaintingStyle.fill;
+    final glowPaint = Paint()..style = PaintingStyle.fill;
+
+    const count = 32;
+    for (int i = 0; i < count; i++) {
+      final seed = (i * 97 + 13) % 1000 / 1000.0;
+      final seed2 = (i * 61 + 37) % 1000 / 1000.0;
+      final baseRadius = 120.0 + seed * 120.0;
+      final baseAngle = i * (2 * pi / count) + seed2 * 0.4;
+
+      final curRadius = baseRadius * (1.0 - p);
+      final curAngle = baseAngle + progress * 2.8;
+
+      final curPos = center + Offset(cos(curAngle) * curRadius, sin(curAngle) * curRadius);
+
+      final tailAngle = curAngle - 0.12 * (1.0 - p);
+      final tailRadius = curRadius + 14.0 * (1.0 - p);
+      final tailPos = center + Offset(cos(tailAngle) * tailRadius, sin(tailAngle) * tailRadius);
+
+      final orbColor = (i % 4 == 0)
+          ? Colors.white
+          : (i % 4 == 1 ? color : (i % 4 == 2 ? const Color(0xFFFFD54F) : const Color(0xFF38BDF8)));
+
+      final orbAlpha = alpha * (0.5 + 0.5 * (1.0 - p));
+
+      final trailPaint = Paint()
+        ..color = orbColor.withValues(alpha: orbAlpha * 0.6)
+        ..strokeWidth = 1.8 * (1.0 - p)
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(tailPos, curPos, trailPaint);
+
+      glowPaint.color = orbColor.withValues(alpha: orbAlpha * 0.35);
+      glowPaint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
+      canvas.drawCircle(curPos, 3.5 + seed * 2.0, glowPaint);
+
+      dotPaint.color = Colors.white.withValues(alpha: orbAlpha * 0.95);
+      canvas.drawCircle(curPos, 1.5 + seed * 1.5, dotPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _InwardEnergyOrbsPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
+}
+
+class _ExpandingFloorRunesPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _ExpandingFloorRunesPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0.0 || progress >= 1.0) return;
+    final alpha = (1.0 - progress).clamp(0.0, 1.0);
+    final cx = size.width * 0.5;
+    final cy = size.height * 0.5;
+
+    canvas.save();
+    canvas.translate(cx, cy);
+    canvas.scale(1.0, 0.36);
+
+    final expandP = Curves.easeOutCubic.transform(progress);
+    final maxRadius = 135.0 * expandP;
+
+    final ringPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..color = color.withValues(alpha: alpha * 0.85);
+    canvas.drawCircle(Offset.zero, maxRadius, ringPaint);
+
+    final glowRingPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5.0
+      ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 4.5)
+      ..color = const Color(0xFFFFD54F).withValues(alpha: alpha * 0.65);
+    canvas.drawCircle(Offset.zero, maxRadius, glowRingPaint);
+
+    final innerR = maxRadius * 0.68;
+    canvas.drawCircle(Offset.zero, innerR, ringPaint..strokeWidth = 1.4);
+
+    final starPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..color = Colors.white.withValues(alpha: alpha * 0.9);
+    final starPath = Path();
+    const points = 8;
+    for (int i = 0; i < points * 2; i++) {
+      final r = i.isEven ? maxRadius * 0.95 : maxRadius * 0.45;
+      final angle = i * (pi / points) + progress * 0.5;
+      final pt = Offset(cos(angle) * r, sin(angle) * r);
+      if (i == 0) {
+        starPath.moveTo(pt.dx, pt.dy);
+      } else {
+        starPath.lineTo(pt.dx, pt.dy);
+      }
+    }
+    starPath.close();
+    canvas.drawPath(starPath, starPaint);
+
+    const tickCount = 24;
+    final tickPaint = Paint()
+      ..color = const Color(0xFFFFD54F).withValues(alpha: alpha * 0.85)
+      ..strokeWidth = 1.5;
+    for (int i = 0; i < tickCount; i++) {
+      final angle = i * (2 * pi / tickCount) - progress * 0.3;
+      final p1 = Offset(cos(angle) * (maxRadius - 6.0), sin(angle) * (maxRadius - 6.0));
+      final p2 = Offset(cos(angle) * (maxRadius + 6.0), sin(angle) * (maxRadius + 6.0));
+      canvas.drawLine(p1, p2, tickPaint);
+    }
+
+    final corePaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = Colors.white.withValues(alpha: alpha * 0.7)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
+    canvas.drawCircle(Offset.zero, 18.0 * (1.0 - progress), corePaint);
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _ExpandingFloorRunesPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
+}
+
+class _CracklingGoldenLightningPainter extends CustomPainter {
+  final double progress;
+
+  _CracklingGoldenLightningPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0.0 || progress >= 1.0) return;
+    final alpha = (1.0 - progress).clamp(0.0, 1.0);
+    final rand = Random(88);
+
+    final glowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.5
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFFFFA000).withValues(alpha: alpha * 0.8)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 4.0);
+
+    final corePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFFFFD54F).withValues(alpha: alpha * 0.95);
+
+    final whiteHotPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9
+      ..strokeCap = StrokeCap.round
+      ..color = Colors.white.withValues(alpha: alpha);
+
+    final origins = [
+      Offset(0, 0),
+      Offset(size.width, 0),
+      Offset(0, size.height),
+      Offset(size.width, size.height),
+      Offset(size.width * 0.5, 0),
+      Offset(size.width * 0.5, size.height),
+      Offset(0, size.height * 0.5),
+      Offset(size.width, size.height * 0.5),
+    ];
+
+    for (int b = 0; b < origins.length; b++) {
+      final start = origins[b];
+      final dirX = (start.dx - size.width * 0.5).sign;
+      final dirY = (start.dy - size.height * 0.5).sign;
+      final baseAngle = atan2(dirY == 0 ? (b.isEven ? 1.0 : -1.0) : dirY, dirX == 0 ? 1.0 : dirX);
+
+      final path = Path()..moveTo(start.dx, start.dy);
+      Offset cur = start;
+      const segments = 4;
+      final totalDist = 28.0 + rand.nextDouble() * 26.0;
+
+      for (int s = 1; s <= segments; s++) {
+        final t = s / segments;
+        final segDist = totalDist * t;
+        final perp = (rand.nextDouble() - 0.5) * 16.0 * (1.0 - t * 0.4);
+        final next = Offset(
+          start.dx + cos(baseAngle) * segDist - sin(baseAngle) * perp,
+          start.dy + sin(baseAngle) * segDist + cos(baseAngle) * perp,
+        );
+        path.lineTo(next.dx, next.dy);
+        cur = next;
+      }
+
+      canvas.drawPath(path, glowPaint);
+      canvas.drawPath(path, corePaint);
+      canvas.drawPath(path, whiteHotPaint);
+
+      canvas.drawCircle(cur, 2.2, whiteHotPaint..style = PaintingStyle.fill);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CracklingGoldenLightningPainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
+
+class _PrismaticRainbowSheenPainter extends CustomPainter {
+  final double progress;
+
+  _PrismaticRainbowSheenPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0.0 || progress >= 1.0) return;
+
+    final shift = progress * 2.2 - 0.6;
+    final w = size.width;
+    final h = size.height;
+
+    final start = Offset(w * (shift - 0.35), h * (shift - 0.35));
+    final end = Offset(w * (shift + 0.35), h * (shift + 0.35));
+
+    final rainbowGradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Colors.transparent,
+        const Color(0x339C27B0), // Violet
+        const Color(0x553F51B5), // Indigo
+        const Color(0x7700E5FF), // Crystal Cyan
+        const Color(0x7700E676), // Mint Emerald
+        const Color(0x99FFD54F), // Amber Gold
+        const Color(0x77FF4081), // Coral Rose
+        Colors.white.withValues(alpha: 0.85), // Pure Starlight White Flash
+        const Color(0x7700E5FF), // Crystal Cyan
+        const Color(0x339C27B0), // Violet
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.15, 0.28, 0.40, 0.48, 0.55, 0.63, 0.70, 0.82, 0.92, 1.0],
+    );
+
+    final rect = Rect.fromLTWH(0, 0, w, h);
+    final sheenPaint = Paint()
+      ..shader = rainbowGradient.createShader(Rect.fromPoints(start, end))
+      ..blendMode = BlendMode.screen;
+
+    canvas.drawRect(rect, sheenPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PrismaticRainbowSheenPainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
+
+class _VolumetricRaysFountainPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _VolumetricRaysFountainPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0.0 || progress >= 1.0) return;
+    final alpha = (sin(progress * pi)).clamp(0.0, 1.0) * (1.0 - progress * 0.45);
+    final cx = size.width * 0.5;
+    final originY = size.height * 0.72;
+
+    const rayCount = 12;
+    for (int i = 0; i < rayCount; i++) {
+      final angleSpread = -1.22 + (i / (rayCount - 1)) * 2.44;
+      final rayAngle = -pi * 0.5 + angleSpread;
+
+      final length = 170.0 + (i % 3) * 35.0;
+      final rayEnd = Offset(cx + cos(rayAngle) * length, originY + sin(rayAngle) * length);
+
+      final beamWidth = 14.0 + (i % 2) * 10.0;
+      final perpAngle = rayAngle + pi * 0.5;
+      final p1 = Offset(cx - cos(perpAngle) * 3.0, originY - sin(perpAngle) * 3.0);
+      final p2 = Offset(cx + cos(perpAngle) * 3.0, originY + sin(perpAngle) * 3.0);
+      final p3 = Offset(rayEnd.dx + cos(perpAngle) * beamWidth, rayEnd.dy + sin(perpAngle) * beamWidth);
+      final p4 = Offset(rayEnd.dx - cos(perpAngle) * beamWidth, rayEnd.dy - sin(perpAngle) * beamWidth);
+
+      final rayPath = Path()
+        ..moveTo(p1.dx, p1.dy)
+        ..lineTo(p2.dx, p2.dy)
+        ..lineTo(p3.dx, p3.dy)
+        ..lineTo(p4.dx, p4.dy)
+        ..close();
+
+      final rayColor = (i.isEven ? Colors.white : color).withValues(alpha: alpha * (0.35 + (i % 2) * 0.25));
+      final rayGrad = LinearGradient(
+        begin: Alignment.bottomCenter,
+        end: Alignment.topCenter,
+        colors: [
+          rayColor,
+          rayColor.withValues(alpha: rayColor.a * 0.6),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      );
+
+      final rayBounds = rayPath.getBounds();
+      final rayPaint = Paint()
+        ..shader = rayGrad.createShader(rayBounds)
+        ..blendMode = BlendMode.screen;
+
+      canvas.drawPath(rayPath, rayPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _VolumetricRaysFountainPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
+}
+
+class _MythicStarsRow extends StatelessWidget {
+  final Rarity rarity;
+  final double progress;
+
+  const _MythicStarsRow({required this.rarity, required this.progress});
+
+  int get _starCount {
+    switch (rarity) {
+      case Rarity.common:
+        return 1;
+      case Rarity.rare:
+        return 2;
+      case Rarity.epic:
+        return 3;
+      case Rarity.legendary:
+        return 5;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = _starCount;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(count, (index) {
+        final startThreshold = index * 0.12;
+        final starP = ((progress - startThreshold) / 0.40).clamp(0.0, 1.0);
+        final scale = starP > 0.0 ? Curves.elasticOut.transform(starP) : 0.0;
+        final opacity = starP.clamp(0.0, 1.0);
+
+        return Transform.scale(
+          scale: scale,
+          child: Opacity(
+            opacity: opacity,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (starP > 0.2 && starP < 0.95)
+                    Transform.rotate(
+                      angle: starP * pi,
+                      child: Icon(
+                        Icons.flare_rounded,
+                        size: 26,
+                        color: const Color(0xFFFFD54F).withValues(alpha: (1.0 - starP).clamp(0.0, 1.0)),
+                      ),
+                    ),
+                  const Icon(
+                    Icons.star_rounded,
+                    size: 22,
+                    color: Color(0xFFFF8F00),
+                  ),
+                  const Icon(
+                    Icons.star_rounded,
+                    size: 19,
+                    color: Color(0xFFFFD54F),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
 }
