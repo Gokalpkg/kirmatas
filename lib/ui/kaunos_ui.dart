@@ -383,12 +383,391 @@ class KaunosCard extends StatelessWidget {
 }
 
 // =============================================================================
+// KAUNOS JUICY FEEDBACK (PARTICLES, NEON WAVES, PERSPECTIVE & KINETICS)
+// =============================================================================
+
+/// Individual spark particle for celebratory button release showers.
+class _KaunosSparkParticle {
+  final double angle;
+  final double distance;
+  final double size;
+  final Color color;
+  final double speedMultiplier;
+
+  _KaunosSparkParticle({
+    required this.angle,
+    required this.distance,
+    required this.size,
+    required this.color,
+    required this.speedMultiplier,
+  });
+}
+
+/// CustomPainter that renders:
+/// 1. Expanding neon perimeter shockwave ring along the exact button outline
+/// 2. Glowing radial particle burst shower
+/// 3. High-stakes radial energy meter aura
+class _KaunosJuicyOverlayPainter extends CustomPainter {
+  final double waveProgress;
+  final double particleProgress;
+  final List<_KaunosSparkParticle> particles;
+  final Color waveColor;
+  final double borderRadius;
+  final bool isCircle;
+  final bool isHighStakes;
+
+  _KaunosJuicyOverlayPainter({
+    required this.waveProgress,
+    required this.particleProgress,
+    required this.particles,
+    required this.waveColor,
+    required this.borderRadius,
+    this.isCircle = false,
+    this.isHighStakes = false,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+
+    // 1. Layer 3: Expanding Neon Perimeter Wave
+    if (waveProgress > 0.0 && waveProgress < 1.0) {
+      final waveAlpha = ((1.0 - waveProgress) * 0.95).clamp(0.0, 1.0);
+      final expand = waveProgress * (isHighStakes ? 26.0 : 18.0);
+      final strokeW = (2.6 * (1.0 - waveProgress) + 0.6).clamp(0.6, 3.2);
+
+      final wavePaint = Paint()
+        ..color = waveColor.withValues(alpha: waveAlpha)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeW
+        ..maskFilter = MaskFilter.blur(BlurStyle.solid, 2.5 + (1.0 - waveProgress) * 3.5);
+
+      final rect = Rect.fromLTWH(-expand, -expand, size.width + expand * 2, size.height + expand * 2);
+      if (isCircle) {
+        canvas.drawOval(rect, wavePaint);
+      } else {
+        final r = Radius.circular(borderRadius + expand * 0.45);
+        canvas.drawRRect(RRect.fromRectAndRadius(rect, r), wavePaint);
+      }
+    }
+
+    // 2. Layer 5: Glowing Particle Burst Shower Outward
+    if (particleProgress > 0.0 && particleProgress < 1.0 && particles.isNotEmpty) {
+      final particleAlpha = ((1.0 - particleProgress) * 1.0).clamp(0.0, 1.0);
+      final center = Offset(size.width / 2, size.height / 2);
+      final halfW = size.width / 2;
+      final halfH = size.height / 2;
+
+      for (final p in particles) {
+        final curvedT = Curves.easeOutCubic.transform(particleProgress);
+        final currentDist = p.distance * curvedT * p.speedMultiplier;
+
+        final cosA = math.cos(p.angle);
+        final sinA = math.sin(p.angle);
+
+        final basePerimeterDist = isCircle
+            ? halfW
+            : math.min(
+                (halfW / (cosA.abs() > 0.001 ? cosA.abs() : 1.0)),
+                (halfH / (sinA.abs() > 0.001 ? sinA.abs() : 1.0)),
+              );
+
+        final posX = center.dx + cosA * (basePerimeterDist + currentDist);
+        final posY = center.dy + sinA * (basePerimeterDist + currentDist);
+
+        final currentSize = (p.size * (1.0 - particleProgress * 0.6)).clamp(0.8, 6.0);
+        final sparkPaint = Paint()
+          ..color = p.color.withValues(alpha: particleAlpha)
+          ..style = PaintingStyle.fill
+          ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 1.5);
+
+        canvas.drawCircle(Offset(posX, posY), currentSize, sparkPaint);
+
+        // Bright specular core glint
+        final corePaint = Paint()
+          ..color = Colors.white.withValues(alpha: particleAlpha * 0.95)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(Offset(posX, posY), currentSize * 0.4, corePaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _KaunosJuicyOverlayPainter oldDelegate) =>
+      oldDelegate.waveProgress != waveProgress ||
+      oldDelegate.particleProgress != particleProgress ||
+      oldDelegate.waveColor != waveColor;
+}
+
+/// Universal 6-layer juicy interactive wrapper that endows any widget with:
+/// 1. 3D perspective hover & touch tilt
+/// 2. Physical compression + elastic snap-back
+/// 3. Perimeter expanding neon shockwave
+/// 4. Dual tactile pop on press & warm rewarding chime on release
+/// 5. Radial glowing particle burst shower
+/// 6. High-stakes kinetic shake & radial energy
+class KaunosJuicyInteractive extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final double borderRadius;
+  final bool isCircle;
+  final Color waveColor;
+  final bool isHighStakes;
+  final bool enabled;
+
+  const KaunosJuicyInteractive({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.onLongPress,
+    this.borderRadius = 16.0,
+    this.isCircle = false,
+    this.waveColor = KaunosPalette.goldHighlight,
+    this.isHighStakes = false,
+    this.enabled = true,
+  });
+
+  @override
+  State<KaunosJuicyInteractive> createState() => _KaunosJuicyInteractiveState();
+}
+
+class _KaunosJuicyInteractiveState extends State<KaunosJuicyInteractive> with TickerProviderStateMixin {
+  bool _isPressed = false;
+  Offset _pointerPos = Offset.zero;
+
+  late final AnimationController _elasticController;
+  late final Animation<double> _elasticAnimation;
+
+  late final AnimationController _waveController;
+  late final Animation<double> _waveAnimation;
+
+  late final AnimationController _particleController;
+  late final Animation<double> _particleAnimation;
+
+  late final AnimationController _shakeController;
+  late final Animation<double> _shakeAnimation;
+
+  List<_KaunosSparkParticle> _particles = [];
+  final math.Random _random = math.Random();
+
+  bool get _isClickable => widget.enabled && widget.onTap != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _elasticController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+    _elasticAnimation = CurvedAnimation(
+      parent: _elasticController,
+      curve: Curves.elasticOut,
+    );
+
+    _waveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 460),
+    );
+    _waveAnimation = CurvedAnimation(
+      parent: _waveController,
+      curve: Curves.easeOutQuad,
+    );
+
+    _particleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
+    _particleAnimation = CurvedAnimation(
+      parent: _particleController,
+      curve: Curves.easeOutCubic,
+    );
+
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    );
+    _shakeAnimation = CurvedAnimation(
+      parent: _shakeController,
+      curve: Curves.linear,
+    );
+  }
+
+  @override
+  void dispose() {
+    _elasticController.dispose();
+    _waveController.dispose();
+    _particleController.dispose();
+    _shakeController.dispose();
+    super.dispose();
+  }
+
+  void _generateParticles() {
+    final count = widget.isHighStakes ? 22 : 14;
+    final particles = <_KaunosSparkParticle>[];
+    for (int i = 0; i < count; i++) {
+      final angle = (i * (2 * math.pi / count)) + (_random.nextDouble() * 0.4 - 0.2);
+      final distance = 16.0 + _random.nextDouble() * (widget.isHighStakes ? 32.0 : 20.0);
+      final size = 1.8 + _random.nextDouble() * (widget.isHighStakes ? 2.8 : 2.0);
+      final colors = [
+        widget.waveColor,
+        KaunosPalette.goldGlint,
+        KaunosPalette.goldHighlight,
+        Colors.white,
+      ];
+      particles.add(_KaunosSparkParticle(
+        angle: angle,
+        distance: distance,
+        size: size,
+        color: colors[_random.nextInt(colors.length)],
+        speedMultiplier: 0.85 + _random.nextDouble() * 0.45,
+      ));
+    }
+    _particles = particles;
+  }
+
+  void _handleTapDown(Offset localPos) {
+    if (!_isClickable) return;
+    setState(() {
+      _isPressed = true;
+      _pointerPos = localPos;
+    });
+    // Layer 4: Snappy tactile pop on press
+    HapticFeedback.lightImpact();
+  }
+
+  void _handleTapUp(Offset localPos) {
+    if (_isPressed) {
+      setState(() {
+        _isPressed = false;
+        _pointerPos = localPos;
+      });
+
+      // Layer 2: Elastic snap back on release
+      _elasticController.forward(from: 0.0);
+
+      // Layer 3: Perimeter expanding neon wave
+      _waveController.forward(from: 0.0);
+
+      // Layer 5: Particle burst shower
+      _generateParticles();
+      _particleController.forward(from: 0.0);
+
+      // Layer 6: High-stakes kinetic screen shake
+      if (widget.isHighStakes) {
+        _shakeController.forward(from: 0.0);
+        HapticFeedback.heavyImpact();
+        AudioManager.instance.playSfx(GameSfx.ulti, playbackRate: 1.25);
+      } else {
+        // Layer 4: Warm rewarding chime on release
+        HapticFeedback.mediumImpact();
+        AudioManager.instance.playSfx(GameSfx.click);
+        AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.35);
+      }
+
+      widget.onTap?.call();
+    }
+  }
+
+  void _handleTapCancel() {
+    if (_isPressed) {
+      setState(() => _isPressed = false);
+    }
+  }
+
+  Matrix4 _buildPerspectiveMatrix(Size size) {
+    final matrix = Matrix4.identity();
+    if (size.width <= 0 || size.height <= 0) return matrix;
+
+    matrix.setEntry(3, 2, 0.0016);
+    final nx = ((_pointerPos.dx / size.width) * 2.0 - 1.0).clamp(-1.0, 1.0);
+    final ny = ((_pointerPos.dy / size.height) * 2.0 - 1.0).clamp(-1.0, 1.0);
+
+    final tiltFactor = _isPressed ? 1.0 : 0.0;
+    matrix.rotateX(-ny * 0.12 * tiltFactor);
+    matrix.rotateY(nx * 0.12 * tiltFactor);
+    return matrix;
+  }
+
+  double _computeScale() {
+    if (_isPressed) return 0.94;
+    if (_elasticController.isAnimating) {
+      return 0.94 + 0.06 * _elasticAnimation.value;
+    }
+    return 1.0;
+  }
+
+  Offset _computeShakeOffset() {
+    if (!widget.isHighStakes || !_shakeController.isAnimating) {
+      return Offset.zero;
+    }
+    final t = _shakeAnimation.value;
+    final intensity = (1.0 - t) * 3.5;
+    final dx = math.sin(t * math.pi * 8.0) * intensity;
+    final dy = math.cos(t * math.pi * 6.0) * (intensity * 0.5);
+    return Offset(dx, dy);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GestureDetector(
+          onTapDown: (d) => _handleTapDown(d.localPosition),
+          onTapUp: (d) => _handleTapUp(d.localPosition),
+          onTapCancel: _handleTapCancel,
+          onLongPress: _isClickable ? widget.onLongPress : null,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedBuilder(
+            animation: Listenable.merge([
+              _elasticController,
+              _waveController,
+              _particleController,
+              _shakeController,
+            ]),
+            builder: (context, child) {
+              final scale = _computeScale();
+              final shakeOffset = _computeShakeOffset();
+
+              return Transform.translate(
+                offset: shakeOffset,
+                child: CustomPaint(
+                  foregroundPainter: _KaunosJuicyOverlayPainter(
+                    waveProgress: _waveAnimation.value,
+                    particleProgress: _particleAnimation.value,
+                    particles: _particles,
+                    waveColor: widget.waveColor,
+                    borderRadius: widget.borderRadius,
+                    isCircle: widget.isCircle,
+                    isHighStakes: widget.isHighStakes,
+                  ),
+                  child: Transform(
+                    transform: _buildPerspectiveMatrix(constraints.biggest)
+                      ..multiply(Matrix4.diagonal3Values(scale, scale, 1.0)),
+                    alignment: Alignment.center,
+                    child: widget.child,
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+// =============================================================================
 // KAUNOS TACTILE BUTTON (3D PHYSICAL BEVEL & PRESS DEPRESSION)
 // =============================================================================
 
-/// Universal 3D tactile button featuring a physical 5px bottom bevel shadow lip,
-/// mechanical press depression (downward translation with bevel collapse),
-/// top inner specular rim highlight, haptic feedback, and audio click trigger.
+/// Universal 3D tactile button featuring:
+/// 1. Subtle 3D perspective tilt following pointer position & smooth scale
+/// 2. Mechanical downward compression + elastic spring snap-back
+/// 3. Expanding perimeter neon wave on trigger
+/// 4. Snappy tactile pop on press & warm rewarding chime on release
+/// 5. Radial particle burst shower of glowing energy sparks
+/// 6. Optional high-stakes radial energy meter & kinetic screen shake
 class KaunosTactileButton extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
@@ -402,6 +781,15 @@ class KaunosTactileButton extends StatefulWidget {
   final double borderRadius;
   final EdgeInsetsGeometry padding;
   final bool enabled;
+
+  // Juicy enhancements
+  final bool enableTilt;
+  final bool enableElasticSnap;
+  final bool enableNeonWave;
+  final bool enableParticles;
+  final bool isHighStakes;
+  final Color? waveColor;
+  final double maxTiltAngle;
 
   const KaunosTactileButton({
     super.key,
@@ -421,6 +809,13 @@ class KaunosTactileButton extends StatefulWidget {
     this.borderRadius = 14,
     this.padding = const EdgeInsets.symmetric(horizontal: 14),
     this.enabled = true,
+    this.enableTilt = true,
+    this.enableElasticSnap = true,
+    this.enableNeonWave = true,
+    this.enableParticles = true,
+    this.isHighStakes = false,
+    this.waveColor,
+    this.maxTiltAngle = 0.10,
   });
 
   /// Factory for 1.3 Forged Gold tactile button.
@@ -435,6 +830,7 @@ class KaunosTactileButton extends StatefulWidget {
     double borderRadius = 14,
     EdgeInsetsGeometry padding = const EdgeInsets.symmetric(horizontal: 14),
     bool enabled = true,
+    bool isHighStakes = false,
   }) {
     return KaunosTactileButton(
       key: key,
@@ -453,6 +849,47 @@ class KaunosTactileButton extends StatefulWidget {
       borderRadius: borderRadius,
       padding: padding,
       enabled: enabled,
+      isHighStakes: isHighStakes,
+      waveColor: KaunosPalette.goldHighlight,
+      child: child,
+    );
+  }
+
+  /// Factory for high-stakes decisive action buttons with extra juicy kinetics,
+  /// screen shake, and massive spark shower.
+  factory KaunosTactileButton.highStakes({
+    Key? key,
+    required Widget child,
+    VoidCallback? onTap,
+    VoidCallback? onLongPress,
+    double height = 52,
+    double? width,
+    double bevelDepth = 6.0,
+    double borderRadius = 16,
+    EdgeInsetsGeometry padding = const EdgeInsets.symmetric(horizontal: 18),
+    bool enabled = true,
+  }) {
+    return KaunosTactileButton(
+      key: key,
+      onTap: onTap,
+      onLongPress: onLongPress,
+      height: height,
+      width: width,
+      gradientColors: const [
+        Color(0xFFFFFBEB),
+        KaunosPalette.goldHighlight,
+        KaunosPalette.goldPrimary,
+        KaunosPalette.goldDeep,
+      ],
+      bevelColor: const Color(0xFF381202),
+      borderColor: const Color(0xFFFFF9E6),
+      bevelDepth: bevelDepth,
+      borderRadius: borderRadius,
+      padding: padding,
+      enabled: enabled,
+      isHighStakes: true,
+      waveColor: const Color(0xFFFFF59D),
+      maxTiltAngle: 0.14,
       child: child,
     );
   }
@@ -469,6 +906,7 @@ class KaunosTactileButton extends StatefulWidget {
     double borderRadius = 14,
     EdgeInsetsGeometry padding = const EdgeInsets.symmetric(horizontal: 14),
     bool enabled = true,
+    bool isHighStakes = false,
   }) {
     return KaunosTactileButton(
       key: key,
@@ -487,6 +925,8 @@ class KaunosTactileButton extends StatefulWidget {
       borderRadius: borderRadius,
       padding: padding,
       enabled: enabled,
+      isHighStakes: isHighStakes,
+      waveColor: const Color(0xFFF59E0B),
       child: child,
     );
   }
@@ -503,6 +943,7 @@ class KaunosTactileButton extends StatefulWidget {
     double borderRadius = 14,
     EdgeInsetsGeometry padding = const EdgeInsets.symmetric(horizontal: 14),
     bool enabled = true,
+    bool isHighStakes = false,
   }) {
     return KaunosTactileButton(
       key: key,
@@ -521,6 +962,8 @@ class KaunosTactileButton extends StatefulWidget {
       borderRadius: borderRadius,
       padding: padding,
       enabled: enabled,
+      isHighStakes: isHighStakes,
+      waveColor: const Color(0xFF2DD4BF),
       child: child,
     );
   }
@@ -537,6 +980,7 @@ class KaunosTactileButton extends StatefulWidget {
     double borderRadius = 14,
     EdgeInsetsGeometry padding = const EdgeInsets.symmetric(horizontal: 14),
     bool enabled = true,
+    bool isHighStakes = false,
   }) {
     return KaunosTactileButton(
       key: key,
@@ -555,6 +999,8 @@ class KaunosTactileButton extends StatefulWidget {
       borderRadius: borderRadius,
       padding: padding,
       enabled: enabled,
+      isHighStakes: isHighStakes,
+      waveColor: KaunosPalette.crystalBorderStarlight,
       child: child,
     );
   }
@@ -563,10 +1009,75 @@ class KaunosTactileButton extends StatefulWidget {
   State<KaunosTactileButton> createState() => _KaunosTactileButtonState();
 }
 
-class _KaunosTactileButtonState extends State<KaunosTactileButton> {
+class _KaunosTactileButtonState extends State<KaunosTactileButton> with TickerProviderStateMixin {
   bool _isPressed = false;
+  Offset _pointerPos = Offset.zero;
+
+  late final AnimationController _elasticController;
+  late final Animation<double> _elasticAnimation;
+
+  late final AnimationController _waveController;
+  late final Animation<double> _waveAnimation;
+
+  late final AnimationController _particleController;
+  late final Animation<double> _particleAnimation;
+
+  late final AnimationController _shakeController;
+  late final Animation<double> _shakeAnimation;
+
+  List<_KaunosSparkParticle> _particles = [];
+  final math.Random _random = math.Random();
 
   bool get _isClickable => widget.enabled && widget.onTap != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _elasticController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+    _elasticAnimation = CurvedAnimation(
+      parent: _elasticController,
+      curve: Curves.elasticOut,
+    );
+
+    _waveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 460),
+    );
+    _waveAnimation = CurvedAnimation(
+      parent: _waveController,
+      curve: Curves.easeOutQuad,
+    );
+
+    _particleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
+    _particleAnimation = CurvedAnimation(
+      parent: _particleController,
+      curve: Curves.easeOutCubic,
+    );
+
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    );
+    _shakeAnimation = CurvedAnimation(
+      parent: _shakeController,
+      curve: Curves.linear,
+    );
+  }
+
+  @override
+  void dispose() {
+    _elasticController.dispose();
+    _waveController.dispose();
+    _particleController.dispose();
+    _shakeController.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(covariant KaunosTactileButton oldWidget) {
@@ -576,25 +1087,125 @@ class _KaunosTactileButtonState extends State<KaunosTactileButton> {
     }
   }
 
-  void _handleTapDown(TapDownDetails _) {
+  void _generateParticles() {
+    final count = widget.isHighStakes ? 22 : 14;
+    final particles = <_KaunosSparkParticle>[];
+    final baseColor = widget.waveColor ?? widget.borderColor;
+
+    for (int i = 0; i < count; i++) {
+      final angle = (i * (2 * math.pi / count)) + (_random.nextDouble() * 0.4 - 0.2);
+      final distance = 16.0 + _random.nextDouble() * (widget.isHighStakes ? 34.0 : 22.0);
+      final size = 1.8 + _random.nextDouble() * (widget.isHighStakes ? 3.0 : 2.2);
+      final colors = [
+        baseColor,
+        KaunosPalette.goldGlint,
+        KaunosPalette.goldHighlight,
+        Colors.white,
+      ];
+      particles.add(_KaunosSparkParticle(
+        angle: angle,
+        distance: distance,
+        size: size,
+        color: colors[_random.nextInt(colors.length)],
+        speedMultiplier: 0.85 + _random.nextDouble() * 0.45,
+      ));
+    }
+    _particles = particles;
+  }
+
+  void _handleTapDown(TapDownDetails details) {
     if (!_isClickable) return;
-    setState(() => _isPressed = true);
+    setState(() {
+      _isPressed = true;
+      _pointerPos = details.localPosition;
+    });
+    // Layer 4: Snappy tactile pop on press
     HapticFeedback.lightImpact();
   }
 
-  void _handleTapUp(TapUpDetails _) {
+  void _handleTapUp(TapUpDetails details) {
     if (_isPressed) {
-      setState(() => _isPressed = false);
+      setState(() {
+        _isPressed = false;
+        _pointerPos = details.localPosition;
+      });
+
+      // Layer 2: Elastic spring snap-back on release
+      if (widget.enableElasticSnap) {
+        _elasticController.forward(from: 0.0);
+      }
+
+      // Layer 3: Perimeter expanding neon wave
+      if (widget.enableNeonWave) {
+        _waveController.forward(from: 0.0);
+      }
+
+      // Layer 5: Glowing particle burst shower
+      if (widget.enableParticles) {
+        _generateParticles();
+        _particleController.forward(from: 0.0);
+      }
+
+      // Layer 6: High-stakes kinetic screen shake & sound
+      if (widget.isHighStakes) {
+        _shakeController.forward(from: 0.0);
+        HapticFeedback.heavyImpact();
+        AudioManager.instance.playSfx(GameSfx.ulti, playbackRate: 1.25);
+      } else {
+        // Layer 4: Warm rewarding chime on release
+        HapticFeedback.mediumImpact();
+        AudioManager.instance.playSfx(GameSfx.click);
+        AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.35);
+      }
+
+      widget.onTap?.call();
     }
-    if (!_isClickable) return;
-    AudioManager.instance.playSfx(GameSfx.click);
-    widget.onTap?.call();
   }
 
   void _handleTapCancel() {
     if (_isPressed) {
       setState(() => _isPressed = false);
     }
+  }
+
+  Matrix4 _buildPerspectiveMatrix(Size size) {
+    final matrix = Matrix4.identity();
+    if (!widget.enableTilt || size.width <= 0 || size.height <= 0) {
+      return matrix;
+    }
+
+    matrix.setEntry(3, 2, 0.0016);
+    final nx = ((_pointerPos.dx / size.width) * 2.0 - 1.0).clamp(-1.0, 1.0);
+    final ny = ((_pointerPos.dy / size.height) * 2.0 - 1.0).clamp(-1.0, 1.0);
+
+    final tiltFactor = _isPressed ? 1.0 : 0.0;
+    matrix.rotateX(-ny * widget.maxTiltAngle * tiltFactor);
+    matrix.rotateY(nx * widget.maxTiltAngle * tiltFactor);
+    return matrix;
+  }
+
+  double _computeScale() {
+    if (!widget.enableElasticSnap) {
+      return _isPressed ? 0.94 : 1.0;
+    }
+    if (_isPressed) {
+      return 0.94;
+    }
+    if (_elasticController.isAnimating) {
+      return 0.94 + 0.06 * _elasticAnimation.value;
+    }
+    return 1.0;
+  }
+
+  Offset _computeShakeOffset() {
+    if (!widget.isHighStakes || !_shakeController.isAnimating) {
+      return Offset.zero;
+    }
+    final t = _shakeAnimation.value;
+    final intensity = (1.0 - t) * 3.5;
+    final dx = math.sin(t * math.pi * 8.0) * intensity;
+    final dy = math.cos(t * math.pi * 6.0) * (intensity * 0.5);
+    return Offset(dx, dy);
   }
 
   @override
@@ -614,71 +1225,111 @@ class _KaunosTactileButtonState extends State<KaunosTactileButton> {
           onTapCancel: _handleTapCancel,
           onLongPress: _isClickable ? widget.onLongPress : null,
           behavior: HitTestBehavior.opaque,
-          child: SizedBox(
-            width: resolvedWidth,
-            height: widget.height + depth,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // 1. Static Bottom Physical Bevel Lip (Zero-blur Bevel Shadow)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: currentBevel,
-                  bottom: 0,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: _isClickable ? widget.bevelColor : const Color(0xFF1A1D24),
-                      borderRadius: BorderRadius.circular(widget.borderRadius),
-                    ),
-                  ),
-                ),
+          child: AnimatedBuilder(
+            animation: Listenable.merge([
+              _elasticController,
+              _waveController,
+              _particleController,
+              _shakeController,
+            ]),
+            builder: (context, child) {
+              final scale = _computeScale();
+              final shakeOffset = _computeShakeOffset();
+              final totalSize = Size(resolvedWidth ?? 120.0, widget.height + depth);
 
-                // 2. Depressing Button Face
-                Padding(
-                  padding: EdgeInsets.only(top: currentOffset, bottom: depth - currentOffset),
-                  child: Container(
-                    width: resolvedWidth,
-                    height: widget.height,
-                    padding: widget.padding,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: _isClickable
-                            ? widget.gradientColors
-                            : const [Color(0x33FFFFFF), Color(0x1AFFFFFF)],
-                      ),
-                      borderRadius: BorderRadius.circular(widget.borderRadius),
-                      border: Border.all(
-                        color: _isClickable ? widget.borderColor : const Color(0x33FFFFFF),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
-                        // Top inner specular rim glint
-                        BoxShadow(
-                          color: Colors.white.withValues(alpha: _isClickable ? 0.35 : 0.1),
-                          offset: const Offset(0, 1.2),
-                          blurRadius: 0,
-                          spreadRadius: 0,
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      widthFactor: resolvedWidth == null ? 1.0 : null,
-                      child: DefaultTextStyle(
-                        style: TextStyle(
-                          fontFamily: 'Rajdhani',
-                          fontWeight: FontWeight.w700,
-                          color: _isClickable ? Colors.white : Colors.white54,
-                        ),
-                        child: widget.child,
+              return Transform.translate(
+                offset: shakeOffset,
+                child: CustomPaint(
+                  foregroundPainter: _KaunosJuicyOverlayPainter(
+                    waveProgress: _waveAnimation.value,
+                    particleProgress: _particleAnimation.value,
+                    particles: _particles,
+                    waveColor: widget.waveColor ?? widget.borderColor,
+                    borderRadius: widget.borderRadius,
+                    isCircle: false,
+                    isHighStakes: widget.isHighStakes,
+                  ),
+                  child: Transform(
+                    transform: _buildPerspectiveMatrix(totalSize)
+                      ..multiply(Matrix4.diagonal3Values(scale, scale, 1.0)),
+                    alignment: Alignment.center,
+                    child: SizedBox(
+                      width: resolvedWidth,
+                      height: widget.height + depth,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          // 1. Static Bottom Physical Bevel Lip (Zero-blur Bevel Shadow)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: currentBevel,
+                            bottom: 0,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: _isClickable ? widget.bevelColor : const Color(0xFF1A1D24),
+                                borderRadius: BorderRadius.circular(widget.borderRadius),
+                              ),
+                            ),
+                          ),
+
+                          // 2. Depressing Button Face (Compress Down on Press)
+                          Padding(
+                            padding: EdgeInsets.only(top: currentOffset, bottom: depth - currentOffset),
+                            child: Container(
+                              width: resolvedWidth,
+                              height: widget.height,
+                              padding: widget.padding,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: _isClickable
+                                      ? widget.gradientColors
+                                      : const [Color(0x33FFFFFF), Color(0x1AFFFFFF)],
+                                ),
+                                borderRadius: BorderRadius.circular(widget.borderRadius),
+                                border: Border.all(
+                                  color: _isClickable ? widget.borderColor : const Color(0x33FFFFFF),
+                                  width: 1.2,
+                                ),
+                                boxShadow: [
+                                  // Top inner specular rim glint
+                                  BoxShadow(
+                                    color: Colors.white.withValues(alpha: _isClickable ? 0.35 : 0.1),
+                                    offset: const Offset(0, 1.2),
+                                    blurRadius: 0,
+                                    spreadRadius: 0,
+                                  ),
+                                  // High stakes ambient bloom
+                                  if (widget.isHighStakes)
+                                    BoxShadow(
+                                      color: (widget.waveColor ?? KaunosPalette.goldHighlight).withValues(alpha: 0.30),
+                                      blurRadius: 10,
+                                      spreadRadius: 1,
+                                    ),
+                                ],
+                              ),
+                              child: Center(
+                                widthFactor: resolvedWidth == null ? 1.0 : null,
+                                child: DefaultTextStyle(
+                                  style: TextStyle(
+                                    fontFamily: 'Rajdhani',
+                                    fontWeight: FontWeight.w700,
+                                    color: _isClickable ? Colors.white : Colors.white54,
+                                  ),
+                                  child: widget.child,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-              ],
-            ),
+              );
+            },
           ),
         );
       },
@@ -692,7 +1343,9 @@ class _KaunosTactileButtonState extends State<KaunosTactileButton> {
 
 /// Dedicated hybrid Hero OYNA button uniting the 75% 1.1 "Kozmik Kristal & Gözlemevi"
 /// outer celestial crystal ring with the 25% 1.3 "3D Kristal & Dövme Altın/Bevel"
-/// inner forged gold trigger that mechanically depresses 3.5px into the crystal socket.
+/// inner forged gold trigger that mechanically depresses 3.5px into the crystal socket,
+/// featuring full 6-layer juicy physics, 3D tilt, elastic snap, neon wave,
+/// glowing particle burst, and kinetic screen shake.
 class KaunosHeroPlayButton extends StatefulWidget {
   final VoidCallback onTap;
   final double size;
@@ -709,8 +1362,73 @@ class KaunosHeroPlayButton extends StatefulWidget {
   State<KaunosHeroPlayButton> createState() => _KaunosHeroPlayButtonState();
 }
 
-class _KaunosHeroPlayButtonState extends State<KaunosHeroPlayButton> {
+class _KaunosHeroPlayButtonState extends State<KaunosHeroPlayButton> with TickerProviderStateMixin {
   bool _isPressed = false;
+  Offset _pointerPos = Offset.zero;
+
+  late final AnimationController _elasticController;
+  late final Animation<double> _elasticAnimation;
+
+  late final AnimationController _waveController;
+  late final Animation<double> _waveAnimation;
+
+  late final AnimationController _particleController;
+  late final Animation<double> _particleAnimation;
+
+  late final AnimationController _shakeController;
+  late final Animation<double> _shakeAnimation;
+
+  List<_KaunosSparkParticle> _particles = [];
+  final math.Random _random = math.Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _elasticController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _elasticAnimation = CurvedAnimation(
+      parent: _elasticController,
+      curve: Curves.elasticOut,
+    );
+
+    _waveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 480),
+    );
+    _waveAnimation = CurvedAnimation(
+      parent: _waveController,
+      curve: Curves.easeOutQuad,
+    );
+
+    _particleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+    _particleAnimation = CurvedAnimation(
+      parent: _particleController,
+      curve: Curves.easeOutCubic,
+    );
+
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _shakeAnimation = CurvedAnimation(
+      parent: _shakeController,
+      curve: Curves.linear,
+    );
+  }
+
+  @override
+  void dispose() {
+    _elasticController.dispose();
+    _waveController.dispose();
+    _particleController.dispose();
+    _shakeController.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(covariant KaunosHeroPlayButton oldWidget) {
@@ -720,19 +1438,66 @@ class _KaunosHeroPlayButtonState extends State<KaunosHeroPlayButton> {
     }
   }
 
-  void _handleTapDown(TapDownDetails _) {
-    if (!widget.enabled) return;
-    setState(() => _isPressed = true);
-    HapticFeedback.mediumImpact();
+  void _generateParticles() {
+    const count = 20;
+    final particles = <_KaunosSparkParticle>[];
+    for (int i = 0; i < count; i++) {
+      final angle = (i * (2 * math.pi / count)) + (_random.nextDouble() * 0.3 - 0.15);
+      final distance = 18.0 + _random.nextDouble() * 32.0;
+      final size = 2.0 + _random.nextDouble() * 2.8;
+      const colors = [
+        KaunosPalette.goldGlint,
+        KaunosPalette.goldHighlight,
+        KaunosPalette.goldPrimary,
+        KaunosPalette.crystalBorderStarlight,
+        Colors.white,
+      ];
+      particles.add(_KaunosSparkParticle(
+        angle: angle,
+        distance: distance,
+        size: size,
+        color: colors[_random.nextInt(colors.length)],
+        speedMultiplier: 0.9 + _random.nextDouble() * 0.4,
+      ));
+    }
+    _particles = particles;
   }
 
-  void _handleTapUp(TapUpDetails _) {
-    if (_isPressed) {
-      setState(() => _isPressed = false);
-    }
+  void _handleTapDown(TapDownDetails details) {
     if (!widget.enabled) return;
-    AudioManager.instance.playSfx(GameSfx.click);
-    widget.onTap();
+    setState(() {
+      _isPressed = true;
+      _pointerPos = details.localPosition;
+    });
+    // Layer 4: Snappy tactile pop on press
+    HapticFeedback.lightImpact();
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    if (_isPressed) {
+      setState(() {
+        _isPressed = false;
+        _pointerPos = details.localPosition;
+      });
+
+      // Layer 2: Elastic spring snap-back
+      _elasticController.forward(from: 0.0);
+
+      // Layer 3: Perimeter expanding neon wave
+      _waveController.forward(from: 0.0);
+
+      // Layer 5: Particle burst shower
+      _generateParticles();
+      _particleController.forward(from: 0.0);
+
+      // Layer 6: High-stakes kinetic screen shake & warm rewarding chime
+      _shakeController.forward(from: 0.0);
+      HapticFeedback.heavyImpact();
+      AudioManager.instance.playSfx(GameSfx.click);
+      AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.35);
+
+      widget.onTap();
+    }
   }
 
   void _handleTapCancel() {
@@ -741,122 +1506,193 @@ class _KaunosHeroPlayButtonState extends State<KaunosHeroPlayButton> {
     }
   }
 
+  Matrix4 _buildPerspectiveMatrix(Size size) {
+    final matrix = Matrix4.identity();
+    if (size.width <= 0 || size.height <= 0) return matrix;
+
+    matrix.setEntry(3, 2, 0.0016);
+    final nx = ((_pointerPos.dx / size.width) * 2.0 - 1.0).clamp(-1.0, 1.0);
+    final ny = ((_pointerPos.dy / size.height) * 2.0 - 1.0).clamp(-1.0, 1.0);
+
+    final tiltFactor = _isPressed ? 1.0 : 0.0;
+    matrix.rotateX(-ny * 0.14 * tiltFactor);
+    matrix.rotateY(nx * 0.14 * tiltFactor);
+    return matrix;
+  }
+
+  double _computeScale() {
+    if (_isPressed) return 0.93;
+    if (_elasticController.isAnimating) {
+      return 0.93 + 0.07 * _elasticAnimation.value;
+    }
+    return 1.0;
+  }
+
+  Offset _computeShakeOffset() {
+    if (!_shakeController.isAnimating) return Offset.zero;
+    final t = _shakeAnimation.value;
+    final intensity = (1.0 - t) * 3.5;
+    final dx = math.sin(t * math.pi * 8.0) * intensity;
+    final dy = math.cos(t * math.pi * 6.0) * (intensity * 0.5);
+    return Offset(dx, dy);
+  }
+
   @override
   Widget build(BuildContext context) {
     const bevelDepth = 5.0;
     final depressY = _isPressed ? 3.5 : 0.0;
     final currentBevel = _isPressed ? 1.5 : bevelDepth;
     final innerDiameter = widget.size - 10.0;
+    final totalSize = Size(widget.size, widget.size + bevelDepth);
 
     return GestureDetector(
       onTapDown: _handleTapDown,
       onTapUp: _handleTapUp,
       onTapCancel: _handleTapCancel,
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: widget.size,
-        height: widget.size + bevelDepth,
-        child: Stack(
-          alignment: Alignment.center,
-          clipBehavior: Clip.none,
-          children: [
-            // -----------------------------------------------------------------
-            // 75% 1.1: FIXED OUTER OBSERVATORY CRYSTAL FRAME
-            // -----------------------------------------------------------------
-            Positioned.fill(
-              bottom: bevelDepth,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const RadialGradient(
-                    colors: [
-                      Color(0xEE0B1224),
-                      Color(0xFA05070F),
+      child: AnimatedBuilder(
+        animation: Listenable.merge([
+          _elasticController,
+          _waveController,
+          _particleController,
+          _shakeController,
+        ]),
+        builder: (context, child) {
+          final scale = _computeScale();
+          final shakeOffset = _computeShakeOffset();
+
+          return Transform.translate(
+            offset: shakeOffset,
+            child: CustomPaint(
+              foregroundPainter: _KaunosJuicyOverlayPainter(
+                waveProgress: _waveAnimation.value,
+                particleProgress: _particleAnimation.value,
+                particles: _particles,
+                waveColor: KaunosPalette.goldHighlight,
+                borderRadius: widget.size / 2,
+                isCircle: true,
+                isHighStakes: true,
+              ),
+              child: Transform(
+                transform: _buildPerspectiveMatrix(totalSize)
+                  ..multiply(Matrix4.diagonal3Values(scale, scale, 1.0)),
+                alignment: Alignment.center,
+                child: SizedBox(
+                  width: widget.size,
+                  height: widget.size + bevelDepth,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      // -------------------------------------------------------------
+                      // 75% 1.1: FIXED OUTER OBSERVATORY CRYSTAL FRAME
+                      // -------------------------------------------------------------
+                      Positioned.fill(
+                        bottom: bevelDepth,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const RadialGradient(
+                              colors: [
+                                Color(0xEE0B1224),
+                                Color(0xFA05070F),
+                              ],
+                            ),
+                            border: Border.all(
+                              color: KaunosPalette.crystalBorderStarlight,
+                              width: 1.8,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: KaunosPalette.crystalBorderStarlight.withValues(alpha: 0.35),
+                                blurRadius: 10,
+                                spreadRadius: 1,
+                              ),
+                              // High stakes golden glow pulse
+                              const BoxShadow(
+                                color: Color(0x40F59E0B),
+                                blurRadius: 14,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // -------------------------------------------------------------
+                      // 25% 1.3: INNER 3D FORGED GOLD TRIGGER (DEPRESSES INTO SOCKET)
+                      // -------------------------------------------------------------
+                      Positioned(
+                        top: 5.0 + depressY,
+                        width: innerDiameter,
+                        height: innerDiameter,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            // Bottom bevel lip (zero-blur extruded gold shadow)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              top: currentBevel,
+                              bottom: 0,
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: KaunosPalette.goldBevelBottom,
+                                ),
+                              ),
+                            ),
+
+                            // Forged Gold Trigger Face
+                            Positioned.fill(
+                              bottom: currentBevel,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      KaunosPalette.goldGlint,
+                                      KaunosPalette.goldPrimary,
+                                      KaunosPalette.goldDeep,
+                                    ],
+                                  ),
+                                  border: Border.all(
+                                    color: const Color(0xFFFFFBEB),
+                                    width: 1.2,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x66F59E0B),
+                                      blurRadius: 8,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: CustomPaint(
+                                    size: Size(innerDiameter * 0.45, innerDiameter * 0.45),
+                                    painter: const KaunosPlayChevronPainter(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                  border: Border.all(
-                    color: KaunosPalette.crystalBorderStarlight,
-                    width: 1.8,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: KaunosPalette.crystalBorderStarlight.withValues(alpha: 0.35),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                    ),
-                  ],
                 ),
               ),
             ),
-
-            // -----------------------------------------------------------------
-            // 25% 1.3: INNER 3D FORGED GOLD TRIGGER (DEPRESSES INTO SOCKET)
-            // -----------------------------------------------------------------
-            Positioned(
-              top: 5.0 + depressY,
-              width: innerDiameter,
-              height: innerDiameter,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  // Bottom bevel lip (zero-blur extruded gold shadow)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: currentBevel,
-                    bottom: 0,
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: KaunosPalette.goldBevelBottom,
-                      ),
-                    ),
-                  ),
-
-                  // Forged Gold Trigger Face
-                  Positioned.fill(
-                    bottom: currentBevel,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            KaunosPalette.goldGlint,
-                            KaunosPalette.goldPrimary,
-                            KaunosPalette.goldDeep,
-                          ],
-                        ),
-                        border: Border.all(
-                          color: const Color(0xFFFFFBEB),
-                          width: 1.2,
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x66F59E0B),
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: CustomPaint(
-                          size: Size(innerDiameter * 0.45, innerDiameter * 0.45),
-                          painter: const KaunosPlayChevronPainter(),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 }
+
 
 /// Handcrafted CustomPainter for the carved forged gold chevron play icon.
 class KaunosPlayChevronPainter extends CustomPainter {

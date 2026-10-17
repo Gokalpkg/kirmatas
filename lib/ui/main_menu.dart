@@ -2470,8 +2470,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     required VoidCallback onTap,
     String? badge,
   }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
+    return KaunosJuicyInteractive(
+      borderRadius: 16,
+      waveColor: KaunosPalette.crystalBorderStarlight,
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 5),

@@ -300,14 +300,14 @@ class AudioManager {
     } catch (_) {}
   }
 
-  void playSfx(GameSfx sfx, {int combo = 0}) {
+  void playSfx(GameSfx sfx, {int combo = 0, double? playbackRate}) {
     lastPlayedCombo = combo;
-    double playbackRate = 1.0;
-    if ((sfx == GameSfx.hitBrick || sfx == GameSfx.breakBrick) && combo > 0) {
+    double effectiveRate = playbackRate ?? 1.0;
+    if (playbackRate == null && (sfx == GameSfx.hitBrick || sfx == GameSfx.breakBrick) && combo > 0) {
       final step = combo.clamp(0, 10);
-      playbackRate = 1.0 + (step * 0.05);
+      effectiveRate = 1.0 + (step * 0.05);
     }
-    lastPlaybackRate = playbackRate;
+    lastPlaybackRate = effectiveRate;
     if (!appInForeground) return;
     if (!SaveManager.instance.sfxEnabled) return;
 
@@ -386,7 +386,7 @@ class AudioManager {
         
         final token = (_playToken[p] ?? 0) + 1;
         _playToken[p] = token;
-        _restart(p, asset, volume, token, playbackRate: playbackRate);
+        _restart(p, asset, volume, token, playbackRate: effectiveRate);
       }
     }
 
