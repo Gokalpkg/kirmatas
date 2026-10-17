@@ -45,9 +45,63 @@ struct GameContainerView: View {
                     }
                 }
             )
+            #if os(iOS)
+            SystemGesturesDeferrer()
+                .frame(width: 0, height: 0)
+                .allowsHitTesting(false)
+            #endif
         }
         #if os(iOS)
         .statusBarHidden(true)
+        .persistentSystemOverlays(.hidden)
+        .defersSystemGestures(on: .all)
         #endif
     }
 }
+
+#if os(iOS)
+import UIKit
+
+/// Native UIKit helper to guarantee iOS defers screen-edge system gestures (such as the Home Bar
+/// multitasking app switcher) and hides the Home Indicator so bottom drag controls never switch apps or tabs.
+struct SystemGesturesDeferrer: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> SystemGesturesViewController {
+        SystemGesturesViewController()
+    }
+
+    func updateUIViewController(_ uiViewController: SystemGesturesViewController, context: Context) {
+        uiViewController.setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
+        uiViewController.setNeedsUpdateOfHomeIndicatorAutoHidden()
+    }
+}
+
+final class SystemGesturesViewController: UIViewController {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
+        setNeedsUpdateOfHomeIndicatorAutoHidden()
+    }
+
+    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge {
+        return [.bottom, .all]
+    }
+
+    override var prefersHomeIndicatorAutoHidden: Bool {
+        return true
+    }
+
+    override var childForScreenEdgesDeferringSystemGestures: UIViewController? {
+        return nil
+    }
+
+    override var childForHomeIndicatorAutoHidden: UIViewController? {
+        return nil
+    }
+}
+#endif

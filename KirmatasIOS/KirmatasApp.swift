@@ -8,6 +8,11 @@ struct KirmatasApp: App {
         WindowGroup {
             SplashScreenView()
                 .preferredColorScheme(.dark)
+                #if os(iOS)
+                .statusBarHidden(true)
+                .persistentSystemOverlays(.hidden)
+                .defersSystemGestures(on: .all)
+                #endif
                 .onAppear {
                     if scenePhase == .active {
                         AdManager.shared.start()
