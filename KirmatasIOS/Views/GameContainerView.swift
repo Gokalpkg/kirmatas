@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct GameContainerView: View {
-    @ObservedObject var controller: GameController
+    let controller: GameController
     let onExitToMenu: () -> Void
 
     var body: some View {

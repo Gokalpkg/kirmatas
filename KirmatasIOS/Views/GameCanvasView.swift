@@ -1,21 +1,22 @@
 import SwiftUI
 
 struct GameCanvasView: View {
-    @ObservedObject var controller: GameController
+    let controller: GameController
     @State private var lastTickDate: Date?
     @State private var lastDragX: CGFloat?
+    @State private var cachedPaddleSkin: PaddleSkinItem = PaddleSkinItem.allSkins[0]
+    @State private var cachedBallSkin: BallSkinItem = BallSkinItem.allSkins[0]
 
     var body: some View {
         GeometryReader { geo in
             TimelineView(.animation) { timeline in
                 Canvas { context, size in
-                    let _ = controller.frameTick
                     let shake = controller.particles.getShakeOffset()
                     var ctx = context
                     ctx.translateBy(x: shake.x, y: shake.y)
 
                     drawBackground(context: &ctx, size: size, time: controller.gameTime)
-                    drawPlayfieldBorder(context: &ctx, size: size)
+                    drawPlayfieldBorder(context: &ctx, size: size, glowColor: cachedPaddleSkin.glowColor)
                     drawBricks(context: &ctx, time: controller.gameTime)
                     drawBlackHoles(context: &ctx, time: controller.gameTime)
                     drawPortals(context: &ctx, time: controller.gameTime)
@@ -23,11 +24,11 @@ struct GameCanvasView: View {
                     if controller.currentMode == .chaos {
                         drawChaosAim(context: &ctx)
                     } else {
-                        drawPaddle(context: &ctx)
+                        drawPaddle(context: &ctx, paddleDef: cachedPaddleSkin)
                     }
                     drawCapsules(context: &ctx)
                     drawProjectiles(context: &ctx)
-                    drawBalls(context: &ctx)
+                    drawBalls(context: &ctx, ballSkin: cachedBallSkin)
                     drawDrone(context: &ctx)
                     drawVortex(context: &ctx, time: controller.gameTime)
 
@@ -94,6 +95,7 @@ struct GameCanvasView: View {
             .onAppear {
                 controller.setDimensions(width: geo.size.width, height: geo.size.height)
                 lastTickDate = Date()
+                refreshSkins()
             }
             .onChange(of: geo.size) { newSize in
                 controller.setDimensions(width: newSize.width, height: newSize.height)
@@ -101,59 +103,45 @@ struct GameCanvasView: View {
         }
     }
 
+    private func refreshSkins() {
+        let equippedPaddleId = SaveManager.shared.equippedPaddleSkin
+        cachedPaddleSkin = PaddleSkinItem.allSkins.first(where: { $0.id == equippedPaddleId }) ?? PaddleSkinItem.allSkins[0]
+        let equippedBallId = SaveManager.shared.equippedBallSkin
+        cachedBallSkin = BallSkinItem.allSkins.first(where: { $0.id == equippedBallId }) ?? BallSkinItem.allSkins[0]
+    }
+
     // MARK: - Background
     private func drawBackground(context: inout GraphicsContext, size: CGSize, time: Double) {
-        // We removed the full-screen RadialGradient fill here because it causes massive GPU fill-rate lag.
-        // It is now strictly handled by GameContainerView's static background behind this Canvas!
-
         let safeW = max(Int(size.width), 1)
         let safeH = max(size.height, 1.0)
+        var whiteStars = Path()
+        var cyanStars = Path()
+
         for i in 0..<36 {
             let speed = 10.0 + Double(i % 4) * 4.0
             let x = Double((i * 97 + 23) % safeW)
             let y = (Double(i * 139) + time * speed).truncatingRemainder(dividingBy: safeH)
-            let twinkle = 0.15 * sin(time * 2.5 + Double(i))
-            let alpha = min(max(0.25 + Double(i % 4) * 0.15 + twinkle, 0.1), 0.85)
             let r: Double = (i % 5 == 0) ? 1.8 : 1.0
-            let starColor = (i % 3 == 0) ? Color(hex: 0xFF80D8FF) : Color.white
-            context.fill(
-                Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)),
-                with: .color(starColor.opacity(alpha))
-            )
+            let rect = CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)
+            if i % 3 == 0 {
+                cyanStars.addEllipse(in: rect)
+            } else {
+                whiteStars.addEllipse(in: rect)
+            }
         }
+        let twinkle = 0.15 * sin(time * 2.5)
+        context.fill(whiteStars, with: .color(Color.white.opacity(min(max(0.55 + twinkle, 0.2), 0.85))))
+        context.fill(cyanStars, with: .color(Color(hex: 0xFF80D8FF).opacity(min(max(0.65 + twinkle, 0.2), 0.9))))
     }
 
-    private func drawPlayfieldBorder(context: inout GraphicsContext, size: CGSize) {
+    private func drawPlayfieldBorder(context: inout GraphicsContext, size: CGSize, glowColor: Color) {
         let w = size.width
         let h = size.height
         let ceilingY: CGFloat = 56
-        let equippedId = SaveManager.shared.equippedPaddleSkin
-        let glow = (PaddleSkinItem.allSkins.first { $0.id == equippedId } ?? PaddleSkinItem.allSkins[0]).glowColor
 
-        context.fill(
-            Path(CGRect(x: 0, y: 0, width: 10, height: h)),
-            with: .linearGradient(
-                Gradient(colors: [Color.black.opacity(0.6), .clear]),
-                startPoint: CGPoint(x: 0, y: 0),
-                endPoint: CGPoint(x: 10, y: 0)
-            )
-        )
-        context.fill(
-            Path(CGRect(x: w - 10, y: 0, width: 10, height: h)),
-            with: .linearGradient(
-                Gradient(colors: [.clear, Color.black.opacity(0.6)]),
-                startPoint: CGPoint(x: w - 10, y: 0),
-                endPoint: CGPoint(x: w, y: 0)
-            )
-        )
-        context.fill(
-            Path(CGRect(x: 0, y: 0, width: w, height: ceilingY + 12)),
-            with: .linearGradient(
-                Gradient(colors: [Color.black.opacity(0.73), .clear]),
-                startPoint: CGPoint(x: 0, y: 0),
-                endPoint: CGPoint(x: 0, y: ceilingY + 12)
-            )
-        )
+        context.fill(Path(CGRect(x: 0, y: 0, width: 6, height: h)), with: .color(Color.black.opacity(0.35)))
+        context.fill(Path(CGRect(x: w - 6, y: 0, width: 6, height: h)), with: .color(Color.black.opacity(0.35)))
+        context.fill(Path(CGRect(x: 0, y: 0, width: w, height: ceilingY)), with: .color(Color.black.opacity(0.45)))
 
         var frame = Path()
         frame.move(to: CGPoint(x: 0, y: ceilingY))
@@ -162,7 +150,7 @@ struct GameCanvasView: View {
         frame.addLine(to: CGPoint(x: 0.5, y: h))
         frame.move(to: CGPoint(x: w - 0.5, y: ceilingY))
         frame.addLine(to: CGPoint(x: w - 0.5, y: h))
-        context.stroke(frame, with: .color(glow.opacity(0.22)), lineWidth: 2)
+        context.stroke(frame, with: .color(glowColor.opacity(0.22)), lineWidth: 2)
 
         var brackets = Path()
         brackets.move(to: CGPoint(x: 0, y: ceilingY))
@@ -174,8 +162,8 @@ struct GameCanvasView: View {
         brackets.move(to: CGPoint(x: w, y: ceilingY))
         brackets.addLine(to: CGPoint(x: w, y: ceilingY + 16))
         context.stroke(brackets, with: .color(.white.opacity(0.7)), lineWidth: 1.5)
-        context.fill(Path(ellipseIn: CGRect(x: 1.2, y: ceilingY + 1.2, width: 3.6, height: 3.6)), with: .color(glow.opacity(0.9)))
-        context.fill(Path(ellipseIn: CGRect(x: w - 4.8, y: ceilingY + 1.2, width: 3.6, height: 3.6)), with: .color(glow.opacity(0.9)))
+        context.fill(Path(ellipseIn: CGRect(x: 1.2, y: ceilingY + 1.2, width: 3.6, height: 3.6)), with: .color(glowColor.opacity(0.9)))
+        context.fill(Path(ellipseIn: CGRect(x: w - 4.8, y: ceilingY + 1.2, width: 3.6, height: 3.6)), with: .color(glowColor.opacity(0.9)))
     }
 
     private func drawBlackHoles(context: inout GraphicsContext, time: Double) {
@@ -316,135 +304,150 @@ struct GameCanvasView: View {
     // MARK: - Bricks & Mecha Boss
     private func drawBricks(context: inout GraphicsContext, time: Double) {
         for b in controller.bricks where b.isAlive {
-            var bCtx = context
-            let cx = b.x + b.width / 2.0
-            let cy = b.y + b.height / 2.0
-            bCtx.translateBy(x: cx, y: cy)
+            if b.isBoss {
+                var bCtx = context
+                let cx = b.x + b.width / 2.0
+                let cy = b.y + b.height / 2.0
+                bCtx.translateBy(x: cx, y: cy)
+                drawBoss(context: &bCtx, brick: b, time: time, halfW: b.width / 2.0, halfH: b.height / 2.0)
+                continue
+            }
 
             if b.isBallPickup {
                 let orb = min(b.width, b.height) * 0.42
-                bCtx.fill(
-                    Path(ellipseIn: CGRect(x: -orb, y: -orb, width: orb * 2, height: orb * 2)),
+                let cx = b.x + b.width / 2.0
+                let cy = b.y + b.height / 2.0
+                context.fill(
+                    Path(ellipseIn: CGRect(x: cx - orb, y: cy - orb, width: orb * 2, height: orb * 2)),
                     with: .color(Color(hex: 0xFF00E5FF))
                 )
-                bCtx.fill(
-                    Path(ellipseIn: CGRect(x: -orb * 0.35, y: -orb * 0.35, width: orb * 0.7, height: orb * 0.7)),
+                context.fill(
+                    Path(ellipseIn: CGRect(x: cx - orb * 0.35, y: cy - orb * 0.35, width: orb * 0.7, height: orb * 0.7)),
                     with: .color(.white)
                 )
                 continue
             }
 
             if b.jelly > 0 {
+                var bCtx = context
+                let cx = b.x + b.width / 2.0
+                let cy = b.y + b.height / 2.0
+                bCtx.translateBy(x: cx, y: cy)
                 let scale = 1.0 + sin(b.jelly * .pi * 3.0) * 0.15
                 bCtx.scaleBy(x: scale, y: 1.0 / scale)
+                drawSingleBrick(context: &bCtx, brick: b, x: -b.width / 2.0, y: -b.height / 2.0)
+                continue
             }
 
-            let halfW = b.width / 2.0
-            let halfH = b.height / 2.0
-            let rect = CGRect(x: -halfW, y: -halfH, width: b.width, height: b.height)
-            let rrect = Path(roundedRect: rect, cornerRadius: 6.0)
+            // High performance fast-path: zero context copies!
+            drawSingleBrick(context: &context, brick: b, x: b.x, y: b.y)
+        }
+    }
 
-            if b.isSteel {
-                bCtx.fill(rrect, with: .color(Color(hex: 0xFF37474F)))
+    private func drawSingleBrick(context: inout GraphicsContext, brick b: Brick, x: Double, y: Double) {
+        let rect = CGRect(x: x, y: y, width: b.width, height: b.height)
+        let rrect = Path(roundedRect: rect, cornerRadius: 6.0)
 
-                var topLine = Path()
-                topLine.move(to: CGPoint(x: -halfW + 2, y: -halfH + 1))
-                topLine.addLine(to: CGPoint(x: halfW - 2, y: -halfH + 1))
-                bCtx.stroke(topLine, with: .color(Color(hex: 0xFF78909C)), lineWidth: 2.0)
+        if b.isSteel {
+            context.fill(rrect, with: .color(Color(hex: 0xFF37474F)))
 
-                var botLine = Path()
-                botLine.move(to: CGPoint(x: -halfW + 2, y: halfH - 1))
-                botLine.addLine(to: CGPoint(x: halfW - 2, y: halfH - 1))
-                bCtx.stroke(botLine, with: .color(Color(hex: 0xFF1C2833)), lineWidth: 2.0)
+            var topLine = Path()
+            topLine.move(to: CGPoint(x: x + 2, y: y + 1))
+            topLine.addLine(to: CGPoint(x: x + b.width - 2, y: y + 1))
+            context.stroke(topLine, with: .color(Color(hex: 0xFF78909C)), lineWidth: 2.0)
 
-                var stripes = Path()
-                var sx = -halfW + 4
-                while sx < halfW - 6 {
-                    stripes.move(to: CGPoint(x: sx, y: halfH - 3))
-                    stripes.addLine(to: CGPoint(x: sx + 8, y: -halfH + 3))
-                    sx += 12
-                }
-                bCtx.stroke(stripes, with: .color(Color(hex: 0xFFCFD8DC).opacity(0.22)), lineWidth: 2.5)
+            var botLine = Path()
+            botLine.move(to: CGPoint(x: x + 2, y: y + b.height - 1))
+            botLine.addLine(to: CGPoint(x: x + b.width - 2, y: y + b.height - 1))
+            context.stroke(botLine, with: .color(Color(hex: 0xFF1C2833)), lineWidth: 2.0)
 
-                let rivets = [
-                    CGPoint(x: -halfW + 4, y: -halfH + 4),
-                    CGPoint(x: halfW - 4, y: -halfH + 4),
-                    CGPoint(x: -halfW + 4, y: halfH - 4),
-                    CGPoint(x: halfW - 4, y: halfH - 4)
-                ]
-                for pt in rivets {
-                    bCtx.fill(
-                        Path(ellipseIn: CGRect(x: pt.x - 1.5, y: pt.y - 1.5, width: 3, height: 3)),
-                        with: .color(.white.opacity(0.7))
+            var stripes = Path()
+            var sx = x + 4
+            let maxX = x + b.width - 6
+            while sx < maxX {
+                stripes.move(to: CGPoint(x: sx, y: y + b.height - 3))
+                stripes.addLine(to: CGPoint(x: sx + 8, y: y + 3))
+                sx += 12
+            }
+            context.stroke(stripes, with: .color(Color(hex: 0xFFCFD8DC).opacity(0.22)), lineWidth: 2.5)
+
+            let rivets = [
+                CGPoint(x: x + 4, y: y + 4),
+                CGPoint(x: x + b.width - 4, y: y + 4),
+                CGPoint(x: x + 4, y: y + b.height - 4),
+                CGPoint(x: x + b.width - 4, y: y + b.height - 4)
+            ]
+            for pt in rivets {
+                context.fill(
+                    Path(ellipseIn: CGRect(x: pt.x - 1.5, y: pt.y - 1.5, width: 3, height: 3)),
+                    with: .color(.white.opacity(0.7))
+                )
+            }
+            return
+        }
+
+        // High-Quality Glassy Neon Gem
+        context.fill(rrect, with: .linearGradient(b.gradient, startPoint: CGPoint(x: x, y: y), endPoint: CGPoint(x: x, y: y + b.height)))
+        context.stroke(rrect, with: .color(b.color.opacity(0.4)), lineWidth: 3.5)
+
+        // Glossy top reflection (glass effect)
+        let glossRect = CGRect(x: x + 1.5, y: y + 1.5, width: max(0, b.width - 3.0), height: b.height * 0.45)
+        let glossPath = Path(roundedRect: glossRect, cornerRadius: 4.0)
+        context.fill(glossPath, with: .color(.white.opacity(0.4)))
+
+        // Sharp inner white highlight edge
+        var hiPath = Path()
+        hiPath.move(to: CGPoint(x: x + 3, y: y + 1.5))
+        hiPath.addLine(to: CGPoint(x: x + b.width - 3, y: y + 1.5))
+        hiPath.move(to: CGPoint(x: x + 1.5, y: y + 3))
+        hiPath.addLine(to: CGPoint(x: x + 1.5, y: y + b.height - 3))
+        context.stroke(hiPath, with: .color(.white.opacity(0.55)), lineWidth: 1.5)
+
+        // Deep inner shadow edge
+        var shPath = Path()
+        shPath.move(to: CGPoint(x: x + 3, y: y + b.height - 1.5))
+        shPath.addLine(to: CGPoint(x: x + b.width - 3, y: y + b.height - 1.5))
+        shPath.move(to: CGPoint(x: x + b.width - 1.5, y: y + 3))
+        shPath.addLine(to: CGPoint(x: x + b.width - 1.5, y: y + b.height - 3))
+        context.stroke(shPath, with: .color(.black.opacity(0.6)), lineWidth: 1.5)
+
+        if b.maxHp >= 2 {
+            // Health Pips
+            let cy = y + b.height / 2.0
+            let pipSpacing = 10.0
+            let totalPipsW = Double(b.maxHp - 1) * pipSpacing
+            let startPipX = x + (b.width - totalPipsW) / 2.0
+
+            for p in 0..<b.maxHp {
+                let pipX = startPipX + Double(p) * pipSpacing
+                let isFull = p < b.hp
+                let r: Double = isFull ? 2.5 : 2.0
+                context.fill(
+                    Path(ellipseIn: CGRect(x: pipX - r, y: cy - r, width: r * 2, height: r * 2)),
+                    with: .color(isFull ? .white : .black.opacity(0.45))
+                )
+                if isFull {
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: pipX - 1.2, y: cy - 1.2, width: 2.4, height: 2.4)),
+                        with: .color(Color(hex: 0xFFFFD54F))
                     )
                 }
+            }
 
-            } else if b.isBoss {
-                drawBoss(context: &bCtx, brick: b, time: time, halfW: halfW, halfH: halfH)
-            } else {
-                // High-Quality Glassy Neon Gem
-                
-                bCtx.fill(rrect, with: .linearGradient(b.gradient, startPoint: CGPoint(x: 0, y: -halfH), endPoint: CGPoint(x: 0, y: halfH)))
-                
-                // Outer neon glow
-                bCtx.stroke(rrect, with: .color(b.color.opacity(0.4)), lineWidth: 3.5)
-
-                // Glossy top reflection (glass effect)
-                let glossRect = CGRect(x: -halfW + 1.5, y: -halfH + 1.5, width: max(0, b.width - 3.0), height: b.height * 0.45)
-                var glossPath = Path(roundedRect: glossRect, cornerRadius: 4.0)
-                bCtx.fill(glossPath, with: .color(.white.opacity(0.4)))
-                
-                // Sharp inner white highlight edge
-                var hiPath = Path()
-                hiPath.move(to: CGPoint(x: -halfW + 3, y: -halfH + 1.5))
-                hiPath.addLine(to: CGPoint(x: halfW - 3, y: -halfH + 1.5))
-                hiPath.move(to: CGPoint(x: -halfW + 1.5, y: -halfH + 3))
-                hiPath.addLine(to: CGPoint(x: -halfW + 1.5, y: halfH - 3))
-                bCtx.stroke(hiPath, with: .color(.white.opacity(0.55)), lineWidth: 1.5)
-
-                // Deep inner shadow edge
-                var shPath = Path()
-                shPath.move(to: CGPoint(x: -halfW + 3, y: halfH - 1.5))
-                shPath.addLine(to: CGPoint(x: halfW - 3, y: halfH - 1.5))
-                shPath.move(to: CGPoint(x: halfW - 1.5, y: -halfH + 3))
-                shPath.addLine(to: CGPoint(x: halfW - 1.5, y: halfH - 3))
-                bCtx.stroke(shPath, with: .color(.black.opacity(0.6)), lineWidth: 1.5)
-
-                if b.maxHp >= 2 {
-                    // Health Pips
-                    let pipSpacing = 10.0
-                    let totalPipsW = Double(b.maxHp - 1) * pipSpacing
-                    let startPipX = -totalPipsW / 2.0
-
-                    for p in 0..<b.maxHp {
-                        let pipX = startPipX + Double(p) * pipSpacing
-                        let isFull = p < b.hp
-                        let r: Double = isFull ? 2.5 : 2.0
-                        bCtx.fill(
-                            Path(ellipseIn: CGRect(x: pipX - r, y: -r, width: r * 2, height: r * 2)),
-                            with: .color(isFull ? .white : .black.opacity(0.45))
-                        )
-                        if isFull {
-                            bCtx.fill(
-                                Path(ellipseIn: CGRect(x: pipX - 1.2, y: -1.2, width: 2.4, height: 2.4)),
-                                with: .color(Color(hex: 0xFFFFD54F))
-                            )
-                        }
-                    }
-
-                    // Damage crack lines
-                    if b.hp < b.maxHp {
-                        var crack = Path()
-                        crack.move(to: CGPoint(x: -halfW * 0.45, y: -halfH * 0.6))
-                        crack.addLine(to: CGPoint(x: -halfW * 0.15, y: -halfH * 0.1))
-                        crack.addLine(to: CGPoint(x: -halfW * 0.35, y: halfH * 0.2))
-                        crack.addLine(to: CGPoint(x: -halfW * 0.1, y: halfH * 0.65))
-                        crack.move(to: CGPoint(x: -halfW * 0.15, y: -halfH * 0.1))
-                        crack.addLine(to: CGPoint(x: halfW * 0.25, y: -halfH * 0.3))
-                        crack.addLine(to: CGPoint(x: halfW * 0.45, y: -halfH * 0.65))
-                        bCtx.stroke(crack, with: .color(.white.opacity(0.9)), lineWidth: 1.5)
-                    }
-                }
+            // Damage crack lines
+            if b.hp < b.maxHp {
+                var crack = Path()
+                let cx = x + b.width / 2.0
+                let halfW = b.width / 2.0
+                let halfH = b.height / 2.0
+                crack.move(to: CGPoint(x: cx - halfW * 0.45, y: cy - halfH * 0.6))
+                crack.addLine(to: CGPoint(x: cx - halfW * 0.15, y: cy - halfH * 0.1))
+                crack.addLine(to: CGPoint(x: cx - halfW * 0.35, y: cy + halfH * 0.2))
+                crack.addLine(to: CGPoint(x: cx - halfW * 0.1, y: cy + halfH * 0.65))
+                crack.move(to: CGPoint(x: cx - halfW * 0.15, y: cy - halfH * 0.1))
+                crack.addLine(to: CGPoint(x: cx + halfW * 0.25, y: cy - halfH * 0.3))
+                crack.addLine(to: CGPoint(x: cx + halfW * 0.45, y: cy - halfH * 0.65))
+                context.stroke(crack, with: .color(.white.opacity(0.9)), lineWidth: 1.5)
             }
         }
     }
@@ -549,14 +552,11 @@ struct GameCanvasView: View {
     }
 
     // MARK: - Paddle
-    private func drawPaddle(context: inout GraphicsContext) {
+    private func drawPaddle(context: inout GraphicsContext, paddleDef: PaddleSkinItem) {
         let p = controller.paddle
         let rect = p.rect
         let rrect = Path(roundedRect: rect, cornerRadius: rect.height / 2.0)
         let alphaMul = p.isGhost ? 0.35 : 1.0
-
-        let equippedPaddleId = SaveManager.shared.equippedPaddleSkin
-        let paddleDef = PaddleSkinItem.allSkins.first(where: { $0.id == equippedPaddleId }) ?? PaddleSkinItem.allSkins[0]
 
         let glowRect = rect.insetBy(dx: -2.0, dy: -2.0)
         let glowPath = Path(roundedRect: glowRect, cornerRadius: glowRect.height / 2.0)
@@ -589,16 +589,14 @@ struct GameCanvasView: View {
     }
 
     // MARK: - Balls
-    private func drawBalls(context: inout GraphicsContext) {
-        let equippedBallId = SaveManager.shared.equippedBallSkin
-        let ballSkin = BallSkinItem.allSkins.first(where: { $0.id == equippedBallId }) ?? BallSkinItem.allSkins[0]
+    private func drawBalls(context: inout GraphicsContext, ballSkin: BallSkinItem) {
         let gameTime = controller.gameTime
 
         for ball in controller.balls {
-            // Trail
+            // Trail (step by 2 for high performance)
             let count = ball.trail.count
             if count > 0 {
-                for i in 0..<count {
+                for i in stride(from: 0, to: count, by: 2) {
                     let pt = ball.trail[i]
                     let progress = 1.0 - (Double(i) / Double(count))
                     let isBlueFlame = ball.isFireball && ball.fireballCombo >= 8
@@ -623,59 +621,63 @@ struct GameCanvasView: View {
                 }
             }
 
-            var bCtx = context
-            bCtx.translateBy(x: ball.x, y: ball.y)
-
             if ball.squashTimer > 0 {
+                var bCtx = context
+                bCtx.translateBy(x: ball.x, y: ball.y)
                 bCtx.rotate(by: .radians(ball.squashAngle))
                 let factor = 1.0 + (ball.squashTimer / 0.22) * 0.4
                 bCtx.scaleBy(x: factor, y: 1.0 / factor)
                 bCtx.rotate(by: .radians(-ball.squashAngle))
-            }
-
-            if ball.cornerBoostTimer > 0 {
-                let r = ball.radius + 6.0
-                bCtx.fill(Path(ellipseIn: CGRect(x: -r, y: -r, width: r * 2, height: r * 2)), with: .color(Color(hex: 0xFFFFD54F).opacity(0.45)))
-            }
-
-            let isBlueFlame = ball.isFireball && ball.fireballCombo >= 8
-            let glowR = ball.radius + (isBlueFlame ? 5.0 : 3.0)
-            
-            let glowColor: Color
-            if isBlueFlame {
-                glowColor = Color(hex: 0xFF00B0FF)
-            } else if ball.isFireball {
-                glowColor = Color(hex: 0xFFFF6D00)
-            } else if ballSkin.isRainbow {
-                glowColor = ballSkin.currentGlowColor(time: gameTime)
+                drawSingleBall(context: &bCtx, ball: ball, at: .zero, ballSkin: ballSkin, gameTime: gameTime)
             } else {
-                glowColor = ballSkin.glowColor
+                drawSingleBall(context: &context, ball: ball, at: CGPoint(x: ball.x, y: ball.y), ballSkin: ballSkin, gameTime: gameTime)
             }
-            
-            bCtx.fill(Path(ellipseIn: CGRect(x: -glowR, y: -glowR, width: glowR * 2, height: glowR * 2)), with: .color(glowColor.opacity(isBlueFlame ? 0.4 : 0.28)))
-
-            let coreColor: Color
-            if isBlueFlame {
-                coreColor = .white
-            } else if ball.isFireball {
-                coreColor = Color(hex: 0xFFFFD54F)
-            } else if ball.isBomb {
-                coreColor = Color(hex: 0xFFFF5252)
-            } else if ballSkin.isRainbow {
-                coreColor = ballSkin.currentMainColor(time: gameTime)
-            } else {
-                coreColor = ballSkin.mainColor
-            }
-            
-            let r = ball.radius
-            bCtx.fill(Path(ellipseIn: CGRect(x: -r, y: -r, width: r * 2, height: r * 2)), with: .color(coreColor))
-
-            let specR = r * 0.35
-            bCtx.fill(
-                Path(ellipseIn: CGRect(x: -r * 0.35 - specR, y: -r * 0.35 - specR, width: specR * 2, height: specR * 2)),
-                with: .color(.white.opacity(0.85))
-            )
         }
+    }
+
+    private func drawSingleBall(context: inout GraphicsContext, ball: Ball, at pt: CGPoint, ballSkin: BallSkinItem, gameTime: Double) {
+        if ball.cornerBoostTimer > 0 {
+            let r = ball.radius + 6.0
+            context.fill(Path(ellipseIn: CGRect(x: pt.x - r, y: pt.y - r, width: r * 2, height: r * 2)), with: .color(Color(hex: 0xFFFFD54F).opacity(0.45)))
+        }
+
+        let isBlueFlame = ball.isFireball && ball.fireballCombo >= 8
+        let glowR = ball.radius + (isBlueFlame ? 5.0 : 3.0)
+        
+        let glowColor: Color
+        if isBlueFlame {
+            glowColor = Color(hex: 0xFF00B0FF)
+        } else if ball.isFireball {
+            glowColor = Color(hex: 0xFFFF6D00)
+        } else if ballSkin.isRainbow {
+            glowColor = ballSkin.currentGlowColor(time: gameTime)
+        } else {
+            glowColor = ballSkin.glowColor
+        }
+        
+        context.fill(Path(ellipseIn: CGRect(x: pt.x - glowR, y: pt.y - glowR, width: glowR * 2, height: glowR * 2)), with: .color(glowColor.opacity(isBlueFlame ? 0.4 : 0.28)))
+
+        let coreColor: Color
+        if isBlueFlame {
+            coreColor = .white
+        } else if ball.isFireball {
+            coreColor = Color(hex: 0xFFFFD54F)
+        } else if ball.isBomb {
+            coreColor = Color(hex: 0xFFFF5252)
+        } else if ballSkin.isRainbow {
+            coreColor = ballSkin.currentMainColor(time: gameTime)
+        } else {
+            coreColor = ballSkin.mainColor
+        }
+        
+        let r = ball.radius
+        context.fill(Path(ellipseIn: CGRect(x: pt.x - r, y: pt.y - r, width: r * 2, height: r * 2)), with: .color(coreColor))
+
+        let specR = r * 0.35
+        context.fill(
+            Path(ellipseIn: CGRect(x: pt.x - r * 0.35 - specR, y: pt.y - r * 0.35 - specR, width: specR * 2, height: specR * 2)),
+            with: .color(.white.opacity(0.85))
+        )
     }
 
     // MARK: - Drone

@@ -8,3 +8,4 @@ xcuserdata/
 # Agent / Scratch
 .agents/
 .DS_Store
+.build/

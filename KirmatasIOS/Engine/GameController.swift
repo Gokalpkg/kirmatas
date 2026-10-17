@@ -10,8 +10,8 @@ final class GameController: ObservableObject {
     @Published var currentMode: GameMode = .classic
     @Published var status: GameStatus = .ready
     @Published var stats = MatchStats()
-    @Published var activePowerUps: [ActivePowerUp] = []
-    @Published var frameTick: UInt64 = 0
+    var activePowerUps: [ActivePowerUp] = []
+    var frameTick: UInt64 = 0
 
     var screenWidth: Double = 390.0
     var screenHeight: Double = 844.0
@@ -40,6 +40,10 @@ final class GameController: ObservableObject {
     var gameTime: Double = 0.0
     var endgameStallTimer: Double = 0.0
     private var blackHoleTimer: Double = 0.0
+    var bulletTimeLeft: Double = 0.0
+    var feverTimeLeft: Double = 0.0
+    var ultiActiveLeft: Double = 0.0
+    private var hudUpdateTimer: Double = 0.0
 
     var chaosStock = 3
     var chaosPendingExtraBalls = 0
@@ -105,6 +109,10 @@ final class GameController: ObservableObject {
         beeSpawnCooldown = Double.random(in: 25.0...45.0)
         blackHoleTimer = 0
         endgameStallTimer = 0
+        bulletTimeLeft = 0.0
+        feverTimeLeft = 0.0
+        ultiActiveLeft = 0.0
+        hudUpdateTimer = 0.0
         hasUsedRevive = false
         hasClaimedVictoryBonus = false
         endGameRolledDice = 0
@@ -382,8 +390,8 @@ final class GameController: ObservableObject {
         }
 
         var effectiveDt = dt
-        if stats.bulletTimeLeft > 0 {
-            stats.bulletTimeLeft -= dt
+        if bulletTimeLeft > 0 {
+            bulletTimeLeft -= dt
             effectiveDt = dt * 0.45
         }
         if currentMode == .chaos {
@@ -499,12 +507,21 @@ final class GameController: ObservableObject {
     }
 
     private func updatePowerUpTimers(dt: Double) {
+        if !activePowerUps.isEmpty {
+            hudUpdateTimer += dt
+            if hudUpdateTimer >= 0.25 {
+                hudUpdateTimer = 0.0
+                objectWillChange.send()
+            }
+        }
+
         for i in stride(from: activePowerUps.count - 1, through: 0, by: -1) {
             activePowerUps[i].timeLeft -= dt
             if activePowerUps[i].timeLeft <= 0 {
                 let expiredType = activePowerUps[i].type
                 activePowerUps.remove(at: i)
                 removePowerUp(expiredType)
+                objectWillChange.send()
             }
         }
 
@@ -583,8 +600,8 @@ final class GameController: ObservableObject {
         }
 
         // Ulti active timer
-        if stats.ultiActiveLeft > 0 {
-            stats.ultiActiveLeft -= dt
+        if ultiActiveLeft > 0 {
+            ultiActiveLeft -= dt
             if Double.random(in: 0...1) < 0.25 {
                 projectiles.append(
                     Projectile(
@@ -608,9 +625,9 @@ final class GameController: ObservableObject {
                 stats.isFever = false
             }
         }
-        if stats.feverTimeLeft > 0 {
-            stats.feverTimeLeft -= dt
-            if stats.feverTimeLeft <= 0 {
+        if feverTimeLeft > 0 {
+            feverTimeLeft -= dt
+            if feverTimeLeft <= 0 {
                 stats.isFever = false
             }
         }
@@ -1135,7 +1152,7 @@ final class GameController: ObservableObject {
             multiplier = 3.0
             if !stats.isFever {
                 stats.isFever = true
-                stats.feverTimeLeft = 6.0
+                feverTimeLeft = 6.0
                 particles.spawnFloatingText(
                     x: screenWidth / 2.0,
                     y: screenHeight * 0.35,
@@ -1262,6 +1279,7 @@ final class GameController: ObservableObject {
 
         activePowerUps.removeAll(where: { $0.type == type })
         activePowerUps.append(ActivePowerUp(type: type))
+        objectWillChange.send()
 
         switch type {
         case .wide:
@@ -1297,7 +1315,7 @@ final class GameController: ObservableObject {
         case .drone:
             paddle.hasDrone = true
         case .chrono:
-            stats.bulletTimeLeft = 4.5
+            bulletTimeLeft = 4.5
         case .reverse:
             paddle.isReversed = true
         case .clumsy:
@@ -1373,9 +1391,9 @@ final class GameController: ObservableObject {
     }
 
     func triggerUlti() {
-        guard stats.ultiCharge >= 100.0 && stats.ultiActiveLeft <= 0 else { return }
+        guard stats.ultiCharge >= 100.0 && ultiActiveLeft <= 0 else { return }
         stats.ultiCharge = 0.0
-        stats.ultiActiveLeft = 2.0
+        ultiActiveLeft = 2.0
 
         particles.triggerShake(magnitude: 7.0, duration: 0.35)
         particles.spawnShockwave(
