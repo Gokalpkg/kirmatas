@@ -21,6 +21,7 @@ import 'upgrades_view.dart';
 import 'sector_map_view.dart';
 import 'pixel_art.dart';
 import 'tournament_dialog.dart';
+import 'kaunos_ui.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -792,6 +793,68 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    const Divider(color: Colors.white24),
+                    const Text(
+                      '🎬 REKLAM MODU (KAYIT KISAYOLLARI)',
+                      style: TextStyle(
+                        color: Color(0xFF00E5FF),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        ActionChip(
+                          backgroundColor: const Color(0xFF1A233A),
+                          label: const Text('1. İlk Vuruş', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _launchReklamScene(ReklamScene.firstHit);
+                          },
+                        ),
+                        ActionChip(
+                          backgroundColor: const Color(0xFF1A233A),
+                          label: const Text('2. Zincirleme Patlama', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _launchReklamScene(ReklamScene.chainExplosion);
+                          },
+                        ),
+                        ActionChip(
+                          backgroundColor: const Color(0xFF1A233A),
+                          label: const Text('3. 30 Ateş Topu', style: TextStyle(color: Color(0xFFFFD54F), fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _launchReklamScene(ReklamScene.thirtyFireballs);
+                          },
+                        ),
+                        ActionChip(
+                          backgroundColor: const Color(0xFF1A233A),
+                          label: const Text('4. Kaos Kartı', style: TextStyle(color: Color(0xFF00E5FF), fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _launchReklamScene(ReklamScene.chaosCards);
+                          },
+                        ),
+                        ActionChip(
+                          backgroundColor: const Color(0xFF1A233A),
+                          label: const Text('5. Lig Ekranı', style: TextStyle(color: Color(0xFF69F0AE), fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            TournamentDialog.show(
+                              context,
+                              save: _save,
+                              onJoinTournament: () => _launchReklamScene(ReklamScene.leagueShowcase),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -809,6 +872,17 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         );
       },
     );
+  }
+
+  void _launchReklamScene(ReklamScene scene) {
+    final controller = GameController();
+    final size = MediaQuery.of(context).size;
+    controller.setDimensions(size.width, size.height);
+    controller.startReklamScene(scene);
+    controller.addListener(_onActiveGameTick);
+    setState(() {
+      _activeGame = controller;
+    });
   }
 
   @override
@@ -940,16 +1014,39 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.settings, color: Colors.white70),
-                          style: IconButton.styleFrom(
-                            backgroundColor: const Color(0x40000000),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              side: const BorderSide(color: Colors.white12),
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: KaunosPalette.obsidianGlassElevated,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: KaunosPalette.crystalBorderStarlight.withValues(alpha: 0.6),
+                              width: 1.2,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0xFF020308),
+                                offset: Offset(0, 3),
+                                blurRadius: 0,
+                              ),
+                              BoxShadow(
+                                color: Color(0x25FFFFFF),
+                                offset: Offset(0, 1),
+                                blurRadius: 0,
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: _showSettingsDialog,
+                              child: const Center(
+                                child: Icon(Icons.settings_rounded, color: KaunosPalette.goldHighlight, size: 20),
+                              ),
                             ),
                           ),
-                          onPressed: _showSettingsDialog,
                         ),
 
                         // Seasonal Title & League Avatar Frame Badge
@@ -971,10 +1068,20 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: const Color(0x99101320),
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(color: _save.leagueTierColor, width: 1.5),
+                                  color: KaunosPalette.obsidianGlassElevated,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: _save.leagueTierColor, width: 1.4),
                                   boxShadow: [
+                                    const BoxShadow(
+                                      color: Color(0xFF020308),
+                                      offset: Offset(0, 3),
+                                      blurRadius: 0,
+                                    ),
+                                    const BoxShadow(
+                                      color: Color(0x30FFFFFF),
+                                      offset: Offset(0, 1),
+                                      blurRadius: 0,
+                                    ),
                                     BoxShadow(
                                       color: _save.leagueTierColor.withValues(alpha: 0.35),
                                       blurRadius: 8,
@@ -984,7 +1091,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.military_tech_rounded, color: _save.leagueTierColor, size: 16),
+                                    KaunosEmblem.crest(size: 15, crestColor: _save.leagueTierColor),
                                     const SizedBox(width: 5),
                                     Flexible(
                                       child: Text(
@@ -994,8 +1101,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                         style: TextStyle(
                                           color: _save.leagueTierColor,
                                           fontWeight: FontWeight.w900,
-                                          fontSize: 11.5,
+                                          fontSize: 12,
                                           letterSpacing: 0.5,
+                                          fontFamily: 'Rajdhani',
                                         ),
                                       ),
                                     ),
@@ -1007,23 +1115,36 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         ),
 
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0x80101320),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0x4DFFD54F)),
+                            color: KaunosPalette.obsidianGlassElevated,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: KaunosPalette.goldBorder.withValues(alpha: 0.6), width: 1.2),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0xFF451A03),
+                                offset: Offset(0, 3),
+                                blurRadius: 0,
+                              ),
+                              BoxShadow(
+                                color: Color(0x35FFFFFF),
+                                offset: Offset(0, 1),
+                                blurRadius: 0,
+                              ),
+                            ],
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 18),
+                              const KaunosEmblem.coin(size: 16),
                               const SizedBox(width: 5),
                               Text(
                                 '${_save.gold}',
                                 style: const TextStyle(
-                                  color: Color(0xFFFFD54F),
+                                  color: KaunosPalette.goldHighlight,
                                   fontWeight: FontWeight.w900,
                                   fontSize: 14,
+                                  fontFamily: 'Rajdhani',
                                 ),
                               ),
                             ],
@@ -1033,21 +1154,65 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     ),
                   ),
 
-                  // Brand Title (Clean, no subtitle)
-                  Text( 'KIRMATAS',
-                    style: TextStyle(
-                      fontSize: 42,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 3.0,
-                      foreground: Paint()
-                        ..shader = const LinearGradient(
-                          colors: [Color(0xFFFFF6D8), Color(0xFFF5D27A), Color(0xFFE8A23A)],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ).createShader(const Rect.fromLTWH(0, 0, 200, 50)),
-                      shadows: const [
-                        Shadow(color: Color(0x66E88C28), blurRadius: 20, offset: Offset(0, 4)),
-                      ],
+                  // Brand Title Crest (Handcrafted carved amber-gold crest with crystal ornaments)
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: KaunosPalette.obsidianGlassElevated.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: KaunosPalette.crystalBorderStarlight.withValues(alpha: 0.5),
+                          width: 1.0,
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0xFF020308),
+                            offset: Offset(0, 3),
+                            blurRadius: 0,
+                          ),
+                          BoxShadow(
+                            color: Color(0x30FFFFFF),
+                            offset: Offset(0, 1),
+                            blurRadius: 0,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const KaunosEmblem.crest(size: 18, crestColor: KaunosPalette.goldHighlight),
+                          const SizedBox(width: 10),
+                          Text(
+                            'KIRMATAS',
+                            style: TextStyle(
+                              fontSize: 38,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 4.0,
+                              fontFamily: 'Rajdhani',
+                              foreground: Paint()
+                                ..shader = const LinearGradient(
+                                  colors: [
+                                    KaunosPalette.goldGlint,
+                                    KaunosPalette.goldHighlight,
+                                    KaunosPalette.goldPrimary,
+                                    KaunosPalette.goldDeep,
+                                  ],
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                ).createShader(const Rect.fromLTWH(0, 0, 240, 50)),
+                              shadows: const [
+                                Shadow(color: Color(0x99451A03), blurRadius: 12, offset: Offset(0, 3)),
+                                Shadow(color: Color(0x66F59E0B), blurRadius: 20, offset: Offset(0, 4)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const KaunosEmblem.crest(size: 18, crestColor: KaunosPalette.goldHighlight),
+                        ],
+                      ),
                     ),
                   ),
 
@@ -1276,72 +1441,95 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   ),
 
                   // MODERN CONSOLIDATED FLOATING BOTTOM NAVIGATION DOCK
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xDD101320),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.white12),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black54, blurRadius: 16, offset: Offset(0, 4)),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        _buildTopRewardsBar(),
-                        const SizedBox(height: 6),
-                        Container(height: 1, color: Colors.white10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildNavButton(
-                                icon: Icons.storefront_rounded,
-                                label: I18n.tr('shop'),
-                                badge: !_save.isShopUnlocked ? '🔒 Bölüm 2' : null,
-                                onTap: () => _goToPage(0),
-                              ),
-                            ),
-                            Expanded(
-                              child: _buildNavButton(
-                                icon: Icons.water_drop_rounded,
-                                label: I18n.tr('aquarium'),
-                                badge: !_save.isAquariumUnlocked
-                                    ? '🔒 Bölüm 5'
-                                    : (_save.currentAvailableFishGold > 0 ? '' : null),
-                                onTap: () => _goToPage(2),
-                              ),
-                            ),
-                            Expanded(
-                              child: _buildNavButton(
-                                icon: Icons.assignment_turned_in_rounded,
-                                label: I18n.tr('quests'),
-                                badge: ((_save.questFishFed && !_save.claimedQuests.contains('feed_fish')) ||
-                                        (_save.questBricksBroken >= 100 && !_save.claimedQuests.contains('break_bricks')) ||
-                                        (_save.questAdOrWinDone && !_save.claimedQuests.contains('ad_or_win'))) ? '!' : null,
-                                onTap: () => DailyQuestsDialog.show(
-                                  context,
-                                  onPlayToday: () => _launchGame(GameMode.daily),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: _buildNavButton(
-                                icon: Icons.auto_awesome_rounded,
-                                label: I18n.tr('upgrades'),
-                                badge: !_save.isWorkshopUnlocked ? '🔒 Bölüm 3' : null,
-                                onTap: () => _goToPage(3),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                  _buildBottomDock(),
                 ],
               ),
             ),
           );
+  }
+
+  Widget _buildBottomDock() {
+    return KaunosPanel(
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+      backgroundColor: KaunosPalette.obsidianGlassSurface,
+      borderColor: KaunosPalette.crystalBorderStarlight,
+      bottomBevelDepth: 4.0,
+      bevelColor: KaunosPalette.crystalBevelShadow,
+      borderRadius: 22,
+      showSpecularRim: true,
+      showCornerBrackets: true,
+      child: Column(
+        children: [
+          _buildTopRewardsBar(),
+          const SizedBox(height: 6),
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  KaunosPalette.crystalBorderStarlight,
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: _buildNavButton(
+                  emblem: const KaunosEmblem.pearl(size: 20),
+                  icon: Icons.storefront_rounded,
+                  label: I18n.tr('shop'),
+                  badge: !_save.isShopUnlocked ? '🔒 Bölüm 2' : null,
+                  onTap: () => _goToPage(0),
+                ),
+              ),
+              Expanded(
+                child: _buildNavButton(
+                  emblem: const KaunosEmblem.astrolabe(
+                    size: 20,
+                    ringColor: Color(0xFF38BDF8),
+                    starColor: Color(0xFF4FC3F7),
+                  ),
+                  icon: Icons.water_drop_rounded,
+                  label: I18n.tr('aquarium'),
+                  badge: !_save.isAquariumUnlocked
+                      ? '🔒 Bölüm 5'
+                      : (_save.currentAvailableFishGold > 0 ? '' : null),
+                  onTap: () => _goToPage(2),
+                ),
+              ),
+              Expanded(
+                child: _buildNavButton(
+                  emblem: const KaunosEmblem.wheel(size: 20, wheelColor: KaunosPalette.goldHighlight),
+                  icon: Icons.assignment_turned_in_rounded,
+                  label: I18n.tr('quests'),
+                  badge: ((_save.questFishFed && !_save.claimedQuests.contains('feed_fish')) ||
+                          (_save.questBricksBroken >= 100 && !_save.claimedQuests.contains('break_bricks')) ||
+                          (_save.questAdOrWinDone && !_save.claimedQuests.contains('ad_or_win'))) ? '!' : null,
+                  onTap: () => DailyQuestsDialog.show(
+                    context,
+                    onPlayToday: () => _launchGame(GameMode.daily),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: _buildNavButton(
+                  emblem: const KaunosEmblem.anvil(size: 20, steelColor: KaunosPalette.goldHighlight),
+                  icon: Icons.auto_awesome_rounded,
+                  label: I18n.tr('upgrades'),
+                  badge: !_save.isWorkshopUnlocked ? '🔒 Bölüm 3' : null,
+                  onTap: () => _goToPage(3),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildTopRewardsBar() {
@@ -1359,6 +1547,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             glowColor: const Color(0xFFFFA000),
             isGlowing: hasAnyClaim,
             iconGradient: const [Color(0xFFFFD54F), Color(0xFFFF8F00)],
+            emblem: const KaunosEmblem.crest(size: 16, crestColor: Color(0xFF261500)),
             icon: Icons.calendar_month_rounded,
             iconColor: const Color(0xFF261500),
             title: 'GİRİŞ',
@@ -1403,6 +1592,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       : (hasSpins
                           ? const [Color(0xFF00E5FF), Color(0xFFD500F9)]
                           : const [Color(0xFF455A64), Color(0xFF263238)]),
+                  emblem: isLocked
+                      ? const KaunosEmblem.padlock(size: 15, bodyColor: Colors.white70)
+                      : (hasSpins
+                          ? const KaunosEmblem.wheel(size: 16, wheelColor: Colors.white)
+                          : const KaunosEmblem.wheel(size: 16, wheelColor: Colors.white54)),
                   icon: isLocked ? Icons.lock_rounded : Icons.motion_photos_on_rounded,
                   iconColor: isLocked ? Colors.white54 : (hasSpins ? Colors.white : Colors.white54),
                   title: 'ÇARK',
@@ -1456,6 +1650,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 glowColor: const Color(0xFF00E676),
                 isGlowing: isReady,
                 iconGradient: const [Color(0xFF69F0AE), Color(0xFF00B0FF)],
+                emblem: const KaunosEmblem.coin(size: 16),
                 icon: Icons.card_giftcard_rounded,
                 iconColor: const Color(0xFF00331A),
                 title: 'HEDİYE',
@@ -1500,12 +1695,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   }
 
   Widget _buildFancyRewardButton({
+    Widget? emblem,
+    IconData? icon,
     required List<Color> gradientColors,
     required Color borderColor,
     required Color glowColor,
     required bool isGlowing,
     required List<Color> iconGradient,
-    required IconData icon,
     required Color iconColor,
     required String title,
     required Color titleColor,
@@ -1518,28 +1714,39 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: gradientColors,
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderColor, width: isGlowing ? 1.5 : 1.0),
-            boxShadow: isGlowing
-                ? [
-                    BoxShadow(
-                      color: glowColor.withValues(alpha: 0.4),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: borderColor, width: isGlowing ? 1.4 : 1.0),
+            boxShadow: [
+              // 1.3 Physical bottom bevel depth (3.5px zero-blur shadow)
+              const BoxShadow(
+                color: Color(0xFF020308),
+                offset: Offset(0, 3.5),
+                blurRadius: 0,
+              ),
+              // Top inner specular rim
+              const BoxShadow(
+                color: Color(0x30FFFFFF),
+                offset: Offset(0, 1),
+                blurRadius: 0,
+              ),
+              if (isGlowing)
+                BoxShadow(
+                  color: glowColor.withValues(alpha: 0.45),
+                  blurRadius: 10,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 2),
+                ),
+            ],
           ),
           child: Stack(
             clipBehavior: Clip.none,
@@ -1547,8 +1754,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               Row(
                 children: [
                   Container(
-                    width: 30,
-                    height: 30,
+                    width: 28,
+                    height: 28,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: iconGradient,
@@ -1558,18 +1765,18 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: iconGradient.first.withValues(alpha: 0.6),
-                          blurRadius: 6,
+                          color: iconGradient.first.withValues(alpha: 0.5),
+                          blurRadius: 5,
                           offset: const Offset(0, 1),
                         ),
                       ],
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 1.2),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 1.0),
                     ),
                     child: Center(
-                      child: Icon(icon, color: iconColor, size: 17),
+                      child: emblem ?? Icon(icon, color: iconColor, size: 16),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 5),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1582,6 +1789,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             fontSize: 10.5,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.4,
+                            fontFamily: 'Rajdhani',
                             shadows: [
                               Shadow(
                                 color: Colors.black.withValues(alpha: 0.8),
@@ -1600,6 +1808,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             color: subColor,
                             fontSize: 9.5,
                             fontWeight: FontWeight.w800,
+                            fontFamily: 'Rajdhani',
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1637,6 +1846,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         fontSize: 8,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 0.3,
+                        fontFamily: 'Rajdhani',
                       ),
                     ),
                   ),
@@ -1653,31 +1863,51 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     final isNewPlayer = _save.highestLevel < 2;
 
     return Container(
+      margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
         gradient: const LinearGradient(
-          colors: [Color(0xFFFF5722), Color(0xFFFF9800), Color(0xFFFFB74D)],
+          colors: [
+            KaunosPalette.classicSunsetTop,
+            KaunosPalette.terracottaPrimary,
+            KaunosPalette.classicSunsetBottom,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
-        border: isNewPlayer
-            ? Border.all(color: const Color(0xFFFFD54F), width: 2.0)
-            : null,
+        border: Border.all(
+          color: isNewPlayer ? KaunosPalette.goldHighlight : KaunosPalette.terracottaBorder,
+          width: isNewPlayer ? 2.0 : 1.4,
+        ),
         boxShadow: [
+          // 1.3 Physical bottom depth: 5px zero-blur extruded bevel shadow
+          const BoxShadow(
+            color: Color(0xFF4A1808),
+            offset: Offset(0, 5),
+            blurRadius: 0,
+            spreadRadius: 0,
+          ),
+          // Top inner specular highlight ridge
+          const BoxShadow(
+            color: Color(0x38FFFFFF),
+            offset: Offset(0, 1.2),
+            blurRadius: 0,
+          ),
+          // Ambient warm terracotta glow
           BoxShadow(
-            color: isNewPlayer ? const Color(0x99FF5722) : const Color(0x66FF5722),
-            blurRadius: isNewPlayer ? 24 : 18,
-            offset: const Offset(0, 6),
+            color: const Color(0xFF96381B).withValues(alpha: isNewPlayer ? 0.45 : 0.28),
+            blurRadius: isNewPlayer ? 20 : 14,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(22),
           onTap: () => _startOrPromptResume(GameMode.classic),
           child: Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 Expanded(
@@ -1685,16 +1915,19 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Wrap(
-                        spacing: 8,
+                        spacing: 6,
                         runSpacing: 6,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           if (isNewPlayer)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF00E676),
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF00E676), Color(0xFF00B0FF)],
+                                ),
                                 borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFFE8F5E9), width: 1.0),
                                 boxShadow: const [
                                   BoxShadow(color: Color(0x6600E676), blurRadius: 6, offset: Offset(0, 1)),
                                 ],
@@ -1702,18 +1935,20 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               child: const Text(
                                 '⭐ MACERAYA BAŞLA!',
                                 style: TextStyle(
-                                  color: Colors.black,
+                                  color: Color(0xFF051B11),
                                   fontSize: 10,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 0.5,
+                                  fontFamily: 'Rajdhani',
                                 ),
                               ),
                             ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.black26,
+                              color: KaunosPalette.obsidianGlassElevated,
                               borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: KaunosPalette.crystalBorderStarlight.withValues(alpha: 0.4), width: 1.0),
                             ),
                             child: Text(
                               I18n.tr('classic_desc'),
@@ -1721,6 +1956,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 color: Colors.white,
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
+                                fontFamily: 'Rajdhani',
                               ),
                             ),
                           ),
@@ -1731,12 +1967,14 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 color: const Color(0xDD00E5FF),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Text( 'BÖLÜM ${_save.classicSavedLevel} ',
+                              child: Text(
+                                'BÖLÜM ${_save.classicSavedLevel} ',
                                 style: const TextStyle(
                                   color: Colors.black,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 0.5,
+                                  fontFamily: 'Rajdhani',
                                 ),
                               ),
                             ),
@@ -1745,18 +1983,34 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xDDFFD54F),
+                                color: KaunosPalette.obsidianGlassElevated,
                                 borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: KaunosPalette.goldHighlight.withValues(alpha: 0.7), width: 1.0),
                               ),
-                              child: Text(
-                                _save.prestigeTier > 0
-                                    ? 'PRESTİJ ${_save.prestigeTier} • SEKTÖR 14/14 🌌'
-                                    : 'SEKTÖR ${_save.highestUnlockedSector}/14 🗺️',
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.5,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const KaunosEmblem.astrolabe(
+                                      size: 11,
+                                      ringColor: KaunosPalette.goldHighlight,
+                                      starColor: KaunosPalette.goldPrimary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _save.prestigeTier > 0
+                                          ? 'PRESTİJ ${_save.prestigeTier} • SEKTÖR 14/14 🌌'
+                                          : 'SEKTÖR ${_save.highestUnlockedSector}/14 🗺️',
+                                      style: const TextStyle(
+                                        color: KaunosPalette.goldHighlight,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 0.5,
+                                        fontFamily: 'Rajdhani',
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -1764,65 +2018,98 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      Text(
-                        I18n.tr('classic').toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.0,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          I18n.tr('classic').toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.2,
+                            fontFamily: 'Rajdhani',
+                            shadows: [
+                              Shadow(
+                                color: Color(0x66000000),
+                                offset: Offset(0, 2),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       if (best > 0) ...[
                         const SizedBox(height: 4),
-                        Text( '${I18n.tr('high_score')}: $best',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: KaunosPalette.obsidianGlassElevated,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: KaunosPalette.goldBorder.withValues(alpha: 0.4), width: 1.0),
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const KaunosEmblem.coin(size: 12),
+                                const SizedBox(width: 5),
+                                Text(
+                                  '${I18n.tr('high_score')}: $best',
+                                  style: const TextStyle(
+                                    color: KaunosPalette.goldHighlight,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    fontFamily: 'Rajdhani',
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
+                const SizedBox(width: 10),
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4)),
-                        ],
-                      ),
-                      child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFFF5722), size: 36),
+                    KaunosHeroPlayButton(
+                      size: 56.0,
+                      onTap: () => _startOrPromptResume(GameMode.classic),
                     ),
                     const SizedBox(height: 6),
                     GestureDetector(
                       onTap: _openSectorMap,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xCC000000),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFFFD54F), width: 1.0),
+                          color: KaunosPalette.obsidianGlassElevated,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: KaunosPalette.goldHighlight.withValues(alpha: 0.6), width: 1.0),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0xFF020308), offset: Offset(0, 2), blurRadius: 0),
+                          ],
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.map_rounded, color: Color(0xFFFFD54F), size: 13),
+                            KaunosEmblem.astrolabe(
+                              size: 11,
+                              ringColor: KaunosPalette.goldHighlight,
+                              starColor: KaunosPalette.goldPrimary,
+                            ),
                             SizedBox(width: 3),
                             Text(
                               'HARİTA',
                               style: TextStyle(
-                                color: Color(0xFFFFD54F),
+                                color: KaunosPalette.goldHighlight,
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 0.5,
+                                fontFamily: 'Rajdhani',
                               ),
                             ),
                           ],
@@ -1844,29 +2131,57 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     final isLocked = !_save.isChaosUnlocked;
 
     return Container(
+      margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
         gradient: isLocked
             ? const LinearGradient(
-                colors: [Color(0xFF2C2D35), Color(0xFF1E1F26), Color(0xFF14151B)],
+                colors: [Color(0xFF111923), Color(0xFF090E17), Color(0xFF05080E)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               )
             : const LinearGradient(
-                colors: [Color(0xFFD50000), Color(0xFFFF3D00), Color(0xFFFF6E40)],
+                colors: [
+                  KaunosPalette.chaosJadeTop,
+                  KaunosPalette.deepJadePrimary,
+                  KaunosPalette.chaosJadeBottom,
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: isLocked
-            ? const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))]
-            : const [
-                BoxShadow(color: Color(0x66FF1744), blurRadius: 18, offset: Offset(0, 6)),
-              ],
+        border: Border.all(
+          color: isLocked
+              ? KaunosPalette.deepJadeBorder.withValues(alpha: 0.25)
+              : KaunosPalette.deepJadeBorder,
+          width: 1.4,
+        ),
+        boxShadow: [
+          // Physical bottom depth: 5px zero-blur bevel
+          BoxShadow(
+            color: isLocked ? const Color(0xFF020306) : const Color(0xFF091C20),
+            offset: const Offset(0, 5),
+            blurRadius: 0,
+            spreadRadius: 0,
+          ),
+          // Top inner specular rim
+          BoxShadow(
+            color: isLocked ? const Color(0x1AFFFFFF) : const Color(0x3848A9A6),
+            offset: const Offset(0, 1.2),
+            blurRadius: 0,
+          ),
+          // Ambient glow
+          if (!isLocked)
+            BoxShadow(
+              color: const Color(0xFF1E4D58).withValues(alpha: 0.35),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(22),
           onTap: () {
             if (isLocked) {
               _showLockedFeedback('Bu özellik Bölüm 5 seviyesinde açılır.');
@@ -1875,7 +2190,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             _startOrPromptResume(GameMode.chaos);
           },
           child: Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 Expanded(
@@ -1883,33 +2198,22 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Wrap(
-                        spacing: 8,
+                        spacing: 6,
                         runSpacing: 6,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           if (isLocked)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE53935),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Text(
-                                '🔒 BÖLÜM 5',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
+                            KaunosBadge.lock(
+                              text: '🔒 BÖLÜM 5',
+                              borderColor: const Color(0xFFEF5350).withValues(alpha: 0.6),
                             )
                           else ...[
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.black26,
+                                color: KaunosPalette.obsidianGlassElevated,
                                 borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: KaunosPalette.deepJadeBorder.withValues(alpha: 0.4), width: 1.0),
                               ),
                               child: Text(
                                 I18n.tr('chaos_desc'),
@@ -1917,6 +2221,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                   color: Colors.white,
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
+                                  fontFamily: 'Rajdhani',
                                 ),
                               ),
                             ),
@@ -1926,6 +2231,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xDDFFD54F),
                                   borderRadius: BorderRadius.circular(10),
+                                  boxShadow: const [
+                                    BoxShadow(color: Color(0x44FFD54F), blurRadius: 4, offset: Offset(0, 1)),
+                                  ],
                                 ),
                                 child: Text(
                                   'BÖLÜM ${_save.chaosSavedLevel} ',
@@ -1934,6 +2242,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     fontSize: 10,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 0.5,
+                                    fontFamily: 'Rajdhani',
                                   ),
                                 ),
                               ),
@@ -1953,13 +2262,23 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 fontSize: 22,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1.0,
+                                fontFamily: 'Rajdhani',
+                                shadows: isLocked
+                                    ? null
+                                    : const [
+                                        Shadow(
+                                          color: Color(0x80000000),
+                                          offset: Offset(0, 2),
+                                          blurRadius: 4,
+                                        ),
+                                      ],
                               ),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Icon(
                             isLocked ? Icons.lock_rounded : Icons.flash_on_rounded,
-                            color: isLocked ? Colors.white38 : const Color(0xFFFFD54F),
+                            color: isLocked ? Colors.white38 : KaunosPalette.goldHighlight,
                             size: 24,
                           ),
                         ],
@@ -1968,32 +2287,65 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         const SizedBox(height: 4),
                         Text(
                           '${I18n.tr('high_score')}: $best',
-                          style: const TextStyle(
-                            color: Colors.white70,
+                          style: TextStyle(
+                            color: isLocked ? Colors.white38 : Colors.white70,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
+                            fontFamily: 'Rajdhani',
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                Container(
-                  width: 58,
-                  height: 58,
-                  decoration: BoxDecoration(
-                    color: isLocked ? Colors.white24 : Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4)),
-                    ],
-                  ),
-                  child: Icon(
-                    isLocked ? Icons.lock_rounded : Icons.bolt_rounded,
-                    color: isLocked ? Colors.white70 : const Color(0xFFD50000),
-                    size: 38,
-                  ),
-                ),
+                const SizedBox(width: 10),
+                // Tactile action trigger (Locked socket vs Unlocked amber trigger)
+                isLocked
+                    ? SizedBox(
+                        width: 56,
+                        height: 56 + 4.0,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Positioned(
+                              top: 4.0,
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFF04060A),
+                                ),
+                              ),
+                            ),
+                            Positioned.fill(
+                              bottom: 4.0,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: const Color(0x33101826),
+                                  border: Border.all(
+                                    color: const Color(0x3348A9A6),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.lock_rounded,
+                                    color: Colors.white54,
+                                    size: 28,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : KaunosHeroPlayButton(
+                        size: 56.0,
+                        onTap: () => _startOrPromptResume(GameMode.chaos),
+                      ),
               ],
             ),
           ),
@@ -2112,7 +2464,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   }
 
   Widget _buildNavButton({
-    required IconData icon,
+    Widget? emblem,
+    IconData? icon,
     required String label,
     required VoidCallback onTap,
     String? badge,
@@ -2121,44 +2474,114 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 5),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Stack(
               clipBehavior: Clip.none,
+              alignment: Alignment.center,
               children: [
-                Icon(icon, color: const Color(0xFFFFD54F), size: 22),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF141A2E), Color(0xFF0A0E1A)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                    border: Border.all(
+                      color: KaunosPalette.crystalBorderStarlight.withValues(alpha: 0.5),
+                      width: 1.0,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x66000000),
+                        blurRadius: 3,
+                        offset: Offset(0, 1.5),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: emblem ?? Icon(icon, color: const Color(0xFFFFD54F), size: 20),
+                  ),
+                ),
                 if (badge != null)
                   Positioned(
-                    top: -4,
+                    top: -5,
                     right: -10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE53935),
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
-                        ],
-                      ),
-                      constraints: const BoxConstraints(minWidth: 16, minHeight: 14),
-                      child: Center(
-                        child: Text(
-                          badge,
-                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
-                        ),
-                      ),
-                    ),
+                    child: badge.isEmpty
+                        ? Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: KaunosPalette.goldPrimary,
+                              boxShadow: [
+                                BoxShadow(color: KaunosPalette.goldHighlight, blurRadius: 4),
+                              ],
+                            ),
+                          )
+                        : (badge == '!'
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFFFF1744), Color(0xFFD50000)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.white, width: 0.8),
+                                  boxShadow: const [
+                                    BoxShadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
+                                  ],
+                                ),
+                                child: const Text(
+                                  '!',
+                                  style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
+                                ),
+                              )
+                            : Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xE6140D05),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: KaunosPalette.goldBorder, width: 0.9),
+                                  boxShadow: const [
+                                    BoxShadow(color: KaunosPalette.goldBevelBottom, blurRadius: 3, offset: Offset(0, 1)),
+                                  ],
+                                ),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    badge,
+                                    style: const TextStyle(
+                                      color: KaunosPalette.goldHighlight,
+                                      fontSize: 8.5,
+                                      fontWeight: FontWeight.w900,
+                                      fontFamily: 'Rajdhani',
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                              )),
                   ),
               ],
             ),
             const SizedBox(height: 3),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w800),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Rajdhani',
+                ),
+              ),
             ),
           ],
         ),

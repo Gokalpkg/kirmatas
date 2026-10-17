@@ -6,6 +6,7 @@ import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
 import 'chest_widget.dart';
+import 'kaunos_ui.dart';
 
 class CrateOpeningDialog extends StatefulWidget {
   final CrateDef? crate;
@@ -30,6 +31,10 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   late final Animation<double> _dropAnimation;
   late final AnimationController _shakeController;
   late final AnimationController _openController;
+  late final Animation<double> _openAnimation;
+  late final AnimationController _squashController;
+  late final Animation<double> _squashAnimation;
+  late final AnimationController _crystalFlareController;
   late final AnimationController _flashController;
   late final AnimationController _auraController;
   late final AnimationController _shockwaveController;
@@ -135,6 +140,34 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       vsync: this,
       duration: const Duration(milliseconds: 750),
     );
+    _openAnimation = CurvedAnimation(
+      parent: _openController,
+      curve: Curves.easeOutBack,
+    );
+
+    _squashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _squashAnimation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.0, end: 1.0).chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 35,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: -0.30).chain(CurveTween(curve: Curves.easeInOutCubic)),
+        weight: 35,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: -0.30, end: 0.0).chain(CurveTween(curve: Curves.elasticOut)),
+        weight: 30,
+      ),
+    ]).animate(_squashController);
+
+    _crystalFlareController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
 
     _flashController = AnimationController(
       vsync: this,
@@ -197,6 +230,8 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     _dropController.dispose();
     _shakeController.dispose();
     _openController.dispose();
+    _squashController.dispose();
+    _crystalFlareController.dispose();
     _flashController.dispose();
     _auraController.dispose();
     _shockwaveController.dispose();
@@ -216,10 +251,15 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       // 1. Dokunuş: Sıradan -> Ender kontrolü
       _isShaking = true;
       _tapCount = 1;
+      _squashController.forward(from: 0.0);
       _shockwaveController.forward(from: 0.0);
       _electricController.forward(from: 0.0);
       final willUpgrade = _rewardRarity.index >= Rarity.rare.index;
+      if (willUpgrade) {
+        _crystalFlareController.forward(from: 0.0);
+      }
       await _shakeController.forward(from: 0.0);
+      if (!mounted) return;
       if (willUpgrade) {
         setState(() {
           _currentRarity = Rarity.rare;
@@ -236,10 +276,15 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       // 2. Dokunuş: Ender -> Destansı kontrolü
       _isShaking = true;
       _tapCount = 2;
+      _squashController.forward(from: 0.0);
       _shockwaveController.forward(from: 0.0);
       _electricController.forward(from: 0.0);
       final willUpgrade = _rewardRarity.index >= Rarity.epic.index;
+      if (willUpgrade) {
+        _crystalFlareController.forward(from: 0.0);
+      }
       await _shakeController.forward(from: 0.0);
+      if (!mounted) return;
       if (willUpgrade) {
         setState(() {
           _currentRarity = Rarity.epic;
@@ -256,9 +301,11 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       // 3. Dokunuş: Destansı -> Efsanevi kontrolü & AÇILIŞ!
       _tapCount = 3;
       _isOpening = true;
+      _squashController.forward(from: 0.0);
       _shockwaveController.forward(from: 0.0);
       _pillarController.forward(from: 0.0);
       _flashController.forward(from: 0.0);
+      _crystalFlareController.forward(from: 0.0);
 
       final isLegendary = _rewardRarity == Rarity.legendary;
       if (isLegendary) {
@@ -270,7 +317,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       }
 
       await _shakeController.forward(from: 0.0);
+      if (!mounted) return;
       await _openController.forward();
+      if (!mounted) return;
 
       setState(() {
         _opened = true;
@@ -562,6 +611,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       child: AnimatedBuilder(
         animation: Listenable.merge([
           _dropController,
@@ -585,7 +635,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
             children: [
               // Dialog Main Shell
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
                 decoration: BoxDecoration(
                   gradient: const RadialGradient(
                     center: Alignment(0, -0.2),
@@ -608,10 +658,11 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                     ),
                   ],
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Title / Rarity Badge
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Title / Rarity Badge
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 320),
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
@@ -713,6 +764,17 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                         ),
                                       ),
 
+                                    // 4b. Crystal Tier Upgrade Particles / Flares on Tap 1 & Tap 2
+                                    if (_crystalFlareController.isAnimating)
+                                      Positioned.fill(
+                                        child: CustomPaint(
+                                          painter: _CrateCrystalFlarePainter(
+                                            progress: _crystalFlareController.value,
+                                            color: activeColor,
+                                          ),
+                                        ),
+                                      ),
+
                                     // 5. Grand Vertical Beam of Light / Pillar on Opening
                                     if (_pillarController.isAnimating)
                                       Positioned(
@@ -726,28 +788,42 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                         ),
                                       ),
 
-                                    // 6. 3D Animated Floating, Tilting & Shaking Chest
-                                    Transform.translate(
-                                      offset: Offset(
-                                        sin(_shakeController.value * pi * 10) * (3.5 + _tapCount * 1.5),
-                                        sin(_auraController.value * 2 * pi) * 2.8,
-                                      ),
-                                      child: Transform.rotate(
-                                        angle: sin(_shakeController.value * pi * 10) * (0.08 + _tapCount * 0.03) * (1.0 - _shakeController.value),
-                                        child: AnimatedScale(
-                                          scale: _chestScale,
-                                          duration: const Duration(milliseconds: 320),
-                                          curve: Curves.elasticOut,
-                                          child: ChestWidget(
-                                            size: 122,
-                                            primaryColor: _currentPrimaryColor,
-                                            secondaryColor: _currentSecondaryColor,
-                                            openProgress: _openController.value,
-                                            showGlow: true,
-                                            time: _auraController.value * 2 * pi,
+                                    // 6. 3D Animated Floating, Tilting, Squash-and-Stretch Shaking Chest
+                                    AnimatedBuilder(
+                                      animation: Listenable.merge([
+                                        _shakeController,
+                                        _auraController,
+                                        _squashController,
+                                        _openController,
+                                      ]),
+                                      builder: (context, _) {
+                                        final squash = _squashAnimation.value;
+                                        final scaleX = (1.0 + squash * 0.14) * _chestScale;
+                                        final scaleY = (1.0 - squash * 0.14) * _chestScale;
+                                        return Transform.translate(
+                                          offset: Offset(
+                                            sin(_shakeController.value * pi * 10) * (3.5 + _tapCount * 1.5),
+                                            sin(_auraController.value * 2 * pi) * 2.8 + squash * 3.5,
                                           ),
-                                        ),
-                                      ),
+                                          child: Transform.rotate(
+                                            angle: sin(_shakeController.value * pi * 10) * (0.08 + _tapCount * 0.03) * (1.0 - _shakeController.value),
+                                            child: Transform.scale(
+                                              scaleX: scaleX,
+                                              scaleY: scaleY,
+                                              alignment: Alignment.bottomCenter,
+                                              child: ChestWidget(
+                                                size: 122,
+                                                primaryColor: _currentPrimaryColor,
+                                                secondaryColor: _currentSecondaryColor,
+                                                openProgress: _openAnimation.value,
+                                                showGlow: true,
+                                                time: _auraController.value * 2 * pi,
+                                                tier: _currentRarity,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ],
                                 ),
@@ -757,7 +833,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                 opacity: (_dropController.value > 0.80 && !_isShaking && !_isOpening) ? 1.0 : 0.45,
                                 duration: const Duration(milliseconds: 150),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
@@ -774,21 +850,24 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                       ),
                                     ],
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.touch_app_rounded, color: activeColor, size: 19),
-                                      const SizedBox(width: 7),
-                                      Text(
-                                        _tapPromptText,
-                                        style: TextStyle(
-                                          color: activeColor,
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 13.5,
-                                          letterSpacing: 0.6,
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.touch_app_rounded, color: activeColor, size: 19),
+                                        const SizedBox(width: 7),
+                                        Text(
+                                          _tapPromptText,
+                                          style: TextStyle(
+                                            color: activeColor,
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 13.5,
+                                            letterSpacing: 0.6,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -815,7 +894,20 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                             ),
                           ),
 
-                          // 2. Holographic Reward Presentation Card
+                          // 1b. Rising Stellar Dust Motes drifting around the opened tablet
+                          Positioned.fill(
+                            child: AnimatedBuilder(
+                              animation: _auraController,
+                              builder: (context, _) => CustomPaint(
+                                painter: _StellarDustPainter(
+                                  time: _auraController.value * 4.0,
+                                  color: _rewardRarity.primaryColor,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // 2. Holographic Reward Presentation Card (3D Obsidian Crystal Tablet)
                           ScaleTransition(
                             scale: CurvedAnimation(
                               parent: _revealController,
@@ -842,68 +934,48 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                         child: child,
                                       );
                                     },
-                                    child: Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        // Card Chassis
-                                        Container(
-                                          width: 130,
-                                          height: 130,
-                                          decoration: BoxDecoration(
-                                            gradient: RadialGradient(
-                                              center: Alignment.center,
-                                              radius: 0.9,
-                                              colors: [
-                                                _rewardRarity.darkColor.withValues(alpha: 0.85),
-                                                const Color(0xFF070911),
-                                              ],
-                                            ),
-                                            borderRadius: BorderRadius.circular(26),
-                                            border: Border.all(
-                                              color: _rewardRarity.primaryColor,
-                                              width: 2.2,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: _rewardRarity.primaryColor.withValues(alpha: 0.55),
-                                                blurRadius: 28,
-                                                spreadRadius: 2,
+                                    child: KaunosCard(
+                                      width: 138,
+                                      height: 138,
+                                      borderRadius: 26,
+                                      bottomBevelDepth: 5.0,
+                                      bevelColor: KaunosPalette.crystalBevelShadow,
+                                      backgroundColor: KaunosPalette.obsidianGlassElevated,
+                                      borderColor: _rewardRarity.primaryColor.withValues(alpha: 0.85),
+                                      showSpecularRim: true,
+                                      showCornerBrackets: true,
+                                      padding: EdgeInsets.zero,
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          // Rotating background rune aura inside card
+                                          Transform.rotate(
+                                            angle: _auraController.value * 2 * pi,
+                                            child: CustomPaint(
+                                              size: const Size(116, 116),
+                                              painter: _CardRuneAuraPainter(
+                                                color: _rewardRarity.primaryColor,
                                               ),
-                                            ],
+                                            ),
                                           ),
-                                          child: Stack(
-                                            alignment: Alignment.center,
-                                            children: [
-                                              // Rotating background rune aura inside card
-                                              Transform.rotate(
-                                                angle: _auraController.value * 2 * pi,
+                                          // High-detail Item visual
+                                          Center(
+                                            child: _buildRewardIcon(),
+                                          ),
+                                          // Specular shine sweep across card
+                                          if (_shineSweepController.value > 0.0 && _shineSweepController.value < 1.0)
+                                            Positioned.fill(
+                                              child: ClipRRect(
+                                                borderRadius: BorderRadius.circular(24),
                                                 child: CustomPaint(
-                                                  size: const Size(110, 110),
-                                                  painter: _CardRuneAuraPainter(
-                                                    color: _rewardRarity.primaryColor,
+                                                  painter: _CardShineSweepPainter(
+                                                    progress: _shineSweepController.value,
                                                   ),
                                                 ),
                                               ),
-                                              // High-detail Item visual
-                                              Center(
-                                                child: _buildRewardIcon(),
-                                              ),
-                                              // Specular shine sweep across card
-                                              if (_shineSweepController.value > 0.0 && _shineSweepController.value < 1.0)
-                                                Positioned.fill(
-                                                  child: ClipRRect(
-                                                    borderRadius: BorderRadius.circular(24),
-                                                    child: CustomPaint(
-                                                      painter: _CardShineSweepPainter(
-                                                        progress: _shineSweepController.value,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
+                                            ),
+                                        ],
+                                      ),
                                     ),
                                   ),
 
@@ -918,21 +990,24 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                         borderRadius: BorderRadius.circular(10),
                                         border: Border.all(color: const Color(0xFFFF9800), width: 1.2),
                                       ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.inventory_2_rounded, size: 14, color: Color(0xFFFFB74D)),
-                                          SizedBox(width: 5),
-                                          Text(
-                                            'ZATEN SAHİPSİN (KOPYA)',
-                                            style: TextStyle(
-                                              color: Color(0xFFFFB74D),
-                                              fontSize: 10.5,
-                                              fontWeight: FontWeight.w900,
-                                              letterSpacing: 0.8,
+                                      child: const FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.inventory_2_rounded, size: 14, color: Color(0xFFFFB74D)),
+                                            SizedBox(width: 5),
+                                            Text(
+                                              'ZATEN SAHİPSİN (KOPYA)',
+                                              style: TextStyle(
+                                                color: Color(0xFFFFB74D),
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: 0.8,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     )
                                   else
@@ -943,21 +1018,24 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                         borderRadius: BorderRadius.circular(10),
                                         border: Border.all(color: const Color(0xFF00E676), width: 1.2),
                                       ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.stars_rounded, size: 14, color: Color(0xFF69F0AE)),
-                                          SizedBox(width: 5),
-                                          Text(
-                                            'YENİ AÇILDI!',
-                                            style: TextStyle(
-                                              color: Color(0xFF69F0AE),
-                                              fontSize: 10.5,
-                                              fontWeight: FontWeight.w900,
-                                              letterSpacing: 0.8,
+                                      child: const FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.stars_rounded, size: 14, color: Color(0xFF69F0AE)),
+                                            SizedBox(width: 5),
+                                            Text(
+                                              'YENİ AÇILDI!',
+                                              style: TextStyle(
+                                                color: Color(0xFF69F0AE),
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: 0.8,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
 
@@ -1000,20 +1078,23 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                         borderRadius: BorderRadius.circular(14),
                                         border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.7)),
                                       ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.diamond_rounded, color: Color(0xFF00E5FF), size: 18),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            I18n.tr('shard_added').replaceAll('{count}', '${SaveManager.instance.getShards(widget.category ?? widget.categoryCrate?.category ?? 'balls')}'),
-                                            style: const TextStyle(
-                                              color: Color(0xFF00E5FF),
-                                              fontSize: 12.5,
-                                              fontWeight: FontWeight.w900,
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.diamond_rounded, color: Color(0xFF00E5FF), size: 18),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              I18n.tr('shard_added').replaceAll('{count}', '${SaveManager.instance.getShards(widget.category ?? widget.categoryCrate?.category ?? 'balls')}'),
+                                              style: const TextStyle(
+                                                color: Color(0xFF00E5FF),
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.w900,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -1027,20 +1108,23 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                         borderRadius: BorderRadius.circular(14),
                                         border: Border.all(color: const Color(0xFF66BB6A).withValues(alpha: 0.75)),
                                       ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.set_meal_rounded, color: Color(0xFF81C784), size: 18),
-                                          SizedBox(width: 8),
-                                          Text(
-                                            '+3 Balık Yemi Hediye Edildi!',
-                                            style: TextStyle(
-                                              color: Color(0xFF81C784),
-                                              fontSize: 12.5,
-                                              fontWeight: FontWeight.w900,
+                                      child: const FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.set_meal_rounded, color: Color(0xFF81C784), size: 18),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              '+3 Balık Yemi Hediye Edildi!',
+                                              style: TextStyle(
+                                                color: Color(0xFF81C784),
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.w900,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -1058,8 +1142,10 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                       if (_isShardReward && SaveManager.instance.getShards(widget.category ?? widget.categoryCrate?.category ?? 'balls') >= 3)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 10),
-                          child: ElevatedButton.icon(
-                            onPressed: () async {
+                          child: KaunosTactileButton.gold(
+                            height: 44,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            onTap: () async {
                               final cat = widget.category ?? widget.categoryCrate?.category ?? 'balls';
                               final ok = await SaveManager.instance.consumeShards(cat, 3);
                               if (ok && context.mounted) {
@@ -1075,35 +1161,47 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                 );
                               }
                             },
-                            icon: const Icon(Icons.diamond_rounded, size: 16),
-                            label: Text(
-                              I18n.tr('use_shards_guaranteed'),
-                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF00E5FF),
-                              foregroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.diamond_rounded, size: 16, color: Color(0xFF1B0E05)),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    I18n.tr('use_shards_guaranteed'),
+                                    style: const TextStyle(
+                                      color: Color(0xFF1B0E05),
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12.5,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ElevatedButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _rewardRarity.primaryColor,
-                          foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 13),
-                          elevation: 6,
-                        ),
-                        child: Text(
-                          I18n.tr('claim_and_close'),
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                      KaunosTactileButton.gold(
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 36),
+                        onTap: () => Navigator.of(context).pop(),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            I18n.tr('claim_and_close'),
+                            style: const TextStyle(
+                              color: Color(0xFF1B0E05),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ],
+                ),
                 ),
               ),
 
@@ -1654,4 +1752,94 @@ class _CrateConfettiPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CrateConfettiPainter oldDelegate) =>
       oldDelegate.progress != progress || oldDelegate.color != color;
+}
+
+class _CrateCrystalFlarePainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _CrateCrystalFlarePainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0.0 || progress >= 1.0) return;
+    final center = Offset(size.width * 0.5, size.height * 0.5);
+    final alpha = (1.0 - progress).clamp(0.0, 1.0);
+
+    // Expanding crystalline octagonal ring
+    final ringPaint = Paint()
+      ..color = color.withValues(alpha: alpha * 0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = max(1.2, 3.5 * (1.0 - progress));
+    final r = size.width * 0.44 * progress;
+    final polyPath = Path();
+    for (int i = 0; i < 8; i++) {
+      final a = (i * 45) * pi / 180;
+      final px = center.dx + cos(a) * r;
+      final py = center.dy + sin(a) * r;
+      if (i == 0) {
+        polyPath.moveTo(px, py);
+      } else {
+        polyPath.lineTo(px, py);
+      }
+    }
+    polyPath.close();
+    canvas.drawPath(polyPath, ringPaint);
+
+    // Radiant diamond crystal shards
+    for (int i = 0; i < 12; i++) {
+      final angle = (i * (2 * pi / 12)) + (progress * 0.4);
+      final dist = (size.width * 0.15) + (size.width * 0.38) * progress;
+      final px = center.dx + cos(angle) * dist;
+      final py = center.dy + sin(angle) * dist;
+      final shardSize = max(1.8, 4.5 * (1.0 - progress));
+
+      final shardPath = Path()
+        ..moveTo(px, py - shardSize * 1.4)
+        ..lineTo(px + shardSize, py)
+        ..lineTo(px, py + shardSize * 1.4)
+        ..lineTo(px - shardSize, py)
+        ..close();
+
+      final shardPaint = Paint()
+        ..color = (i.isEven ? color : Colors.white).withValues(alpha: alpha * 0.95);
+      canvas.drawPath(shardPath, shardPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CrateCrystalFlarePainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
+}
+
+class _StellarDustPainter extends CustomPainter {
+  final double time;
+  final Color color;
+
+  _StellarDustPainter({required this.time, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rand = Random(123);
+    final dustPaint = Paint()..style = PaintingStyle.fill;
+
+    for (int i = 0; i < 20; i++) {
+      final seedX = rand.nextDouble();
+      final seedY = rand.nextDouble();
+      final speed = 0.4 + rand.nextDouble() * 0.6;
+      final t = (time * speed + seedY) % 1.0;
+
+      final px = size.width * (0.05 + 0.90 * seedX) + sin((time * 2.0 + i) * pi) * 6.0;
+      final py = size.height * (1.0 - t);
+      final alpha = (sin(t * pi)).clamp(0.0, 1.0) * 0.75;
+
+      dustPaint.color = (i % 3 == 0 ? Colors.white : color).withValues(alpha: alpha);
+      final radius = 1.0 + (i % 3 == 0 ? 1.4 : 0.8);
+      canvas.drawCircle(Offset(px, py), radius, dustPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _StellarDustPainter oldDelegate) =>
+      oldDelegate.time != time || oldDelegate.color != color;
 }

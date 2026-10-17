@@ -248,7 +248,7 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   const Text(
-                                    '⚡ KAOS GÜÇLENDİRMESİ SEÇ',
+                                    'KAOS GÜÇLENDİRMESİ SEÇ',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: Color(0xFFFFD54F),
@@ -303,7 +303,7 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
                                                     Text(
-                                                      perk.titleTr,
+                                                      perk.cleanTitleTr,
                                                       maxLines: 1,
                                                       overflow: TextOverflow.ellipsis,
                                                       style: const TextStyle(
@@ -442,7 +442,7 @@ class _GameWorldPainter extends CustomPainter {
 
     _drawBossWarningBanner(canvas, size);
     _drawLevelClearCelebration(canvas, size);
-    if (c.showLevel1DragGuide) {
+    if (c.showLevel1DragGuide && !c.isReklamModu) {
       _drawLevel1DragGuide(canvas, c.paddle.rect, time);
     }
     if (c.isUltiReady) {
@@ -814,6 +814,8 @@ class _GameWorldPainter extends CustomPainter {
         _tp.text = const TextSpan(
           text: '+1',
           style: TextStyle(
+            fontFamily: 'Rajdhani',
+            fontFamilyFallback: ['Segoe UI Emoji', 'Segoe UI Symbol'],
             color: Color(0xFF004D40),
             fontSize: 10,
             fontWeight: FontWeight.w900,
@@ -923,6 +925,8 @@ class _GameWorldPainter extends CustomPainter {
           _tp.text = TextSpan(
             text: '${b.hp}',
             style: const TextStyle(
+              fontFamily: 'Rajdhani',
+              fontFamilyFallback: ['Segoe UI Emoji', 'Segoe UI Symbol'],
               color: Colors.white,
               fontSize: 12,
               fontWeight: FontWeight.w900,
@@ -2520,6 +2524,8 @@ class _GameWorldPainter extends CustomPainter {
     _tp.text = TextSpan(
       text: 'x$displayCount',
       style: const TextStyle(
+        fontFamily: 'Rajdhani',
+        fontFamilyFallback: ['Segoe UI Emoji', 'Segoe UI Symbol'],
         color: Color(0xFF00E5FF),
         fontSize: 12,
         fontWeight: FontWeight.w900,
@@ -2567,6 +2573,8 @@ class _GameWorldPainter extends CustomPainter {
       _tp.text = TextSpan(
         text: leftLabel,
         style: TextStyle(
+          fontFamily: 'Rajdhani',
+          fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
           color: isTurboLocked ? Colors.white60 : Colors.white,
           fontSize: 10.5,
           fontWeight: FontWeight.w900,
@@ -2599,6 +2607,8 @@ class _GameWorldPainter extends CustomPainter {
       _tp.text = TextSpan(
         text: rightLabel,
         style: TextStyle(
+          fontFamily: 'Rajdhani',
+          fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
           color: isRecall ? Colors.black87 : Colors.white,
           fontSize: 10.5,
           fontWeight: FontWeight.w900,
@@ -4992,6 +5002,8 @@ class _GameWorldPainter extends CustomPainter {
       _tp.text = TextSpan(
         text: text,
         style: TextStyle(
+          fontFamily: 'Rajdhani',
+          fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
           color: badgeColor,
           fontSize: 12,
           fontWeight: FontWeight.w900,
@@ -5195,6 +5207,8 @@ class _GameWorldPainter extends CustomPainter {
       _tp.text = TextSpan(
         text: f.text,
         style: TextStyle(
+          fontFamily: 'Rajdhani',
+          fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
           color: _ca(f.color, alpha),
           fontSize: f.isLarge ? 22.0 : 13.0,
           fontWeight: FontWeight.w900,
@@ -5278,6 +5292,8 @@ class _GameWorldPainter extends CustomPainter {
     _tp.text = TextSpan(
       text: I18n.tr('boss_incoming_warning'),
       style: TextStyle(
+        fontFamily: 'Rajdhani',
+        fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
         color: _ca(const Color(0xFFFF1744), alpha),
         fontSize: 16.0 * textPulse,
         fontWeight: FontWeight.w900,
@@ -5327,6 +5343,8 @@ class _GameWorldPainter extends CustomPainter {
     _tp.text = TextSpan(
       text: I18n.tr('level_clear_banner'),
       style: TextStyle(
+        fontFamily: 'Rajdhani',
+        fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
         color: _ca(const Color(0xFFFFD54F), alpha),
         fontSize: 18.0,
         fontWeight: FontWeight.w900,
@@ -5343,10 +5361,12 @@ class _GameWorldPainter extends CustomPainter {
 
   void _drawLevel1DragGuide(Canvas canvas, Rect paddleRect, double time) {
     final pulse = (sin(time * 5.0) * 0.25 + 0.75).clamp(0.0, 1.0);
-    const text = '◄── KAYDIR ──►';
+    const text = '<< KAYDIR >>';
     _tp.text = TextSpan(
       text: text,
       style: TextStyle(
+        fontFamily: 'Rajdhani',
+        fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
         color: _ca(const Color(0xFFFFD54F), pulse),
         fontSize: 12.0,
         fontWeight: FontWeight.w900,
@@ -5377,6 +5397,8 @@ class _GameWorldPainter extends CustomPainter {
     _tp.text = TextSpan(
       text: text,
       style: TextStyle(
+        fontFamily: 'Rajdhani',
+        fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
         color: _ca(const Color(0xFFFFD700), pulse),
         fontSize: 13.0,
         fontWeight: FontWeight.w900,

@@ -42,6 +42,23 @@ enum ChaosPerkType {
     }
   }
 
+  String get cleanTitleTr {
+    switch (this) {
+      case ChaosPerkType.emberCore:
+        return 'Kor Çekirdek';
+      case ChaosPerkType.chainShock:
+        return 'Zincirleme Şok';
+      case ChaosPerkType.microBlast:
+        return 'Mikro Patlama';
+      case ChaosPerkType.magnetPull:
+        return 'Manyetik Çekim';
+      case ChaosPerkType.sniperSight:
+        return 'Keskin Nişancı';
+      case ChaosPerkType.goldenVolley:
+        return 'Altın Yağmuru';
+    }
+  }
+
   String get nameTr => titleTr;
 
   String get descriptionTr {
@@ -98,9 +115,23 @@ enum ChaosPerkType {
   }
 }
 
+enum ReklamScene {
+  none,
+  firstHit,
+  chainExplosion,
+  thirtyFireballs,
+  chaosCards,
+  leagueShowcase,
+}
+
 class TickNotifier extends ChangeNotifier { void ping() => notifyListeners(); }
 
 class GameController extends ChangeNotifier {
+  bool isReklamModu = false;
+  ReklamScene activeReklamScene = ReklamScene.none;
+  double reklamVisualSlowMoLeft = 0.0;
+  Random _reklamRand = Random(42);
+
   static const Set<int> portalLevels = {
     6, 12, 18, 24, 30, 35, 41, 47, 53, 56,
     62, 68, 74, 80, 86, 92, 98, 104, 107, 113,
@@ -527,6 +558,204 @@ class GameController extends ChangeNotifier {
     _loadedBricksRef = bricks;
     status = GameStatus.ready;
     notifyListeners();
+  }
+
+  /// Gizli "REKLAM_MODU": Sabit seed (42), otomatik oynayan kusursuz bot, 5 tek-tık sahne kısayolu.
+  void startReklamScene(ReklamScene scene) {
+    _reklamRand = Random(42);
+    isReklamModu = scene != ReklamScene.none;
+    activeReklamScene = scene;
+    reklamVisualSlowMoLeft = 0.0;
+
+    if (!isReklamModu) {
+      startNewGame(GameMode.classic);
+      return;
+    }
+
+    if (scene == ReklamScene.chaosCards) {
+      startNewGame(GameMode.chaos, explicitStartLevel: 5);
+      _sessionPaddle = 'pcosmic';
+      _sessionBall = 'cosmic';
+      _sessionTrail = 't4';
+      _sessionBrickStyle = 'brick_neon';
+      chaosStock = 30;
+      stats.score = 34800;
+      stats.combo = 18;
+      offeredChaosPerks
+        ..clear()
+        ..addAll([
+          ChaosPerkType.emberCore,
+          ChaosPerkType.chainShock,
+          ChaosPerkType.microBlast,
+        ]);
+      notifyListeners();
+      return;
+    }
+
+    startNewGame(GameMode.classic, explicitStartLevel: 7);
+    _sessionPaddle = 'pcosmic';
+    _sessionBall = 'cosmic';
+    _sessionTrail = 't4';
+    _sessionBrickStyle = 'brick_neon';
+    _sessionBackground = 'bg_void';
+    activeTipText = null;
+    tipTimer = 0.0;
+    checkpointBannerTimer = 0.0;
+    pendingLevelInterstitial = false;
+
+    // Deterministic brick layout using fixed seed 42
+    bricks = LevelDesign.buildClassicLevel(7, screenWidth, screenHeight);
+    final colors = [
+      const Color(0xFF00E5FF),
+      const Color(0xFFFF007F),
+      const Color(0xFFFFD54F),
+      const Color(0xFF7C4DFF),
+      const Color(0xFF00E676),
+    ];
+    for (int i = 0; i < bricks.length; i++) {
+      final b = bricks[i];
+      b.color = colors[i % colors.length];
+      if (scene == ReklamScene.chainExplosion && i % 4 == 1) {
+        b.type = BrickType.dynamite;
+        b.hp = 1;
+        b.maxHp = 1;
+      }
+    }
+
+    balls.clear();
+    final speed = getBaseBallSpeed() * 1.12;
+    switch (scene) {
+      case ReklamScene.firstHit:
+        stats.score = 1250;
+        stats.combo = 1;
+        paddle.x = (screenWidth - paddle.width) / 2;
+        balls.add(
+          Ball(
+            x: paddle.x + paddle.width * 0.78,
+            y: paddle.y - 160.0,
+            vx: -speed * 0.18,
+            vy: speed * 0.98,
+            isStuck: false,
+          ),
+        );
+        status = GameStatus.playing;
+        break;
+      case ReklamScene.chainExplosion:
+        stats.score = 28400;
+        stats.combo = 16;
+        comboTimer = 4.0;
+        for (int i = 0; i < 6; i++) {
+          final spread = (i - 2.5) * 0.18;
+          balls.add(
+            Ball(
+              x: screenWidth * 0.5 + (i - 2.5) * 14.0,
+              y: paddle.y - 40.0 - i * 12.0,
+              vx: speed * sin(spread),
+              vy: -speed * cos(spread),
+              isStuck: false,
+              isFireball: i.isEven,
+            ),
+          );
+        }
+        reklamVisualSlowMoLeft = 0.30;
+        status = GameStatus.playing;
+        break;
+      case ReklamScene.thirtyFireballs:
+        stats.score = 64200;
+        stats.combo = 30;
+        comboTimer = 5.0;
+        stats.ultiCharge = 100.0;
+        for (int i = 0; i < 30; i++) {
+          final angle = -pi / 2 + ((i / 29.0) - 0.5) * 1.18;
+          final rowOffset = (i % 5) * 26.0;
+          balls.add(
+            Ball(
+              x: screenWidth * 0.5 + cos(angle) * (20.0 + rowOffset),
+              y: paddle.y - 24.0 - rowOffset,
+              vx: speed * cos(angle),
+              vy: speed * sin(angle),
+              isStuck: false,
+              isFireball: true,
+            ),
+          );
+        }
+        particles.triggerShake(6.5, 0.35);
+        particles.spawnShockwave(screenWidth * 0.5, paddle.y - 20, const Color(0xFFFF6D00), maxRadius: 110.0);
+        status = GameStatus.playing;
+        break;
+      case ReklamScene.leagueShowcase:
+        stats.score = 142800;
+        stats.combo = 48;
+        comboTimer = 5.0;
+        for (int i = 0; i < 12; i++) {
+          final angle = -pi / 2 + ((i / 11.0) - 0.5) * 0.95;
+          balls.add(
+            Ball(
+              x: screenWidth * 0.5,
+              y: paddle.y - 30.0 - (i % 3) * 18.0,
+              vx: speed * cos(angle),
+              vy: speed * sin(angle),
+              isStuck: false,
+              isFireball: true,
+            ),
+          );
+        }
+        status = GameStatus.playing;
+        break;
+      case ReklamScene.chaosCards:
+      case ReklamScene.none:
+        break;
+    }
+    notifyListeners();
+  }
+
+  void _updateReklamBot(double dt) {
+    if (!isReklamModu) return;
+    activeTipText = null;
+    tipTimer = 0.0;
+    checkpointBannerTimer = 0.0;
+    pendingLevelInterstitial = false;
+
+    if (currentMode == GameMode.chaos) return;
+
+    if (balls.any((b) => b.isStuck)) {
+      launchBall();
+    }
+
+    // Find the lowest downward-moving ball and position the paddle with a slight corner offset for exciting bounces
+    Ball? targetBall;
+    double maxY = -1.0;
+    for (final b in balls) {
+      if (!b.isStuck && b.vy > 0 && b.y > maxY) {
+        maxY = b.y;
+        targetBall = b;
+      }
+    }
+    targetBall ??= balls.isNotEmpty ? balls.first : null;
+    if (targetBall != null) {
+      final timeToPaddle = targetBall.vy > 10.0
+          ? ((paddle.y - targetBall.y) / targetBall.vy).clamp(0.0, 0.45)
+          : 0.0;
+      double predictedX = targetBall.x + targetBall.vx * timeToPaddle;
+      if (predictedX < 16.0) predictedX = 32.0 - predictedX;
+      if (predictedX > screenWidth - 16.0) predictedX = (screenWidth - 16.0) * 2 - predictedX;
+      final cornerOffset = ((_reklamRand.nextDouble() - 0.5) * 0.15 + 0.24) * (paddle.width * 0.5);
+      final desiredCenter = predictedX - cornerOffset;
+      final currentCenter = paddle.x + paddle.width * 0.5;
+      final step = (desiredCenter - currentCenter) * (1.0 - exp(-18.0 * dt));
+      movePaddleTo(currentCenter + step);
+    }
+
+    // Keep balls alive in Reklam Modu so recording never drops to Game Over
+    for (final b in balls) {
+      if (b.y >= paddle.y - b.radius && b.vy > 0) {
+        b.y = paddle.y - b.radius - 1.0;
+        b.vy = -b.vy.abs();
+        particles.spawnShockwave(b.x, paddle.y, const Color(0xFF00E5FF), maxRadius: 72.0);
+        particles.spawnBurst(b.x, paddle.y, const Color(0xFFFF007F), count: 18, speed: 210.0);
+        particles.triggerShake(4.5, 0.18);
+      }
+    }
   }
 
   // --- R6: PRESTIGE TIER & MULTIPLIERS ---
@@ -1217,6 +1446,10 @@ class GameController extends ChangeNotifier {
       stats.bulletTimeLeft -= dt;
       effectiveDt = dt * 0.45;
     }
+    if (isReklamModu && reklamVisualSlowMoLeft > 0) {
+      reklamVisualSlowMoLeft = max(0.0, reklamVisualSlowMoLeft - dt);
+      effectiveDt *= 0.38;
+    }
 
 
     if (currentMode == GameMode.chaos) {
@@ -1251,6 +1484,7 @@ class GameController extends ChangeNotifier {
     _updateBricks(effectiveDt);
     _updateAnomalies(effectiveDt);
     _updateBalls(effectiveDt);
+    _updateReklamBot(effectiveDt);
     _updateDice(effectiveDt);
     endgameStallTimer += effectiveDt;
     _checkGameProgress();
@@ -2838,6 +3072,7 @@ class GameController extends ChangeNotifier {
     _checkLiveNewRecordCelebration();
 
     // Step 5: Arcade Combo Juice (Milestone floating text and micro-shakes)
+    if (isReklamModu) return;
     if (stats.combo == 3) {
       particles.spawnFloatingText(
         paddle.x + paddle.width / 2,
