@@ -188,6 +188,16 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
                 size: Size(constraints.maxWidth, constraints.maxHeight),
                 painter: _GameWorldPainter(widget.controller),
               ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      key: const Key('screen_vignette_overlay'),
+                      painter: _ScreenVignettePainter(widget.controller),
+                    ),
+                  ),
+                ),
+              ),
               ListenableBuilder(
                 listenable: widget.controller,
                 builder: (context, _) {
@@ -348,6 +358,54 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
       },
     );
   }
+}
+
+/// Edge vignette: a slow red heartbeat on the last life and a short cyan flash
+/// right after a near-miss paddle save. Paints nothing when neither is active.
+class _ScreenVignettePainter extends CustomPainter {
+  final GameController c;
+
+  _ScreenVignettePainter(this.c) : super(repaint: c.frameTick);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    double redAlpha = 0.0;
+    if (c.isLastLife) {
+      // ~72 bpm double-beat envelope: sharp thump then softer echo.
+      final t = (c.gameTime * 1.2) % 1.0;
+      final beat = t < 0.12
+          ? t / 0.12
+          : t < 0.30
+              ? 1.0 - (t - 0.12) / 0.18
+              : (t > 0.36 && t < 0.52)
+                  ? 0.55 * (1.0 - (t - 0.36) / 0.16)
+                  : 0.0;
+      redAlpha = 0.10 + 0.22 * beat.clamp(0.0, 1.0);
+    }
+    final flash = (c.nearMissFlashTimer / 0.55).clamp(0.0, 1.0);
+    if (redAlpha <= 0.0 && flash <= 0.0) return;
+
+    final rect = Offset.zero & size;
+    void edge(Color color, double alpha) {
+      final paint = Paint()
+        ..shader = RadialGradient(
+          radius: 0.95,
+          colors: [
+            color.withValues(alpha: 0.0),
+            color.withValues(alpha: 0.0),
+            color.withValues(alpha: alpha),
+          ],
+          stops: const [0.0, 0.62, 1.0],
+        ).createShader(rect);
+      canvas.drawRect(rect, paint);
+    }
+
+    if (redAlpha > 0.0) edge(const Color(0xFFFF1744), redAlpha);
+    if (flash > 0.0) edge(const Color(0xFF00E5FF), 0.55 * flash);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScreenVignettePainter oldDelegate) => false;
 }
 
 class _GameWorldPainter extends CustomPainter {
@@ -3454,7 +3512,8 @@ class _GameWorldPainter extends CustomPainter {
 
     for (final ball in ballsToDraw) {
       final isFireball = ball.isFireball;
-      final isCornerBoost = ball.cornerBoostTimer > 0;
+      final isComboFever = c.stats.combo >= 5;
+      final isCornerBoost = ball.cornerBoostTimer > 0 || isComboFever;
       final skinGlow = c.activeBallSkin.glowColor;
       final skinMain = c.activeBallSkin.mainColor;
       final isLegendaryBall = c.activeBallSkin.rarity == Rarity.legendary;

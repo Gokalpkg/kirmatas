@@ -4,6 +4,7 @@ import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
+import '../models/fish_synergy.dart';
 import '../storage/save_manager.dart';
 import 'eco_tank_background.dart';
 import 'fish_hoard_chest.dart';
@@ -593,6 +594,50 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                       ),
                                     ),
                                   ],
+                                ),
+                                Builder(
+                                  builder: (_) {
+                                    final buffs = FishSynergyBuffs.calculate(_save);
+                                    if (buffs.activeBuffDescriptions.isEmpty) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const SizedBox(height: 8),
+                                        const Divider(color: Colors.white24, height: 1),
+                                        const SizedBox(height: 6),
+                                        const Row(
+                                          children: [
+                                            Icon(Icons.auto_awesome, color: Color(0xFFFFD54F), size: 14),
+                                            SizedBox(width: 5),
+                                            Text(
+                                              'Aktif Oyun Sinerjileri:',
+                                              style: TextStyle(
+                                                color: Color(0xFFFFD54F),
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        ...buffs.activeBuffDescriptions.map(
+                                          (desc) => Padding(
+                                            padding: const EdgeInsets.only(left: 4, top: 2),
+                                            child: Text(
+                                              '• $desc',
+                                              style: const TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 ),
                               ],
                             ),

@@ -14,8 +14,8 @@ import 'game_canvas.dart';
 import 'hud_overlay.dart';
 import 'pause_game_over.dart';
 import 'fortune_wheel_dialog.dart';
-import 'daily_quests_dialog.dart';
 import 'daily_login_dialog.dart';
+import 'offline_earnings_dialog.dart';
 import 'shop_view.dart';
 import 'upgrades_view.dart';
 import 'sector_map_view.dart';
@@ -23,6 +23,8 @@ import 'pixel_art.dart';
 import 'tournament_dialog.dart';
 import 'kaunos_ui.dart';
 import 'crate_opening_dialog.dart';
+import 'main_menu_tour_overlay.dart';
+import 'settings_dialog.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -40,7 +42,12 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   Timer? _autoWheelTimer;
 
   static bool _hasAutoShownWheelThisSession = false;
+  static bool _hasAutoShownOfflineEarningsThisSession = false;
   final GlobalKey _wheelButtonKey = GlobalKey();
+  final GlobalKey _playButtonKey = GlobalKey();
+  final GlobalKey _upgradesNavKey = GlobalKey();
+  final GlobalKey _aquariumNavKey = GlobalKey();
+  bool _showTourOverlay = false;
   bool _highlightWheelButton = false;
   bool _showArcadeModes = false;
   late final PageController _pageController;
@@ -64,6 +71,21 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             pendingCrate: _save.pendingCrate,
           ),
         );
+        return;
+      }
+      if (!_save.hasCompletedMainMenuTour && _save.highestLevel == 1 && mounted && _activeGame == null) {
+        setState(() {
+          _showTourOverlay = true;
+        });
+        return;
+      }
+      if (!_hasAutoShownOfflineEarningsThisSession &&
+          _save.isAquariumUnlocked &&
+          _save.currentAvailableFishGold >= 20 &&
+          mounted &&
+          _activeGame == null) {
+        _hasAutoShownOfflineEarningsThisSession = true;
+        OfflineEarningsDialog.show(context, save: _save);
         return;
       }
       if (!_hasAutoShownWheelThisSession && mounted && _save.isShopUnlocked) {
@@ -108,6 +130,44 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  void _startMainMenuTour() {
+    if (_currentPage != 1) {
+      _goToPage(1);
+    }
+    setState(() {
+      _showTourOverlay = true;
+    });
+  }
+
+  void _onTourFinish() {
+    _save.hasCompletedMainMenuTour = true;
+    if (mounted) {
+      setState(() {
+        _showTourOverlay = false;
+      });
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: KaunosPalette.goldHighlight, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Rehber tamamlandı! İstediğin zaman Ayarlar\'dan tekrar açabilirsin.',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Rajdhani'),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF161A29),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _goToPage(int page) {
@@ -628,216 +688,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   }
 
   void _showSettingsDialog() {
-    AudioManager.instance.isBgmAllowed = true;
-    AudioManager.instance.playDuck = 1.0;
-    AudioManager.instance.updateBgmVolume();
-    showDialog(
-      context: context,
-      builder: (context) {
-        return ListenableBuilder(
-          listenable: _save,
-          builder: (context, _) {
-            return AlertDialog(
-              backgroundColor: const Color(0xF0101320),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-                side: const BorderSide(color: Colors.white12),
-              ),
-              title: Text(
-                I18n.tr('settings').toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.0,
-                ),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Language Selector
-                    Text(
-                      I18n.tr('language'),
-                      style: const TextStyle(
-                        color: Color(0xFFFFD54F),
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0x33FFFFFF),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.white12),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _save.language,
-                          isExpanded: true,
-                          dropdownColor: const Color(0xFF161A29),
-                          icon: const Icon(Icons.language, color: Color(0xFFFFD54F)),
-                          items: I18n.supportedLanguages.map((lang) {
-                            return DropdownMenuItem<String>(
-                              value: lang.code,
-                              child: Row(
-                                children: [
-                                  Text(
-                                    lang.nativeLabel,
-                                    style: TextStyle(
-                                      color: _save.language == lang.code
-                                          ? const Color(0xFFFFD54F)
-                                          : Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text( '(${lang.label})',
-                                    style: const TextStyle(color: Colors.white54, fontSize: 11),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (newLang) {
-                            if (newLang != null) {
-                              _save.setLanguage(newLang);
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    const SizedBox(height: 16),
-
-                    Text( '${I18n.tr('sfx')}: ${_save.sfxVolume}',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Slider(
-                      value: _save.sfxVolume.toDouble(),
-                      min: 0,
-                      max: 8,
-                      divisions: 8,
-                      activeColor: const Color(0xFFFFD54F),
-                      onChanged: (val) {
-                        _save.setSfxVolume(val.toInt());
-                        AudioManager.instance.playSfx(GameSfx.hitBrick);
-                      },
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    Text( '${I18n.tr('music_bgm')}: ${_save.bgmVolume == 0 ? I18n.tr('haptic_off') : _save.bgmVolume}',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Slider(
-                      value: _save.bgmVolume.toDouble(),
-                      min: 0,
-                      max: 8,
-                      divisions: 8,
-                      activeColor: const Color(0xFFFFD54F),
-                      onChanged: (val) {
-                        _save.setBgmVolume(val.toInt());
-                        AudioManager.instance.updateBgmVolume();
-                      },
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    Text( '${I18n.tr('haptics')}: ${_save.vibrationLevel == 0 ? I18n.tr('off') : _save.vibrationLevel}',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Slider(
-                      value: _save.vibrationLevel.toDouble(),
-                      min: 0,
-                      max: 8,
-                      divisions: 8,
-                      activeColor: const Color(0xFFFFD54F),
-                      onChanged: (val) {
-                        _save.setVibrationLevel(val.toInt());
-                        AudioManager.instance.playSfx(GameSfx.hitBrick);
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-                    Text(
-                      I18n.tr('metrics_title'),
-                      style: const TextStyle(
-                        color: Color(0xFFFFD54F),
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                      Text(
-                        '${I18n.tr('metric_sessions')}: ${_save.metricSessions}\n'
-                        '${I18n.tr('metric_day2')}: ${_save.metricDay2 ? I18n.tr('metric_yes') : I18n.tr('metric_no')}\n'
-                        '${I18n.tr('metric_leave')}: ${_save.metricLevel1Leaves}\n'
-                        '${I18n.tr('metric_ad')}: ${_save.metricAdCloses}\n'
-                        '${I18n.tr('metric_best')}: ${_save.metricHighestClassicLevel}\n'
-                        '${I18n.tr('metric_last')}: ${_save.playEvents.isEmpty ? '-' : _save.playEvents.last}\n'
-                        '${I18n.tr('progress_code')}: ${_save.progressCode}',
-                      style: const TextStyle(color: Colors.white60, fontSize: 12, height: 1.45),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextButton(
-                            onPressed: () {
-                              Clipboard.setData(ClipboardData(text: _save.progressCode));
-                            },
-                            child: Text(I18n.tr('progress_copy'), style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 12)),
-                          ),
-                        ),
-                        Expanded(
-                          child: TextButton(
-                            onPressed: () async {
-                              final data = await Clipboard.getData(Clipboard.kTextPlain);
-                              final applied = await _save.applyProgressCode(data?.text ?? '');
-                              if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(applied ? I18n.tr('progress_restored') : I18n.tr('progress_invalid'))),
-                              );
-                            },
-                            child: Text(I18n.tr('progress_paste'), style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 12)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(
-                    I18n.tr('close'),
-                    style: const TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
+    _autoWheelTimer?.cancel();
+    SettingsDialog.show(context, onOpenTour: _startMainMenuTour, save: _save);
   }
 
   @override
@@ -900,79 +752,91 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       builder: (context, _) {
         return Scaffold(
           backgroundColor: Colors.black,
-          body: PopScope(
-            canPop: _currentPage == 1,
-            onPopInvokedWithResult: (didPop, result) {
-              if (!didPop && _currentPage != 1) {
-                _goToPage(1);
-              }
-            },
-            child: PageView(
-              controller: _pageController,
-              onPageChanged: (index) {
-                if (index == 0 && !_save.isShopUnlocked) {
-                  _goToPage(1);
-                  _showLockedFeedback('Bu özellik Bölüm 2 seviyesinde açılır.');
-                  return;
-                }
-                if (index == 2 && !_save.isAquariumUnlocked) {
-                  _goToPage(1);
-                  _showLockedFeedback('Bu özellik Bölüm 5 seviyesinde açılır.');
-                  return;
-                }
-                if (index == 3 && !_save.isWorkshopUnlocked) {
-                  _goToPage(1);
-                  _showLockedFeedback('Bu özellik Bölüm 3 seviyesinde açılır.');
-                  return;
-                }
-                if (_currentPage != index) {
-                  setState(() {
-                    _currentPage = index;
-                  });
-                }
-              },
-              physics: _buildPagePhysics(),
-              children: [
-                // 0: Mağaza
-                _save.isShopUnlocked
-                    ? ShopView(
-                        onBackToMenu: () => _goToPage(1),
-                      )
-                    : _buildLockedPlaceholder(
-                        title: 'MAĞAZA',
-                        subtitle: 'Bölüm 2 seviyesinde açılır.',
-                        icon: Icons.storefront_rounded,
-                        accentColor: const Color(0xFFFFD54F),
-                      ),
+          body: Stack(
+            children: [
+              PopScope(
+                canPop: _currentPage == 1,
+                onPopInvokedWithResult: (didPop, result) {
+                  if (!didPop && _currentPage != 1) {
+                    _goToPage(1);
+                  }
+                },
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: (index) {
+                    if (index == 0 && !_save.isShopUnlocked) {
+                      _goToPage(1);
+                      _showLockedFeedback('Bu özellik Bölüm 2 seviyesinde açılır.');
+                      return;
+                    }
+                    if (index == 2 && !_save.isAquariumUnlocked) {
+                      _goToPage(1);
+                      _showLockedFeedback('Bu özellik Bölüm 5 seviyesinde açılır.');
+                      return;
+                    }
+                    if (index == 3 && !_save.isWorkshopUnlocked) {
+                      _goToPage(1);
+                      _showLockedFeedback('Bu özellik Bölüm 3 seviyesinde açılır.');
+                      return;
+                    }
+                    if (_currentPage != index) {
+                      setState(() {
+                        _currentPage = index;
+                      });
+                    }
+                  },
+                  physics: _buildPagePhysics(),
+                  children: [
+                    // 0: Mağaza
+                    _save.isShopUnlocked
+                        ? ShopView(
+                            onBackToMenu: () => _goToPage(1),
+                          )
+                        : _buildLockedPlaceholder(
+                            title: 'MAĞAZA',
+                            subtitle: 'Bölüm 2 seviyesinde açılır.',
+                            icon: Icons.storefront_rounded,
+                            accentColor: const Color(0xFFFFD54F),
+                          ),
 
-                // 1: Ana Menü
-                _buildMainMenuHome(),
+                    // 1: Ana Menü
+                    _buildMainMenuHome(),
 
-                // 2: Akvaryum
-                _save.isAquariumUnlocked
-                    ? AquariumView(
-                        onBackToMenu: () => _goToPage(1),
-                      )
-                    : _buildLockedPlaceholder(
-                        title: 'AKVARYUM',
-                        subtitle: 'Bölüm 5 seviyesinde açılır.',
-                        icon: Icons.water_drop_rounded,
-                        accentColor: const Color(0xFF00E5FF),
-                      ),
+                    // 2: Akvaryum
+                    _save.isAquariumUnlocked
+                        ? AquariumView(
+                            onBackToMenu: () => _goToPage(1),
+                          )
+                        : _buildLockedPlaceholder(
+                            title: 'AKVARYUM',
+                            subtitle: 'Bölüm 5 seviyesinde açılır.',
+                            icon: Icons.water_drop_rounded,
+                            accentColor: const Color(0xFF00E5FF),
+                          ),
 
-                // 3: Yükseltmeler
-                _save.isWorkshopUnlocked
-                    ? UpgradesView(
-                        onBackToMenu: () => _goToPage(1),
-                      )
-                    : _buildLockedPlaceholder(
-                        title: 'YÜKSELTMELER',
-                        subtitle: 'Bölüm 3 seviyesinde açılır.',
-                        icon: Icons.auto_awesome_rounded,
-                        accentColor: const Color(0xFFFF9100),
-                      ),
-              ],
-            ),
+                    // 3: Yükseltmeler
+                    _save.isWorkshopUnlocked
+                        ? UpgradesView(
+                            onBackToMenu: () => _goToPage(1),
+                          )
+                        : _buildLockedPlaceholder(
+                            title: 'YÜKSELTMELER',
+                            subtitle: 'Bölüm 3 seviyesinde açılır.',
+                            icon: Icons.auto_awesome_rounded,
+                            accentColor: const Color(0xFFFF9100),
+                          ),
+                  ],
+                ),
+              ),
+              if (_showTourOverlay)
+                MainMenuTourOverlay(
+                  onFinish: _onTourFinish,
+                  playButtonKey: _playButtonKey,
+                  upgradesNavKey: _upgradesNavKey,
+                  aquariumNavKey: _aquariumNavKey,
+                  wheelNavKey: _wheelButtonKey,
+                ),
+            ],
           ),
         );
       },
@@ -1164,7 +1028,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           Text(
                             'KIRMATAS',
                             style: TextStyle(
-                              fontSize: 38,
+                              fontSize: 32,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 4.0,
                               fontFamily: 'Rajdhani',
@@ -1192,22 +1056,27 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
 
                   // Main Modes Section (Hero Classic + Chaos Card + Collapsible Extra Arcade Modes)
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      padding: const EdgeInsets.fromLTRB(18, 0, 18, 90),
                       child: Column(
                         children: [
                           // HERO CLASSIC CARD
                           _buildClassicHeroCard(),
 
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 3),
 
                           _buildChaosHeroCard(),
 
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 3),
+
+                          // DYNAMIC "ETKİNLİKLER & LİG" CARD
+                          _buildEventsLeagueCard(),
+
+                          const SizedBox(height: 3),
 
                           // COLLAPSIBLE ARCADE MODES BUTTON
                           Material(
@@ -1220,7 +1089,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 });
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                 decoration: BoxDecoration(
                                   color: const Color(0x33101320),
                                   borderRadius: BorderRadius.circular(16),
@@ -1327,27 +1196,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 _launchDailyBlitz();
                               },
                             ),
-                            const SizedBox(height: 10),
-                            _buildArcadeMiniCard(
-                              mode: GameMode.classic,
-                              title: 'HAFTALIK LİG ŞAMPİYONASI',
-                              desc: '${_save.seasonalTitle} • 15 Kişilik Lig Grubu & Sıralama',
-                              icon: Icons.military_tech_rounded,
-                              color1: _save.leagueTierColor,
-                              color2: const Color(0xFF1E88E5),
-                              badge: !_save.isLeagueUnlocked ? '🔒 Bölüm 7' : 'LİG SEZONU',
-                              onTap: () {
-                                if (!_save.isLeagueUnlocked) {
-                                  _showLockedFeedback('Haftalık Lig Bölüm 7 seviyesinde açılır.');
-                                  return;
-                                }
-                                TournamentDialog.show(
-                                  context,
-                                  save: _save,
-                                  onJoinTournament: () => _launchGame(GameMode.classic),
-                                );
-                              },
-                            ),
                           ],
 
                           const SizedBox(height: 14),
@@ -1358,66 +1206,88 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                   // SWIPE HINT & PAGE DOTS
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        GestureDetector(
-                          onTap: () => _goToPage(0),
+                        Flexible(
+                          child: GestureDetector(
+                            onTap: () => _goToPage(0),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _save.isShopUnlocked ? Icons.arrow_back_ios_rounded : Icons.lock_outline_rounded,
+                                  color: _save.isShopUnlocked ? Colors.white38 : Colors.white24,
+                                  size: 10,
+                                ),
+                                const SizedBox(width: 2),
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      'MAĞAZA',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: _save.isShopUnlocked ? Colors.white38 : Colors.white24,
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.8,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                _save.isShopUnlocked ? Icons.arrow_back_ios_rounded : Icons.lock_outline_rounded,
-                                color: _save.isShopUnlocked ? Colors.white38 : Colors.white24,
-                                size: 10,
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                'MAĞAZA',
-                                style: TextStyle(
-                                  color: _save.isShopUnlocked ? Colors.white38 : Colors.white24,
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
+                              _buildPageDot(0, _currentPage == 0, isLocked: !_save.isShopUnlocked),
+                              const SizedBox(width: 5),
+                              _buildPageDot(1, _currentPage == 1, isLocked: false),
+                              const SizedBox(width: 5),
+                              _buildPageDot(2, _currentPage == 2, isLocked: !_save.isAquariumUnlocked),
+                              const SizedBox(width: 5),
+                              _buildPageDot(3, _currentPage == 3, isLocked: !_save.isWorkshopUnlocked),
                             ],
                           ),
                         ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildPageDot(0, _currentPage == 0, isLocked: !_save.isShopUnlocked),
-                            const SizedBox(width: 5),
-                            _buildPageDot(1, _currentPage == 1, isLocked: false),
-                            const SizedBox(width: 5),
-                            _buildPageDot(2, _currentPage == 2, isLocked: !_save.isAquariumUnlocked),
-                            const SizedBox(width: 5),
-                            _buildPageDot(3, _currentPage == 3, isLocked: !_save.isWorkshopUnlocked),
-                          ],
-                        ),
-                        GestureDetector(
-                          onTap: () => _goToPage(2),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'AKVARYUM',
-                                style: TextStyle(
-                                  color: _save.isAquariumUnlocked ? const Color(0x994FC3F7) : Colors.white24,
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.8,
+                        Flexible(
+                          child: GestureDetector(
+                            onTap: () => _goToPage(2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      'AKVARYUM',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: _save.isAquariumUnlocked ? const Color(0x994FC3F7) : Colors.white24,
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.8,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 2),
-                              Icon(
-                                _save.isAquariumUnlocked ? Icons.arrow_forward_ios_rounded : Icons.lock_outline_rounded,
-                                color: _save.isAquariumUnlocked ? const Color(0x994FC3F7) : Colors.white24,
-                                size: 10,
-                              ),
-                            ],
+                                const SizedBox(width: 2),
+                                Icon(
+                                  _save.isAquariumUnlocked ? Icons.arrow_forward_ios_rounded : Icons.lock_outline_rounded,
+                                  color: _save.isAquariumUnlocked ? const Color(0x994FC3F7) : Colors.white24,
+                                  size: 10,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -1472,41 +1342,33 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 ),
               ),
               Expanded(
-                child: _buildNavButton(
-                  emblem: const KaunosEmblem.astrolabe(
-                    size: 20,
-                    ringColor: Color(0xFF38BDF8),
-                    starColor: Color(0xFF4FC3F7),
-                  ),
-                  icon: Icons.water_drop_rounded,
-                  label: I18n.tr('aquarium'),
-                  badge: !_save.isAquariumUnlocked
-                      ? '🔒 Bölüm 5'
-                      : (_save.currentAvailableFishGold > 0 ? '' : null),
-                  onTap: () => _goToPage(2),
-                ),
-              ),
-              Expanded(
-                child: _buildNavButton(
-                  emblem: const KaunosEmblem.wheel(size: 20, wheelColor: KaunosPalette.goldHighlight),
-                  icon: Icons.assignment_turned_in_rounded,
-                  label: I18n.tr('quests'),
-                  badge: ((_save.questFishFed && !_save.claimedQuests.contains('feed_fish')) ||
-                          (_save.questBricksBroken >= 100 && !_save.claimedQuests.contains('break_bricks')) ||
-                          (_save.questAdOrWinDone && !_save.claimedQuests.contains('ad_or_win'))) ? '!' : null,
-                  onTap: () => DailyQuestsDialog.show(
-                    context,
-                    onPlayToday: () => _launchGame(GameMode.daily),
+                child: KeyedSubtree(
+                  key: _aquariumNavKey,
+                  child: _buildNavButton(
+                    emblem: const KaunosEmblem.astrolabe(
+                      size: 20,
+                      ringColor: Color(0xFF38BDF8),
+                      starColor: Color(0xFF4FC3F7),
+                    ),
+                    icon: Icons.water_drop_rounded,
+                    label: I18n.tr('aquarium'),
+                    badge: !_save.isAquariumUnlocked
+                        ? '🔒 Bölüm 5'
+                        : (_save.currentAvailableFishGold > 0 ? '' : null),
+                    onTap: () => _goToPage(2),
                   ),
                 ),
               ),
               Expanded(
-                child: _buildNavButton(
-                  emblem: const KaunosEmblem.anvil(size: 20, steelColor: KaunosPalette.goldHighlight),
-                  icon: Icons.auto_awesome_rounded,
-                  label: I18n.tr('upgrades'),
-                  badge: !_save.isWorkshopUnlocked ? '🔒 Bölüm 3' : null,
-                  onTap: () => _goToPage(3),
+                child: KeyedSubtree(
+                  key: _upgradesNavKey,
+                  child: _buildNavButton(
+                    emblem: const KaunosEmblem.anvil(size: 20, steelColor: KaunosPalette.goldHighlight),
+                    icon: Icons.auto_awesome_rounded,
+                    label: I18n.tr('upgrades'),
+                    badge: !_save.isWorkshopUnlocked ? '🔒 Bölüm 3' : null,
+                    onTap: () => _goToPage(3),
+                  ),
                 ),
               ),
             ],
@@ -1847,6 +1709,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     final isNewPlayer = _save.highestLevel < 2;
 
     return Container(
+      key: _playButtonKey,
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
@@ -1891,7 +1754,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           borderRadius: BorderRadius.circular(22),
           onTap: () => _startOrPromptResume(GameMode.classic),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             child: Row(
               children: [
                 Expanded(
@@ -1899,16 +1762,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
+                        spacing: 5,
+                        runSpacing: 3,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           if (isNewPlayer)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFF00E676), Color(0xFF00B0FF)],
+                                  colors: [Color(0xFF00E676), Color(0xFF00C853)],
                                 ),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(color: const Color(0xFFE8F5E9), width: 1.0),
@@ -1928,7 +1791,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               ),
                             ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
                               color: KaunosPalette.obsidianGlassElevated,
                               borderRadius: BorderRadius.circular(10),
@@ -1938,7 +1801,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               I18n.tr('classic_desc'),
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 11,
+                                fontSize: 10,
                                 fontWeight: FontWeight.bold,
                                 fontFamily: 'Rajdhani',
                               ),
@@ -1946,7 +1809,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           ),
                           if (_save.hasSavedGame(GameMode.classic))
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: const Color(0xDD00E5FF),
                                 borderRadius: BorderRadius.circular(10),
@@ -2001,7 +1864,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 2),
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
@@ -2009,7 +1872,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           I18n.tr('classic').toUpperCase(),
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 24,
+                            fontSize: 17,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 1.2,
                             fontFamily: 'Rajdhani',
@@ -2024,7 +1887,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         ),
                       ),
                       if (best > 0) ...[
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
@@ -2061,14 +1924,14 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     KaunosHeroPlayButton(
-                      size: 56.0,
+                      size: 40.0,
                       onTap: () => _startOrPromptResume(GameMode.classic),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 3),
                     GestureDetector(
                       onTap: _openSectorMap,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
                           color: KaunosPalette.obsidianGlassElevated,
                           borderRadius: BorderRadius.circular(10),
@@ -2115,7 +1978,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     final isLocked = !_save.isChaosUnlocked;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
+      margin: EdgeInsets.zero,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         gradient: isLocked
@@ -2174,7 +2037,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             _startOrPromptResume(GameMode.chaos);
           },
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             child: Row(
               children: [
                 Expanded(
@@ -2183,7 +2046,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     children: [
                       Wrap(
                         spacing: 6,
-                        runSpacing: 6,
+                        runSpacing: 4,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           if (isLocked)
@@ -2233,7 +2096,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           ],
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 4),
                       Row(
                         children: [
                           Flexible(
@@ -2243,7 +2106,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: isLocked ? Colors.white60 : Colors.white,
-                                fontSize: 22,
+                                fontSize: 19,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1.0,
                                 fontFamily: 'Rajdhani',
@@ -2263,7 +2126,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           Icon(
                             isLocked ? Icons.lock_rounded : Icons.flash_on_rounded,
                             color: isLocked ? Colors.white38 : KaunosPalette.goldHighlight,
-                            size: 24,
+                            size: 22,
                           ),
                         ],
                       ),
@@ -2286,8 +2149,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 // Tactile action trigger (Locked socket vs Unlocked amber trigger)
                 isLocked
                     ? SizedBox(
-                        width: 56,
-                        height: 56 + 4.0,
+                        width: 40,
+                        height: 40 + 4.0,
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
@@ -2318,7 +2181,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                   child: Icon(
                                     Icons.lock_rounded,
                                     color: Colors.white54,
-                                    size: 28,
+                                    size: 22,
                                   ),
                                 ),
                               ),
@@ -2327,9 +2190,193 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         ),
                       )
                     : KaunosHeroPlayButton(
-                        size: 56.0,
+                        size: 44.0,
                         onTap: () => _startOrPromptResume(GameMode.chaos),
                       ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEventsLeagueCard() {
+    final isLocked = !_save.isLeagueUnlocked;
+    final tierColor = _save.leagueTierColor;
+    final rivals = _save.getLeagueRivals();
+    final playerRival = rivals.firstWhere((r) => r.isPlayer, orElse: () => rivals.first);
+    final completedQuests = (_save.questFishFed ? 1 : 0) +
+        (_save.questBricksBroken >= 100 ? 1 : 0) +
+        (_save.questAdOrWinDone ? 1 : 0);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: isLocked
+            ? const LinearGradient(
+                colors: [Color(0xFF111923), Color(0xFF090E17), Color(0xFF05080E)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : LinearGradient(
+                colors: [
+                  tierColor.withValues(alpha: 0.22),
+                  const Color(0xFF131A2E),
+                  const Color(0xFF0B101E),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+        border: Border.all(
+          color: isLocked ? Colors.white12 : tierColor.withValues(alpha: 0.6),
+          width: 1.4,
+        ),
+        boxShadow: [
+          const BoxShadow(
+            color: Color(0xFF020308),
+            offset: Offset(0, 4.0),
+            blurRadius: 0,
+          ),
+          BoxShadow(
+            color: isLocked ? const Color(0x1AFFFFFF) : tierColor.withValues(alpha: 0.3),
+            offset: const Offset(0, 1.2),
+            blurRadius: 0,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: () {
+            if (isLocked) {
+              _showLockedFeedback('Etkinlikler ve Lig Bölüm 7 seviyesinde açılır.');
+              return;
+            }
+            TournamentDialog.show(
+              context,
+              save: _save,
+              onJoinTournament: () => _launchGame(GameMode.classic),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            child: Row(
+              children: [
+                // Icon Avatar
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: isLocked
+                          ? [const Color(0xFF263238), const Color(0xFF182026)]
+                          : [tierColor, const Color(0xFF0F1A30)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    border: Border.all(
+                      color: isLocked ? Colors.white24 : tierColor,
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isLocked ? Colors.black26 : tierColor.withValues(alpha: 0.35),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Icon(
+                      isLocked ? Icons.lock_rounded : Icons.military_tech_rounded,
+                      color: isLocked ? Colors.white54 : Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+
+                // Center Title & Subtitle
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'ETKİNLİKLER & LİG',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isLocked ? Colors.white60 : Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8,
+                          fontFamily: 'Rajdhani',
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        isLocked
+                            ? 'Bölüm 7 seviyesinde açılır'
+                            : '${_save.seasonalTitle} • #${playerRival.rank}/15 • $completedQuests/3 Görev',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isLocked
+                              ? Colors.white38
+                              : (completedQuests > 0 ? const Color(0xFF00E5FF) : Colors.white70),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+
+                // Right Badge
+                if (isLocked)
+                  const Flexible(
+                    flex: 2,
+                    child: KaunosBadge.lock(text: '🔒 Bölüm 7'),
+                  )
+                else
+                  Flexible(
+                    flex: 2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: tierColor.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: tierColor.withValues(alpha: 0.6)),
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'LİG SEZONU',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: tierColor,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 10.5,
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            Icon(Icons.chevron_right_rounded, color: tierColor, size: 14),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -2385,34 +2432,50 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       ),
                       child: Icon(icon, color: Colors.white, size: 20),
                     ),
+                    const SizedBox(width: 4),
                     if (badge != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE53935),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          badge,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE53935),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              badge,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                           ),
                         ),
                       )
                     else if (best > 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.black26,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text( '$best',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black26,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              '$best',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
                       ),

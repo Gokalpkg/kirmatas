@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/ball.dart';
 import '../models/brick.dart';
 import '../models/cosmetics.dart';
+import '../models/fish_synergy.dart';
 import '../models/easter_egg.dart';
 import '../models/game_state.dart';
 import '../models/level_design.dart';
@@ -251,6 +252,14 @@ class GameController extends ChangeNotifier {
   double? rocketTimer;
   double? _blackHoleTimer;
   double comboTimer = 0.0;
+
+  /// Remaining seconds of the neon "near-miss" edge flash (0 = inactive).
+  double nearMissFlashTimer = 0.0;
+  double _nearMissCooldown = 0.0;
+  double _nearMissSlowLeft = 0.0;
+
+  /// True while the player is on their very last life (drives the heartbeat vignette).
+  bool get isLastLife => status == GameStatus.playing && stats.lives == 1;
   double gameTime = 0.0;
   double bossWarningTimer = 0.0;
   double levelTransitionTimer = 0.0;
@@ -584,13 +593,10 @@ class GameController extends ChangeNotifier {
 
   void resetPaddleAndBall() {
     // Step 7: Aquarium Synergy - Passive buffs based on unlocked fish in Eco-Tank
-    double fishWidthBonus = 0.0;
-    if (save.unlockedFish.contains('guppy')) fishWidthBonus += 4.0;
-    if (save.unlockedFish.contains('tetra')) fishWidthBonus += 3.0;
-
+    final fishBuffs = FishSynergyBuffs.calculate(save);
     final paddleWidthLvl = save.getUpgradeLevel('paddle_width');
     final upgradeWidthBonus = paddleWidthLvl * 4.0;
-    paddle.width = paddle.baseWidth + fishWidthBonus + upgradeWidthBonus;
+    paddle.width = paddle.baseWidth + fishBuffs.extraPaddleWidth + upgradeWidthBonus;
     paddle.x = (screenWidth - paddle.width) / 2;
     paddle.y = screenHeight - 110.0;
     paddle.isSticky = false;
@@ -984,7 +990,8 @@ class GameController extends ChangeNotifier {
       final goldenStacks = activeChaosPerks.where((p) => p == ChaosPerkType.goldenVolley).length;
       final perkGoldMult = 1.0 + goldenStacks * 0.35;
       final synergyGoldMult = activeCosmeticSynergy.goldMultiplier;
-      final levelGold = ((baseGold + relicBonus + luckBonus + goldBonus) * perkGoldMult * synergyGoldMult).round();
+      final fishBuffs = FishSynergyBuffs.calculate(save);
+      final levelGold = ((baseGold + relicBonus + luckBonus + goldBonus) * perkGoldMult * synergyGoldMult * fishBuffs.goldMultiplier).round();
       stats.goldCollected += levelGold;
       save.addGold(levelGold);
 
@@ -1235,6 +1242,12 @@ class GameController extends ChangeNotifier {
       stats.bulletTimeLeft -= dt;
       effectiveDt = dt * 0.45;
     }
+    if (_nearMissSlowLeft > 0) {
+      _nearMissSlowLeft = max(0.0, _nearMissSlowLeft - dt);
+      effectiveDt = min(effectiveDt, dt * 0.45);
+    }
+    if (nearMissFlashTimer > 0) nearMissFlashTimer = max(0.0, nearMissFlashTimer - dt);
+    if (_nearMissCooldown > 0) _nearMissCooldown = max(0.0, _nearMissCooldown - dt);
 
 
     if (currentMode == GameMode.chaos) {
@@ -2235,6 +2248,14 @@ class GameController extends ChangeNotifier {
         final isClutchSave = hitOffset.abs() >= 0.90 && balls.length == 1;
         if (isClutchSave) {
           stats.score += 150;
+          // Near-miss: 0.35s cinematic slow-mo + neon edge flash (5s cooldown).
+          if (_nearMissCooldown <= 0 && _nearMissSlowLeft <= 0) {
+            _nearMissCooldown = 5.0;
+            nearMissFlashTimer = 0.55;
+            _nearMissSlowLeft = 0.35;
+            particles.triggerShake(4.0, 0.2);
+            audio.playSfx(GameSfx.powerupBuff, playbackRate: 0.7);
+          }
         }
         stats.ultiCharge = (stats.ultiCharge + 3.0 * cosmicPearlUltiMultiplier).clamp(0.0, 100.0);
 
@@ -2531,9 +2552,11 @@ class GameController extends ChangeNotifier {
           (b.isIce || b.maxHp > 1 || b.isHeavySteel)) {
         dmg += activeCosmeticSynergy.extraIceArmoredDamage;
       }
+      final fishBuffs = FishSynergyBuffs.calculate(save);
       final critLvl = save.getUpgradeLevel('u_crit');
       final cosmicBonus = save.cosmicGoldMasteryLevel * 0.02;
-      if (critLvl > 0 && _rand.nextDouble() < (critLvl * 0.035 + cosmicBonus * 0.5)) {
+      final totalCritChance = critLvl * 0.035 + cosmicBonus * 0.5 + fishBuffs.critChanceBonus;
+      if (totalCritChance > 0 && _rand.nextDouble() < totalCritChance) {
         dmg += 1;
         if (cosmicBonus > 0 && _rand.nextDouble() < cosmicBonus) dmg += 1;
         particles.spawnFloatingText(b.x + b.width / 2, b.y - 8, 'KRİTİK!', const Color(0xFFFF5252));
@@ -2567,9 +2590,11 @@ class GameController extends ChangeNotifier {
         (b.isIce || b.maxHp > 1 || b.isHeavySteel)) {
       dmg += activeCosmeticSynergy.extraIceArmoredDamage;
     }
+    final fishBuffs = FishSynergyBuffs.calculate(save);
     final critLvl = save.getUpgradeLevel('crit_damage');
     final cosmicBonus = save.cosmicGoldMasteryLevel * 0.02;
-    if (critLvl > 0 && _rand.nextDouble() < (critLvl * 0.035 + cosmicBonus * 0.5)) {
+    final totalCritChance = critLvl * 0.035 + cosmicBonus * 0.5 + fishBuffs.critChanceBonus;
+    if (totalCritChance > 0 && _rand.nextDouble() < totalCritChance) {
       dmg += 1;
       if (cosmicBonus > 0 && _rand.nextDouble() < cosmicBonus) dmg += 1;
       particles.spawnFloatingText(b.x + b.width / 2, b.y - 8, 'KRİTİK!', const Color(0xFFFF5252));
@@ -3035,7 +3060,8 @@ class GameController extends ChangeNotifier {
         break;
       case PowerUpType.laser:
         paddle.hasLaser = true;
-        paddle.laserAmmo = _rollLaserShots();
+        final fishBuffs = FishSynergyBuffs.calculate(save);
+        paddle.laserAmmo = _rollLaserShots() + fishBuffs.startingLaserAmmoBonus;
         laserTimer = 0.65;
         particles.spawnFloatingText(
           paddle.x + paddle.width / 2,
@@ -3349,7 +3375,11 @@ class GameController extends ChangeNotifier {
         final relicBonus = save.hasPermanentRelic ? max(1, (baseGold * 0.05).round()) : 0;
         final luckLvl = save.getUpgradeLevel('luck');
         final luckBonus = (baseGold * (luckLvl * 0.05)).round();
+        final fishBuffs = FishSynergyBuffs.calculate(save);
         int levelGold = baseGold + relicBonus + luckBonus;
+        if (fishBuffs.goldMultiplier > 1.0) {
+          levelGold = (levelGold * fishBuffs.goldMultiplier).round();
+        }
         if (prestigeTier > 0) {
           levelGold = (levelGold * prestigeGoldMultiplier).round();
         }

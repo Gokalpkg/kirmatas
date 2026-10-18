@@ -414,6 +414,20 @@ class FishItem {
     }
   }
 
+  /// Pearl cost to unlock this fish in Eco-Tank
+  int get pearlCost {
+    switch (rarity) {
+      case Rarity.common:
+        return 0;
+      case Rarity.rare:
+        return 15;
+      case Rarity.epic:
+        return 35;
+      case Rarity.legendary:
+        return 75;
+    }
+  }
+
   static const List<FishItem> allFish = [
     // 1. Guppy Species
     FishItem(

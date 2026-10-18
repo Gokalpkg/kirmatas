@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
+import '../models/fish_synergy.dart';
 import '../storage/save_manager.dart';
 
 class UpgradesView extends StatelessWidget {
@@ -92,6 +93,103 @@ class UpgradesView extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              // --- SECTION 0: ECO-TANK FISH SYNERGIES ---
+              Builder(
+                builder: (_) {
+                  final buffs = FishSynergyBuffs.calculate(save);
+                  if (buffs.activeBuffDescriptions.isEmpty) return const SizedBox.shrink();
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF00E5FF).withValues(alpha: 0.15),
+                          const Color(0xFF161A28),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: const Color(0xFF00E5FF).withValues(alpha: 0.4),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.water_drop_rounded, color: Color(0xFF00E5FF), size: 18),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'Akvaryum Sinerjileri',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Color(0xFF00E5FF),
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF00E5FF).withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${save.unlockedFish.length} Balık',
+                                style: const TextStyle(
+                                  color: Color(0xFF00E5FF),
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: buffs.activeBuffDescriptions.map((desc) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.black38,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.check_circle_rounded, color: Color(0xFF69F0AE), size: 12),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    desc,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
               // --- SECTION 1: ATTRIBUTE MASTERY (Yetenek Ağacı) ---
               Row(
                 children: [

@@ -3137,6 +3137,7 @@ void main() {
         await save.init();
         save.highestLevel = 1;
         save.totalGold = 0;
+        save.hasCompletedMainMenuTour = true;
 
         await tester.pumpWidget(
           const MaterialApp(

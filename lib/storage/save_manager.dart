@@ -733,10 +733,33 @@ class SaveManager extends ChangeNotifier {
     return true;
   }
 
+  /// Convert 3 category shards into 2 Pearls
+  Future<bool> convertShardsToPearls(String category) async {
+    if (getShards(category) < 3) return false;
+    final success = await consumeShards(category, 3);
+    if (!success) return false;
+    addPearls(2);
+    return true;
+  }
+
+  Future<void> unlockFish(String fishId) async {
+    if (!unlockedFish.contains(fishId)) {
+      unlockedFish.add(fishId);
+      await _prefs?.setStringList('unlockedFish', unlockedFish);
+      notifyListeners();
+    }
+  }
+
   Future<void> addFish(String fishId) async {
-    unlockedFish.add(fishId);
-    await _prefs?.setStringList('unlockedFish', unlockedFish);
-    notifyListeners();
+    await unlockFish(fishId);
+  }
+
+  /// Spend pearls to directly unlock a fish in Eco-Tank
+  Future<bool> buyFishWithPearls(String fishId, int pearlCost) async {
+    if (unlockedFish.contains(fishId)) return false;
+    if (pearlCost > 0 && !spendPearls(pearlCost)) return false;
+    await unlockFish(fishId);
+    return true;
   }
 
   // --- ECO-TANK PER-FISH FEEDING (3H SATIETY & 6H GOLD PAYOUT) ---
@@ -1058,6 +1081,12 @@ class SaveManager extends ChangeNotifier {
     }
   }
 
+  bool get hasCompletedMainMenuTour => _prefs?.getBool('hasCompletedMainMenuTour') ?? false;
+  set hasCompletedMainMenuTour(bool val) {
+    _prefs?.setBool('hasCompletedMainMenuTour', val);
+    notifyListeners();
+  }
+
   /// Directly saves fishFood to persistent storage and notifies listeners
   void saveFishFoodDirectly() {
     _prefs?.setInt('fishFood', fishFood);
@@ -1316,9 +1345,10 @@ class SaveManager extends ChangeNotifier {
     _checkAndResetQuests();
     if (claimedQuests.contains(questId)) return 0;
     int reward = 0;
+    bool grantFood = false;
     if (questId == 'feed_fish' && questFishFed) {
       reward = 60;
-      await addFishFood(1);
+      grantFood = true;
     } else if (questId == 'break_bricks' && questBricksBroken >= 100) {
       reward = 120;
     } else if (questId == 'ad_or_win' && questAdOrWinDone) {
@@ -1326,7 +1356,11 @@ class SaveManager extends ChangeNotifier {
     }
 
     if (reward > 0) {
-      claimedQuests.add(questId);
+      // Synchronously register claim before any await to eliminate async gap race conditions
+      if (!claimedQuests.add(questId)) return 0;
+      if (grantFood) {
+        await addFishFood(1);
+      }
       await _prefs?.setStringList('claimedQuests', claimedQuests.toList());
       await addGold(reward);
       notifyListeners();
