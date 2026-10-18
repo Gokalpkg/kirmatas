@@ -331,6 +331,15 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     );
 
     if (mounted) {
+      if (_save.pendingCrate != null && _activeGame == null) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => CrateOpeningDialog(
+            pendingCrate: _save.pendingCrate,
+          ),
+        );
+      }
       setState(() => _highlightWheelButton = true);
       Future.delayed(const Duration(milliseconds: 900), () {
         if (mounted) setState(() => _highlightWheelButton = false);

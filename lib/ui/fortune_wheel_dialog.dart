@@ -2,9 +2,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
+import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
-import 'crate_opening_dialog.dart';
 
 class WheelReward {
   final String label;
@@ -27,6 +27,8 @@ class WheelReward {
 class FortuneWheelDialog extends StatefulWidget {
   const FortuneWheelDialog({super.key});
 
+  static List<WheelReward> get rewards => _FortuneWheelDialogState.rewards;
+
   @override
   State<FortuneWheelDialog> createState() => _FortuneWheelDialogState();
 }
@@ -43,7 +45,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
   double _dragVelocity = 0.0;
   DateTime _lastTouchTime = DateTime.now();
   int _lastDragTickSector = -1;
-  String? _lastAwardedShardCategory;
+  static String? _lastAwardedShardCategory;
 
   String _getCategoryDisplayName(String cat) {
     switch (cat) {
@@ -75,7 +77,8 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     }
   }
 
-  late final List<WheelReward> _rewards = [
+  List<WheelReward> get _rewards => rewards;
+  static final List<WheelReward> rewards = [
     WheelReward(
       label: '500 ',
       subtitle: 'JACKPOT!',
@@ -90,14 +93,49 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       icon: Icons.inventory_2,
       primaryColor: const Color(0xFFE040FB),
       secondaryColor: const Color(0xFF7C4DFF),
-      onClaim: (context, save) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => CrateOpeningDialog(
-            crate: CrateDef.allCrates.first,
-          ),
-        );
+      onClaim: (context, save) async {
+        final crateDef = CrateDef.allCrates.first;
+        final rand = Random();
+        final luckLevel = save.upgrades['luck'] ?? 0;
+        final weights = Map<Rarity, double>.from(crateDef.weights);
+        weights[Rarity.legendary] = (weights[Rarity.legendary] ?? 1.0) * (1.0 + luckLevel * 0.35);
+        weights[Rarity.epic] = (weights[Rarity.epic] ?? 5.0) * (1.0 + luckLevel * 0.25);
+        double totalWeight = weights.values.fold(0.0, (a, b) => a + b);
+        double roll = rand.nextDouble() * totalWeight;
+        Rarity rolledRarity = Rarity.common;
+        for (final entry in weights.entries) {
+          if (roll <= entry.value) {
+            rolledRarity = entry.key;
+            break;
+          }
+          roll -= entry.value;
+        }
+        final available = FishItem.allFish.where((f) => f.rarity == rolledRarity).toList();
+        final unownedInRarity = available.where((f) => !save.unlockedFish.contains(f.id)).toList();
+        final allUnowned = FishItem.allFish.where((f) => !save.unlockedFish.contains(f.id)).toList();
+        FishItem fish;
+        if (unownedInRarity.isNotEmpty) {
+          fish = unownedInRarity[rand.nextInt(unownedInRarity.length)];
+        } else if (allUnowned.isNotEmpty && rand.nextDouble() < 0.75) {
+          fish = allUnowned[rand.nextInt(allUnowned.length)];
+          rolledRarity = fish.rarity;
+        } else {
+          fish = available.isNotEmpty ? available[rand.nextInt(available.length)] : FishItem.allFish.first;
+        }
+        final isNewSpecies = !save.unlockedFish.contains(fish.id);
+        final isFoodBonus = !isNewSpecies;
+        final subtitle = isNewSpecies ? I18n.tr('new_fish_unlocked') : 'Akvaryumuna bir ${fish.name} daha katıldı! (+3 Yem Hediye)';
+        await save.savePendingCrate(PendingCrate(
+          crateType: 'aquarium',
+          crateId: crateDef.id,
+          rewardType: 'fish',
+          rewardId: fish.id,
+          rewardTitle: fish.name,
+          rewardSubtitle: subtitle,
+          rarityIndex: rolledRarity.index,
+          isFoodBonus: isFoodBonus,
+          bonusFoodCount: isFoodBonus ? 3 : 0,
+        ));
       },
     ),
     WheelReward(
@@ -375,6 +413,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     final displayLabel = customLabel ?? reward.label;
     final displaySubtitle = customSubtitle ?? reward.subtitle;
     final displayIcon = customIcon ?? reward.icon;
+    final isChest = reward.label == 'SANDIK';
 
     showDialog(
       context: context,
@@ -413,23 +452,29 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
               style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.3),
             ),
             const SizedBox(height: 14),
-            const Text(
-              'Ödül hesabınıza aktarıldı!',
-              style: TextStyle(color: Colors.white54, fontSize: 12),
+            Text(
+              isChest ? 'Sandığın arkaya bırakıldı! Çıkışta hemen açabilirsin.' : 'Ödül hesabınıza aktarıldı!',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
             ),
           ],
         ),
         actions: [
           Center(
             child: ElevatedButton(
-              onPressed: () => Navigator.of(ctx).pop(),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                if (isChest) {
+                  Navigator.of(context).pop();
+                }
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: reward.primaryColor,
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
               ),
-              child: const Text('HARİKA!', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+              child: Text(isChest ? 'SANDIĞI AÇ!' : 'HARİKA!', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
             ),
           ),
         ],

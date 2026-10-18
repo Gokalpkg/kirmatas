@@ -854,11 +854,20 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
-          onTap: () {
-            showDialog(
+          onTap: () async {
+            await showDialog(
               context: context,
               builder: (_) => const FortuneWheelDialog(),
             );
+            if (context.mounted && SaveManager.instance.pendingCrate != null) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => CrateOpeningDialog(
+                  pendingCrate: SaveManager.instance.pendingCrate,
+                ),
+              );
+            }
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

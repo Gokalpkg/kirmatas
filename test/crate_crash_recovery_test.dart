@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:kirmatas/engine/i18n.dart';
 import 'package:kirmatas/models/cosmetics.dart';
 import 'package:kirmatas/storage/save_manager.dart';
 import 'package:kirmatas/ui/chest_widget.dart';
 import 'package:kirmatas/ui/crate_opening_dialog.dart';
+import 'package:kirmatas/ui/fortune_wheel_dialog.dart';
 import 'package:kirmatas/ui/main_menu.dart';
 
 void main() {
@@ -188,6 +188,31 @@ void main() {
       expect(find.byType(CrateOpeningDialog), findsOneWidget);
       expect(find.byType(ChestWidget), findsOneWidget);
       expect(find.text('Sandığa Dokun (1/3)'), findsOneWidget);
+    });
+
+    testWidgets('Winning chest from FortuneWheelDialog sets pendingCrate and drops onto parent screen upon exit', (tester) async {
+      final save = SaveManager.instance;
+      expect(save.pendingCrate, isNull);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SizedBox(),
+          ),
+        ),
+      );
+
+      // Trigger SANDIK onClaim directly
+      final sandikReward = FortuneWheelDialog.rewards.firstWhere((r) => r.label == 'SANDIK');
+      sandikReward.onClaim(tester.element(find.byType(Scaffold)), save);
+
+      // Allow async save to persist
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Verify pending crate was saved
+      expect(save.pendingCrate, isNotNull);
+      expect(save.pendingCrate!.rewardType, 'fish');
     });
   });
 }
