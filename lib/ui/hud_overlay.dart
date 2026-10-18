@@ -31,60 +31,6 @@ class HudOverlay extends StatelessWidget {
       builder: (context, _) {
         final stats = controller.stats;
 
-        if (controller.isReklamModu) {
-          return SafeArea(
-            child: Stack(
-              children: [
-                Positioned(
-                  top: 10,
-                  left: 16,
-                  right: 16,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xBB0D101E),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: const Color(0x6680D8FF)),
-                        ),
-                        child: Text(
-                          'SKOR: ${stats.score}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15,
-                            letterSpacing: 0.6,
-                          ),
-                        ),
-                      ),
-                      if (stats.combo > 1)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xBB1E1308),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: const Color(0x99FFD54F)),
-                          ),
-                          child: Text(
-                            'KOMBO x${stats.combo}',
-                            style: const TextStyle(
-                              color: Color(0xFFFFD54F),
-                              fontWeight: FontWeight.w900,
-                              fontSize: 15,
-                              letterSpacing: 0.6,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
         return SafeArea(
           child: Stack(
             children: [

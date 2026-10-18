@@ -793,68 +793,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    const Divider(color: Colors.white24),
-                    const Text(
-                      '🎬 REKLAM MODU (KAYIT KISAYOLLARI)',
-                      style: TextStyle(
-                        color: Color(0xFF00E5FF),
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        ActionChip(
-                          backgroundColor: const Color(0xFF1A233A),
-                          label: const Text('1. İlk Vuruş', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            _launchReklamScene(ReklamScene.firstHit);
-                          },
-                        ),
-                        ActionChip(
-                          backgroundColor: const Color(0xFF1A233A),
-                          label: const Text('2. Zincirleme Patlama', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            _launchReklamScene(ReklamScene.chainExplosion);
-                          },
-                        ),
-                        ActionChip(
-                          backgroundColor: const Color(0xFF1A233A),
-                          label: const Text('3. 30 Ateş Topu', style: TextStyle(color: Color(0xFFFFD54F), fontSize: 11, fontWeight: FontWeight.bold)),
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            _launchReklamScene(ReklamScene.thirtyFireballs);
-                          },
-                        ),
-                        ActionChip(
-                          backgroundColor: const Color(0xFF1A233A),
-                          label: const Text('4. Kaos Kartı', style: TextStyle(color: Color(0xFF00E5FF), fontSize: 11, fontWeight: FontWeight.bold)),
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            _launchReklamScene(ReklamScene.chaosCards);
-                          },
-                        ),
-                        ActionChip(
-                          backgroundColor: const Color(0xFF1A233A),
-                          label: const Text('5. Lig Ekranı', style: TextStyle(color: Color(0xFF69F0AE), fontSize: 11, fontWeight: FontWeight.bold)),
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            TournamentDialog.show(
-                              context,
-                              save: _save,
-                              onJoinTournament: () => _launchReklamScene(ReklamScene.leagueShowcase),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -872,17 +810,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         );
       },
     );
-  }
-
-  void _launchReklamScene(ReklamScene scene) {
-    final controller = GameController();
-    final size = MediaQuery.of(context).size;
-    controller.setDimensions(size.width, size.height);
-    controller.startReklamScene(scene);
-    controller.addListener(_onActiveGameTick);
-    setState(() {
-      _activeGame = controller;
-    });
   }
 
   @override

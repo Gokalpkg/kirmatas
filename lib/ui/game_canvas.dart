@@ -442,7 +442,7 @@ class _GameWorldPainter extends CustomPainter {
 
     _drawBossWarningBanner(canvas, size);
     _drawLevelClearCelebration(canvas, size);
-    if (c.showLevel1DragGuide && !c.isReklamModu) {
+    if (c.showLevel1DragGuide) {
       _drawLevel1DragGuide(canvas, c.paddle.rect, time);
     }
     if (c.isUltiReady) {
