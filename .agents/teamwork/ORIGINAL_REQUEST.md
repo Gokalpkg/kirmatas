@@ -156,3 +156,170 @@ Apply the same warm carved amber, bronze, and deep jade tactile aesthetic across
 - [ ] `flutter analyze` exits with 0 errors and 0 warnings.
 - [ ] `flutter test` passes 100% of the existing 562 tests plus new verification tests for `kaunos_ui.dart` and the redesigned UI components.
 - [ ] Zero `RenderFlex` overflow errors on `320x480`, `360x640`, and `390x844` viewports at both `1.0x` and `1.3x` text scale factors.
+
+
+## 2026-10-16T22:03:15Z
+
+Uygulama genelinde (Ana Menü, Sandıklar/Crates, HUD, Mağaza, Atölye ve Dialoglar) %75 1.1 "Kozmik Kristal & Gözlemevi" ve %25 1.3 "3D Kristal & Dövme Altın/Bevel" hibrit görsel tasarım sistemini eksiksiz uygulamak.
+
+Working directory: c:\Users\USER\Desktop\KIPKIRMATAS
+Integrity mode: development
+
+## Requirements
+
+### R1. Kozmik Kristal & 3D Bevel Tasarım Sistemi (Kaunos UI)
+- `lib/ui/kaunos_ui.dart` (veya ilgili UI modülleri) üzerinde derin füme/obsidyen kristal cam paneller (`#05070F` tabanlı yarı saydam zemin, ince kristal kenarlıklar ve yansımalar) oluşturulacak.
+- Tüm kartlar ve interaktif butonlar %25 1.3 dokunuşu ile 3D fiziksel alt derinlik (5px bevel gölgesi), üst kenar kristal ışık kırılması (specular rim) ve basıldığında içeri göçen dokunsal (tactile) basma animasyonuna sahip olacak.
+- Ana `OYNA` butonu, 1.1'in zarif kristal çerçevesi içinde 1.3'ün 3 boyutlu dövme altın/kehribar tetiği olarak render edilecek.
+
+### R2. Sandık (Crates) Kalitesi ve Açılış Animasyonları
+- Sandıklar generic/yapay zeka görünümünden arındırılacak; her nadirlik seviyesine (Normal, Nadir, Epik, Efsanevi) uygun dövme altın, obsidyen ve kristal detaylı 3D derinlikli sandık görselleri ve parçacık efektleri uygulanacak.
+- Sandık açılış sekansı ve ödül sunumu kristal ışıltı ve taktil hissiyatla güçlendirilecek.
+
+### R3. Ana Ekran, HUD ve Alt Menülerin Dönüşümü
+- Ana Menüdeki `GÜNLÜK GÖREVLER`, `KOZMİK MAĞAZA`, `SEKTÖR HARİTASI`, `KOLEKSİYON` kartları yeni hibrit tasarım diliyle güncellenecek.
+- Oyun içi HUD (Can barı, kombo göstergeleri, tuğla sayaçları, duraklatma ve güçlendirme rozetleri) kristal & 3D bevel stiline uyarlanacak.
+- Eko-Akvaryum arka planı, karadelikler ve portal efektleri bozulmadan yeni UI ile mükemmel kontrast oluşturacak şekilde korunacak.
+
+### R4. Geriye Dönük Uyumluluk ve Test Bütünlüğü
+- 562 otomatik testin tamamı (`flutter test`) sıfır regresyon ile 562/562 geçmeye devam edecek.
+- Testlerin aradığı tüm anahtar metinler (`Bölüm 2`, `Bölüm 3`, `MACERAYA BAŞLA`, `ÖZEL MOD` vb.) ve semantikleri birebir korunacak.
+- `flutter analyze` 0 hata ve 0 uyarı verecek.
+
+## Acceptance Criteria
+
+### Görsel ve Arayüz Bütünlüğü
+- [ ] Ana Menü, Sandıklar, HUD ve Mağaza %75 1.1 + %25 1.3 hibrit tasarım diline tam olarak dönüştürüldü.
+- [ ] Butonlarda ve panellerde 3D alt bevel ve dokunsal basma hissiyatı çalışıyor.
+- [ ] Sandıklar ve ödül ekranları kristal ve dövme altın işçiliğiyle kaliteli bir görünüme kavuştu.
+
+### Stabilite ve Testler
+- [ ] `flutter analyze` komutu 0 hata ve 0 uyarı ile tamamlanıyor.
+- [ ] `flutter test` komutu 562/562 testi firesiz başarıyla geçiyor.
+
+
+## 2026-10-17T10:23:20Z
+
+Produce the upgraded **Kırmataş** viral vertical video ads (`31.5s` Bilgi + Absürt "What-If" Edition and `20s` Fast Edition in `1080x1920` MP4 & WebM) in `C:\Users\USER\Desktop\KIRMATAS_VIDEO` (and mirror to `C:\Users\USER\Desktop\KIRMATAS_REKLAM_PAKETI`) by replacing all synthetic 2D gameplay drawings with **100% authentic, high-resolution frame sequences rendered directly by the Kırmataş Flutter engine (`GameCanvas`, `_GameWorldPainter`, `HudOverlay`, `TournamentDialog`)** with the real `Rajdhani` font and sprite assets loaded, and integrating an irresistible absurd "What-If" science hook with ElevenLabs voiceover.
+
+Working directory: c:\Users\USER\Desktop\KIPKIRMATAS
+Integrity mode: development
+
+## Requirements
+
+### R1. 100% Genuine Flutter Engine Gameplay Frame Sequence Capture
+- Capture real multi-second gameplay frame sequences directly from the actual Kırmataş Flutter widgets (`GameCanvas` / `_GameWorldPainter`, `HudOverlay`, `offeredChaosPerks` overlay, `TournamentDialog`, and `AquariumView`) at `1080x1920` resolution (`pixelRatio: 3.0`) with the real `Rajdhani` font family (`assets/fonts/Rajdhani-*.ttf`) and all game image assets (`assets/images/skills/*.png`, `assets/images/fishes/*.png`) loaded into memory so there are zero missing-glyph boxes (`████`) and zero fake 2D substitutes.
+- Record authentic multi-frame sequences of: (1) Cosmic Paddle launching the ball into a level packed with real 3D Dynamite (`isDynamite`), Steel X-Girder (`isSteel`), Ice (`isIce`), and Neon/Cosmic bricks with real fracture cracks and shard physics, (2) 30 blazing Fireballs + falling power-up capsules + Drone/Bee + Ulti Lightning wiping the board, (3) the real in-game `⚡ KAOS GÜÇLENDİRMESİ SEÇ` overlay, and (4) the real `TournamentDialog` weekly league leaderboard & level-clear celebration.
+
+### R2. Compelling "Bilgi + Absürt What-If" Narrative, ElevenLabs Voiceover & Final MP4/WebM Assembly
+- Use the open ElevenLabs browser session (or high-clarity Turkish documentary narrator voiceover) for the "Bilgi + Absürt What-If" script (*"Gökdelenden küçücük bir demir bilye bıraksan ne olur? Normalde hava direnci yüzünden 150 km hızı geçemez ve asla alev almaz. Ama bu bilyede hava direnci bir anda sıfırlandı! Ses duvarını aştı, plazmaya dönüştü ve tüm şehri yok edecek güce ulaştı! Tam çatıya çarpacakken... bir şey araya girdi. İşte Kırmataş!"*).
+- Assemble and export `KIRMATAS_REKLAM_32SN_BILGI_MERAK.mp4` (and `.webm`), `KIRMATAS_REKLAM_20SN_TEST.mp4` (and `.webm`), and the standalone real gameplay clips in `4_Oyun_Kaydi/` using the genuine Flutter frame sequences.
+
+## Acceptance Criteria
+
+### Genuine Flutter Visuals & Clean Codebase
+- [ ] Every frame in the gameplay section (`17.8s–26.9s` in the 32s video and `8.9s–17.0s` in the 20s video) and in `4_Oyun_Kaydi/` comes directly from the Kırmataş Flutter `_GameWorldPainter` / widget tree with real `Rajdhani` typography (zero `████` boxes) and real 3D Dynamite/Steel/Ice/Neon bricks.
+- [ ] `flutter analyze` passes with 0 errors and no temporary test files remain in `test/`.
+
+
+## 2026-10-17T10:30:37Z
+
+ÖNEMLİ GÜNCELLEME (Kullanıcının Son İsteği):
+1. **Şaşırtıcı "What-If" Girişi (0.0 – 17.4 sn — Belgesel Anlatıcı Sesi):**
+   Kullanıcı girişin şaşırtıcı bir What-If senaryosu ile başlamasını istedi: *"Ya yerçekimi bir anda dursaydı... ve saniyeler sonra yüz katıyla geri çarpsaydı ne olurdu? Bu çocuk gökdelenden küçücük bir bilye bıraktı. Normalde hava direnci yüzünden bilye bir hızdan sonra hızlanamaz ve asla alev almaz. Ama bu bilyede fizik kuralları kırıldı! Alev aldı ve bir şehri yok edecek güce ulaştı! Tam çatıya çarpacakken... bir şey araya girdi."*
+2. **17.8. Saniyede ("İşte Kırmataş!") Aşırı Heyecanlı / Enerjik Sesin Devreye Girmesi:**
+   Kullanıcı: *"ve işte kırmataşta aşırı heyecanlı bir ses devreye girsin"*.
+   17.4–17.8 sn arasındaki SİYAH KARE + TAM SESSİZLİK sonrasındaki beyaz flaş + raket vuruşu anında (17.8 sn) **aşırı heyecanlı ikinci ses** (`Cavit - Energetic and Fast-Paced`, ElevenLabs'tan `C:\Users\USER\Downloads\` klasörüne indiriliyor) devreye girecek:
+   *"İŞTE KIRMATAŞ!! Otuz ateş topuyla ekranı temizle, kaos kartlarını topla, ligde zirveye çık! Ücretsiz indir, hemen oyna!"*
+3. **%100 Gerçek Flutter Oyun Görüntüleri (`GameCanvas` / `_GameWorldPainter` + `Rajdhani` fontu + gerçek `assets/images/`):**
+   Oyun içi sahnelerin tamamı (17.8–26.9 sn) gerçek Flutter motorundan yüksek çözünürlüklü kare dizisi (frame sequence) olarak kaydedilmeli; `Rajdhani` fontu yüklü olmalı (`████` kutuları kesinlikle olmamalı) ve gerçek 3D Dinamit (`isDynamite`), Çelik (`isSteel`), Buz (`isIce`) blokları, 30 ateş topu, gerçek `⚡ KAOS GÜÇLENDİRMESİ SEÇ` ekranı ve `TournamentDialog` lig ekranı yer almalı.
+
+
+## 2026-10-17T10:34:31Z
+
+ElevenLabs tarayıcı ajanı yeni 2 sesli üretimi tamamladı ve `C:\Users\USER\Downloads\` klasörüne indirdi! Lütfen doğrudan bu gerçek ElevenLabs MP3 dosyalarını kullanın:
+
+1. **BÖLÜM 1 (0.0 – 17.4 sn — Şaşırtıcı Yerçekimi What-If Girişi — `Meloxia Turkish Pro`)**:
+   - Dosya yolu: `C:\Users\USER\Downloads\ElevenLabs_2026-10-17T10_31_27_Meloxia Turkish Pro_pvc_sp112_s60_sb80_se0_b_m2.mp3`
+   - Metin: *"Ya yerçekimi bir anda dursaydı... ve saniyeler sonra yüz katıyla geri çarpsaydı ne olurdu? Bu çocuk gökdelenden küçücük bir bilye bıraktı. Normalde hava direnci yüzünden bilye bir hızdan sonra hızlanamaz ve asla alev almaz. Ama bu bilyede fizik kuralları kırıldı! Alev aldı ve bir şehri yok edecek güce ulaştı! Tam çatıya çarpacakken... bir şey araya girdi."*
+   - (Not: Bu dosya ~23 sn ise hafif tempo/sessizlik kırpımı (`atempo` veya sessizlik kısaltması) ile tam `0.0 - 17.4 sn` aralığına oturtun; `17.4 - 17.8 sn` arası TAM SESSİZLİK + SİYAH KARE olsun!)
+
+2. **BÖLÜM 2 (17.8 – 31.5 sn — Aşırı Heyecanlı / Enerjik Ses — `Cavit - Energetic and Fast-Paced`)**:
+   - Dosya yolu: `C:\Users\USER\Downloads\ElevenLabs_2026-10-17T10_33_27_Cavit - Energetic and Fast-Paced_pvc_sp114_s50_sb75_se0_b_m2.mp3`
+   - Metin: *"İŞTE KIRMATAŞ!! Otuz ateş topuyla ekranı temizle, kaos kartlarını topla, ligde zirveye çık! Ücretsiz indir, hemen oyna!"*
+   - Tam `17.8 sn`'deki beyaz flaş + raket vuruşu ile patlayarak devreye girsin!
+   - Ayrıca `3_Ses/` klasörüne hem ayrı ayrı (`BOLUM1_Meloxia_WhatIf.mp3`, `BOLUM2_Cavit_Heyecanli_Iste_Kirmatas.mp3`) hem de birleştirilmiş `SESLENDIRME_32SN_TEK_PARCA.mp3` ve `TAM_MIKSLI_SES_32SN.wav` olarak kaydedin.
+
+
+## 2026-10-17T10:42:26Z
+
+SES GÜNCELLEMESİ (Kullanıcının Talebi Üzerine):
+Kullanıcı sesi beğenmediği ve "daha kaliteli, Türkçeye uygun doğal bir ses kullan, sana bırakıyorum halledersin" dediği için, Microsoft Edge Neural'ın en üst düzey stüdyo kalitesindeki doğal Türkçe ses aktörü **`tr-TR-AhmetNeural` (Doğal İstanbul Türkçesi Belgesel & Reklam Spikeri)** ile tüm ses dosyaları sıfırdan en yüksek kalitede üretildi ve `C:\Users\USER\Desktop\KIRMATAS_VIDEO\3_Ses\` klasörüne kaydedildi:
+
+1. **Bölüm 1 (0.0 – 21.7 sn — Şaşırtıcı Yerçekimi What-If Girişi)**:
+   - Dosya: `C:\Users\USER\Desktop\KIRMATAS_VIDEO\3_Ses\BOLUM1_Ahmet_WhatIf_17sn_Kusursuz.mp3` (veya `BOLUM1_Ahmet_WhatIf_Tam17sn.mp3`)
+   - Ton: Belgesel anlatıcısı, sakin, merak uyandıran, mükemmel Türkçe tonlama.
+   - 21.7 – 22.1 sn arası: **TAM SESSİZLİK + SİYAH KARE**!
+
+2. **Bölüm 2 (22.1 – 29.2 sn — Patlayıcı Oyun Girişi "İşte Kırmataş!")**:
+   - Dosya: `C:\Users\USER\Desktop\KIRMATAS_VIDEO\3_Ses\BOLUM2_Ahmet_IsteKirmatas_6sn.mp3` (veya `BOLUM2_Ahmet_Aksiyon_Tam8sn.mp3`)
+   - Ton: Yüksek tempolu, heyecanlı, dinamik aksiyon spikeri.
+
+3. **Bölüm 3 (29.2 – 32.2 sn — Bitiş Kartı CTA)**:
+   - Dosya: `C:\Users\USER\Desktop\KIRMATAS_VIDEO\3_Ses\BOLUM3_Ahmet_BitisKarti_CTA_3sn.mp3`
+   - Ton: "Ücretsiz indir, hemen oyna!"
+
+4. **Tek Parça Seslendirme**:
+   - Dosya: `C:\Users\USER\Desktop\KIRMATAS_VIDEO\3_Ses\SESLENDIRME_32SN_TEK_PARCA_AHMET_DOGAL_TURKCE.mp3`
+
+Lütfen Milestone 2 (Audio & Voiceover Assembly) ve Milestone 3 (Video Compositing) aşamalarında bu yeni ve çok daha kaliteli `AhmetNeural` seslerini birincil ses olarak kullanın!
+
+
+## 2026-10-17T11:15:03Z
+
+KULLANICI ONAYI VE MİMARİ GÜNCELLEME:
+
+1. **Kullanıcı Kurgu Onayı (31.5 sn Tam Kurgu)**:
+   - `0.0 – 21.1 sn`: Sakin, merak uyandıran, grameri kusursuz belgesel What-If anlatımı (`C:\Users\USER\Desktop\KIRMATAS_VIDEO\3_Ses\BOLUM1_Ahmet_Kusursuz_17sn.mp3`, tam 21.10 sn).
+   - `21.1 – 21.5 sn`: **SİYAH KARE + TAM SESSİZLİK** (Tüm ses ve müzik kesilir).
+   - `21.5 – 28.5 sn`: **BEYAZ FLAŞ + KOZMİK RAKET VURUŞU + %100 GERÇEK FLUTTER OYUNU** (1080x1920 kareler) + `BOLUM2_Ahmet_IsteKirmatas_Aksiyon.mp3` ("İşte Kırmataş! Otuz ateş topuyla ekranı temizle, kaos kartlarını topla, ligde zirveye çık!").
+   - `28.5 – 31.5 sn`: **BİTİŞ KARTI** + `BOLUM3_Ahmet_HemenOyna_CTA.mp3` ("Ücretsiz indir, hemen oyna!").
+
+2. **Görsellerdeki Basit Çizimler Temizlendi**:
+   - `1_Gorseller/` içindeki tüm basit geometrik çizimler (`K6`'daki çöp adam ve düz koni) tamamen kaldırıldı ve yerine gerçek 3D CGI render'lar konuldu:
+     - `K1`: `A_Cocuk_Bilyeyi_Birakiyor.jpg` (Gerçek 3D çocuk, gökdelen çatısı ve bilye)
+     - `K5`: `E_Cocugun_Saskin_Tepkisi_1sn.png` (Gerçek 3D şok tepkisi)
+     - `K6`: `D_Raket_Sahnesi_Baslangic.png` (Gerçek hacimsel alev topu, kıvılcımlar ve 3D Kozmik Raket)
+     - `K7`: `C_Bilye_Renkli_Bloklari_Kiriyor.jpg` (Gerçek 3D parçalanan bloklar)
+
+3. **Adli Denetim Düzeltmesi (TextPainter Font Bağlama)**:
+   - `auditor_5_m1_1`'in tespit ettiği ham `TextPainter` çağrılarındaki `Ahem` kutucuklarını önlemek için font yükleyicide varsayılan yazı tipine `Rajdhani` bağlanarak kareler pürüzsüzleştiriliyor. M2 (Audio Mix) ve M3 (Video Compositing) için tüm hazırlıklar tamam. Devam edebilirsiniz!
+
+
+## 2026-10-17T14:16:06Z
+
+Produce and package a suite of story-driven mobile game video commercials and promotional assets for the brick-breaker game Kırmataş into the Desktop folder C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari.
+
+Working directory: c:\Users\USER\Desktop\KIPKIRMATAS
+Integrity mode: development
+
+## Requirements
+
+### R1. Desktop Video Archive & Verification
+Verify and organize all produced Cantina MP4 commercials in C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari:
+1. 01_Ilk_Drama_Reklami.mp4 (https://d2k000xfhitl0u.cloudfront.net/6ad3549391abaa83580b7d3a%2Fout_01a149bd-e027-7e71-8b58-2d82f895f142.mp4)
+2. 02_Penthouse_Kasli_Karpuz_ve_Dolgun_Kizlar.mp4 (https://d2k000xfhitl0u.cloudfront.net/6ad3549391abaa83580b7d3a%2Fout_01a149ea-1ef4-7330-97f7-5c315d610e7c.mp4)
+3. 03_Sinematik_Malikane_Yuzlesmesi.mp4 (https://d2k000xfhitl0u.cloudfront.net/6ad3549391abaa83580b7d3a%2Fout_01a14a09-1ed1-7b7e-ad71-eccfca170038.mp4)
+4. 04_500_Tuglali_Kasa_Tuzagi_Kurtarma.mp4 (https://d2k000xfhitl0u.cloudfront.net/6ad3549391abaa83580b7d3a%2Fout_01a14a1b-5419-748c-8c91-f0475d69f3a4.mp4)
+5. 05_YuzdeYuz_Meyve_Cekici_Strawberry_Diva_Acilis.mp4 (https://d2k000xfhitl0u.cloudfront.net/6ad3549391abaa83580b7d3a%2Fout_01a14a31-4a83-75a2-bb05-81ead1e881e4.mp4)
+Also download all individual scene MP4 clips into a Scenes subfolder so the user has both merged master videos and raw clips.
+
+### R2. Underdog / Hidden Power Commercial Variants & Hook Overlay Versions
+In addition to the new Cantina renders being produced, use FFmpeg (or Python moviepy/opencv/ffmpeg scripts if available) to create ready-to-post social media variants inside C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari with:
+- Burned-in top hook banners (English: "WHAT WAS HE SMASHING ALL NIGHT?!" / "HE WAS HIDING HIS LEVEL 999 POWER!", Turkish: "HERKES ONU EZİK SANDI AMA REKORU KIRDI!").
+- Complete production script & storyboard catalog (README_VIDEOLAR.md) in C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari detailing all English and Turkish underdog/rags-to-riches storylines.
+
+## Acceptance Criteria
+- [ ] C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari contains all master MP4 files, scene clips, and social-ready hook variants.
+- [ ] Every MP4 file in C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari is verified as a valid playable video (>1MB).
+- [ ] README_VIDEOLAR.md is present in C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari with full documentation.

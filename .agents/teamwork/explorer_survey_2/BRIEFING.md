@@ -1,46 +1,42 @@
-# BRIEFING — 2026-10-16T17:52:00Z
+# BRIEFING — 2026-10-17T14:27:00Z
 
 ## Mission
-Comprehensive survey & technical design for Kurzgesagt Space-to-Atmosphere Hook (0-3.5s), Hasan Usta İzmir Comedic Pivot Engine (3.5-7.5s), and 60 FPS HTML5 Canvas Architecture (1080x1920 18s timeline, particle engines, high-DPI scaling, interactive scrubber) for Kırmataş TR & EN promo video ads.
+Investigate media processing tools on the Windows host (FFmpeg, ffprobe, Python media modules, system fonts) and determine optimal banner overlay syntax for viral video production.
 
 ## 🔒 My Identity
 - Archetype: explorer
-- Roles: Animation, Narrative & Canvas 60 FPS Engine Specialist
-- Working directory: c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\explorer_survey_2
-- Original parent: a954229f-7f6b-47b6-a253-514b9fa8e0e7
-- Milestone: Promo Video Ad Survey & Architecture
+- Roles: FFmpeg & Tooling Explorer
+- Working directory: c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\explorer_survey_2\
+- Original parent: a56e986b-4618-4026-8017-6fe155515fb1
+- Milestone: Explorer Survey
 
 ## 🔒 Key Constraints
 - Read-only investigation — do NOT implement
-- Deliver structured findings and architecture to handoff.md in own folder
-- Respect 1080x1920 60 FPS performance and pure Canvas 2D rendering without external heavy libraries
-- Zero modifications to lib/ and test/game_test.dart
+- Focus on media processing tools, Python environment, Windows system fonts, and FFmpeg filter syntax
 
 ## Current Parent
-- Conversation ID: a954229f-7f6b-47b6-a253-514b9fa8e0e7
-- Updated: 2026-10-16T17:52:00Z
+- Conversation ID: a56e986b-4618-4026-8017-6fe155515fb1
+- Updated: 2026-10-17T14:27:00Z
 
 ## Investigation State
 - **Explored paths**:
-  - `docs/kirmatas_turkce_reklam.html` (existing prototype analysis)
-  - `lib/engine/game_controller.dart` (verified corner hit outer 22% rule at line 2161, slow-mo pulse at line 2204, ulti trigger at line 3198)
-  - `lib/models/cosmetics.dart` (Cosmic Legendary paddle skin styling)
-  - `assets/audio/`, `assets/images/`, `assets/fonts/` (audio assets, fish sprites, Rajdhani font)
-  - `ORIGINAL_REQUEST.md` (Follow-up specifications)
+  - `C:\Users\USER\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe`
+  - `C:\Users\USER\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe`
+  - `C:\Windows\Fonts\` (impact.ttf, arialbd.ttf, segoeuib.ttf)
+  - `C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari\` (01-05 master videos)
 - **Key findings**:
-  - Full mathematical specifications formulated for Kurzgesagt space-to-atmosphere animation (0–3.5s) including Earth limb gradient, 3-layer parallax starfield, Fe-56 marble chrome shader, speedometer HUD (0 -> 40,000 km/h / 25,000 mph), temperature gauge HUD (0 -> 3,000°C / 5,000°F), and Mach 32 bow shock wave.
-  - Full comedic narrative and physics sequence designed for Hasan Usta İzmir twist (3.5–7.5s) including cloud dive, İzmir Clock Tower & Hasan Usta storefront silhouette, t=4.5s matrix slow-mo snap, Kırmataş Cosmic Paddle corner deflection with `⚡ SÜPER KÖŞE VURUŞU!`, and 30-fireball brick wall obliteration.
-  - Complete 60 FPS HTML5 Canvas architecture established for 1080x1920 resolution, deterministic 18.0s timeline scrubbing, object-pooled particle engines, responsive preview container, and WebM video export.
-  - Multi-language tailoring detailed for both `docs/kirmatas_reklam_tr.html` (TR) and `docs/kirmatas_ad_en.html` (EN).
-- **Unexplored areas**:
-  - None within Explorer 2 scope. All 3 main areas and multi-language requirements are fully documented.
+  - Full-build FFmpeg 9.0.2 is installed with libfreetype, libharfbuzz, libx264, and NVENC.
+  - Python is NOT installed; Node.js v24.15.0 and direct FFmpeg CLI / PowerShell scripts are available.
+  - Impact and Arial Bold render Turkish Unicode (İ, I, Ş, Ğ, Ç, Ö, Ü) with zero missing glyphs.
+  - Best syntax for Windows FFmpeg: use UTF-8 text file (`textfile='...'`), escaped colon in drive path (`C\:/...`), `text_align=center`, and `drawbox`.
+- **Unexplored areas**: None for tooling survey.
 
 ## Key Decisions Made
-- Use pure procedural canvas vector rendering for Scenes 1 and 2 to achieve razor-sharp Kurzgesagt aesthetics at 1080p without raster artifacts.
-- Master timeline duration fixed at exactly 18.0 seconds with 4 scenes (`0-3.5s`, `3.5-7.5s`, `7.5-13.5s`, `13.5-18.0s`).
-- Implement deterministic math functions keyed on `currentTime` to ensure scrubbing backwards or forwards is instantly responsive and never breaks simulation state.
+- Recommending FFmpeg CLI via Node.js or PowerShell scripts using `textfile='...'` input to completely bypass shell quoting and Unicode corruption issues.
 
 ## Artifact Index
-- `c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\explorer_survey_2\DISPATCH.md` — logged instructions
-- `c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\explorer_survey_2\handoff.md` — 5-component handoff report
-- `c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\explorer_survey_2\progress.md` — liveness heartbeat
+- `BRIEFING.md` — Current working memory
+- `progress.md` — Liveness & status tracking
+- `handoff.md` — Comprehensive exploration report
+- `test_video_frame.png` — Real video composite test output (Yellow Banner + Impact font)
+- `test_video_frame_dark.png` — Real video composite test output (Dark Acrylic + Arial Bold)

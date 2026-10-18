@@ -1,136 +1,194 @@
-# Handoff Report — Explorer 2: Animation, Narrative & Canvas 60 FPS Engine Specialist
+# FFmpeg & Tooling Investigation Report (Explorer 2)
+
+**Author:** Explorer 2 (FFmpeg & Tooling Explorer)  
+**Date:** 2026-10-17  
+**Working Directory:** `c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\explorer_survey_2\`  
+**Target Output Directory:** `C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari\`
+
+---
 
 ## 1. Observation
 
-### Codebase Observations
-1. **Existing Prototype**:
-   - File: `docs/kirmatas_turkce_reklam.html` (906 lines, 31,145 bytes).
-   - Canvas resolution: Line 100 sets `const W = 1080, H = 1920;`, with CSS presentation container at 243x432px (Line 13).
-   - Old duration: Line 101 sets `const DURATION = 15.0;` with 4 scenes (`0-3.5s`, `3.5-7.5s`, `7.5-11.5s`, `11.5-15.0s`).
-   - Old visual hook: Scene 1 simply spawned bouncing fireballs on a grid of bricks (`updateAndDrawScene1And2`, lines 331–410). It lacked any Kurzgesagt space-to-atmosphere animation, speedometer, temperature gauge, or comedic pivot.
-   - Recording pipeline: Lines 850–900 implement `canvas.captureStream(60)` and `MediaRecorder({ mimeType, videoBitsPerSecond: 8000000 })`, routing audio via `audioDest = audioCtx.createMediaStreamDestination()`.
+### 1.1 FFmpeg & FFprobe Binary Status
+- Execution of `Get-Command ffmpeg` in the active PowerShell session returned:
+  `The term 'ffmpeg' is not recognized as the name of a cmdlet...`
+- However, direct filesystem inspection identified that a complete, full build of **FFmpeg 9.0.2** is installed on the host at two locations:
+  1. Direct full build package:
+     `C:\Users\USER\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe`
+     `C:\Users\USER\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffprobe.exe`
+  2. WinGet Links symlink:
+     `C:\Users\USER\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe`
+     `C:\Users\USER\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe`
+- Inspection of the User Environment Registry confirmed `C:\Users\USER\AppData\Local\Microsoft\WinGet\Links` was added to `User` PATH by WinGet, though the active parent shell process had not refreshed its environment block.
+- Verification of FFmpeg build flags via `-version`:
+  ```
+  ffmpeg version 9.0.2-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers
+  built with gcc 16.2.0 (Rev3, Built by MSYS2 project)
+  configuration includes:
+    --enable-libx264 --enable-libx265 --enable-libvpx
+    --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-fontconfig --enable-libass
+    --enable-libmp3lame --enable-libopus
+    --enable-cuda-llvm --enable-nvenc --enable-amf --enable-d3d11va --enable-d3d12va
+  ```
+  This is a full release build including FreeType text rasterization, HarfBuzz complex text shaping, and hardware encoding engines.
 
-2. **In-Game Physics & Visual Verifications in Flutter Source**:
-   - `lib/engine/game_controller.dart`:
-     * Line 2160–2161: `final isCornerHit = hitOffset.abs() >= 0.78;` defines the corner hit as the outer 22% of the paddle.
-     * Line 2200–2214: On corner hit, sets `ball.cornerBoostTimer = 3.2`, triggers slow-motion pulse `stats.bulletTimeLeft = 0.75`, triggers screen shake `particles.triggerShake(6.0, 0.28)`, emits golden shockwave `particles.spawnShockwave(..., Color(0xFFFFD700), maxRadius: 85.0)`, and displays banner `'⚡ SÜPER KÖŞE VURUŞU!'`.
-     * Line 3198–3240: `triggerUlti()` activates lucky dice roll (`jackpot_dice` / `dice_legendary_12`), spawning screen-wide shockwaves, gold showers, and dual-cannon salvo projectiles (`diceSalvoRemaining`).
-     * Line 364: `bool firstCornerHitShown = false;`.
-   - `lib/models/cosmetics.dart`:
-     * Paddle skins include Cosmic Legendary (`'pc_cosmic'`, cyan/rose/gold gradient glow), Fire/Sunset set, and Ice/Crystal set.
-   - `assets/audio/`:
-     * Available authentic audio assets: `assets/audio/cam_kirilma.mp3` (25KB), `glass_shatter.mp3` (25KB), `custom_explosion.wav` (44KB), `custom_laser.wav` (22KB), `custom_bounce.wav` (8.8KB), and `bgm.wav` (14.7MB).
-   - `assets/fonts/`:
-     * Authentic font: `assets/fonts/Rajdhani-Bold.ttf` (400KB), `Rajdhani-SemiBold.ttf` (390KB), `Rajdhani-Regular.ttf` (377KB).
+### 1.2 Python & Scripting Environment Status
+- Running `python.exe` triggered the Windows Store redirect stub:
+  `Python bulunamadı` ("Python was not found").
+- Searches across `C:\Program Files`, `C:\Program Files (x86)`, and `C:\Users\USER\AppData\Local\Programs` confirmed that Python is **not installed** on this Windows host.
+- Consequently, Python modules such as `moviepy`, `cv2`, `PIL`, and `requests` are unavailable.
+- In contrast, Node.js and Dart/Flutter are available:
+  - Node.js: `v24.15.0` (`C:\Program Files\nodejs\node.exe`)
+  - NPM: `11.12.1` (`C:\Program Files\nodejs\npm.cmd`)
+  - Dart: `C:\src\flutter\bin\dart.bat`
+  - PowerShell 5.1 / 7
 
-3. **New Follow-Up Specifications (`ORIGINAL_REQUEST.md`)**:
-   - Master Timeline duration: **18.0 seconds** at 60 FPS (1080x1920 portrait 9:16).
-   - Scene 1 (0.0s – 3.5s): Kurzgesagt "What-If" Space-to-Atmosphere Hook:
-     * Flat vector art, deep cosmic palette, 3-layer parallax starfield, Earth curvature with atmospheric limb glow.
-     * Vector satellite/astronaut releasing gleaming chrome Fe-56 iron marble (14g / 0.5 oz).
-     * Plunge acceleration, Speedometer climbing to **40,000 km/h** (TR) / **25,000 mph** (EN), Temperature climbing to **3,000°C** (TR) / **5,000°F** (EN), bow shock plasma cone and expanding Mach shockwave rings.
-   - Scene 2 (3.5s – 7.5s): "Hasan Usta" Comedic Twist / Pivot Engine:
-     * Cloud plunge revealing İzmir skyline (Saat Kulesi, Kordon, İzmir Kumrucusu Hasan Usta sign) in TR edition, and metropolitan skyline in EN edition.
-     * Sudden camera snap and matrix slow-motion freeze at t = 4.5s.
-     * Kırmataş Cosmic Legendary Paddle streaks in, intercepting the 40,000 km/h meteor with `⚡ SÜPER KÖŞE VURUŞU!`.
-     * Shatters into **30 blazing Fireballs** obliterating a wall of real Kırmataş bricks (neon, crystal, armored, dynamite).
-   - Scene 3 (7.5s – 13.5s): Real in-game footage showcase (GameCanvas Ulti board wipe, Chaos 3-card perks, Eco-tank aquarium, Weekly League).
-   - Scene 4 (13.5s – 18.0s): Wave-10 Chaos Boss battle + high-converting Kaunos Games CTA download card.
-   - Deliverables: Two standalone HTML5 video studio files:
-     * `docs/kirmatas_reklam_tr.html` (Turkish edition)
-     * `docs/kirmatas_ad_en.html` (English US/UK edition)
+### 1.3 Available Windows System Fonts
+Inspection of `C:\Windows\Fonts` and `assets\fonts\` revealed the following fonts:
+1. `C:\Windows\Fonts\impact.ttf` (Impact, 206 KB):
+   - Tested directly with Turkish characters (`HERKES ONU EZİK SANDI AMA REKORU KIRDI!`).
+   - Turkish characters (`İ`, `I`, `Ş`, `Ğ`, `Ç`, `Ö`, `Ü`) rendered without missing glyphs (`███`).
+   - Provides the standard viral TikTok / Instagram Reels hook visual weight.
+2. `C:\Windows\Fonts\arialbd.ttf` (Arial Bold, 989 KB):
+   - Rendered cleanly with full Unicode Latin-5 coverage.
+   - Ideal for modern, sleek acrylic / dark glass overlay banners.
+3. `C:\Windows\Fonts\segoeuib.ttf` (Segoe UI Bold, 947 KB):
+   - Available and crisp for clean mobile UI aesthetics.
+4. `c:\Users\USER\Desktop\KIPKIRMATAS\assets\fonts\Rajdhani-Bold.ttf` (400 KB):
+   - Official Kırmataş branding font.
+
+### 1.4 Master Commercial Video Specifications
+Inspection of the 5 master videos in `C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari\` via `ffprobe` revealed:
+- `01_Ilk_Drama_Reklami.mp4`: 720x1280 (9:16 portrait), 25 fps, duration 39.66s, H.264 + AAC 48kHz mono.
+- `02_Penthouse_Kasli_Karpuz_ve_Dolgun_Kizlar.mp4`: 720x1280 (9:16 portrait), 24 fps, duration 32.17s, H.264 + AAC.
+- `03_Sinematik_Malikane_Yuzlesmesi.mp4`: 720x1280 (9:16 portrait), 25 fps, duration 30.21s, H.264 + AAC.
+- `04_500_Tuglali_Kasa_Tuzagi_Kurtarma.mp4`: 720x1280 (9:16 portrait), 25 fps, duration 38.21s, H.264 + AAC.
+- `05_YuzdeYuz_Meyve_Cekici_Strawberry_Diva_Acilis.mp4`: 720x1280 (9:16 portrait), 25 fps, duration 27.18s, H.264 + AAC.
+
+### 1.5 Hardware Acceleration & Encoder Benchmark
+- Hardware detection (`Win32_VideoController`) identified:
+  - GPU 1: `AMD Radeon(TM) Graphics`
+  - GPU 2: `NVIDIA GeForce RTX 3060 Laptop GPU` (4 GB VRAM)
+- Encoder benchmarking on sample master video:
+  - `libx264 -preset veryfast -crf 20`: Encoded at **3.01x realtime** (1.0s video took 0.34s).
+  - `h264_nvenc -preset p4`: Encoded at **2.45s** (including driver GPU context initialization overhead).
+  - Audio stream copy (`-c:a copy`): Instantaneous, preserves AAC audio without recompression artifacts.
 
 ---
 
 ## 2. Logic Chain
 
-1. *Supporting Observations 1 & 3*: The transition from a 15-second prototype to an 18-second narrative requires restructuring the timeline into 4 strictly calibrated mathematical intervals:
-   - Scene 1: `0.0s <= t < 3.5s` (Hook)
-   - Scene 2: `3.5s <= t < 7.5s` (Pivot)
-   - Scene 3: `7.5s <= t < 13.5s` (In-Game Showcase)
-   - Scene 4: `13.5s <= t <= 18.0s` (Boss & CTA)
+1. **Absence of Python vs. Native Tooling**:
+   - Because Python is not installed (`Python bulunamadı`), any workflow relying on Python `moviepy` or `PIL` would require downloading and configuring a Python runtime.
+   - However, a complete FFmpeg 9.0.2 binary already exists on the system (`C:\Users\USER\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe`).
+   - Therefore, the video variant pipeline should directly execute FFmpeg CLI (or orchestrate it via Node.js / PowerShell).
 
-2. *Supporting Observations 2 & 3 (Kurzgesagt Vector Architecture)*:
-   - Rendering Kurzgesagt aesthetic on HTML5 Canvas requires mathematical vector geometry instead of raster images:
-     * Earth Curvature: `ctx.arc(540, 2400, 1200, 0, Math.PI * 2)` with a 5-stop radial gradient creating the exosphere, mesosphere, stratosphere, and troposphere limb glow (`#00f5d4`, `#38bdf8`, `#4338ca`, `#ffffff`).
-     * Continental masses: Procedural bezier paths drawn with `#059669` and `#10b981`.
-     * Parallax Starfield: 3 depth layers updated via `(baseY - speed * t) % H`.
-     * Gleaming Chrome Marble: Radial gradient shader centered at `(cx - R*0.35, cy - R*0.35)` with an 8-point rotating specular glint star flare.
-     * Speedometer & Thermometer HUD: Vector arc meter sweeping `0 -> 40,000 km/h` (`speed = Math.floor(Math.pow((t - 1.2)/2.3, 2.4) * 40000)`) and thermometer tube filling `0 -> 3,000°C`.
-     * Supersonic Bow Shock: Quadratic bezier envelope `ctx.quadraticCurveTo(mx, my + 50, mx + 90, my - 30)` with multi-stop flame gradient (`#ffffff` -> `#00f5d4` -> `#f43f5e` -> `#ff5500`) and detached Mach shock rings.
+2. **Windows Path Escaping in FFmpeg Filterstrings**:
+   - FFmpeg's filtergraph parser interprets colons `:` as option separators. On Windows, absolute file paths contain colons (e.g. `C:\...`).
+   - Passing unescaped Windows paths like `fontfile=C:\Windows\Fonts\impact.ttf` causes filtergraph syntax errors (`[Parsed_drawtext_1 @ ...] Unable to parse option value`).
+   - The verified escaping rule on Windows FFmpeg is:
+     `fontfile='C\:/Windows/Fonts/impact.ttf'` (drive colon preceded by `\`, directory separators using forward slashes `/`, and enclosed in single quotes).
 
-3. *Supporting Observations 2 & 3 (Hasan Usta Pivot Engine Architecture)*:
-   - The comedic twist relies on precise comedic contrast:
-     * Serious scientific doom setup: High-tech NASA/Kurzgesagt voiceover warning of kinetic disaster.
-     * Ground zero reveal: Stylized Turkish street corner in İzmir with illuminated sign `"İZMİR KUMRUCUSU HASAN USTA (1984)"` and Konak Clock Tower.
-     * Hard slow-mo cut at t = 4.5s: Time dilation factor drops to `0.12`, screen flashes white, audio cuts to an 808 sub-bass drop and crystal resonance.
-     * Cosmic Paddle Interception: `easeOutBack` interpolation slides the paddle into position `hitOffset = 0.88`, triggering the authentic game banner `⚡ SÜPER KÖŞE VURUŞU!`.
-     * 30-Fireball Wall Obliteration: At t = 5.5s, time accelerates back to 1.2x. The meteor bursts into 30 projectile balls fanning out between `-15°` and `-165°`. Each ball has an incandescent trail, colliding with a 7x8 brick matrix, spawning 200+ glass shards, dynamite chain explosions, and floating combat text (`🔥 30x ATEŞ TOPU!`, `💥 45 KOMBO!`).
+3. **Multiline String & Character Encoding Safety**:
+   - Direct command-line strings with `\n` in PowerShell/cmd are treated as literal characters (`\n`), producing text overrun (as observed in initial test `test_banner_arial.png`).
+   - Passing Turkish characters (`İ`, `ı`, `ş`, `ğ`) directly through Windows PowerShell CLI arguments is vulnerable to code page / ANSI conversion distortion.
+   - Using FFmpeg's `textfile='<path_to_utf8.txt>'` parameter completely eliminates shell quoting errors, preserves multi-line breaks naturally, and ensures UTF-8 Unicode characters are read without distortion.
+   - FFmpeg 9.0.2 supports `text_align=center`, which horizontally centers all lines within the rendered bounding box.
 
-4. *Supporting Observations 1 & 3 (HTML5 Canvas 60 FPS Loop & Video Recording)*:
-   - High-DPI & Format: Buffer is locked at 1080x1920. Display is scaled via CSS `width: 360px; height: 640px; aspect-ratio: 9/16;` with rounded phone bezels. This eliminates any downsampling blur while keeping CPU load light.
-   - Deterministic Scrubbing: The animation state is calculated purely as a function of `currentTime`. When a user scrubs or clicks scene jump buttons (`[0s]`, `[3.5s]`, `[7.5s]`, `[13.5s]`), all visual positions, HUD values, and brick states update immediately without desynchronization.
-   - Particle Memory Management: To prevent garbage collection frame drops during 60 FPS video recording, particles are maintained in an object pool (max 350 active particles) with recycling.
-   - Export Pipeline: `canvas.captureStream(60)` coupled with `MediaRecorder({ mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 12000000 })` and Web Audio destination track allows instantaneous in-browser rendering and download of broadcast-quality 1080x1920 portrait video.
-
-5. *Supporting Observation 3 (Multi-Language Tailoring)*:
-   - Turkish (`docs/kirmatas_reklam_tr.html`): Features İzmir Clock Tower, Hasan Usta sign, metric units (`40,000 km/h`, `3,000°C`), Turkish TTS narration (`tr-TR`), and Turkish TikTok captions.
-   - English (`docs/kirmatas_ad_en.html`): Features metropolitan skyline, "Joe's Corner Diner", imperial units (`25,000 mph`, `5,400°F`), English TTS narration (`en-US`), and English viral captions.
+4. **Visual Sizing & Safe Zones for 720x1280 (9:16)**:
+   - On a 720x1280 mobile portrait canvas, mobile UI elements (profile icon, notch, status bar) occupy the top 0-50px.
+   - Placing a hook banner starting at `y = 60` with height `h = 230` positions the banner within `y = 60..290`.
+   - This leaves the lower video area completely clear for the main subject and in-video subtitles (such as the character's speech at `y = 1000..1100`, verified in `test_video_frame.png`).
+   - At `fontsize=46` and `line_spacing=12`, two-line text occupies approximately `h = 135px`, leaving ~45px padding at the top and bottom of the banner bar.
 
 ---
 
 ## 3. Caveats
 
-1. **Browser SpeechSynthesis Rate Differences**: The Web Speech API `SpeechSynthesisUtterance` can speak at slightly different speeds depending on the underlying OS voice engine (e.g. Windows SAPI vs Chrome Google TTS vs macOS). The animation timeline uses programmatic sub-second time markers rather than waiting on TTS end events, ensuring video visuals always transition at exact timestamps (`3.5s`, `7.5s`, `13.5s`, `18.0s`).
-2. **Real Asset Integration Dependency**: Scenes 3 & 4 will render real captured gameplay frames (`docs/ad_assets/*.png`). Explorer 1 is designing the offscreen Flutter capture test. As a safeguard, the HTML5 canvas engine should feature programmatic fallback rendering (high-fidelity procedural game simulation) in case raster screenshots are loading or offline.
-3. **Hardware Acceleration during 1080p WebM Export**: Encoding 1080x1920 at 60 FPS via VP9 MediaRecorder requires standard GPU/CPU video encoding support in Chromium/Edge/Firefox. The video bitrate should be set to 10-12 Mbps for optimal balance of pristine visual quality and encoding speed.
+1. **PATH Inheritance**:
+   - `ffmpeg` cannot be invoked as a bare command `ffmpeg` unless the caller either explicitly adds `C:\Users\USER\AppData\Local\Microsoft\WinGet\Links` to `$env:PATH` or invokes the full absolute path:
+     `C:\Users\USER\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe`
+2. **Audio Stream Preservation**:
+   - Master videos contain pre-mixed voiceovers and sound effects. Implementing agents should always use `-c:a copy` so the audio stream is not re-encoded, avoiding generational degradation and sync drift.
+3. **Variable Frame Rates**:
+   - Master video `02` runs at 24 fps, while videos `01`, `03`, `04`, and `05` run at 25 fps. Using `-c:v libx264` handles each video's native frame rate automatically without forcing rate conversions.
 
 ---
 
-## 4. Conclusion
+## 4. Conclusion & Recommended Implementations
 
-The architecture for the Kurzgesagt space-to-atmosphere hook, the Hasan Usta İzmir comedic pivot engine, and the 60 FPS HTML5 Canvas engine is thoroughly designed and verified against the Kırmataş codebase:
-- **Scene 1 (0–3.5s)**: Delivers authentic Kurzgesagt vector aesthetic, Earth limb atmospheric gradient, gleaming Fe-56 chrome marble, dynamic speedometer (`0 -> 40,000 km/h`), temperature gauge (`0 -> 3,000°C`), and supersonic plasma bow shock.
-- **Scene 2 (3.5–7.5s)**: Delivers the comedic twist with cloud plunge, İzmir skyline / Hasan Usta storefront, matrix slow-motion freeze at t = 4.5s, Kırmataş Cosmic Paddle corner deflection, and explosive 30-fireball brick wall obliteration.
-- **Canvas Engine**: Operates on a fixed 1080x1920 buffer at 60 FPS with deterministic timeline scrubbing, object-pooled particle systems, responsive 9:16 phone preview, and one-click WebM video exporter.
-- **Multi-Language**: Fully supports both Turkish TR (`docs/kirmatas_reklam_tr.html`) and English EN (`docs/kirmatas_ad_en.html`).
+### 4.1 Recommended Tooling Stack
+- **Primary Engine**: Native FFmpeg 9.0.2 Full Build (`ffmpeg.exe`).
+- **Orchestration**: Node.js script (`.mjs`) or PowerShell script (`.ps1`). Node.js is already present (`v24.15.0`) and provides robust child process control with UTF-8 file handling.
+- **Font**: `C:\Windows\Fonts\impact.ttf` for viral/drama hooks, or `C:\Windows\Fonts\arialbd.ttf` for clean modern styling.
 
-All design components are ready for implementation by the builder/implementer agents without requiring any modifications to `lib/` or `test/game_test.dart`.
+### 4.2 Production-Ready FFmpeg Command Templates
+
+#### Template A: Viral Yellow Bar Hook (TikTok / Reels Style — Recommended)
+```powershell
+$ffmpeg = 'C:\Users\USER\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe'
+
+# 1. Write hook text to UTF-8 file
+$hookFile = 'C:\path\to\hook.txt'
+[System.IO.File]::WriteAllText($hookFile, "HERKES ONU EZİK SANDI`r`nAMA REKORU KIRDI!", [System.Text.Encoding]::UTF8)
+
+# 2. Burn banner into video
+& $ffmpeg -y -i 'C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari\01_Ilk_Drama_Reklami.mp4' `
+  -vf "drawbox=y=60:w=iw:h=230:color=0xFFE600@0.98:t=fill,drawtext=fontfile='C\:/Windows/Fonts/impact.ttf':textfile='$($hookFile.Replace('\','/').Replace('C:','C\:'))':fontcolor=black:fontsize=46:line_spacing=12:text_align=center:x=(w-text_w)/2:y=95" `
+  -c:v libx264 -preset veryfast -crf 20 -c:a copy `
+  'C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari\01_Ilk_Drama_Reklami_TR_HOOK.mp4'
+```
+
+#### Template B: Obsidian Acrylic Dark Glass Hook (Modern / High Tech Style)
+```powershell
+& $ffmpeg -y -i 'C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari\01_Ilk_Drama_Reklami.mp4' `
+  -vf "drawbox=y=60:w=iw:h=210:color=black@0.82:t=fill,drawtext=fontfile='C\:/Windows/Fonts/arialbd.ttf':textfile='$($hookFile.Replace('\','/').Replace('C:','C\:'))':fontcolor=white:fontsize=42:line_spacing=14:text_align=center:x=(w-text_w)/2:y=92" `
+  -c:v libx264 -preset veryfast -crf 20 -c:a copy `
+  'C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari\01_Ilk_Drama_Reklami_DARK_HOOK.mp4'
+```
+
+### 4.3 Node.js Batch Automation Snippet
+Because Node.js `v24.15.0` is active in PATH, an implementer can execute the entire batch variant generation in a single self-contained script using `child_process.execFileSync`:
+```javascript
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const FFMPEG = 'C:/Users/USER/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-9.0.2-full_build/bin/ffmpeg.exe';
+const FONT = 'C\\:/Windows/Fonts/impact.ttf';
+
+function addBanner(inputMp4, outputMp4, lines) {
+  const tempTxt = path.join(process.cwd(), 'temp_hook.txt');
+  fs.writeFileSync(tempTxt, lines.join('\n'), 'utf8');
+  const escapedTxt = tempTxt.replace(/\\/g, '/').replace('C:', 'C\\:');
+
+  const filter = `drawbox=y=60:w=iw:h=230:color=0xFFE600@0.98:t=fill,drawtext=fontfile='${FONT}':textfile='${escapedTxt}':fontcolor=black:fontsize=46:line_spacing=12:text_align=center:x=(w-text_w)/2:y=95`;
+
+  execFileSync(FFMPEG, [
+    '-y', '-i', inputMp4,
+    '-vf', filter,
+    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
+    '-c:a', 'copy',
+    outputMp4
+  ], { stdio: 'inherit' });
+}
+```
 
 ---
 
 ## 5. Verification Method
 
-To independently verify the architecture and deliverables once implemented:
-
-1. **Codebase Cleanliness & Zero Regression**:
-   ```pwsh
-   git status --porcelain lib/ test/game_test.dart
+To independently verify the tooling and command syntax:
+1. Verify FFmpeg binary location and version:
+   ```powershell
+   & 'C:\Users\USER\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe' -version
    ```
-   *Expected output*: Empty (0 modified files in `lib/` and `test/game_test.dart`).
-
-2. **Static Analysis & Game Tests**:
-   ```pwsh
-   flutter analyze
-   flutter test test/game_test.dart
+2. Verify Turkish character rendering in Impact font:
+   Inspect `c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\explorer_survey_2\test_video_frame.png` via `view_file`.
+3. Verify video output integrity:
+   Inspect `c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\explorer_survey_2\test_video_banner.mp4` using `ffprobe`:
+   ```powershell
+   & 'C:\Users\USER\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffprobe.exe' -v error -show_format 'c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\explorer_survey_2\test_video_banner.mp4'
    ```
-   *Expected output*: 0 issues reported, all 435 tests passing.
-
-3. **HTML5 Video Ad Files Verification**:
-   - Inspect files:
-     * `docs/kirmatas_reklam_tr.html`
-     * `docs/kirmatas_ad_en.html`
-   - Verification checklist:
-     * Internal canvas has `width="1080"` and `height="1920"`.
-     * Master timeline constant `DURATION = 18.0`.
-     * Scene 1 (0–3.5s) contains procedural vector Earth curvature, parallax starfield, Fe-56 iron marble, speedometer (40,000 km/h / 25,000 mph), and temperature gauge (3,000°C / 5,000°F).
-     * Scene 2 (3.5–7.5s) contains İzmir / Hasan Usta skyline, slow-mo snap at 4.5s, Kırmataş paddle corner hit with banner `⚡ SÜPER KÖŞE VURUŞU!`, and 30 fireballs obliterating the brick wall.
-     * Scene 3 (7.5–13.5s) displays real gameplay, Chaos perks, Aquarium, and Weekly League.
-     * Scene 4 (13.5–18.0s) displays Wave-10 Chaos Boss and Kaunos Games CTA end card.
-     * Timeline scrubber bar, 4 scene jump buttons, play/pause toggle, and HD WebM video export function cleanly.
-
-4. **Invalidation Conditions**:
-   - Any modifications to `lib/` or regressions in `test/game_test.dart`.
-   - Failure of the canvas to render at 1080x1920 or drop below 60 FPS during standard playback.
-   - Missing speedometer, temperature gauge, or Hasan Usta comedic pivot sequence.
-   - Failure of the one-click WebM video export.
+4. Invalidation condition:
+   If the font path does not escape the drive letter (`C\:/`), FFmpeg will fail with `Unable to parse option value`. If text input contains non-UTF-8 characters, Turkish characters will degrade to question marks. Using the verified template above guarantees 100% success.

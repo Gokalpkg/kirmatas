@@ -1,203 +1,224 @@
-# Handoff Report — Explorer 3: WebM HD Exporter, Audio & Multi-Language Voiceover Specialist
+# Handoff Report — Explorer 3: Video Packaging & Hook Design Specification
+
+## Executive Summary
+This report delivers the complete survey of destination directories, empirical video stream measurements, viral hook overlay design strategy (Underdog / Hidden Power themes in Turkish and English), and the exact architectural specification for `README_VIDEOLAR.md` for the mobile game **Kırmataş** (`com.kaunos.kirmatas`).
+
+---
 
 ## 1. Observation
 
-### 1.1 Installed System Speech Voices & Synthesis Capabilities
-- **Direct Observation**: Executed query against `System.Speech.Synthesis.SpeechSynthesizer` in PowerShell 7:
-  - Installed Voices:
-    - `Microsoft Tolga` (`tr-TR`, Male) — Highly articulate, lively Turkish male voice, optimal for the Hasan Usta comedic pivot.
-    - `Microsoft George` (`en-GB`, Male) — Refined British narrator tone, optimal for Kurzgesagt-style thought experiments.
-    - `Microsoft Zira Desktop` (`en-US`, Female) & `Microsoft Hazel` (`en-GB`, Female) — Alternative US/UK narrator voices.
-  - Direct Wave Stream Synthesis: Tested `synth.SetOutputToWaveStream(memoryStream)` with both `Microsoft Tolga` and `Microsoft George`. Confirmed instant generation of clean 16-bit 44.1 kHz PCM `.wav` streams (e.g. 69 KB – 400 KB per scene).
-  - Pacing Analysis: Normal SAPI rate (`Rate = 0`) yields 8–11s per paragraph. By condensing copy to punchy 10–14 word phrases and applying `Rate = 2` (or Web Speech API `rate = 1.25`), each scene voiceover fits within its designated timeline:
-    - Scene 1: 0.0s – 3.5s (3.5s budget)
-    - Scene 2: 3.5s – 7.5s (4.0s budget)
-    - Scene 3: 7.5s – 13.5s (6.0s budget)
-    - Scene 4: 13.5s – 18.0s (4.5s budget)
+### 1.1 Target Destination Directory Inspection
+Direct inspection of `C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari` and subfolders:
+- **Root Directory**: `C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari` exists.
+- **Master Files**: Contains exactly **5 master MP4 files**, all valid, playable, high-bitrate vertical videos (>1MB, ranging from 7.74 MB to 30.78 MB).
+- **Scenes Directory**: `C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari\Scenes` does **NOT** exist yet. It must be created (`mkdir`) during Milestone 2 to house the individual scene clips.
 
-### 1.2 Sound Effects & Audio Assets in `assets/audio/`
-- **Direct Observation**: Examined all 41 audio files in `c:\Users\USER\Desktop\KIPKIRMATAS\assets\audio\`:
-  - `cam_kirilma.mp3` — 25,389 bytes (Glass break / screen crack impact)
-  - `glass_shatter.mp3` — 25,389 bytes (Glass shatter resonance)
-  - `custom_laser.wav` — 22,094 bytes (Cosmic laser beam / Ulti lightning wipe)
-  - `custom_explosion.wav` — 44,144 bytes (Heavy fireball / boss explosion)
-  - `custom_bounce.wav` — 8,864 bytes (Paddle deflection / corner hit impact)
-  - Total combined raw size of the 5 core SFX: **125,880 bytes (~123 KB)**.
-  - Total base64 string length: **167,844 characters (~167 KB)**.
-  - `bgm.wav` — 14,725,608 bytes (44.1 kHz 16-bit mono PCM, 166.9 seconds). An 18.2s slice corresponds to exactly 1,605,240 bytes (~1.6 MB).
-  - Additional SFX available: `bubble2.mp3`/`bubble3.mp3` (Aquarium bubbles, 25 KB), `chip1.mp3`/`chip2.mp3` (Gold coins/chips, 25 KB), `digital_explo1.mp3` (Digital blast, 49 KB).
+### 1.2 Master Video Empirical Metadata Table
+Measured directly via FFprobe (`ffprobe version 9.0.2-full_build`):
 
-### 1.3 In-Game Visual & Font Assets
-- **Direct Observation**:
-  - Logo: `assets/images/kaunos_games.png` (verified high-res corporate identity for end card).
-  - Fishes: `assets/images/fishes/` (18 fish PNGs including `arowana_red.png`, `discus_blue.png`, `angel_ruby.png`).
-  - Skills: `assets/images/skills/` (24 skill icons including `fireball.png`, `multi.png`, `lightning.png`, `laser.png`).
-  - Typography: `assets/fonts/` contains `Rajdhani-Bold.ttf`, `Rajdhani-SemiBold.ttf`, `Rajdhani-Medium.ttf`, `Rajdhani-Regular.ttf`.
+| # | Master File Name | File Size (Bytes) | Size (MB) | Duration (s) | Resolution | Aspect Ratio | FPS | Video Codec | Audio Codec | Bitrate |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **01** | `01_Ilk_Drama_Reklami.mp4` | 10,982,778 | 10.47 MB | 39.66s | 720x1280 | 9:16 | 25.0 fps | H.264 (High) | AAC (44.1kHz stereo) | 2,215 kb/s |
+| **02** | `02_Penthouse_Kasli_Karpuz_ve_Dolgun_Kizlar.mp4` | 32,279,715 | 30.78 MB | 32.17s | 720x1280 | 9:16 | 24.0 fps | H.264 (High) | AAC (48.0kHz stereo) | 8,028 kb/s |
+| **03** | `03_Sinematik_Malikane_Yuzlesmesi.mp4` | 8,507,066 | 8.11 MB | 30.21s | 720x1280 | 9:16 | 25.0 fps | H.264 (High) | AAC (44.1kHz stereo) | 2,253 kb/s |
+| **04** | `04_500_Tuglali_Kasa_Tuzagi_Kurtarma.mp4` | 11,097,041 | 10.58 MB | 38.21s | 720x1280 | 9:16 | 25.0 fps | H.264 (High) | AAC (44.1kHz stereo) | 2,324 kb/s |
+| **05** | `05_YuzdeYuz_Meyve_Cekici_Strawberry_Diva_Acilis.mp4` | 8,116,701 | 7.74 MB | 27.18s | 720x1280 | 9:16 | 25.0 fps | H.264 (High) | AAC (44.1kHz stereo) | 2,389 kb/s |
 
-### 1.4 Existing Prototype & MediaRecorder Limitations
-- **Direct Observation**: Inspected `docs/kirmatas_turkce_reklam.html` (906 lines):
-  - Canvas 1080x1920 with `captureStream(60)`.
-  - MediaRecorder records `stream.addTrack(audioDest.stream.getAudioTracks()[0])`.
-  - **Critical Browser Architecture Finding**: In standard browser Web Speech API (`window.speechSynthesis`), audio is dispatched directly to the OS audio output device. It does **NOT** flow through `AudioContext` or `MediaStreamAudioDestinationNode`. If an exporter only captures `audioDest`, synthesized speech will be heard during preview on speakers but will be **completely silent** in the downloaded `.webm` video unless pre-rendered audio buffers are loaded into `AudioContext`!
+### 1.3 Video Content & Visual Storyline Inspection
+Using FFmpeg frame extraction (`-vframes 1`) and image analysis across timeline points (05s, 15s, 25s, end), the content of the 5 videos was cataloged:
+1. **01_Ilk_Drama_Reklami.mp4 (Penthouse Drama & Betrayal)**:
+   - *Characters*: Strawberry Diva (angry, luxury red gown, pearl necklace, giant strawberry headdress) vs. Watermelon Girl (lush green wavy hair, watermelon bikini, smug expression).
+   - *Setting*: Ultra-modern penthouse living room with pool vista.
+   - *Narrative*: Strawberry Diva rages that her status was ruined; Watermelon Girl enters calmly, showing her mobile phone and boasting about her wealth from Kırmataş.
+   - *Existing burn-in*: Bottom dialogue subtitles in English ("destroyed", "flag!", "Because last", "Kirmatas for free").
+2. **02_Penthouse_Kasli_Karpuz_ve_Dolgun_Kizlar.mp4 (Mythic Relics & Ancient Energy)**:
+   - *Characters*: Muscular Watermelon King, Peach Goddess in sparkling green bikini on a bioluminescent mushroom dock, tree etched with glowing ancient runes, and human red-haired maiden before a glowing relic idol.
+   - *Setting*: Enchanted rolling green hills, fairy lake pier, mystic woodland, luxury palace stairway.
+   - *Narrative*: Epic world-building and forbidden brick-breaking relics that only veteran players can unlock.
+3. **03_Sinematik_Malikane_Yuzlesmesi.mp4 (Poolside Mansion Confrontation)**:
+   - *Characters*: Strawberry Diva confronting muscular Pineapple Chad relaxing on a poolside lounger, joined by ecstatic Watermelon Girl.
+   - *Setting*: Sunny tropical villa pool with palm trees and flowers.
+   - *Narrative*: Strawberry Diva demands respect, but Pineapple Chad and Watermelon Girl laugh off her complaints, flexing that true status comes from leaderboard supremacy in Kırmataş.
+4. **04_500_Tuglali_Kasa_Tuzagi_Kurtarma.mp4 (500-Brick Vault Trap & Rescue)**:
+   - *Characters*: Strawberry damsel trapped on her knees inside a reinforced bank vault with gold bullion stacks and red laser security; Peach girl outside laughing on her smartphone; Juggernaut Watermelon hero arriving to smash the vault open.
+   - *Setting*: Underground bank vault sealed with unbreakable 500-brick reinforced doors.
+   - *Narrative*: Impossible level rescue dilemma. Only a player with Level 999 brick-smashing power can break through the 500 bricks to rescue the captive.
+5. **05_YuzdeYuz_Meyve_Cekici_Strawberry_Diva_Acilis.mp4 (Rags to Riches / Empire Takeover)**:
+   - *Characters*: Strawberry Diva weeping in gilded palace ballroom ("I AM RUINED!"), transitioning to Watermelon Diva taking over the entire estate and swimming pool ("This luxury is mine now!").
+   - *Setting*: Baroque palace ballroom to sunny luxury resort estate.
+   - *Narrative*: Complete reversal of fortune. The snobbish queen loses everything while the underdog ascends to total ownership in a single night of record-breaking gameplay.
+
+### 1.4 System Environment & Rendering Capabilities
+- **FFmpeg**: `v9.0.2-full_build` installed at `C:\Users\USER\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe`. Includes `libfreetype`, `libfribidi`, `libharfbuzz`, `libx264`.
+- **Node.js**: `v24.15.0` active in PATH.
+- **Fonts Available**:
+  - `C:\Windows\Fonts\arialbd.ttf` (Arial Bold — full Turkish UTF-8 character support verified).
+  - `C:\Windows\Fonts\impact.ttf` (Impact — classic meme/hook font).
+  - `c:\Users\USER\Desktop\KIPKIRMATAS\assets\fonts\Rajdhani-Bold.ttf` (Authentic Kırmataş in-game font).
+- **Empirical Test**: A test banner overlay with full Turkish character support (`GİZLİ 999. SEVİYE GÜCÜNÜ KİMSE BİLMİYORDU!`) was rendered onto frame 1 (`test_tr_node.jpg`) and visually confirmed with zero artifacting, crisp anti-aliasing, and perfect positioning.
 
 ---
 
 ## 2. Logic Chain
 
-### 2.1 WebM HD Exporter (1080x1920 @ 60 FPS) Architecture
-- **Step 1: Canvas Surface & High-DPI Rendering**
-  - Canvas internal dimensions set to `width="1080" height="1920"`.
-  - Display CSS configured as `style="width: 270px; height: 480px;"` (or responsive 9:16 aspect ratio container).
-  - Drawing context `ctx.imageSmoothingEnabled = true` with `imageSmoothingQuality = 'high'`.
-- **Step 2: Stream Capture & Track Merging**
-  - `const canvasStream = canvas.captureStream(60);`
-  - `const audioTracks = audioDest.stream.getAudioTracks();`
-  - To prevent `InvalidModificationError` across browser engines, instantiate a combined stream:
-    ```javascript
-    const exportStream = new MediaStream([
-      ...canvasStream.getVideoTracks(),
-      ...audioDest.stream.getAudioTracks()
-    ]);
-    ```
-- **Step 3: Codec Negotiation & Bitrate Configuration**
-  - Priority list:
-    1. `video/webm;codecs=vp9,opus`
-    2. `video/webm;codecs=vp9`
-    3. `video/webm;codecs=vp8,opus`
-    4. `video/webm`
-  - Bitrate: Set `videoBitsPerSecond: 12000000` (12 Mbps) and `audioBitsPerSecond: 192000` (192 kbps).
-  - 12 Mbps produces ~27 MB for 18 seconds, guaranteeing zero macroblocking during multi-ball explosions.
-- **Step 4: Real-Time 18.0s Synchronous Export Loop**
-  - Recorder configured with `mediaRecorder.start(250)` (250ms chunk interval).
-  - Interactive playback controls disabled; export progress indicator pulses: `🔴 Kaydediliyor... %45 (08.1s / 18.0s)`.
-  - At `currentTime >= 18.0`, `mediaRecorder.stop()` triggers.
-  - Blob generated and downloaded as `kirmatas_reklam_tr.webm` (TR) or `kirmatas_ad_en.webm` (EN).
+1. **Observation 1.1 & 1.2**: All 5 master MP4 files exist in `C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari`, are 720x1280 (9:16 vertical), and range between 27.18s and 39.66s.
+   - *Inference*: No re-encoding of base dimensions is needed; preserving native 720x1280 guarantees zero pixel stretching, optimal rendering speed, and standard mobile feed delivery.
 
-### 2.2 Web Audio API Sound Pipeline & Voice Ducking
-- **Step 1: Audio Graph Topology**
-  ```
-  [ SFX Buffers (5) ] ──> [ sfxGain (0.85) ] ─────┐
-                                                   ├──> [ masterGain (1.0) ] ──┬──> audioCtx.destination (Speakers)
-  [ Voiceover Buffers ] ─> [ voiceGain (1.0) ] ────┤                           └──> audioDest (MediaStreamDestination)
-                                                   │
-  [ BGM Loop / Synth ] ──> [ bgmGain (0.35/0.10) ] ─┘
-  ```
-- **Step 2: Dynamic BGM Ducking Under Voiceover**
-  - Default BGM gain: `0.35`.
-  - When voiceover triggers:
-    ```javascript
-    function setVoiceoverDucking(active) {
-      if (!audioCtx) return;
-      const now = audioCtx.currentTime;
-      const target = active ? 0.10 : 0.35;
-      bgmGain.gain.cancelScheduledValues(now);
-      bgmGain.gain.linearRampToValueAtTime(target, now + 0.20);
-    }
-    ```
-  - Reduces BGM by 71% during active narration, then smoothly restores volume during dramatic SFX moments (such as the t=3.5s Corner Hit and t=13.5s Boss Alarm).
-- **Step 3: Polyphonic SFX Scheduling on Exact Timestamps**
-  - t = 0.0s – 1.8s: Deep space hum (55 Hz sine tone) + subtle cosmic arpeggio.
-  - t = 1.8s – 3.5s: Atmospheric re-entry plasma hiss (`playNoiseBurst`) + accelerating pitch sweep.
-  - t = 3.5s: Time-freeze slow-mo pulse + heavy corner bounce (`custom_bounce.wav`) + glass crack (`cam_kirilma.mp3`) + sub-bass kick (42 Hz).
-  - t = 4.2s: Rapid 30-ball burst (`custom_explosion.wav` + metallic impacts).
-  - t = 7.5s: Screen-clearing Ulti Lightning strike (`custom_laser.wav` + `digital_explo1.mp3`).
-  - t = 9.5s: Roguelike perk card selection chime (`ui_c4.mp3`).
-  - t = 11.5s: Zen aquarium bubble ambience (`bubble2.mp3`) + gold coins (`chip1.mp3`).
-  - t = 13.5s: Wave-10 Chaos Boss klaxon alarm (dual-tone 440 Hz / 587 Hz pulse).
-  - t = 15.0s: Boss armor shatter composite explosion (`custom_explosion.wav` + `glass_shatter.mp3`).
-  - t = 17.0s – 18.0s: Victory cadence chord + CTA shimmer.
+2. **Observation 1.3**: Existing dialogue subtitles ("destroyed", "Kirmatas for free") are hardcoded at the bottom of the frame (Y ≈ 1000px to 1150px).
+   - *Inference*: Any new viral hook banner MUST be positioned in the top 15% safe area (Y ≈ 60px to 220px). This prevents visual collision with bottom subtitles and aligns with TikTok/Reels UI standards where the top-center is the primary visual hook anchor.
 
-### 2.3 Multi-Language Voiceover Scripts & Synchronization
-- **TR Edition (`docs/kirmatas_reklam_tr.html`):**
-  - Persona: High-energy, humorous Turkish mobile gamer with authentic Hasan Usta / Sanayi twist.
-  - Timeline & Copy:
-    - **Scene 1 (0.0s – 3.5s):**
-      *"Uzaydan Dünya'ya demir bilye bıraksan ne olur? Saatte 40 bin kilometre hız ve 3 bin derece ısı!"*
-    - **Scene 2 (3.5s – 7.5s):**
-      *"Krater mi açacak? HAYIR! Aşağıda Hasan Usta süper köşe vuruşuyla 30 ateş topuna böldü!"*
-    - **Scene 3 (7.5s – 13.5s):**
-      *"Ekranı tek dokunuşla silen Ulti şimşeği, 3'lü Kaos kartları ve kendi zen akvaryumun!"*
-    - **Scene 4 (13.5s – 18.0s):**
-      *"10. dalga Kaos Boss'unu geçebilir misin? Kırmataş'ı hemen ücretsiz indir, stresini sıfırla!"*
-- **EN Edition (`docs/kirmatas_ad_en.html`):**
-  - Persona: Intellectual, oddly satisfying Kurzgesagt/thought-experiment style narrator.
-  - Timeline & Copy:
-    - **Scene 1 (0.0s – 3.5s):**
-      *"What if you dropped an iron marble from space? 25,000 miles per hour at 5,000 degrees!"*
-    - **Scene 2 (3.5s – 7.5s):**
-      *"Impact crater? Not quite. The Cosmic Paddle catches it with a thirty-fireball super corner hit!"*
-    - **Scene 3 (7.5s – 13.5s):**
-      *"Screen-clearing Ultimate lightning, deep 3-card Roguelike perks, and a zen aquarium to unwind."*
-    - **Scene 4 (13.5s – 18.0s):**
-      *"Can you survive the Wave-10 Chaos Boss? Download Kırmataş free on Google Play today!"*
+3. **Observation 1.3**: The 5 videos strictly revolve around high-stakes soap-opera mobile drama: Underdog triumphs, sudden wealth flips, hidden Level 999 strength, and impossible 500-brick vault puzzles.
+   - *Inference*: The viral hook text overlay strategy must directly amplify these exact narrative beats using high-dopamine bilingual copywriting (Turkish & English) tailored for social media conversion.
 
-### 2.4 Dynamic Animated TikTok / Reels Subtitle Captions
-- Positioned in lower third (`y = 1600` on 1920-height canvas).
-- Word-by-word timing engine tracking `currentTime`.
-- Word Styling:
-  - Font: `900 58px "Rajdhani", "Montserrat", system-ui, sans-serif`.
-  - Outline: `ctx.strokeStyle = '#000000'; ctx.lineWidth = 14; ctx.lineJoin = 'round';`.
-  - Spoken Word Highlight: `#FFE600` (Yellow) / `#00F5D4` (Neon Cyan) / `#FF3366` (Magenta).
-  - Scale Punch: Active word applies `1.15x – 1.22x` bounce via `scale = 1.0 + 0.22 * Math.sin(progress * Math.PI)`.
-  - Frosted Pill Box: Semi-transparent backdrop (`rgba(0, 0, 0, 0.70)`) with neon border (`rgba(6, 182, 212, 0.5)`).
+4. **Observation 1.4**: FFmpeg with `libfreetype` and `arialbd.ttf` renders Turkish characters (Ğ, Ü, Ş, İ, Ö, Ç) flawlessly when path-escaped (`C\\:/Windows/Fonts/arialbd.ttf`) or driven via Node.js automation.
+   - *Inference*: Milestone 3 can generate all 10 social-ready hook overlay variants (5 TR + 5 EN) deterministically in seconds by copying audio (`-c:a copy`) and re-encoding only video with `-crf 18`.
+
+5. **Observation 1.1**: The `Scenes/` folder is missing.
+   - *Inference*: Worker for Milestone 2 must create `C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari\Scenes` and archive raw scene clips there.
 
 ---
 
 ## 3. Caveats
 
-1. **Browser CORS on Local `file:///` URLs:**
-   - Chrome, Edge, and Firefox block `fetch()` calls to relative local paths when opened directly from the filesystem (`file:///...`).
-   - *Mitigation*: Embed base64 data URIs for all SFX files directly into both HTML files, and provide procedural Web Audio synthesizer fallbacks. This guarantees that double-clicking the HTML file in any browser works 100% offline without needing a web server.
-2. **Web Speech API vs. WebM MediaRecorder Stream Audio:**
-   - As observed in Section 1.4, `window.speechSynthesis` outputs straight to OS audio devices and cannot be routed to `AudioContext.createMediaStreamDestination()`.
-   - *Mitigation*: Include pre-rendered 16-bit WAV voiceover buffers loaded into `AudioContext` connected directly to `audioDest`. Use `window.speechSynthesis` as a live interactive preview fallback.
-3. **Canvas Performance During High-Bitrate 1080p60 Export:**
-   - Rendering 1080x1920 at 60 FPS while encoding VP9 at 12 Mbps requires steady frame dispatch.
-   - *Mitigation*: Keep offscreen particle buffers recycling in pre-allocated arrays (object pooling), avoiding garbage-collection spikes during recording.
+1. **Audio Streams**: The existing audio tracks contain full English dialogue and background sound. Copying audio (`-c:a copy`) preserves 100% original high-fidelity audio without re-compression, but the spoken voice remains English while the hook banners provide the Turkish or English social context.
+2. **Top UI Safe Zone**: On TikTok/Shorts, the very top 40px contains status icons (battery, clock). Positioning the banner at `Y=60px` to `Y=200px` guarantees 100% readability on all Android and iOS devices.
+3. **Master Files Immutability**: The 5 original files (`01_Ilk_Drama_Reklami.mp4` through `05_YuzdeYuz_Meyve_Cekici_Strawberry_Diva_Acilis.mp4`) must NOT be overwritten. Hook variants must be created with dedicated filenames (e.g. `01_Ilk_Drama_Reklami_Hook_TR.mp4`).
 
 ---
 
-## 4. Conclusion
+## 4. Conclusion & Complete Design Specifications
 
-The browser-based 1080x1920 60 FPS WebM recording architecture, Web Audio API sound mixing pipeline, and bilingual voiceover system are fully verified and mapped.
+### 4.1 Viral Hook Overlay Specifications
 
-### Architectural Deliverables Blueprint:
-1. **`docs/kirmatas_reklam_tr.html`**:
-   - Title: *Kırmataş - Türkçe Reklam Videosu (TikTok / Reels 9:16)*
-   - Output File: `kirmatas_reklam_tr.webm` (1080x1920, 60 FPS, VP9 12 Mbps, Opus 192 kbps).
-   - Voiceover & Copy: Hasan Usta İzmir comedic twist, Turkish captions, real SFX, ducking BGM.
-2. **`docs/kirmatas_ad_en.html`**:
-   - Title: *Kırmataş - English Ad Video (TikTok / Reels / Shorts 9:16)*
-   - Output File: `kirmatas_ad_en.webm` (1080x1920, 60 FPS, VP9 12 Mbps, Opus 192 kbps).
-   - Voiceover & Copy: Kurzgesagt intellectual curiosity hook, English captions, real SFX, ducking BGM.
-3. **`docs/ad_assets/`**:
-   - Contains captured in-game PNGs, real audio assets (`cam_kirilma.mp3`, `glass_shatter.mp3`, `custom_laser.wav`, `custom_explosion.wav`, `custom_bounce.wav`, `bgm.wav`), and voiceover WAVs.
-4. **Codebase Cleanliness**:
-   - No modifications to `lib/` or `test/game_test.dart`. Zero leftover diffs.
+#### Visual Style Guide
+- **Container**: Rounded/sharp black rectangular box (`drawbox=x=30:y=60:w=660:h=130:color=black@0.85:t=fill`)
+- **Accent Border**: 3px vibrant electric yellow border (`drawbox=x=30:y=60:w=660:h=130:color=yellow@0.9:t=3`)
+- **Line 1 (The Intrigue / Setup)**:
+  - Font: `C\:/Windows/Fonts/arialbd.ttf`
+  - Color: Pure White (`#FFFFFF`)
+  - Size: 34px - 36px
+  - Alignment: Horizontally centered `x=(w-text_w)/2`, `y=78`
+- **Line 2 (The Punchline / Hidden Power)**:
+  - Font: `C\:/Windows/Fonts/arialbd.ttf`
+  - Color: High-Visibility Solar Yellow (`#FFE600`)
+  - Size: 40px - 44px
+  - Alignment: Horizontally centered `x=(w-text_w)/2`, `y=122`
+
+#### Complete Bilingual Hook Matrix (10 Variants)
+
+| Video # | Source Master File | Variant Suffix | Lang | Line 1 Text (Setup) | Line 2 Text (Punchline) | Narrative Theme |
+|---|---|---|---|---|---|---|
+| **01** | `01_Ilk_Drama_Reklami.mp4` | `_Hook_TR.mp4` | **TR** | `HERKES ONU EZİK SANDI` | `AMA REKORU KIRDI!` | Underdog Revenge & Secret Grind |
+| **01** | `01_Ilk_Drama_Reklami.mp4` | `_Hook_EN.mp4` | **EN** | `THEY THOUGHT SHE WAS BROKE...` | `UNTIL LEVEL 999 UNLOCKED!` | Rags to Riches & Secret Wealth |
+| **02** | `02_Penthouse_Kasli_Karpuz_ve_Dolgun_Kizlar.mp4` | `_Hook_TR.mp4` | **TR** | `GİZLİ 999. SEVİYE GÜCÜNÜ` | `KİMSE BİLMİYORDU!` | Ancient Mythic Relic & Forbidden Power |
+| **02** | `02_Penthouse_Kasli_Karpuz_ve_Dolgun_Kizlar.mp4` | `_Hook_EN.mp4` | **EN** | `HE WAS HIDING HIS LEVEL 999 POWER!` | `NOBODY COULD STOP HIM!` | Hidden God-Mode Awakening |
+| **03** | `03_Sinematik_Malikane_Yuzlesmesi.mp4` | `_Hook_TR.mp4` | **TR** | `SEVİYESİYLE DALGA GEÇTİLER` | `BÜTÜN MALİKANEYİ ALDI!` | Poolside Snob Confrontation Flip |
+| **03** | `03_Sinematik_Malikane_Yuzlesmesi.mp4` | `_Hook_EN.mp4` | **EN** | `THEY LAUGHED AT HIS LEVEL...` | `UNTIL HE BOUGHT THE MANSION!` | Billionaire Flex via Game High Score |
+| **04** | `04_500_Tuglali_Kasa_Tuzagi_Kurtarma.mp4` | `_Hook_TR.mp4` | **TR** | `KASAYI KİMSE AÇAMADI AMA O...` | `500 TUĞLAYI TEK VURUŞTA KIRDI!` | 500-Brick Vault Trap & Muscle Rescue |
+| **04** | `04_500_Tuglali_Kasa_Tuzagi_Kurtarma.mp4` | `_Hook_EN.mp4` | **EN** | `NOBODY BELIEVED HE COULD BEAT LEVEL 500!` | `WATCH THIS INSANE BREAKOUT!` | Impossible Puzzle Rescue Challenge |
+| **05** | `05_YuzdeYuz_Meyve_Cekici_Strawberry_Diva_Acilis.mp4` | `_Hook_TR.mp4` | **TR** | `GECE BOYU NEYİ PARÇALIYORDU?!` | `YENİ KRALİÇE TAHTI ELE GEÇİRDİ!` | Diva Ruined vs. New Queen Ascension |
+| **05** | `05_YuzdeYuz_Meyve_Cekici_Strawberry_Diva_Acilis.mp4` | `_Hook_EN.mp4` | **EN** | `WHAT WAS SHE SMASHING ALL NIGHT?!` | `FROM RUINED TO TOTAL EMPIRE!` | Midnight Grinding Empire Overhaul |
+
+---
+
+### 4.2 README_VIDEOLAR.md Specification
+The documentation file `C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari\README_VIDEOLAR.md` must follow this exact section structure:
+
+1. **Title & Package Overview**:
+   - Executive header, total asset count (5 Masters + 10 Hook Variants + Raw Scene Clips), game identity (`Kırmataş` - `com.kaunos.kirmatas`).
+2. **Master Video Catalog (Table)**:
+   - Index, Filename, Story Title, Duration (s), Size (MB), Resolution (720x1280), FPS, Codecs (H.264 / AAC), Direct CloudFront / Source URL.
+3. **Viral Hook Overlay Variants Catalog (Table)**:
+   - Index, Variant Filename, Language (TR / EN), Hook Line 1, Hook Line 2, Duration, Resolution, Optimal Platform (TikTok, Reels, Shorts).
+4. **Narrative & Storyboard Breakdown**:
+   - Deep dive into each of the 5 storylines: Character identities (Strawberry Diva, Watermelon Girl/Juggernaut, Peach Goddess, Pineapple Chad), setting, dramatic conflict, and the psychological conversion hook.
+5. **Raw Scene Clips Archive Structure (`Scenes/`)**:
+   - Explanation of individual scene splits (Intro, Conflict, Climax, CTA) preserved for post-production video editors.
+6. **Social Media & Performance Marketing Guidelines**:
+   - Recommended bidding formats, sound-on vs sound-off best practices, optimal captioning, and target CTR benchmarks (target >3.8% CTR on TikTok/Instagram Reels).
+7. **Reproduction & Verification Script**:
+   - Documented Node.js / FFmpeg command strings used to render the overlays so future variants can be generated automatically.
+
+---
+
+### 4.3 FFmpeg Batch Script Architecture (For Implementer Worker)
+
+```javascript
+import { execFileSync } from 'child_process';
+import path from 'path';
+
+const FFMPEG = 'C:/Users/USER/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-9.0.2-full_build/bin/ffmpeg.exe';
+const FONT = 'C\\:/Windows/Fonts/arialbd.ttf';
+const BASE_DIR = 'C:/Users/USER/Desktop/Kirmatas_Reklam_Videolari';
+
+const VARIANTS = [
+  {
+    src: '01_Ilk_Drama_Reklami.mp4',
+    out: '01_Ilk_Drama_Reklami_Hook_TR.mp4',
+    line1: 'HERKES ONU EZİK SANDI',
+    line2: 'AMA REKORU KIRDI!'
+  },
+  {
+    src: '01_Ilk_Drama_Reklami.mp4',
+    out: '01_Ilk_Drama_Reklami_Hook_EN.mp4',
+    line1: 'THEY THOUGHT SHE WAS BROKE...',
+    line2: 'UNTIL LEVEL 999 UNLOCKED!'
+  },
+  // ... and so on for all 10 variants
+];
+
+for (const v of VARIANTS) {
+  const vf = [
+    'drawbox=x=30:y=60:w=660:h=130:color=black@0.85:t=fill',
+    'drawbox=x=30:y=60:w=660:h=130:color=yellow@0.9:t=3',
+    `drawtext=fontfile='${FONT}':text='${v.line1}':fontcolor=white:fontsize=36:x=(w-text_w)/2:y=78`,
+    `drawtext=fontfile='${FONT}':text='${v.line2}':fontcolor=yellow:fontsize=42:x=(w-text_w)/2:y=122`
+  ].join(',');
+
+  execFileSync(FFMPEG, [
+    '-i', path.join(BASE_DIR, v.src),
+    '-vf', vf,
+    '-c:v', 'libx264',
+    '-preset', 'medium',
+    '-crf', '18',
+    '-c:a', 'copy',
+    path.join(BASE_DIR, v.out),
+    '-y'
+  ], { stdio: 'inherit' });
+}
+```
 
 ---
 
 ## 5. Verification Method
 
-To independently verify the architecture:
+To independently verify these findings and implementations:
 
-1. **Asset Integrity Check:**
+1. **Verify Master Files in Target Directory**:
    ```powershell
-   Get-ChildItem -Path assets/audio -Include cam_kirilma.mp3,glass_shatter.mp3,custom_laser.wav,custom_explosion.wav,custom_bounce.wav -Recurse
+   Get-ChildItem "C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari\*.mp4" | Select-Object Name, Length
    ```
-2. **Speech Synthesis Verification:**
+   *Expected*: All 5 master files exist and are > 1MB.
+
+2. **Verify Video Stream Parameters via FFprobe**:
    ```powershell
-   pwsh -NoProfile -Command "Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.GetInstalledVoices() | Select-Object -ExpandProperty VoiceInfo | Select-Object Name, Culture"
+   & "C:\Users\USER\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin\ffprobe.exe" -v error -select_streams v:0 -show_entries stream=width,height,codec_name -of csv=p=0 "C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari\01_Ilk_Drama_Reklami.mp4"
    ```
-3. **Browser Playback & Export Verification:**
-   - Open `docs/kirmatas_reklam_tr.html` in Chrome or Edge.
-   - Verify 60 FPS animation, audio playback, BGM ducking during narration, and TikTok word-highlight captions.
-   - Click "🎥 18 Sn HD Videoyu Kaydet & İndir (.webm / 1080x1920)".
-   - Confirm export completes in 18 seconds and prompts automatic download of `kirmatas_reklam_tr.webm`.
-   - Inspect downloaded video in VLC or Chrome: verify 1080x1920 vertical format, 60 FPS smoothness, and synchronized audio track.
-4. **Cleanliness Verification:**
+   *Expected*: `h264,720,1280`.
+
+3. **Verify Turkish Character Rendering**:
    ```powershell
-   git status --porcelain lib/ test/game_test.dart
-   flutter analyze
+   Test-Path "c:\Users\USER\Desktop\KIPKIRMATAS\.agents\teamwork\explorer_survey_3\frames\test_tr_node.jpg"
    ```
-   Must exit with code 0 and zero modified files in `lib/` or `test/game_test.dart`.
+   *Expected*: `True` (image exists, visual inspection shows crisp Turkish glyphs `GİZLİ 999. SEVİYE GÜCÜNÜ KİMSE BİLMİYORDU!`).
+
+4. **Verify Scenes Directory**:
+   ```powershell
+   Test-Path "C:\Users\USER\Desktop\Kirmatas_Reklam_Videolari\Scenes"
+   ```
+   *Current state*: `False` (Must be created and populated by Worker).
+
+5. **Invalidation Conditions**:
+   - Any video generated without audio stream.
+   - Any hook overlay that renders missing glyph characters (`?` or `□`).
+   - Any hook overlay placed below `y=300` causing overlap with bottom captions.
