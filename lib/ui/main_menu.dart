@@ -124,23 +124,31 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       return;
     }
     if (_pageController.hasClients) {
-      _pageController.animateToPage(
-        page,
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
-      );
+      final bool jumpsAcrossLocked = (page == 3 && !_save.isAquariumUnlocked) ||
+          (_currentPage == 3 && page <= 1 && !_save.isAquariumUnlocked);
+      if (jumpsAcrossLocked) {
+        _pageController.jumpToPage(page);
+      } else {
+        _pageController.animateToPage(
+          page,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        );
+      }
     }
   }
 
-  Widget _buildPageDot(int index, bool isActive) {
+  Widget _buildPageDot(int index, bool isActive, {bool isLocked = false}) {
     return GestureDetector(
       onTap: () => _goToPage(index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: isActive ? 16 : 6,
+        width: isActive ? 16 : (isLocked ? 4 : 6),
         height: 6,
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFFFD54F) : Colors.white24,
+          color: isActive
+              ? const Color(0xFFFFD54F)
+              : (isLocked ? Colors.white12 : Colors.white24),
           borderRadius: BorderRadius.circular(3),
           boxShadow: isActive
               ? [
@@ -923,25 +931,46 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   });
                 }
               },
-              physics: const ClampingScrollPhysics(),
+              physics: _buildPagePhysics(),
               children: [
                 // 0: Mağaza
-                ShopView(
-                  onBackToMenu: () => _goToPage(1),
-                ),
+                _save.isShopUnlocked
+                    ? ShopView(
+                        onBackToMenu: () => _goToPage(1),
+                      )
+                    : _buildLockedPlaceholder(
+                        title: 'MAĞAZA',
+                        subtitle: 'Bölüm 2 seviyesinde açılır.',
+                        icon: Icons.storefront_rounded,
+                        accentColor: const Color(0xFFFFD54F),
+                      ),
 
                 // 1: Ana Menü
                 _buildMainMenuHome(),
 
                 // 2: Akvaryum
-                AquariumView(
-                  onBackToMenu: () => _goToPage(1),
-                ),
+                _save.isAquariumUnlocked
+                    ? AquariumView(
+                        onBackToMenu: () => _goToPage(1),
+                      )
+                    : _buildLockedPlaceholder(
+                        title: 'AKVARYUM',
+                        subtitle: 'Bölüm 5 seviyesinde açılır.',
+                        icon: Icons.water_drop_rounded,
+                        accentColor: const Color(0xFF00E5FF),
+                      ),
 
                 // 3: Yükseltmeler
-                UpgradesView(
-                  onBackToMenu: () => _goToPage(1),
-                ),
+                _save.isWorkshopUnlocked
+                    ? UpgradesView(
+                        onBackToMenu: () => _goToPage(1),
+                      )
+                    : _buildLockedPlaceholder(
+                        title: 'YÜKSELTMELER',
+                        subtitle: 'Bölüm 3 seviyesinde açılır.',
+                        icon: Icons.auto_awesome_rounded,
+                        accentColor: const Color(0xFFFF9100),
+                      ),
               ],
             ),
           ),
@@ -1335,15 +1364,19 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       children: [
                         GestureDetector(
                           onTap: () => _goToPage(0),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.arrow_back_ios_rounded, color: Colors.white38, size: 10),
-                              SizedBox(width: 2),
+                              Icon(
+                                _save.isShopUnlocked ? Icons.arrow_back_ios_rounded : Icons.lock_outline_rounded,
+                                color: _save.isShopUnlocked ? Colors.white38 : Colors.white24,
+                                size: 10,
+                              ),
+                              const SizedBox(width: 2),
                               Text(
                                 'MAĞAZA',
                                 style: TextStyle(
-                                  color: Colors.white38,
+                                  color: _save.isShopUnlocked ? Colors.white38 : Colors.white24,
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0.8,
@@ -1355,31 +1388,35 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            _buildPageDot(0, _currentPage == 0),
+                            _buildPageDot(0, _currentPage == 0, isLocked: !_save.isShopUnlocked),
                             const SizedBox(width: 5),
-                            _buildPageDot(1, _currentPage == 1),
+                            _buildPageDot(1, _currentPage == 1, isLocked: false),
                             const SizedBox(width: 5),
-                            _buildPageDot(2, _currentPage == 2),
+                            _buildPageDot(2, _currentPage == 2, isLocked: !_save.isAquariumUnlocked),
                             const SizedBox(width: 5),
-                            _buildPageDot(3, _currentPage == 3),
+                            _buildPageDot(3, _currentPage == 3, isLocked: !_save.isWorkshopUnlocked),
                           ],
                         ),
                         GestureDetector(
                           onTap: () => _goToPage(2),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
                                 'AKVARYUM',
                                 style: TextStyle(
-                                  color: Color(0x994FC3F7),
+                                  color: _save.isAquariumUnlocked ? const Color(0x994FC3F7) : Colors.white24,
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0.8,
                                 ),
                               ),
-                              SizedBox(width: 2),
-                              Icon(Icons.arrow_forward_ios_rounded, color: Color(0x994FC3F7), size: 10),
+                              const SizedBox(width: 2),
+                              Icon(
+                                _save.isAquariumUnlocked ? Icons.arrow_forward_ios_rounded : Icons.lock_outline_rounded,
+                                color: _save.isAquariumUnlocked ? const Color(0x994FC3F7) : Colors.white24,
+                                size: 10,
+                              ),
                             ],
                           ),
                         ),
@@ -2536,5 +2573,230 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       ),
     );
   }
+
+  ScrollPhysics _buildPagePhysics() {
+    final bool canLeft = _save.isShopUnlocked;
+    final bool canRight = _save.isAquariumUnlocked;
+
+    if (_currentPage == 1) {
+      if (!canLeft && !canRight) {
+        return const NeverScrollableScrollPhysics();
+      }
+      return KaunosLockedScrollPhysics(
+        minPage: canLeft ? 0 : 1,
+        maxPage: canRight ? (_save.isWorkshopUnlocked ? 3 : 2) : 1,
+      );
+    } else if (_currentPage == 0) {
+      return KaunosLockedScrollPhysics(
+        minPage: 0,
+        maxPage: canRight ? (_save.isWorkshopUnlocked ? 3 : 2) : 1,
+      );
+    } else if (_currentPage == 2) {
+      return KaunosLockedScrollPhysics(
+        minPage: canLeft ? 0 : 1,
+        maxPage: _save.isWorkshopUnlocked ? 3 : 2,
+      );
+    } else {
+      return KaunosLockedScrollPhysics(
+        minPage: canRight ? (canLeft ? 0 : 1) : 3,
+        maxPage: 3,
+      );
+    }
+  }
+
+  Widget _buildLockedPlaceholder({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color accentColor,
+  }) {
+    return EcoTankBackground(
+      child: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: KaunosPanel(
+              backgroundColor: KaunosPalette.obsidianGlassElevated,
+              borderColor: accentColor.withValues(alpha: 0.4),
+              showSpecularRim: true,
+              borderRadius: 24,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [
+                          accentColor.withValues(alpha: 0.25),
+                          KaunosPalette.obsidianBase,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(
+                        color: accentColor.withValues(alpha: 0.6),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: accentColor.withValues(alpha: 0.3),
+                          blurRadius: 16,
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.lock_rounded,
+                        color: accentColor,
+                        size: 28,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Rajdhani',
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    subtitle,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontFamily: 'Rajdhani',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  KaunosJuicyInteractive(
+                    borderRadius: 14,
+                    waveColor: KaunosPalette.crystalBorderStarlight,
+                    onTap: () => _goToPage(1),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: KaunosPalette.obsidianGlassSurface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: KaunosPalette.crystalBorderStarlight.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.arrow_back_rounded, color: Colors.white, size: 16),
+                          SizedBox(width: 8),
+                          Text(
+                            'ANA MENÜ',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'Rajdhani',
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class KaunosLockedScrollPhysics extends ScrollPhysics {
+  final int minPage;
+  final int maxPage;
+
+  const KaunosLockedScrollPhysics({
+    super.parent,
+    required this.minPage,
+    required this.maxPage,
+  });
+
+  @override
+  KaunosLockedScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return KaunosLockedScrollPhysics(
+      parent: buildParent(ancestor),
+      minPage: minPage,
+      maxPage: maxPage,
+    );
+  }
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) {
+    final double pagePixels = position.viewportDimension;
+    if (pagePixels <= 0) {
+      return super.applyBoundaryConditions(position, value);
+    }
+    final double minPixels = minPage * pagePixels;
+    final double maxPixels = maxPage * pagePixels;
+
+    // Normal clamping bounds
+    if (value < position.pixels && position.pixels <= position.minScrollExtent) {
+      return value - position.pixels;
+    }
+    if (value < position.minScrollExtent && position.minScrollExtent <= position.pixels) {
+      return value - position.minScrollExtent;
+    }
+    if (position.maxScrollExtent <= position.pixels && position.pixels < value) {
+      return value - position.pixels;
+    }
+    if (position.pixels <= position.maxScrollExtent && position.maxScrollExtent < value) {
+      return value - position.maxScrollExtent;
+    }
+
+    // Custom locked bounds
+    if (value < position.pixels && position.pixels <= minPixels) {
+      return value - position.pixels;
+    }
+    if (value < minPixels && minPixels <= position.pixels) {
+      return value - minPixels;
+    }
+    if (value < minPixels) {
+      return value - minPixels;
+    }
+    if (position.pixels <= maxPixels && maxPixels < value) {
+      return value - maxPixels;
+    }
+    if (maxPixels <= position.pixels && position.pixels < value) {
+      return value - position.pixels;
+    }
+    if (value > maxPixels) {
+      return value - maxPixels;
+    }
+
+    return 0.0;
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other.runtimeType != runtimeType) return false;
+    return other is KaunosLockedScrollPhysics &&
+        other.minPage == minPage &&
+        other.maxPage == maxPage &&
+        other.parent == parent;
+  }
+
+  @override
+  int get hashCode => Object.hash(minPage, maxPage, parent);
 }
 
