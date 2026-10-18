@@ -22,6 +22,7 @@ import 'sector_map_view.dart';
 import 'pixel_art.dart';
 import 'tournament_dialog.dart';
 import 'kaunos_ui.dart';
+import 'crate_opening_dialog.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -55,6 +56,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_save.pendingCrate != null && mounted && _activeGame == null) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => CrateOpeningDialog(
+            pendingCrate: _save.pendingCrate,
+          ),
+        );
+        return;
+      }
       if (!_hasAutoShownWheelThisSession && mounted && _save.isShopUnlocked) {
         _hasAutoShownWheelThisSession = true;
         _autoWheelTimer = Timer(const Duration(milliseconds: 600), () {

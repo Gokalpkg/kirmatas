@@ -21,12 +21,79 @@ class LeagueRival {
   });
 }
 
+class PendingCrate {
+  final String crateType; // 'aquarium', 'category', 'guaranteed'
+  final String? crateId;
+  final String? category;
+  final String rewardType; // 'fish', 'ball', 'paddle', 'trail', 'brick', 'gold'
+  final String rewardId;
+  final String rewardTitle;
+  final String rewardSubtitle;
+  final int rarityIndex;
+  final bool isDuplicate;
+  final bool isShardReward;
+  final bool isFoodBonus;
+  final int bonusFoodCount;
+  final int bonusGoldCount;
+
+  PendingCrate({
+    required this.crateType,
+    this.crateId,
+    this.category,
+    required this.rewardType,
+    required this.rewardId,
+    required this.rewardTitle,
+    required this.rewardSubtitle,
+    required this.rarityIndex,
+    this.isDuplicate = false,
+    this.isShardReward = false,
+    this.isFoodBonus = false,
+    this.bonusFoodCount = 0,
+    this.bonusGoldCount = 0,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'crateType': crateType,
+    'crateId': crateId,
+    'category': category,
+    'rewardType': rewardType,
+    'rewardId': rewardId,
+    'rewardTitle': rewardTitle,
+    'rewardSubtitle': rewardSubtitle,
+    'rarityIndex': rarityIndex,
+    'isDuplicate': isDuplicate,
+    'isShardReward': isShardReward,
+    'isFoodBonus': isFoodBonus,
+    'bonusFoodCount': bonusFoodCount,
+    'bonusGoldCount': bonusGoldCount,
+  };
+
+  factory PendingCrate.fromJson(Map<String, dynamic> json) => PendingCrate(
+    crateType: json['crateType'] as String? ?? 'aquarium',
+    crateId: json['crateId'] as String?,
+    category: json['category'] as String?,
+    rewardType: json['rewardType'] as String? ?? 'fish',
+    rewardId: json['rewardId'] as String? ?? '',
+    rewardTitle: json['rewardTitle'] as String? ?? '',
+    rewardSubtitle: json['rewardSubtitle'] as String? ?? '',
+    rarityIndex: json['rarityIndex'] as int? ?? 0,
+    isDuplicate: json['isDuplicate'] as bool? ?? false,
+    isShardReward: json['isShardReward'] as bool? ?? false,
+    isFoodBonus: json['isFoodBonus'] as bool? ?? false,
+    bonusFoodCount: json['bonusFoodCount'] as int? ?? 0,
+    bonusGoldCount: json['bonusGoldCount'] as int? ?? 0,
+  );
+}
+
 class SaveManager extends ChangeNotifier {
   static final SaveManager instance = SaveManager._internal();
   SaveManager._internal();
 
   SharedPreferences? _prefs;
   bool _initialized = false;
+  static const String _kPendingCrate = 'pending_unopened_crate';
+
+  PendingCrate? pendingCrate;
 
   int gold = 300;
   int sfxVolume = 8;
@@ -455,8 +522,80 @@ class SaveManager extends ChangeNotifier {
     _leagueTier = (_prefs?.getInt('leagueTier') ?? 0).clamp(0, 4);
     _weeklyTournamentScore = _prefs?.getInt('weeklyTournamentScore') ?? 0;
 
+    final pendingJson = _prefs?.getString(_kPendingCrate);
+    if (pendingJson != null && pendingJson.isNotEmpty) {
+      try {
+        final Map<String, dynamic> decoded = jsonDecode(pendingJson);
+        pendingCrate = PendingCrate.fromJson(decoded);
+      } catch (e) {
+        debugPrint('Error loading pending crate: $e');
+        pendingCrate = null;
+      }
+    }
+
     _initialized = true;
     notifyListeners();
+  }
+
+  Future<void> savePendingCrate(PendingCrate crate) async {
+    pendingCrate = crate;
+    await _prefs?.setString(_kPendingCrate, jsonEncode(crate.toJson()));
+    notifyListeners();
+  }
+
+  Future<void> clearPendingCrate() async {
+    pendingCrate = null;
+    await _prefs?.remove(_kPendingCrate);
+    notifyListeners();
+  }
+
+  Future<void> claimPendingCrate() async {
+    final crate = pendingCrate;
+    if (crate == null) return;
+
+    switch (crate.rewardType) {
+      case 'fish':
+        await addFish(crate.rewardId);
+        if (crate.isFoodBonus && crate.bonusFoodCount > 0) {
+          await addFishFood(crate.bonusFoodCount);
+        }
+        break;
+      case 'ball':
+        if (crate.isShardReward) {
+          await addShard(crate.category ?? 'balls', 1);
+        } else {
+          await unlockBall(crate.rewardId);
+        }
+        break;
+      case 'paddle':
+        if (crate.isShardReward) {
+          await addShard(crate.category ?? 'paddles', 1);
+        } else {
+          await unlockPaddle(crate.rewardId);
+        }
+        break;
+      case 'trail':
+        if (crate.isShardReward) {
+          await addShard(crate.category ?? 'trails', 1);
+        } else {
+          await unlockTrail(crate.rewardId);
+        }
+        break;
+      case 'brick':
+        if (crate.isShardReward) {
+          await addShard(crate.category ?? 'bricks', 1);
+        } else {
+          await unlockBrickStyle(crate.rewardId);
+        }
+        break;
+      case 'gold':
+        if (crate.bonusGoldCount > 0) {
+          await addGold(crate.bonusGoldCount);
+        }
+        break;
+    }
+
+    await clearPendingCrate();
   }
 
   Future<void> setLastAdWatchTime(int time) async {

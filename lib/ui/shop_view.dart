@@ -43,6 +43,17 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 950),
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && SaveManager.instance.pendingCrate != null) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => CrateOpeningDialog(
+            pendingCrate: SaveManager.instance.pendingCrate,
+          ),
+        );
+      }
+    });
   }
 
   @override

@@ -13,6 +13,7 @@ class CrateOpeningDialog extends StatefulWidget {
   final CategoryCrateInfo? categoryCrate;
   final bool isGuaranteedRedemption;
   final String? category;
+  final PendingCrate? pendingCrate;
 
   const CrateOpeningDialog({
     super.key,
@@ -20,7 +21,8 @@ class CrateOpeningDialog extends StatefulWidget {
     this.categoryCrate,
     this.isGuaranteedRedemption = false,
     this.category,
-  }) : assert(crate != null || categoryCrate != null || isGuaranteedRedemption);
+    this.pendingCrate,
+  }) : assert(crate != null || categoryCrate != null || isGuaranteedRedemption || pendingCrate != null);
 
   @override
   State<CrateOpeningDialog> createState() => _CrateOpeningDialogState();
@@ -84,10 +86,30 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     }
   }
 
+  CrateDef? get _effectiveCrate {
+    if (widget.crate != null) return widget.crate;
+    final pending = widget.pendingCrate ?? SaveManager.instance.pendingCrate;
+    if (pending?.crateId != null) {
+      try {
+        return CrateDef.allCrates.firstWhere((c) => c.id == pending!.crateId);
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  CategoryCrateInfo? get _effectiveCategoryCrate {
+    if (widget.categoryCrate != null) return widget.categoryCrate;
+    final pending = widget.pendingCrate ?? SaveManager.instance.pendingCrate;
+    if (pending?.category != null) {
+      return CategoryCrateInfo.categoryCrates[pending!.category];
+    }
+    return null;
+  }
+
   Color get _currentPrimaryColor {
     switch (_currentRarity) {
       case Rarity.common:
-        return widget.crate?.primaryColor ?? const Color(0xFF90A4AE);
+        return _effectiveCrate?.primaryColor ?? _effectiveCategoryCrate?.primaryColor ?? const Color(0xFF90A4AE);
       case Rarity.rare:
         return const Color(0xFF00E5FF);
       case Rarity.epic:
@@ -289,7 +311,11 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       duration: const Duration(milliseconds: 1200),
     );
 
-    _rollReward();
+    if (widget.pendingCrate != null) {
+      _restoreFromPending(widget.pendingCrate!);
+    } else {
+      _rollReward();
+    }
 
     _dropController.forward().then((_) {
       if (mounted) {
@@ -465,12 +491,65 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         _impactTriggered = false;
       });
 
+      // Claim reward atomically now that chest has opened!
+      await SaveManager.instance.claimPendingCrate();
+
       _suctionController.forward(from: 0.0);
       _cardFlipController.forward(from: 0.0);
       _revealController.forward(from: 0.0);
 
       // Stage 1: Arcane rising charge sound on card emergence
       AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 0.95);
+    }
+  }
+
+  void _restoreFromPending(PendingCrate pending) {
+    _rewardRarity = Rarity.values[pending.rarityIndex.clamp(0, Rarity.values.length - 1)];
+    _rewardTitle = pending.rewardTitle;
+    _rewardSubtitle = pending.rewardSubtitle;
+    _isDuplicate = pending.isDuplicate;
+    _isShardReward = pending.isShardReward;
+    _isFoodBonus = pending.isFoodBonus;
+
+    switch (pending.rewardType) {
+      case 'fish':
+        try {
+          _reward = FishItem.allFish.firstWhere((f) => f.id == pending.rewardId);
+        } catch (_) {
+          _reward = FishItem.allFish.first;
+        }
+        break;
+      case 'ball':
+        try {
+          _reward = BallSkin.allSkins.firstWhere((s) => s.id == pending.rewardId);
+        } catch (_) {
+          _reward = BallSkin.allSkins.first;
+        }
+        break;
+      case 'paddle':
+        try {
+          _reward = PaddleSkin.allSkins.firstWhere((s) => s.id == pending.rewardId);
+        } catch (_) {
+          _reward = PaddleSkin.allSkins.first;
+        }
+        break;
+      case 'trail':
+        try {
+          _reward = TrailSkin.allTrails.firstWhere((s) => s.id == pending.rewardId);
+        } catch (_) {
+          _reward = TrailSkin.allTrails.first;
+        }
+        break;
+      case 'brick':
+        try {
+          _reward = BrickStyle.all.firstWhere((s) => s.id == pending.rewardId);
+        } catch (_) {
+          _reward = BrickStyle.all.first;
+        }
+        break;
+      case 'gold':
+        _reward = null;
+        break;
     }
   }
 
@@ -493,8 +572,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   }
 
   void _handleAquariumCrate(SaveManager save, Random rand) {
+    final crateDef = _effectiveCrate ?? CrateDef.allCrates.first;
     final luckLevel = save.upgrades['luck'] ?? 0;
-    final weights = Map<Rarity, double>.from(widget.crate!.weights);
+    final weights = Map<Rarity, double>.from(crateDef.weights);
     weights[Rarity.legendary] = (weights[Rarity.legendary] ?? 1.0) * (1.0 + luckLevel * 0.35);
     weights[Rarity.epic] = (weights[Rarity.epic] ?? 5.0) * (1.0 + luckLevel * 0.25);
 
@@ -531,7 +611,6 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     _rewardTitle = fish.name;
 
     final isNewSpecies = !save.unlockedFish.contains(fish.id);
-    save.addFish(fish.id); // ALWAYS adds the fish to the player's aquarium!
     _isDuplicate = false;
 
     if (isNewSpecies) {
@@ -539,9 +618,22 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       _rewardSubtitle = I18n.tr('new_fish_unlocked');
     } else {
       _isFoodBonus = true;
-      save.addFishFood(3);
       _rewardSubtitle = 'Akvaryumuna bir ${fish.name} daha katıldı! (+3 Yem Hediye)';
     }
+
+    save.savePendingCrate(PendingCrate(
+      crateType: 'aquarium',
+      crateId: crateDef.id,
+      rewardType: 'fish',
+      rewardId: fish.id,
+      rewardTitle: _rewardTitle,
+      rewardSubtitle: _rewardSubtitle,
+      rarityIndex: _rewardRarity.index,
+      isDuplicate: _isDuplicate,
+      isShardReward: false,
+      isFoodBonus: _isFoodBonus,
+      bonusFoodCount: _isFoodBonus ? 3 : 0,
+    ));
   }
 
   void _handleCategoryCrate(SaveManager save, String category, Random rand) {
@@ -563,8 +655,12 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       roll -= entry.value;
     }
 
+    String rewardType = 'ball';
+    String rewardId = '';
+
     switch (category) {
       case 'balls':
+        rewardType = 'ball';
         final unlockables = BallSkin.allSkins.where((s) => s.id != 'classic').toList();
         var pool = unlockables.where((s) => s.rarity == rolledRarity).toList();
         if (pool.isEmpty) {
@@ -573,6 +669,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         }
 
         final skin = pool[rand.nextInt(pool.length)];
+        rewardId = skin.id;
         _reward = skin;
         _rewardTitle = skin.name;
         _rewardRarity = skin.rarity;
@@ -580,17 +677,16 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         if (save.unlockedBalls.contains(skin.id)) {
           _isDuplicate = true;
           _isShardReward = true;
-          save.addShard(category, 1);
-          _rewardSubtitle = 'Bu topa zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category)}/3).';
+          _rewardSubtitle = 'Bu topa zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category) + 1}/3).';
         } else {
           _isDuplicate = false;
           _isShardReward = false;
           _rewardSubtitle = I18n.tr('new_ball_unlocked');
-          save.unlockBall(skin.id);
         }
         break;
 
       case 'paddles':
+        rewardType = 'paddle';
         final unlockables = PaddleSkin.allSkins.where((s) => s.id != 'pclassic').toList();
         var pool = unlockables.where((s) => s.rarity == rolledRarity).toList();
         if (pool.isEmpty) {
@@ -599,6 +695,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         }
 
         final skin = pool[rand.nextInt(pool.length)];
+        rewardId = skin.id;
         _reward = skin;
         _rewardTitle = skin.name;
         _rewardRarity = skin.rarity;
@@ -606,17 +703,16 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         if (save.unlockedPaddles.contains(skin.id)) {
           _isDuplicate = true;
           _isShardReward = true;
-          save.addShard(category, 1);
-          _rewardSubtitle = 'Bu rakete zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category)}/3).';
+          _rewardSubtitle = 'Bu rakete zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category) + 1}/3).';
         } else {
           _isDuplicate = false;
           _isShardReward = false;
           _rewardSubtitle = I18n.tr('new_paddle_unlocked');
-          save.unlockPaddle(skin.id);
         }
         break;
 
       case 'trails':
+        rewardType = 'trail';
         final unlockables = TrailSkin.allTrails.where((s) => s.id != 't1').toList();
         var pool = unlockables.where((s) => s.rarity == rolledRarity).toList();
         if (pool.isEmpty) {
@@ -625,6 +721,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         }
 
         final skin = pool[rand.nextInt(pool.length)];
+        rewardId = skin.id;
         _reward = skin;
         _rewardTitle = skin.name;
         _rewardRarity = skin.rarity;
@@ -632,17 +729,16 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         if (save.unlockedTrails.contains(skin.id)) {
           _isDuplicate = true;
           _isShardReward = true;
-          save.addShard(category, 1);
-          _rewardSubtitle = 'Bu ize zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category)}/3).';
+          _rewardSubtitle = 'Bu ize zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category) + 1}/3).';
         } else {
           _isDuplicate = false;
           _isShardReward = false;
           _rewardSubtitle = I18n.tr('new_trail_unlocked');
-          save.unlockTrail(skin.id);
         }
         break;
 
       case 'bricks':
+        rewardType = 'brick';
         final unlockables = BrickStyle.all.where((s) => s.id != 'brick_gloss').toList();
         var pool = unlockables.where((s) => s.rarity == rolledRarity).toList();
         if (pool.isEmpty) {
@@ -651,6 +747,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         }
 
         final style = pool[rand.nextInt(pool.length)];
+        rewardId = style.id;
         _reward = style;
         _rewardTitle = style.name;
         _rewardRarity = style.rarity;
@@ -658,96 +755,136 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         if (save.unlockedBrickStyles.contains(style.id)) {
           _isDuplicate = true;
           _isShardReward = true;
-          save.addShard(category, 1);
-          _rewardSubtitle = 'Bu blok stiline zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category)}/3).';
+          _rewardSubtitle = 'Bu blok stiline zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category) + 1}/3).';
         } else {
           _isDuplicate = false;
           _isShardReward = false;
           _rewardSubtitle = I18n.tr('new_brick_unlocked');
-          save.unlockBrickStyle(style.id);
         }
         break;
     }
+
+    save.savePendingCrate(PendingCrate(
+      crateType: 'category',
+      category: category,
+      rewardType: rewardType,
+      rewardId: rewardId,
+      rewardTitle: _rewardTitle,
+      rewardSubtitle: _rewardSubtitle,
+      rarityIndex: _rewardRarity.index,
+      isDuplicate: _isDuplicate,
+      isShardReward: _isShardReward,
+      isFoodBonus: false,
+    ));
   }
 
   void _handleGuaranteedRedemption(SaveManager save, String category, Random rand) {
     _isDuplicate = false;
     _isShardReward = false;
+    String rewardType = 'ball';
+    String rewardId = '';
+    int bonusGold = 0;
 
     switch (category) {
       case 'balls':
+        rewardType = 'ball';
         final unowned = BallSkin.allSkins.where((s) => !save.unlockedBalls.contains(s.id)).toList();
         if (unowned.isNotEmpty) {
           final chosen = unowned[rand.nextInt(unowned.length)];
+          rewardId = chosen.id;
           _reward = chosen;
           _rewardTitle = chosen.name;
           _rewardRarity = chosen.rarity;
           _rewardSubtitle = I18n.tr('guaranteed_item_unlocked');
-          save.unlockBall(chosen.id);
         } else {
+          rewardType = 'gold';
+          bonusGold = 1000;
           _rewardRarity = Rarity.legendary;
           _rewardTitle = I18n.tr('all_items_unlocked');
           _rewardSubtitle = '+1000 Gold';
-          save.addGold(1000);
         }
         break;
 
       case 'paddles':
+        rewardType = 'paddle';
         final unowned = PaddleSkin.allSkins.where((p) => !save.unlockedPaddles.contains(p.id)).toList();
         if (unowned.isNotEmpty) {
           final chosen = unowned[rand.nextInt(unowned.length)];
+          rewardId = chosen.id;
           _reward = chosen;
           _rewardTitle = chosen.name;
           _rewardRarity = chosen.rarity;
           _rewardSubtitle = I18n.tr('guaranteed_item_unlocked');
-          save.unlockPaddle(chosen.id);
         } else {
+          rewardType = 'gold';
+          bonusGold = 1000;
           _rewardRarity = Rarity.legendary;
           _rewardTitle = I18n.tr('all_items_unlocked');
           _rewardSubtitle = '+1000 Gold';
-          save.addGold(1000);
         }
         break;
 
       case 'trails':
+        rewardType = 'trail';
         final unowned = TrailSkin.allTrails.where((t) => !save.unlockedTrails.contains(t.id)).toList();
         if (unowned.isNotEmpty) {
           final chosen = unowned[rand.nextInt(unowned.length)];
+          rewardId = chosen.id;
           _reward = chosen;
           _rewardTitle = chosen.name;
           _rewardRarity = chosen.rarity;
           _rewardSubtitle = I18n.tr('guaranteed_item_unlocked');
-          save.unlockTrail(chosen.id);
         } else {
+          rewardType = 'gold';
+          bonusGold = 1000;
           _rewardRarity = Rarity.legendary;
           _rewardTitle = I18n.tr('all_items_unlocked');
           _rewardSubtitle = '+1000 Gold';
-          save.addGold(1000);
         }
         break;
 
       case 'bricks':
+        rewardType = 'brick';
         final unowned = BrickStyle.all.where((b) => !save.unlockedBrickStyles.contains(b.id)).toList();
         if (unowned.isNotEmpty) {
           final chosen = unowned[rand.nextInt(unowned.length)];
+          rewardId = chosen.id;
           _reward = chosen;
           _rewardTitle = chosen.name;
           _rewardRarity = chosen.rarity;
           _rewardSubtitle = I18n.tr('guaranteed_item_unlocked');
-          save.unlockBrickStyle(chosen.id);
         } else {
+          rewardType = 'gold';
+          bonusGold = 1000;
           _rewardRarity = Rarity.legendary;
           _rewardTitle = I18n.tr('all_items_unlocked');
           _rewardSubtitle = '+1000 Gold';
-          save.addGold(1000);
         }
         break;
     }
+
+    save.savePendingCrate(PendingCrate(
+      crateType: 'guaranteed',
+      category: category,
+      rewardType: rewardType,
+      rewardId: rewardId,
+      rewardTitle: _rewardTitle,
+      rewardSubtitle: _rewardSubtitle,
+      rarityIndex: _rewardRarity.index,
+      bonusGoldCount: bonusGold,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return PopScope(
+      canPop: _opened,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop && _opened) {
+          SaveManager.instance.claimPendingCrate();
+        }
+      },
+      child: Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -1509,7 +1646,12 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                       KaunosTactileButton.gold(
                         height: 48,
                         padding: const EdgeInsets.symmetric(horizontal: 36),
-                        onTap: () => Navigator.of(context).pop(),
+                        onTap: () async {
+                          await SaveManager.instance.claimPendingCrate();
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                          }
+                        },
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(
@@ -1555,6 +1697,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
           );
         },
       ),
+    ),
     );
   }
 
@@ -2226,8 +2369,9 @@ class _InwardEnergyOrbsPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round;
       canvas.drawLine(tailPos, curPos, trailPaint);
 
-      glowPaint.color = orbColor.withValues(alpha: orbAlpha * 0.35);
-      glowPaint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
+      glowPaint.color = orbColor.withValues(alpha: orbAlpha * 0.25);
+      canvas.drawCircle(curPos, (3.5 + seed * 2.0) * 1.5, glowPaint);
+      glowPaint.color = orbColor.withValues(alpha: orbAlpha * 0.60);
       canvas.drawCircle(curPos, 3.5 + seed * 2.0, glowPaint);
 
       dotPaint.color = Colors.white.withValues(alpha: orbAlpha * 0.95);
@@ -2603,9 +2747,13 @@ class _FloorDustPainter extends CustomPainter {
       final radius = (6.0 + seed * 10.0) * (0.6 + progress * 0.8);
 
       final puffAlpha = (alpha * (0.35 + (1.0 - seed) * 0.35)).clamp(0.0, 1.0);
-      dustPaint.color = (i % 3 == 0 ? color : const Color(0xFFCFD8DC)).withValues(alpha: puffAlpha);
-      dustPaint.maskFilter = MaskFilter.blur(BlurStyle.normal, 3.5 + seed * 2.0);
-      canvas.drawCircle(Offset(px, py), radius, dustPaint);
+      final puffColor = (i % 3 == 0 ? color : const Color(0xFFCFD8DC));
+      // Outer soft halo
+      dustPaint.color = puffColor.withValues(alpha: puffAlpha * 0.28);
+      canvas.drawCircle(Offset(px, py), radius * 1.35, dustPaint);
+      // Inner dense puff
+      dustPaint.color = puffColor.withValues(alpha: puffAlpha * 0.62);
+      canvas.drawCircle(Offset(px, py), radius * 0.85, dustPaint);
     }
 
     // High-speed flying stone debris sparks
