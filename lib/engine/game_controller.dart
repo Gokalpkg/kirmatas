@@ -258,6 +258,11 @@ class GameController extends ChangeNotifier {
   double _nearMissCooldown = 0.0;
   double _nearMissSlowLeft = 0.0;
 
+  /// Target lock-on state (PowerUpType.lock): homing missile steering and visual reticle
+  Brick? lockedTargetBrick;
+  Ball? targetLockingBall;
+  double targetLockTimer = 0.0;
+
   /// True while the player is on their very last life (drives the heartbeat vignette).
   bool get isLastLife => status == GameStatus.playing && stats.lives == 1;
   double gameTime = 0.0;
@@ -583,6 +588,9 @@ class GameController extends ChangeNotifier {
     paddle.hasDrone = false;
     paddle.hasVortex = false;
     paddle.slideVelocity = 0.0;
+    lockedTargetBrick = null;
+    targetLockingBall = null;
+    targetLockTimer = 0.0;
   }
 
   @visibleForTesting
@@ -1248,6 +1256,16 @@ class GameController extends ChangeNotifier {
     }
     if (nearMissFlashTimer > 0) nearMissFlashTimer = max(0.0, nearMissFlashTimer - dt);
     if (_nearMissCooldown > 0) _nearMissCooldown = max(0.0, _nearMissCooldown - dt);
+
+    if (lockedTargetBrick != null) {
+      if (!lockedTargetBrick!.isAlive || targetLockTimer <= 0) {
+        lockedTargetBrick = null;
+        targetLockingBall = null;
+        targetLockTimer = 0.0;
+      } else {
+        targetLockTimer -= effectiveDt;
+      }
+    }
 
 
     if (currentMode == GameMode.chaos) {
@@ -2025,6 +2043,32 @@ class GameController extends ChangeNotifier {
         ball.setSpeed(spd);
       }
 
+      // Guided Strike / Target Lock: Ball curves and tracks directly towards locked target brick!
+      if (lockedTargetBrick != null &&
+          lockedTargetBrick!.isAlive &&
+          (ball == targetLockingBall || balls.length == 1) &&
+          !ball.isStuck) {
+        final tx = lockedTargetBrick!.x + lockedTargetBrick!.width / 2;
+        final ty = lockedTargetBrick!.y + lockedTargetBrick!.height / 2;
+        final dx = tx - ball.x;
+        final dy = ty - ball.y;
+        final dist = sqrt(dx * dx + dy * dy);
+        if (dist > 8.0) {
+          final curSpeed = ball.speed.clamp(getBaseBallSpeed(), 650.0);
+          final targetVx = (dx / dist) * curSpeed;
+          final targetVy = (dy / dist) * curSpeed;
+          // Crisp, intelligent homing turn towards target
+          final steer = (dt * 9.5).clamp(0.05, 0.40);
+          ball.vx = ball.vx * (1.0 - steer) + targetVx * steer;
+          ball.vy = ball.vy * (1.0 - steer) + targetVy * steer;
+          final normSpeed = sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+          if (normSpeed > 0) {
+            ball.vx = (ball.vx / normSpeed) * curSpeed;
+            ball.vy = (ball.vy / normSpeed) * curSpeed;
+          }
+        }
+      }
+
       // High-speed adaptive sub-stepping prevents tunneling through bricks or walls
       final maxStepDist = (currentMode == GameMode.chaos) ? 3.5 : 5.0;
       final stepDist = ball.speed * dt;
@@ -2184,7 +2228,16 @@ class GameController extends ChangeNotifier {
         hitOffset = ((ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2)).clamp(-1.0, 1.0);
       }
 
-      final bounceAngle = hitOffset * (pi / 2.7); // -66 deg to +66 deg
+      double bounceAngle = hitOffset * (pi / 2.7); // -66 deg to +66 deg
+      if (paddle.isClumsy) {
+        // Kaygan Zemin aktifken: Top paddle'a çarptığı an tamamen rastgele bir açıyla fırlar
+        // (sağa gitmesi gerekirken sola, dik yukarı veya açılı olarak rastgele yönlenir)
+        final randomOffset = (_rand.nextDouble() * 2.0 - 1.0); // -1.0 .. 1.0
+        bounceAngle = randomOffset * (pi / 2.7);
+        particles.spawnBurst(ball.x, paddle.y, const Color(0xFF80D8FF), count: 10, speed: 130.0);
+        particles.spawnFloatingText(ball.x, paddle.y - 14, 'KAYDI!', const Color(0xFF80D8FF));
+        audio.playSfx(GameSfx.steel);
+      }
       // Step 2: Capped speed escalation (keep within human reaction limits)
       final baseSpeed = min(ball.speed + 4.0, 580.0);
 
@@ -2586,6 +2639,16 @@ class GameController extends ChangeNotifier {
     }
 
     int dmg = 1;
+    if (b == lockedTargetBrick) {
+      lockedTargetBrick = null;
+      targetLockingBall = null;
+      targetLockTimer = 0.0;
+      dmg += 3; // Huge guided missile damage!
+      particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFF00E5FF), maxRadius: 52.0);
+      particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD54F), count: 16, speed: 160.0);
+      particles.triggerShake(4.5, 0.22);
+      audio.playSfx(GameSfx.bossHit);
+    }
     if (activeCosmeticSynergy == CosmeticSynergy.iceCrystal &&
         (b.isIce || b.maxHp > 1 || b.isHeavySteel)) {
       dmg += activeCosmeticSynergy.extraIceArmoredDamage;
@@ -2643,6 +2706,11 @@ class GameController extends ChangeNotifier {
 
   void _destroyBrick(Brick b) {
     b.isAlive = false;
+    if (b == lockedTargetBrick) {
+      lockedTargetBrick = null;
+      targetLockingBall = null;
+      targetLockTimer = 0.0;
+    }
     stats.bricksBroken++;
     levelBricksBroken++;
     save.recordBrickBrokenQuest();
@@ -2991,17 +3059,18 @@ class GameController extends ChangeNotifier {
         case PowerUpType.lock:
           final aliveBricks = bricks.where((b) => b.isAlive && !b.isSteel).toList();
           if (aliveBricks.isNotEmpty) {
-            final target = aliveBricks[_rand.nextInt(aliveBricks.length)];
+            final bosses = aliveBricks.where((b) => b.isBoss).toList();
+            final target = bosses.isNotEmpty ? bosses.first : aliveBricks[_rand.nextInt(aliveBricks.length)];
+            lockedTargetBrick = target;
+            targetLockTimer = 6.0;
+            targetLockingBall = balls.firstWhere((b) => !b.isStuck, orElse: () => balls.first);
+
             final tx = target.x + target.width / 2;
             final ty = target.y + target.height / 2;
-            // High-tech cyber targeting reticle & orbital laser beam effect:
-            particles.spawnShockwave(tx, ty, const Color(0xFF00E5FF), maxRadius: 42.0);
-            particles.spawnShockwave(tx, ty, const Color(0xFFFF1744), maxRadius: 26.0);
-            particles.spawnBurst(tx, ty, const Color(0xFF00E5FF), count: 12, speed: 140.0);
-            particles.spawnBurst(tx, ty, const Color(0xFFFFD54F), count: 12, speed: 110.0);
+            particles.spawnShockwave(tx, ty, const Color(0xFF00E5FF), maxRadius: 46.0);
+            particles.spawnBurst(tx, ty, const Color(0xFF00E5FF), count: 14, speed: 120.0);
+            particles.spawnFloatingText(tx, target.y - 14, '[+] ${I18n.tr('target_locked')}', const Color(0xFF00E5FF), isLarge: true);
             audio.playSfx(GameSfx.laser);
-            _destroyBrick(target);
-            particles.spawnFloatingText(tx, target.y - 12, '[+] ${I18n.tr('target_locked')}', const Color(0xFF00E5FF), isLarge: true);
           }
           break;
         case PowerUpType.rocket:

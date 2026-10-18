@@ -486,6 +486,7 @@ class _GameWorldPainter extends CustomPainter {
     _drawBlackHoles(canvas);
     _drawPortals(canvas);
     _drawBricks(canvas);
+    _drawTargetLock(canvas);
     _drawShards(canvas);
     _drawNet(canvas, size);
     _drawPaddle(canvas);
@@ -5279,6 +5280,145 @@ class _GameWorldPainter extends CustomPainter {
       _tp.layout();
       _tp.paint(canvas, Offset(f.x - _tp.width / 2, f.y));
     }
+  }
+
+  void _drawTargetLock(Canvas canvas) {
+    final target = c.lockedTargetBrick;
+    if (target == null || !target.isAlive) return;
+
+    final tx = target.x + target.width / 2;
+    final ty = target.y + target.height / 2;
+    final ball = c.targetLockingBall ?? (c.balls.isNotEmpty ? c.balls.first : null);
+
+    // 1. Animated Dashed Trajectory Line from Ball to Target ("çizgi çizgi izi takip etsin")
+    if (ball != null && !ball.isStuck) {
+      final dx = tx - ball.x;
+      final dy = ty - ball.y;
+      final dist = sqrt(dx * dx + dy * dy);
+      if (dist > 15.0) {
+        final dirX = dx / dist;
+        final dirY = dy / dist;
+        const dashLen = 9.0;
+        const gapLen = 7.0;
+        const step = dashLen + gapLen;
+        final phase = (time * 52.0) % step;
+
+        _stroke
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..maskFilter = null;
+
+        double d = phase;
+        while (d < dist - 10.0) {
+          final segEnd = min(d + dashLen, dist - 10.0);
+          final p1 = Offset(ball.x + dirX * d, ball.y + dirY * d);
+          final p2 = Offset(ball.x + dirX * segEnd, ball.y + dirY * segEnd);
+
+          // Outer cyan laser glow
+          _stroke
+            ..strokeWidth = 3.2
+            ..color = const Color(0xFF00E5FF).withValues(alpha: 0.35);
+          canvas.drawLine(p1, p2, _stroke);
+
+          // Inner bright core
+          _stroke
+            ..strokeWidth = 1.5
+            ..color = Colors.white.withValues(alpha: 0.90);
+          canvas.drawLine(p1, p2, _stroke);
+
+          d += step;
+        }
+
+        // Animated laser tracking pulse traveling along the trajectory line
+        final pulseProgress = (time * 1.8) % 1.0;
+        final pulseX = ball.x + dirX * (dist * pulseProgress);
+        final pulseY = ball.y + dirY * (dist * pulseProgress);
+        _fill.color = const Color(0xFF00E5FF).withValues(alpha: 0.85);
+        canvas.drawCircle(Offset(pulseX, pulseY), 3.5, _fill);
+        _fill.color = Colors.white;
+        canvas.drawCircle(Offset(pulseX, pulseY), 1.8, _fill);
+      }
+    }
+
+    // 2. High-Tech Cyber Reticle (Nişangah) on Target Brick
+    canvas.save();
+    canvas.translate(tx, ty);
+
+    final pulse = 1.0 + 0.08 * sin(time * 10.0);
+    final reticleW = (target.width * 0.55 + 8.0) * pulse;
+    final reticleH = (target.height * 0.55 + 8.0) * pulse;
+    const cornerArm = 7.0;
+
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.square
+      ..maskFilter = null;
+
+    final lockColor = ((time * 8.0).floor() % 2 == 0)
+        ? const Color(0xFF00E5FF)
+        : const Color(0xFFFF1744);
+
+    _stroke.color = lockColor;
+
+    // Top-Left bracket
+    canvas.drawLine(Offset(-reticleW, -reticleH), Offset(-reticleW + cornerArm, -reticleH), _stroke);
+    canvas.drawLine(Offset(-reticleW, -reticleH), Offset(-reticleW, -reticleH + cornerArm), _stroke);
+
+    // Top-Right bracket
+    canvas.drawLine(Offset(reticleW, -reticleH), Offset(reticleW - cornerArm, -reticleH), _stroke);
+    canvas.drawLine(Offset(reticleW, -reticleH), Offset(reticleW, -reticleH + cornerArm), _stroke);
+
+    // Bottom-Left bracket
+    canvas.drawLine(Offset(-reticleW, reticleH), Offset(-reticleW + cornerArm, reticleH), _stroke);
+    canvas.drawLine(Offset(-reticleW, reticleH), Offset(-reticleW, reticleH - cornerArm), _stroke);
+
+    // Bottom-Right bracket
+    canvas.drawLine(Offset(reticleW, reticleH), Offset(reticleW - cornerArm, reticleH), _stroke);
+    canvas.drawLine(Offset(reticleW, reticleH), Offset(reticleW, reticleH - cornerArm), _stroke);
+
+    // Rotating radar tick ring
+    canvas.save();
+    canvas.rotate(time * 2.5);
+    final ringRadius = max(reticleW, reticleH) * 0.85;
+    _stroke
+      ..strokeWidth = 1.2
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.5);
+    for (int i = 0; i < 4; i++) {
+      final a = i * (pi / 2);
+      canvas.drawLine(
+        Offset(cos(a) * (ringRadius - 3.0), sin(a) * (ringRadius - 3.0)),
+        Offset(cos(a) * (ringRadius + 3.0), sin(a) * (ringRadius + 3.0)),
+        _stroke,
+      );
+    }
+    canvas.restore();
+
+    // Center crosshair ticks
+    _stroke
+      ..strokeWidth = 1.4
+      ..color = const Color(0xFFFF1744);
+    canvas.drawLine(const Offset(-4, 0), const Offset(4, 0), _stroke);
+    canvas.drawLine(const Offset(0, -4), const Offset(0, 4), _stroke);
+
+    // Center pulsing target pip
+    _fill.color = const Color(0xFFFF1744).withValues(alpha: 0.9);
+    canvas.drawCircle(Offset.zero, 2.2 * pulse, _fill);
+
+    // Tech Badge Label above the target
+    _tp.text = const TextSpan(
+      text: 'LOCK-ON',
+      style: TextStyle(
+        color: Color(0xFF00E5FF),
+        fontSize: 8.5,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 1.2,
+      ),
+    );
+    _tp.layout();
+    _tp.paint(canvas, Offset(-_tp.width / 2, -reticleH - 12.0));
+
+    canvas.restore();
   }
 
   void _drawShards(Canvas canvas) {
