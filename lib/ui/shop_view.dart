@@ -1003,31 +1003,125 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: const Color(0x4D00E5FF)),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.water, color: Color(0xFF00E5FF), size: 32),
-              const SizedBox(width: 14),
-              Expanded(
+              Row(
+                children: [
+                  const Icon(Icons.water, color: Color(0xFF00E5FF), size: 32),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          I18n.tr('eco_crates_title'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          I18n.tr('eco_crates_desc'),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Divider(color: Colors.white12, height: 1),
+              const SizedBox(height: 10),
+              // 8-Shard Fish Progress Bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0C101C),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.25)),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      I18n.tr('eco_crates_title'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 15,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.diamond, color: Color(0xFF00E5FF), size: 16),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Balık Eklentisi: ${save.fishShards}/8',
+                              style: const TextStyle(
+                                color: Color(0xFF00E5FF),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          save.fishShards >= 8
+                              ? 'GARANTİLİ YENİ BALIK HAZIR!'
+                              : '(8 olunca Garantili Yeni Balık!)',
+                          style: TextStyle(
+                            color: save.fishShards >= 8 ? const Color(0xFFFFD54F) : Colors.white70,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(5),
+                      child: LinearProgressIndicator(
+                        value: (save.fishShards / 8.0).clamp(0.0, 1.0),
+                        minHeight: 6,
+                        backgroundColor: Colors.white12,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          save.fishShards >= 8 ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      I18n.tr('eco_crates_desc'),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
+                    if (save.fishShards >= 8) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final ok = await save.consumeFishShards(8);
+                            if (ok && context.mounted) {
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (_) => const CrateOpeningDialog(
+                                  isGuaranteedRedemption: true,
+                                  category: 'fish',
+                                ),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00E5FF),
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          child: const Text(
+                            'Garantili Yeni Balık Sandığı Aç (8 Eklenti)',
+                            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

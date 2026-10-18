@@ -591,10 +591,11 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     }
     _rewardRarity = rolledRarity;
 
-    // ONLY Aquarium Fish drop from the general crates tab
+    // Fish candidate selection
     final available = FishItem.allFish.where((f) => f.rarity == rolledRarity).toList();
-    final unownedInRarity = available.where((f) => !save.unlockedFish.contains(f.id)).toList();
-    final allUnowned = FishItem.allFish.where((f) => !save.unlockedFish.contains(f.id)).toList();
+    // Prioritize fish that player has 0 copies of
+    final unownedInRarity = available.where((f) => save.getFishCount(f.id) == 0).toList();
+    final allUnowned = FishItem.allFish.where((f) => save.getFishCount(f.id) == 0).toList();
 
     FishItem fish;
     if (unownedInRarity.isNotEmpty) {
@@ -610,27 +611,44 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     _reward = fish;
     _rewardTitle = fish.name;
 
-    final isNewSpecies = !save.unlockedFish.contains(fish.id);
-    _isDuplicate = false;
+    final currentOwnedCount = save.getFishCount(fish.id);
+    int shardYield = 0;
 
-    if (isNewSpecies) {
+    if (currentOwnedCount >= 2) {
+      // 3rd+ copy: Converted to Balık Eklentisi (Fish Shard)!
+      // Sıradan balıklar (common) -> +1 shard, ender ve üstü -> +2 shards
+      shardYield = fish.rarity == Rarity.common ? 1 : 2;
+      _isDuplicate = true;
+      _isShardReward = true;
+      _isFoodBonus = false;
+      final newTotalShards = save.fishShards + shardYield;
+      _rewardSubtitle = 'Bu balıktan 2 adede sahipsin! +$shardYield Balık Eklentisi eklendi ($newTotalShards/8).';
+    } else if (currentOwnedCount == 1) {
+      // 2nd copy: Joins aquarium
+      _isDuplicate = true;
+      _isShardReward = false;
+      _isFoodBonus = true;
+      _rewardSubtitle = 'Akvaryumuna 2. ${fish.name} katıldı! (+3 Yem Hediye)';
+    } else {
+      // 1st copy: Newly unlocked fish
+      _isDuplicate = false;
+      _isShardReward = false;
       _isFoodBonus = false;
       _rewardSubtitle = I18n.tr('new_fish_unlocked');
-    } else {
-      _isFoodBonus = true;
-      _rewardSubtitle = 'Akvaryumuna bir ${fish.name} daha katıldı! (+3 Yem Hediye)';
     }
 
     save.savePendingCrate(PendingCrate(
       crateType: 'aquarium',
       crateId: crateDef.id,
+      category: 'fish',
       rewardType: 'fish',
       rewardId: fish.id,
       rewardTitle: _rewardTitle,
       rewardSubtitle: _rewardSubtitle,
       rarityIndex: _rewardRarity.index,
       isDuplicate: _isDuplicate,
-      isShardReward: false,
+      isShardReward: _isShardReward,
+      shardCount: shardYield > 0 ? shardYield : 1,
       isFoodBonus: _isFoodBonus,
       bonusFoodCount: _isFoodBonus ? 3 : 0,
     ));
@@ -859,6 +877,38 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
           _rewardRarity = Rarity.legendary;
           _rewardTitle = I18n.tr('all_items_unlocked');
           _rewardSubtitle = '+1000 Gold';
+        }
+        break;
+
+      case 'fish':
+        rewardType = 'fish';
+        // Priority: fish where player owns 0 copies
+        final unownedFish = FishItem.allFish.where((f) => save.getFishCount(f.id) == 0).toList();
+        if (unownedFish.isNotEmpty) {
+          final chosen = unownedFish[rand.nextInt(unownedFish.length)];
+          rewardId = chosen.id;
+          _reward = chosen;
+          _rewardTitle = chosen.name;
+          _rewardRarity = chosen.rarity;
+          _rewardSubtitle = 'Garantili Yeni Balık Açıldı!';
+        } else {
+          // If player has at least 1 of every fish, check if any have < 2 copies
+          final canDuplicateFish = FishItem.allFish.where((f) => save.canAcquireFish(f.id)).toList();
+          if (canDuplicateFish.isNotEmpty) {
+            final chosen = canDuplicateFish[rand.nextInt(canDuplicateFish.length)];
+            rewardId = chosen.id;
+            _reward = chosen;
+            _rewardTitle = chosen.name;
+            _rewardRarity = chosen.rarity;
+            _rewardSubtitle = 'Akvaryumuna 2. ${chosen.name} katıldı!';
+          } else {
+            // All fish at 2/2 max!
+            rewardType = 'gold';
+            bonusGold = 1500;
+            _rewardRarity = Rarity.legendary;
+            _rewardTitle = 'Tüm Balıklar Maksimumda!';
+            _rewardSubtitle = '+1500 Altın Ödülü';
+          }
         }
         break;
     }
@@ -1547,7 +1597,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                             const Icon(Icons.diamond_rounded, color: Color(0xFF00E5FF), size: 18),
                                             const SizedBox(width: 8),
                                             Text(
-                                              I18n.tr('shard_added').replaceAll('{count}', '${SaveManager.instance.getShards(widget.category ?? widget.categoryCrate?.category ?? 'balls')}'),
+                                              ((widget.category ?? widget.categoryCrate?.category) == 'fish' || _effectiveCrate != null)
+                                                  ? 'Balık Eklentisi: ${SaveManager.instance.fishShards} / 8'
+                                                  : I18n.tr('shard_added').replaceAll('{count}', '${SaveManager.instance.getShards(widget.category ?? widget.categoryCrate?.category ?? 'balls')}'),
                                               style: const TextStyle(
                                                 color: Color(0xFF00E5FF),
                                                 fontSize: 12.5,
@@ -1600,15 +1652,16 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
                     // Dialog Actions
                     if (_opened) ...[
-                      if (_isShardReward && SaveManager.instance.getShards(widget.category ?? widget.categoryCrate?.category ?? 'balls') >= 3)
+                      if (_isShardReward && (((widget.category ?? widget.categoryCrate?.category) == 'fish' || _effectiveCrate != null) ? SaveManager.instance.fishShards >= 8 : SaveManager.instance.getShards(widget.category ?? widget.categoryCrate?.category ?? 'balls') >= 3))
                         Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: KaunosTactileButton.gold(
                             height: 44,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             onTap: () async {
-                              final cat = widget.category ?? widget.categoryCrate?.category ?? 'balls';
-                              final ok = await SaveManager.instance.consumeShards(cat, 3);
+                              final isFish = (widget.category ?? widget.categoryCrate?.category) == 'fish' || _effectiveCrate != null;
+                              final cat = isFish ? 'fish' : (widget.category ?? widget.categoryCrate?.category ?? 'balls');
+                              final ok = isFish ? await SaveManager.instance.consumeFishShards(8) : await SaveManager.instance.consumeShards(cat, 3);
                               if (ok && context.mounted) {
                                 Navigator.of(context).pop();
                                 showDialog(
@@ -1630,7 +1683,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                   const Icon(Icons.diamond_rounded, size: 16, color: Color(0xFF1B0E05)),
                                   const SizedBox(width: 8),
                                   Text(
-                                    I18n.tr('use_shards_guaranteed'),
+                                    (((widget.category ?? widget.categoryCrate?.category) == 'fish' || _effectiveCrate != null) ? I18n.tr('use_fish_shards_guaranteed') : I18n.tr('use_shards_guaranteed')),
                                     style: const TextStyle(
                                       color: Color(0xFF1B0E05),
                                       fontWeight: FontWeight.w900,

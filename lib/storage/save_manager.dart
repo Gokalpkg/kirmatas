@@ -32,6 +32,7 @@ class PendingCrate {
   final int rarityIndex;
   final bool isDuplicate;
   final bool isShardReward;
+  final int shardCount;
   final bool isFoodBonus;
   final int bonusFoodCount;
   final int bonusGoldCount;
@@ -47,6 +48,7 @@ class PendingCrate {
     required this.rarityIndex,
     this.isDuplicate = false,
     this.isShardReward = false,
+    this.shardCount = 1,
     this.isFoodBonus = false,
     this.bonusFoodCount = 0,
     this.bonusGoldCount = 0,
@@ -63,6 +65,7 @@ class PendingCrate {
     'rarityIndex': rarityIndex,
     'isDuplicate': isDuplicate,
     'isShardReward': isShardReward,
+    'shardCount': shardCount,
     'isFoodBonus': isFoodBonus,
     'bonusFoodCount': bonusFoodCount,
     'bonusGoldCount': bonusGoldCount,
@@ -79,6 +82,7 @@ class PendingCrate {
     rarityIndex: json['rarityIndex'] as int? ?? 0,
     isDuplicate: json['isDuplicate'] as bool? ?? false,
     isShardReward: json['isShardReward'] as bool? ?? false,
+    shardCount: (json['shardCount'] as num?)?.toInt() ?? 1,
     isFoodBonus: json['isFoodBonus'] as bool? ?? false,
     bonusFoodCount: json['bonusFoodCount'] as int? ?? 0,
     bonusGoldCount: json['bonusGoldCount'] as int? ?? 0,
@@ -135,6 +139,9 @@ class SaveManager extends ChangeNotifier {
   int? chaosSavedStock;
 
   List<String> unlockedFish = ['guppy', 'tetra'];
+  Map<String, int> ownedFishCounts = {'guppy': 1, 'tetra': 1};
+  int fishShards = 0; // 0..8 (8 unlocks guaranteed unowned fish chest)
+  static const int maxFishShards = 8;
   int aquariumSand = 1;
   int aquariumMoss = 2;
   int aquariumKelp = 1;
@@ -437,6 +444,22 @@ class SaveManager extends ChangeNotifier {
     }
 
     unlockedFish = _prefs?.getStringList('unlockedFish') ?? ['guppy', 'tetra'];
+    fishShards = _prefs?.getInt('fishShards') ?? 0;
+    final fishCountsStr = _prefs?.getString('ownedFishCounts');
+    if (fishCountsStr != null) {
+      try {
+        final Map<String, dynamic> decoded = jsonDecode(fishCountsStr);
+        ownedFishCounts = decoded.map((k, v) => MapEntry(k, (v as num).toInt().clamp(1, 2)));
+      } catch (_) {}
+    } else {
+      // Migrate from unlockedFish
+      ownedFishCounts = {for (final id in unlockedFish) id: 1};
+    }
+    // Keep unlockedFish synced with ownedFishCounts
+    for (final id in unlockedFish) {
+      ownedFishCounts.putIfAbsent(id, () => 1);
+    }
+    unlockedFish = ownedFishCounts.keys.toList();
     aquariumSand = _prefs?.getInt('aquariumSand') ?? 1;
     aquariumMoss = _prefs?.getInt('aquariumMoss') ?? 2;
     aquariumKelp = _prefs?.getInt('aquariumKelp') ?? 1;
@@ -555,9 +578,13 @@ class SaveManager extends ChangeNotifier {
 
     switch (crate.rewardType) {
       case 'fish':
-        await addFish(crate.rewardId);
-        if (crate.isFoodBonus && crate.bonusFoodCount > 0) {
-          await addFishFood(crate.bonusFoodCount);
+        if (crate.isShardReward) {
+          await addFishShards(crate.shardCount > 0 ? crate.shardCount : 1);
+        } else {
+          await addFish(crate.rewardId);
+          if (crate.isFoodBonus && crate.bonusFoodCount > 0) {
+            await addFishFood(crate.bonusFoodCount);
+          }
         }
         break;
       case 'ball':
@@ -742,23 +769,77 @@ class SaveManager extends ChangeNotifier {
     return true;
   }
 
-  Future<void> unlockFish(String fishId) async {
+  /// Fish shard count (0..8)
+  int getFishShards() => fishShards;
+
+  Future<void> addFishShards([int count = 1]) async {
+    fishShards += count;
+    await _prefs?.setInt('fishShards', fishShards);
+    notifyListeners();
+  }
+
+  Future<bool> consumeFishShards([int count = 8]) async {
+    if (fishShards < count) return false;
+    fishShards -= count;
+    await _prefs?.setInt('fishShards', fishShards);
+    notifyListeners();
+    return true;
+  }
+
+  /// Get how many copies of this exact fish color/variant the player owns (0, 1, or 2)
+  int getFishCount(String fishId) {
+    return ownedFishCounts[fishId] ?? (unlockedFish.contains(fishId) ? 1 : 0);
+  }
+
+  /// Returns whether a player can acquire another copy of this fish (< 2)
+  bool canAcquireFish(String fishId) {
+    return getFishCount(fishId) < 2;
+  }
+
+  /// List of all owned fish instances (a fish with count 2 appears twice)
+  List<String> get allOwnedFishInstances {
+    final list = <String>[];
+    for (final entry in ownedFishCounts.entries) {
+      for (int i = 0; i < entry.value; i++) {
+        list.add(entry.key);
+      }
+    }
+    if (list.isEmpty) {
+      return List<String>.from(unlockedFish);
+    }
+    return list;
+  }
+
+  /// Adds a fish copy (max 2 per fish color/species).
+  /// Returns true if a new copy was added, false if already at max (2).
+  Future<bool> addFishInstance(String fishId) async {
+    final currentCount = getFishCount(fishId);
+    if (currentCount >= 2) {
+      return false;
+    }
+    ownedFishCounts[fishId] = currentCount + 1;
     if (!unlockedFish.contains(fishId)) {
       unlockedFish.add(fishId);
-      await _prefs?.setStringList('unlockedFish', unlockedFish);
-      notifyListeners();
     }
+    await _prefs?.setStringList('unlockedFish', unlockedFish);
+    await _prefs?.setString('ownedFishCounts', jsonEncode(ownedFishCounts));
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> unlockFish(String fishId) async {
+    await addFishInstance(fishId);
   }
 
   Future<void> addFish(String fishId) async {
-    await unlockFish(fishId);
+    await addFishInstance(fishId);
   }
 
   /// Spend pearls to directly unlock a fish in Eco-Tank
   Future<bool> buyFishWithPearls(String fishId, int pearlCost) async {
     if (unlockedFish.contains(fishId)) return false;
     if (pearlCost > 0 && !spendPearls(pearlCost)) return false;
-    await unlockFish(fishId);
+    await addFishInstance(fishId);
     return true;
   }
 

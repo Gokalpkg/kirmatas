@@ -111,8 +111,8 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
           roll -= entry.value;
         }
         final available = FishItem.allFish.where((f) => f.rarity == rolledRarity).toList();
-        final unownedInRarity = available.where((f) => !save.unlockedFish.contains(f.id)).toList();
-        final allUnowned = FishItem.allFish.where((f) => !save.unlockedFish.contains(f.id)).toList();
+        final unownedInRarity = available.where((f) => save.getFishCount(f.id) == 0).toList();
+        final allUnowned = FishItem.allFish.where((f) => save.getFishCount(f.id) == 0).toList();
         FishItem fish;
         if (unownedInRarity.isNotEmpty) {
           fish = unownedInRarity[rand.nextInt(unownedInRarity.length)];
@@ -122,17 +122,39 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
         } else {
           fish = available.isNotEmpty ? available[rand.nextInt(available.length)] : FishItem.allFish.first;
         }
-        final isNewSpecies = !save.unlockedFish.contains(fish.id);
-        final isFoodBonus = !isNewSpecies;
-        final subtitle = isNewSpecies ? I18n.tr('new_fish_unlocked') : 'Akvaryumuna bir ${fish.name} daha katıldı! (+3 Yem Hediye)';
+        final currentOwnedCount = save.getFishCount(fish.id);
+        int shardYield = 0;
+        bool isDuplicate = false;
+        bool isShardReward = false;
+        bool isFoodBonus = false;
+        String subtitle;
+
+        if (currentOwnedCount >= 2) {
+          shardYield = fish.rarity == Rarity.common ? 1 : 2;
+          isDuplicate = true;
+          isShardReward = true;
+          final newTotal = save.fishShards + shardYield;
+          subtitle = 'Bu balıktan 2 adede sahipsin! +$shardYield Balık Eklentisi eklendi ($newTotal/8).';
+        } else if (currentOwnedCount == 1) {
+          isDuplicate = true;
+          isFoodBonus = true;
+          subtitle = 'Akvaryumuna 2. ${fish.name} katıldı! (+3 Yem Hediye)';
+        } else {
+          subtitle = I18n.tr('new_fish_unlocked');
+        }
+
         await save.savePendingCrate(PendingCrate(
           crateType: 'aquarium',
           crateId: crateDef.id,
+          category: 'fish',
           rewardType: 'fish',
           rewardId: fish.id,
           rewardTitle: fish.name,
           rewardSubtitle: subtitle,
           rarityIndex: rolledRarity.index,
+          isDuplicate: isDuplicate,
+          isShardReward: isShardReward,
+          shardCount: shardYield > 0 ? shardYield : 1,
           isFoodBonus: isFoodBonus,
           bonusFoodCount: isFoodBonus ? 3 : 0,
         ));

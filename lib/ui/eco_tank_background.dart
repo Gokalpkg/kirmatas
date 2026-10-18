@@ -51,7 +51,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
 
   void _initFish() {
     final save = SaveManager.instance;
-    final fishIds = save.unlockedFish;
+    final fishIds = save.allOwnedFishInstances;
     for (int i = 0; i < fishIds.length; i++) {
       final item = FishItem.getById(fishIds[i]);
       _simFish.add(

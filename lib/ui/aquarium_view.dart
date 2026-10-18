@@ -1,3 +1,4 @@
+import 'crate_opening_dialog.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../engine/ad_manager.dart';
@@ -595,6 +596,76 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                     ),
                                   ],
                                 ),
+                                const SizedBox(height: 8),
+                                const Divider(color: Colors.white24, height: 1),
+                                const SizedBox(height: 6),
+                                // 8-Shard Fish Progress Indicator
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.diamond_rounded, color: Color(0xFF00E5FF), size: 15),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          'Balık Eklentisi: ${_save.fishShards} / 8',
+                                          style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 11, fontWeight: FontWeight.w900),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      _save.fishShards >= 8 ? 'Sandık Hazır!' : '(${8 - _save.fishShards} kaldı)',
+                                      style: TextStyle(
+                                        color: _save.fishShards >= 8 ? const Color(0xFFFFD54F) : Colors.white60,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 5),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: (_save.fishShards / 8.0).clamp(0.0, 1.0),
+                                    minHeight: 5,
+                                    backgroundColor: Colors.white12,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      _save.fishShards >= 8 ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF),
+                                    ),
+                                  ),
+                                ),
+                                if (_save.fishShards >= 8) ...[
+                                  const SizedBox(height: 8),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      onPressed: () async {
+                                        final ok = await _save.consumeFishShards(8);
+                                        if (ok && context.mounted) {
+                                          showDialog(
+                                            context: context,
+                                            barrierDismissible: false,
+                                            builder: (_) => const CrateOpeningDialog(
+                                              isGuaranteedRedemption: true,
+                                              category: 'fish',
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF00E5FF),
+                                        foregroundColor: Colors.black,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        padding: const EdgeInsets.symmetric(vertical: 6),
+                                      ),
+                                      child: const Text(
+                                        'Garantili Yeni Balık Sandığı Aç (8/8)',
+                                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 Builder(
                                   builder: (_) {
                                     final buffs = FishSynergyBuffs.calculate(_save);
@@ -792,6 +863,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                   final fish = FishItem.allFish[index];
                   final owned = save.unlockedFish.contains(fish.id);
 
+                  final count = save.getFishCount(fish.id);
                   return Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -801,41 +873,65 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                         color: owned ? fish.rarity.primaryColor : Colors.white10,
                       ),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Stack(
                       children: [
-                        SizedBox(
-                          height: 38,
-                          child: owned
-                              ? Image.asset(fish.assetPath, fit: BoxFit.contain)
-                              : ColorFiltered(
-                                  colorFilter: const ColorFilter.mode(Colors.black54, BlendMode.srcATop),
-                                  child: Opacity(
-                                    opacity: 0.35,
-                                    child: Image.asset(fish.assetPath, fit: BoxFit.contain),
-                                  ),
+                        if (owned && count > 0)
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: count >= 2 ? const Color(0xFFFFD54F) : const Color(0xFF4FC3F7),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                'x$count',
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w900,
                                 ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          fish.name,
-                          style: TextStyle(
-                            color: owned ? Colors.white : Colors.white38,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          owned ? '${fish.rarity.label} • +${fish.goldReward} ' : 'Kilitli',
-                          style: TextStyle(
-                            color: owned ? fish.rarity.primaryColor : Colors.white24,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              height: 38,
+                              child: owned
+                                  ? Image.asset(fish.assetPath, fit: BoxFit.contain)
+                                  : ColorFiltered(
+                                      colorFilter: const ColorFilter.mode(Colors.black54, BlendMode.srcATop),
+                                      child: Opacity(
+                                        opacity: 0.35,
+                                        child: Image.asset(fish.assetPath, fit: BoxFit.contain),
+                                      ),
+                                    ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              fish.name,
+                              style: TextStyle(
+                                color: owned ? Colors.white : Colors.white38,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              owned ? '${fish.rarity.label} • +${fish.goldReward} ' : 'Kilitli',
+                              style: TextStyle(
+                                color: owned ? fish.rarity.primaryColor : Colors.white24,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
