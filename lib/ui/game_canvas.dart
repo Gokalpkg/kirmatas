@@ -370,7 +370,7 @@ class _ScreenVignettePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     double redAlpha = 0.0;
-    if (c.isLastLife) {
+    if (c.isLowLifeAlertActive) {
       // ~72 bpm double-beat envelope: sharp thump then softer echo.
       final t = (c.gameTime * 1.2) % 1.0;
       final beat = t < 0.12
@@ -380,7 +380,8 @@ class _ScreenVignettePainter extends CustomPainter {
               : (t > 0.36 && t < 0.52)
                   ? 0.55 * (1.0 - (t - 0.36) / 0.16)
                   : 0.0;
-      redAlpha = 0.10 + 0.22 * beat.clamp(0.0, 1.0);
+      final fade = (c.lowLifeAlertTimer / 0.8).clamp(0.0, 1.0);
+      redAlpha = (0.10 + 0.22 * beat.clamp(0.0, 1.0)) * fade;
     }
     final flash = (c.nearMissFlashTimer / 0.55).clamp(0.0, 1.0);
     if (redAlpha <= 0.0 && flash <= 0.0) return;

@@ -46,7 +46,19 @@ class AudioManager {
   bool _hasVib = false;
   bool _hasAmp = false;
   int _lastVibTime = 0;
-  bool appInForeground = true;
+  bool _appInForeground = true;
+  bool get appInForeground => _appInForeground;
+  set appInForeground(bool value) {
+    if (_appInForeground == value) return;
+    _appInForeground = value;
+    if (!_appInForeground) {
+      stopAll();
+    } else {
+      if (isBgmAllowed && SaveManager.instance.bgmVolume > 0) {
+        resumeBgm();
+      }
+    }
+  }
   bool isBgmAllowed = true;
   double playDuck = 1.0;
 
@@ -78,7 +90,7 @@ class AudioManager {
           stayAwake: false,
           contentType: AndroidContentType.sonification,
           usageType: AndroidUsageType.game,
-          audioFocus: AndroidAudioFocus.none,
+          audioFocus: AndroidAudioFocus.gainTransientMayDuck,
         ),
         iOS: AudioContextIOS(
           category: AVAudioSessionCategory.ambient,
@@ -153,11 +165,15 @@ class AudioManager {
   }
 
   Future<void> _beginSeam() async {
-    if (_seamArmed || !_bgmNextReady) return;
+    if (_seamArmed || !_bgmNextReady || !_appInForeground || !isBgmAllowed || SaveManager.instance.bgmVolume <= 0) return;
     _seamArmed = true;
     try {
       await _bgmNext.seek(Duration.zero);
       await _bgmNext.setVolume(0);
+      if (!_appInForeground || !isBgmAllowed) {
+        _seamArmed = false;
+        return;
+      }
       await _bgmNext.resume();
       _crossfade();
     } catch (_) {
@@ -172,6 +188,12 @@ class AudioManager {
     const steps = 10;
     var i = 0;
     _seamTimer = Timer.periodic(const Duration(milliseconds: 28), (t) {
+      if (!_appInForeground || !isBgmAllowed) {
+        t.cancel();
+        outgoing.setVolume(0);
+        incoming.setVolume(0);
+        return;
+      }
       i++;
       final f = (i / steps).clamp(0.0, 1.0);
       final g = _bgmGain;
@@ -193,6 +215,11 @@ class AudioManager {
     _bgmNextReady = true;
     final g = _bgmGain;
     _bgmNext.setVolume(0);
+    if (!_appInForeground || !isBgmAllowed || SaveManager.instance.bgmVolume <= 0) {
+      _bgmLead.setVolume(0);
+      _bgmNext.setVolume(0);
+      return;
+    }
     if (handoffStarted) {
       _bgmLead.setVolume(g);
       return;
@@ -201,6 +228,7 @@ class AudioManager {
     final lead = _bgmLead;
     unawaited(() async {
       try {
+        if (!_appInForeground || !isBgmAllowed) return;
         await lead.seek(Duration.zero);
         await lead.resume();
       } catch (_) {}
@@ -208,24 +236,31 @@ class AudioManager {
   }
 
   Future<void> stopAll() async {
+    _seamTimer?.cancel();
+    _seamArmed = false;
+    try {
+      _bgmA.setVolume(0);
+      _bgmB.setVolume(0);
+      _bgmLead.setVolume(0);
+      _bgmNext.setVolume(0);
+      await _bgmA.pause();
+      await _bgmB.pause();
+    } catch (_) {}
     for (final pool in _pools.values) {
       for (final p in pool) {
         try {
+          p.setVolume(0);
           await p.stop();
         } catch (_) {}
       }
     }
-    try {
-      _seamTimer?.cancel();
-      await _bgmA.pause();
-      await _bgmB.pause();
-    } catch (_) {}
     if (_hasVib) {
       try {
         await Vibration.cancel();
       } catch (_) {}
     }
   }
+
   Future<void> pauseBgm() async {
     try {
       _seamTimer?.cancel();
@@ -236,12 +271,10 @@ class AudioManager {
         _seamArmed = false;
         _bgmNextReady = true;
       }
+      _bgmLead.setVolume(0);
+      _bgmNext.setVolume(0);
       await _bgmLead.pause();
       await _bgmNext.pause();
-      await _bgmNext.setVolume(0);
-      if (isBgmAllowed && appInForeground && SaveManager.instance.bgmVolume > 0) {
-        await resumeBgm();
-      }
     } catch (_) {}
   }
 

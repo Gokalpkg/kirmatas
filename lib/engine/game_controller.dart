@@ -75,7 +75,7 @@ enum ChaosPerkType {
       case ChaosPerkType.sniperSight:
         return 'Nişan lazerini uzatır ve ilk vuruşlara ekstra güç katar.';
       case ChaosPerkType.goldenVolley:
-        return 'Dalga sonu ve boss altın ödüllerini +%35 artırır.';
+        return 'Dalga sonu ve boss ödüllerine ekstra altın katar.';
     }
   }
 
@@ -263,8 +263,20 @@ class GameController extends ChangeNotifier {
   Ball? targetLockingBall;
   double targetLockTimer = 0.0;
 
-  /// True while the player is on their very last life (drives the heartbeat vignette).
+  int _lastKnownLives = 3;
+  double lowLifeAlertTimer = 0.0;
+  static const double lowLifeAlertDuration = 2.8;
+
+  /// True while the player is on their very last life.
   bool get isLastLife => status == GameStatus.playing && stats.lives == 1;
+  bool get isLowLifeAlertActive => isLastLife && lowLifeAlertTimer > 0;
+
+  void checkLowLifeTransition() {
+    if (stats.lives == 1 && _lastKnownLives > 1) {
+      lowLifeAlertTimer = lowLifeAlertDuration;
+    }
+    _lastKnownLives = stats.lives;
+  }
   double gameTime = 0.0;
   double bossWarningTimer = 0.0;
   double levelTransitionTimer = 0.0;
@@ -520,6 +532,8 @@ class GameController extends ChangeNotifier {
 
     stats.reset(initialLives: startLives, startLevel: startLevel);
     stats.score = startScore;
+    _lastKnownLives = startLives;
+    lowLifeAlertTimer = 0.0;
     if (mode == GameMode.classic) {
       save.noteClassicProgress(stats.level);
     }
@@ -989,17 +1003,13 @@ class GameController extends ChangeNotifier {
     chaosRecallActive = false;
     final remainingSolid = bricks.where((b) => b.isAlive && !b.isBallPickup).toList();
     if (remainingSolid.isEmpty) {
-      final baseGold = 25 + (stats.level * 5).clamp(0, 50);
+      final baseGold = 12 + (stats.level * 2).clamp(0, 24);
       final relicBonus = save.hasPermanentRelic ? max(1, (baseGold * 0.05).round()) : 0;
       final luckLvl = save.getUpgradeLevel('u_luck');
       final luckBonus = (baseGold * (luckLvl * 0.05)).round();
-      final goldLvl = save.getUpgradeLevel('u_gold');
-      final goldBonus = (baseGold * (goldLvl * 0.10)).round();
       final goldenStacks = activeChaosPerks.where((p) => p == ChaosPerkType.goldenVolley).length;
-      final perkGoldMult = 1.0 + goldenStacks * 0.35;
-      final synergyGoldMult = activeCosmeticSynergy.goldMultiplier;
-      final fishBuffs = FishSynergyBuffs.calculate(save);
-      final levelGold = ((baseGold + relicBonus + luckBonus + goldBonus) * perkGoldMult * synergyGoldMult * fishBuffs.goldMultiplier).round();
+      final perkGoldBonus = goldenStacks * 4;
+      final levelGold = baseGold + relicBonus + luckBonus + perkGoldBonus;
       stats.goldCollected += levelGold;
       save.addGold(levelGold);
 
@@ -1043,7 +1053,7 @@ class GameController extends ChangeNotifier {
     final effectiveWave = (chaosTurnCounter > 0 && chaosTurnCounter % 10 == 0 && stats.level < 10)
         ? chaosTurnCounter
         : stats.level;
-    bricks.addAll(LevelDesign.buildChaosRow(effectiveWave, 0, screenWidth));
+    bricks.addAll(LevelDesign.buildChaosRow(effectiveWave, 0, screenWidth, turn: chaosTurnCounter));
     if ((stats.level > 0 && stats.level % 5 == 0 || (chaosTurnCounter > 0 && chaosTurnCounter % 5 == 0)) &&
         offeredChaosPerks.isEmpty) {
       offerChaosPerksForWave();
@@ -1164,6 +1174,10 @@ class GameController extends ChangeNotifier {
 
   void update(double dt) {
     gameTime += dt;
+
+    if (lowLifeAlertTimer > 0) {
+      lowLifeAlertTimer = max(0.0, lowLifeAlertTimer - dt);
+    }
 
     if (level == 1 && !isChaosMode && !isZenMode) {
       level1GuideTimer += dt;
@@ -1553,9 +1567,35 @@ class GameController extends ChangeNotifier {
         continue;
       }
 
-      // Boss bullets hitting paddle
+      // Boss bullets hitting paddle (or bottom launcher area in Chaos mode)
       if (p.isBossBullet) {
-        if (paddle.rect.contains(Offset(p.x, p.y))) {
+        if (currentMode == GameMode.chaos) {
+          if (p.y >= chaosFloorY - 14.0) {
+            projectiles.removeAt(i);
+            particles.triggerShake(6.5, 0.30);
+            particles.spawnBurst(p.x, chaosFloorY, const Color(0xFFFF1744), count: 16, speed: 120.0);
+            particles.spawnShockwave(p.x, chaosFloorY, const Color(0xFFFF1744), maxRadius: 75.0);
+            audio.playSfx(GameSfx.explosion);
+            // Boss earthquake slams the brick formation downward closer to the danger line!
+            for (final brick in bricks) {
+              if (!brick.isAlive) continue;
+              brick.y += 10.0;
+              brick.targetY = brick.y;
+              if (!brick.isBallPickup && brick.y + brick.height >= chaosFloorY - 36) {
+                _onGameOver();
+                return;
+              }
+            }
+            particles.spawnFloatingText(
+              screenWidth * 0.5,
+              chaosFloorY - 45.0,
+              'BOSS SALDIRISI! TUĞLALAR İLERLEDİ!',
+              const Color(0xFFFF1744),
+              isLarge: true,
+            );
+            continue;
+          }
+        } else if (paddle.rect.contains(Offset(p.x, p.y))) {
           projectiles.removeAt(i);
           particles.triggerShake(5.5, 0.25);
           particles.spawnBurst(p.x, p.y, Colors.redAccent, count: 16);
@@ -2011,11 +2051,21 @@ class GameController extends ChangeNotifier {
         }
       }
 
-      // Kaos modu anti-stuck & recall:
+      // Kaos modu anti-stuck & recall (Ghost balls flying straight to launcher without brick collisions):
       if (currentMode == GameMode.chaos) {
         if (chaosRecallActive) {
-          ball.vx *= 0.88;
-          ball.vy = max(ball.vy, 760.0);
+          final targetX = chaosHomeX;
+          final targetY = chaosFloorY;
+          final dx = targetX - ball.x;
+          final dy = targetY - ball.y;
+          final dist = sqrt(dx * dx + dy * dy);
+          if (dist > 6.0) {
+            const recallSpeed = 850.0;
+            ball.vx = (dx / dist) * recallSpeed;
+            ball.vy = (dy / dist) * recallSpeed;
+          } else {
+            ball.vy = 850.0;
+          }
         } else {
           // Anti-bug / Anti-stuck:
           if (ball.vy.abs() < 80.0) {
@@ -2142,8 +2192,10 @@ class GameController extends ChangeNotifier {
           break;
         }
 
-        // Brick collision
-        _checkBallBrickCollision(ball);
+        // Brick collision (Ghost balls pass through all bricks harmlessly during recall)
+        if (!(currentMode == GameMode.chaos && chaosRecallActive)) {
+          _checkBallBrickCollision(ball);
+        }
       }
 
       if (currentMode == GameMode.chaos) {
@@ -2731,7 +2783,8 @@ class GameController extends ChangeNotifier {
 
       if (b.isBoss) {
         final goldenStacks = activeChaosPerks.where((p) => p == ChaosPerkType.goldenVolley).length;
-        final bossGold = ((100 + (stats.level ~/ 10) * 50) * (1.0 + goldenStacks * 0.35) * activeCosmeticSynergy.goldMultiplier).round();
+        final baseBossGold = 75 + (stats.level ~/ 10) * 25;
+        final bossGold = (baseBossGold + goldenStacks * 5).round();
         stats.goldCollected += bossGold;
         save.addGold(bossGold);
         save.addPearls(2);
@@ -3035,6 +3088,7 @@ class GameController extends ChangeNotifier {
           break;
         case PowerUpType.life:
           stats.lives++;
+          _lastKnownLives = stats.lives;
           break;
         case PowerUpType.mirror:
           if (balls.isNotEmpty) {
@@ -3357,9 +3411,11 @@ class GameController extends ChangeNotifier {
   void _loseLife() {
     if (levelTransitionTimer > 0 || status != GameStatus.playing) return;
     stats.lives--;
+    checkLowLifeTransition();
     if (stats.lives <= 0 && currentMode == GameMode.classic && !save.usedFreeContinue) {
       save.markFreeContinueUsed();
       stats.lives = 1;
+      checkLowLifeTransition();
       particles.spawnFloatingText(
         screenWidth * 0.5,
         screenHeight * 0.46,
@@ -3523,6 +3579,8 @@ class GameController extends ChangeNotifier {
     if (!canRevive) return;
     revivesUsed++;
     stats.lives = 1;
+    lowLifeAlertTimer = lowLifeAlertDuration;
+    _lastKnownLives = 1;
     resetPaddleAndBall();
     status = GameStatus.ready;
     if (currentMode == GameMode.classic) {
@@ -3536,7 +3594,7 @@ class GameController extends ChangeNotifier {
   }
 
   int rollEndGameGoldDice({int? forcedDice}) {
-    if (hasClaimedVictoryBonus) return endGameBonusGoldAdded;
+    if (hasClaimedVictoryBonus || isChaosMode) return 0;
     hasClaimedVictoryBonus = true;
     final baseGold = endGameMultiplierBaseGold;
     final rolled = (forcedDice ?? (1 + _rand.nextInt(6))).clamp(1, 6);

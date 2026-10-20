@@ -1289,8 +1289,8 @@ class LevelDesign {
     return bricks;
   }
 
-  static List<Brick> buildChaosRow(int wave, int row, double screenWidth, {bool isInitialBoard = false}) {
-    final rand = Random(wave * 20011 + row * 101 + 7);
+  static List<Brick> buildChaosRow(int wave, int row, double screenWidth, {bool isInitialBoard = false, int turn = 0}) {
+    final rand = Random(wave * 20011 + (row * 101) + (turn * 37) + 7);
     final bw = (screenWidth - chaosMargin * 2 - chaosGap * (chaosCols - 1)) / chaosCols;
     final y = baseTopMargin + row * chaosStep;
     final bricks = <Brick>[];

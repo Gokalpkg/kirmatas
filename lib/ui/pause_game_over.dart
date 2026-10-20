@@ -498,6 +498,10 @@ class _EndGameDiceMultiplierCardState extends State<_EndGameDiceMultiplierCard> 
   @override
   Widget build(BuildContext context) {
     final c = widget.controller;
+    // In Chaos mode, gold multiplier feature is disabled per request
+    if (c.isChaosMode) {
+      return const SizedBox.shrink();
+    }
     final adManager = AdManager.instance;
     final isAdBusy = adManager.isShowing;
 

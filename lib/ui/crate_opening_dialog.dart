@@ -1762,41 +1762,37 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     final splitDist = (1.0 - progress) * 6.5;
     final ghostAlpha = ((1.0 - progress) * 0.45).clamp(0.0, 1.0);
 
-    return Stack(
-      alignment: Alignment.center,
-      clipBehavior: Clip.none,
-      children: [
-        // Cyan color channel split (shifted left)
-        Transform.translate(
-          offset: Offset(-splitDist, 0),
-          child: ColorFiltered(
-            colorFilter: ColorFilter.mode(
-              const Color(0xFF00E5FF).withValues(alpha: ghostAlpha),
-              BlendMode.screen,
-            ),
-            child: cardWidget,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00E5FF).withValues(alpha: ghostAlpha * 0.8),
+            offset: Offset(-splitDist, 0),
+            blurRadius: 12,
+            spreadRadius: 1,
           ),
-        ),
-        // Red-Orange color channel split (shifted right)
-        Transform.translate(
-          offset: Offset(splitDist, 0),
-          child: ColorFiltered(
-            colorFilter: ColorFilter.mode(
-              const Color(0xFFFF1744).withValues(alpha: ghostAlpha),
-              BlendMode.screen,
-            ),
-            child: cardWidget,
+          BoxShadow(
+            color: const Color(0xFFFF1744).withValues(alpha: ghostAlpha * 0.8),
+            offset: Offset(splitDist, 0),
+            blurRadius: 12,
+            spreadRadius: 1,
           ),
-        ),
-        // Center razor-sharp obsidian crystal card
-        cardWidget,
-      ],
+        ],
+      ),
+      child: cardWidget,
     );
   }
 
   Widget _buildRewardIcon() {
     if (_reward is FishItem) {
-      return Image.asset((_reward as FishItem).assetPath, width: 72, height: 72, fit: BoxFit.contain);
+      return Image.asset(
+        (_reward as FishItem).assetPath,
+        width: 72,
+        height: 72,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => const Icon(Icons.set_meal_rounded, size: 54, color: Colors.amber),
+      );
     }
     if (_reward is BallSkin) {
       final b = _reward as BallSkin;
@@ -2465,9 +2461,8 @@ class _ExpandingFloorRunesPainter extends CustomPainter {
 
     final glowRingPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5.0
-      ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 4.5)
-      ..color = const Color(0xFFFFD54F).withValues(alpha: alpha * 0.65);
+      ..strokeWidth = 6.0
+      ..color = const Color(0xFFFFD54F).withValues(alpha: alpha * 0.45);
     canvas.drawCircle(Offset.zero, maxRadius, glowRingPaint);
 
     final innerR = maxRadius * 0.68;
@@ -2503,11 +2498,14 @@ class _ExpandingFloorRunesPainter extends CustomPainter {
       canvas.drawLine(p1, p2, tickPaint);
     }
 
+    final coreGlowPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = Colors.white.withValues(alpha: alpha * 0.35);
+    canvas.drawCircle(Offset.zero, 24.0 * (1.0 - progress), coreGlowPaint);
     final corePaint = Paint()
       ..style = PaintingStyle.fill
-      ..color = Colors.white.withValues(alpha: alpha * 0.7)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
-    canvas.drawCircle(Offset.zero, 18.0 * (1.0 - progress), corePaint);
+      ..color = Colors.white.withValues(alpha: alpha * 0.85);
+    canvas.drawCircle(Offset.zero, 14.0 * (1.0 - progress), corePaint);
 
     canvas.restore();
   }
@@ -2530,10 +2528,9 @@ class _CracklingGoldenLightningPainter extends CustomPainter {
 
     final glowPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.5
+      ..strokeWidth = 5.5
       ..strokeCap = StrokeCap.round
-      ..color = const Color(0xFFFFA000).withValues(alpha: alpha * 0.8)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 4.0);
+      ..color = const Color(0xFFFFA000).withValues(alpha: alpha * 0.45);
 
     final corePaint = Paint()
       ..style = PaintingStyle.stroke

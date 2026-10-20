@@ -1,8 +1,8 @@
 import '../engine/analytics_manager.dart';
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:ui' show Color;
-import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/game_state.dart';
 import '../models/cosmetics.dart';
@@ -560,16 +560,29 @@ class SaveManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _safeNotifyListeners() {
+    try {
+      final binding = WidgetsBinding.instance;
+      if (binding.schedulerPhase != SchedulerPhase.idle) {
+        binding.addPostFrameCallback((_) {
+          notifyListeners();
+        });
+        return;
+      }
+    } catch (_) {}
+    notifyListeners();
+  }
+
   Future<void> savePendingCrate(PendingCrate crate) async {
     pendingCrate = crate;
     await _prefs?.setString(_kPendingCrate, jsonEncode(crate.toJson()));
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   Future<void> clearPendingCrate() async {
     pendingCrate = null;
     await _prefs?.remove(_kPendingCrate);
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   Future<void> claimPendingCrate() async {
