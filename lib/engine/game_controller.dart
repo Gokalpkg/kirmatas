@@ -3478,7 +3478,10 @@ class GameController extends ChangeNotifier {
   }
 
   void _rollCapsuleDrop(double x, double y) {
-    if (activePowerUps.length >= 3) return; // Limit to 3 active power-ups
+    // At most 2 active power-ups while several balls are in play
+    // (mirrors the cap enforced in applyPowerUp), otherwise 3.
+    final activeCap = balls.length > 1 ? 2 : 3;
+    if (activePowerUps.length >= activeCap) return;
     if (isChaosMode) {
       // Chaos breaks bricks in bulk, so capsules are serialized: one in the
       // air at a time, then a cooldown before the next can even roll.
@@ -3511,11 +3514,23 @@ class GameController extends ChangeNotifier {
       }
       if (buffs.isEmpty) return;
       chosen = buffs[_rand.nextInt(buffs.length)];
-      
-      // Multi-top, Ateş topu ve Roket: Kontrollü ve dengeli nadirlik oranı (~%3.5 - %4.5)
-      if (chosen == PowerUpType.multi && _rand.nextDouble() < 0.50) {
-        chosen = buffs[_rand.nextInt(buffs.length)];
-      } else if ((chosen == PowerUpType.fireball || chosen == PowerUpType.rocket) && _rand.nextDouble() < 0.65) {
+
+      // Nadir dörtlü (Çoklu Top, Ateş, Roket, Buz): seçilirlerse %75
+      // ihtimalle zar yeniden atılır, böylece dördü de seyrek gelir.
+      if (chosen == PowerUpType.multi && balls.length > 1) {
+        // Ekranda birden fazla top varken Çoklu Top'un gelme şansı %0,5:
+        // zar tutmazsa Çoklu Top havuzdan çıkarılıp yeniden seçilir.
+        if (_rand.nextDouble() >= 0.005) {
+          final noMulti = buffs.where((t) => t != PowerUpType.multi).toList();
+          if (noMulti.isNotEmpty) {
+            chosen = noMulti[_rand.nextInt(noMulti.length)];
+          }
+        }
+      } else if ((chosen == PowerUpType.multi ||
+              chosen == PowerUpType.fireball ||
+              chosen == PowerUpType.rocket ||
+              chosen == PowerUpType.frost) &&
+          _rand.nextDouble() < 0.75) {
         chosen = buffs[_rand.nextInt(buffs.length)];
       }
     } else {
