@@ -570,12 +570,15 @@ class _GameWorldPainter extends CustomPainter {
     // Side-mode ambience: each mode gets the same atmospheric love as
     // the classic sectors, tinted to its own identity.
     if (c.currentMode == GameMode.zen) {
-      _drawModeAura(canvas, size, const Color(0xFF26A69A), const Color(0xFF80DEEA));
+      // Zen breathes in the main adventure's sunset tone.
+      _drawModeAura(canvas, size, const Color(0xFFC85A32), const Color(0xFFF5B041));
       _drawZenMotes(canvas, size);
     } else if (c.currentMode == GameMode.shapes) {
-      _drawModeAura(canvas, size, const Color(0xFF8E24AA), const Color(0xFFEA80FC));
+      // Amber-bronze, sunset family.
+      _drawModeAura(canvas, size, const Color(0xFFD97706), const Color(0xFFF5B041));
     } else if (c.currentMode == GameMode.descend) {
-      _drawModeAura(canvas, size, const Color(0xFF5E35B1), const Color(0xFFB388FF));
+      // Deep-teal jade family.
+      _drawModeAura(canvas, size, const Color(0xFF2E6E7E), const Color(0xFF48A9A6));
       _drawDescendDanger(canvas, size);
     }
   }
@@ -609,7 +612,7 @@ class _GameWorldPainter extends CustomPainter {
       final y = ((fy * size.height + time * fallSpeed) % (size.height + 24.0)) - 12.0;
       final x = fx * size.width + sin(time * 0.6 + i * 1.7) * 10.0;
       final r = 1.2 + (i % 3) * 0.7;
-      _fill.color = _ca(const Color(0xFFB2DFDB), 0.08 + (i % 4) * 0.03);
+      _fill.color = _ca(const Color(0xFFFFCCBC), 0.08 + (i % 4) * 0.03);
       canvas.drawCircle(Offset(x, y), r, _fill);
     }
   }
@@ -631,7 +634,7 @@ class _GameWorldPainter extends CustomPainter {
       _fill,
     );
     _fill.color = _ca(
-        progress > 0.75 ? const Color(0xFFFF5252) : const Color(0xFFB388FF),
+        progress > 0.75 ? const Color(0xFFFF5252) : const Color(0xFF48A9A6),
         0.85);
     canvas.drawRRect(
       RRect.fromRectAndRadius(

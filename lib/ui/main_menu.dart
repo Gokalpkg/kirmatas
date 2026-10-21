@@ -1165,8 +1165,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     title: I18n.tr('zen'),
                                     desc: I18n.tr('zen_desc'),
                                     icon: Icons.spa_rounded,
-                                    color1: const Color(0xFF00B4D8),
-                                    color2: const Color(0xFF0077B6),
+                                    // Zen shares the main adventure's sunset tone.
+                                    color1: KaunosPalette.terracottaPrimary,
+                                    color2: KaunosPalette.classicSunsetTop,
                                     badge: !_save.isLeagueUnlocked
                                         ? '🔒 Bölüm 7'
                                         : (_save.isUnlockNew('zen', _save.isLeagueUnlocked) ? 'YENİ!' : null),
@@ -1188,8 +1189,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     title: I18n.tr('descend'),
                                     desc: I18n.tr('descend_desc'),
                                     icon: Icons.keyboard_double_arrow_down_rounded,
-                                    color1: const Color(0xFF9D4EDD),
-                                    color2: const Color(0xFFC77DFF),
+                                    // Deep-teal jade family, like the chaos hero.
+                                    color1: const Color(0xFF2E6E7E),
+                                    color2: const Color(0xFF0E2A33),
                                     onTap: () => _launchGame(GameMode.descend),
                                   ),
                                 ),
@@ -1201,8 +1203,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               title: '${I18n.tr('shapes').toUpperCase()} • 38 FİGÜR',
                               desc: 'Rastgele piksel figürler, özel desenler ve yüksek tempo',
                               icon: Icons.palette_rounded,
-                              color1: const Color(0xFFE040FB),
-                              color2: const Color(0xFF7C4DFF),
+                              // Warm amber-bronze, sunset family (no more pink).
+                              color1: const Color(0xFFD97706),
+                              color2: const Color(0xFF92400E),
                                     onTap: () => _launchGame(GameMode.shapes),
                                   ),
                             const SizedBox(height: 10),
@@ -1214,7 +1217,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                   : 'Özel günlük tohumlu bölüm: 250 Altın + 3 İnci + 1 Parça',
                               icon: Icons.bolt_rounded,
                               color1: const Color(0xFFFF9100),
-                              color2: const Color(0xFFFF5252),
+                              color2: const Color(0xFFBF360C),
                               badge: !_save.isLeagueUnlocked
                                   ? '🔒 Bölüm 7'
                                   : (_save.isUnlockNew('daily', _save.isLeagueUnlocked)
@@ -2571,19 +2574,27 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   }) {
     final best = _save.getHighScore(mode);
 
+    // Hero-grade shell, same recipe as the classic/chaos hero cards:
+    // 3-stop gradient, lit border, physical bevel + specular ridge + glow.
+    final bevel = Color.lerp(color2, Colors.black, 0.55)!;
+    final border = Color.lerp(color1, Colors.white, 0.38)!;
+    final deep = Color.lerp(color2, Colors.black, 0.30)!;
     return Opacity(
       opacity: dimmed ? 0.6 : 1.0,
       child: Container(
       height: 126,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [color1.withValues(alpha: 0.9), color2.withValues(alpha: 0.9)],
+          colors: [color1, color2, deep],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border, width: 1.3),
         boxShadow: [
-          BoxShadow(color: color1.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 4)),
+          BoxShadow(color: bevel, offset: const Offset(0, 4), blurRadius: 0),
+          const BoxShadow(color: Color(0x30FFFFFF), offset: Offset(0, 1.2), blurRadius: 0),
+          BoxShadow(color: color1.withValues(alpha: 0.30), blurRadius: 13, offset: const Offset(0, 6)),
         ],
       ),
       child: Material(
@@ -2592,7 +2603,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            // Vertical 7 (not 10): the hero border insets the child by
+            // ~1.3px per side; this keeps the old inner room and avoids
+            // overflow at 1.5x text scaling.
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

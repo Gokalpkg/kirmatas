@@ -200,7 +200,7 @@ class HudOverlay extends StatelessWidget {
                                           Text(
                                             'Rekor: ${controller.save.getHighScore(GameMode.descend)}',
                                             style: const TextStyle(
-                                              color: Color(0xFFB388FF),
+                                              color: Color(0xFF48A9A6),
                                               fontWeight: FontWeight.w800,
                                               fontSize: 9.5,
                                               letterSpacing: 0.4,
@@ -224,7 +224,7 @@ class HudOverlay extends StatelessWidget {
                                           Text(
                                             'Rekor: ${controller.save.getHighScore(GameMode.zen)}',
                                             style: const TextStyle(
-                                              color: Color(0xFF80DEEA),
+                                              color: Color(0xFFF5B041),
                                               fontWeight: FontWeight.w800,
                                               fontSize: 9.5,
                                               letterSpacing: 0.4,

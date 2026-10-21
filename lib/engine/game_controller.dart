@@ -619,9 +619,9 @@ class GameController extends ChangeNotifier {
     if (!isResume) {
       // Side modes get the same grand entrance as the main adventure.
       final intro = switch (mode) {
-        GameMode.zen => ('ZEN • SAKİN AKIŞ', const Color(0xFF80DEEA)),
-        GameMode.descend => ('ÇÖKÜŞ • HAYATTA KAL', const Color(0xFFB388FF)),
-        GameMode.shapes => ('ŞEKİLLER • FİGÜR ${stats.level}', const Color(0xFFEA80FC)),
+        GameMode.zen => ('ZEN • SAKİN AKIŞ', const Color(0xFFF5B041)),
+        GameMode.descend => ('ÇÖKÜŞ • HAYATTA KAL', const Color(0xFF48A9A6)),
+        GameMode.shapes => ('ŞEKİLLER • FİGÜR ${stats.level}', const Color(0xFFFFB74D)),
         _ => null,
       };
       if (intro != null) {
