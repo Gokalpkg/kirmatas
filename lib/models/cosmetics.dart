@@ -402,7 +402,8 @@ class FishItem {
     this.kind = FishKind.fish,
   }) : _name = name;
 
-  bool get isBottomDweller => kind == FishKind.snail || kind == FishKind.crab;
+  bool get isBottomDweller =>
+      kind == FishKind.snail || kind == FishKind.crab || kind == FishKind.octopus;
 
   String get name => _name != null ? I18n.tr(id) : I18n.tr(id);
   String get assetPath => 'assets/images/fishes/$id.png';

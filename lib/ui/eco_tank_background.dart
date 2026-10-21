@@ -104,6 +104,13 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
         save.onFishAtePellet(target.item.id);
       }
     }
+    // A pellet an octopus is still tucking under itself counts as eaten too.
+    for (final f in _simFish) {
+      if (f.grabbedPellet != null) {
+        save.onFishAtePellet(f.item.id);
+        f.grabbedPellet = null;
+      }
+    }
     _foodPellets.clear();
     _ticker.dispose();
     _frame.dispose();
@@ -219,6 +226,11 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
 
   void _eatPellet(_SimFish f, _FoodPellet pellet, SaveManager save) {
     _foodPellets.remove(pellet);
+    _creditMeal(f, save, sparkleDy: -6.0);
+  }
+
+  /// Shared meal bookkeeping + sparkles once a pellet is truly eaten.
+  void _creditMeal(_SimFish f, SaveManager save, {required double sparkleDy}) {
     f.eatCooldown = 1.0;
     f.satiatedTimer = 14.0;
     save.onFishAtePellet(f.item.id);
@@ -228,7 +240,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       _eatParticles.add(
         _EatParticle(
           x: f.x + (_rand.nextDouble() * 2 - 1) * 8.0,
-          y: f.y - 6.0,
+          y: f.y + sparkleDy,
           maxLife: 0.9 + _rand.nextDouble() * 0.4,
           color: const Color(0xFFFFD54F),
         ),
@@ -237,8 +249,37 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
     AudioManager.instance.playSfx(GameSfx.bubble);
   }
 
-  /// Snails glide and crabs scuttle along the sand. They crawl toward a
-  /// sinking pellet and nibble it once it reaches the bottom.
+  /// An octopus never gulps a pellet mid-water like a fish: it wraps its
+  /// arms around the pellet and tucks it underneath its body, to the beak.
+  /// The meal only counts once it has actually eaten down there.
+  void _startGrabbing(_SimFish f, _FoodPellet pellet) {
+    _foodPellets.remove(pellet);
+    f.grabbedPellet = pellet;
+    f.grabTimer = 0.85;
+    AudioManager.instance.playSfx(GameSfx.bubble);
+  }
+
+  /// Tucks the grabbed pellet to the beak under the body and munches it.
+  /// Returns true while the meal ritual is still running.
+  bool _updateGrabbedMeal(_SimFish f, double dt, SaveManager save) {
+    final gp = f.grabbedPellet;
+    if (gp == null) return false;
+    f.isMoving = false;
+    f.grabTimer -= dt;
+    // Arms drag the pellet to the centre of the underside and pin it.
+    gp.x += (f.x - gp.x) * min(1.0, dt * 7.0);
+    gp.y += ((f.y + 13.0) - gp.y) * min(1.0, dt * 7.0);
+    if (f.grabTimer <= 0) {
+      f.grabbedPellet = null;
+      _creditMeal(f, save, sparkleDy: 9.0);
+    }
+    return true;
+  }
+
+  /// Snails glide, crabs scuttle and the octopus crawls along the sand.
+  /// They move toward a sinking pellet and eat it once it reaches the
+  /// bottom — the octopus first tucks it under its body (see
+  /// [_startGrabbing]).
   /// [floorY] is the creature centre line in world coordinates; the
   /// sand surface sits at ~y=745, so bodies rest on the floor instead
   /// of hovering above it.
@@ -248,20 +289,51 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
     f.y += (floorY - f.y) * min(1.0, dt * 3.0);
     f.pitchAngle = 0.0;
     final isSnail = f.item.kind == FishKind.snail;
+    final isOctopus = f.item.kind == FishKind.octopus;
+
+    // A tucked-under meal pauses everything until it is eaten.
+    if (isOctopus && _updateGrabbedMeal(f, dt, save)) {
+      return;
+    }
 
     if (pellet != null && !f.isSatiated) {
       final dx = pellet.x - f.x;
       f.facingRight = dx >= 0;
       f.isMoving = true;
-      final speed = isSnail ? 20.0 : 46.0;
+      final speed = isSnail ? 20.0 : (isOctopus ? 34.0 : 46.0);
       final step = speed * dt;
       f.x += dx.abs() < step ? dx : (dx > 0 ? step : -step);
+      if (isOctopus) f.stepPhase += dt * 5.2;
       if (dx.abs() < 20.0 && pellet.y > 600.0) {
-        _eatPellet(f, pellet, save);
+        if (isOctopus) {
+          // Reached it: wrap the arms around it and tuck it underneath.
+          _startGrabbing(f, pellet);
+        } else {
+          _eatPellet(f, pellet, save);
+        }
       }
     } else if (isSnail) {
       f.isMoving = true;
       f.x += (f.facingRight ? 10.0 : -10.0) * dt;
+    } else if (isOctopus) {
+      // Arm-over-arm crawl: flowing pull bursts, then the octopus
+      // gathers its arms and sits still for a beat before moving on.
+      f.stepTimer -= dt;
+      if (f.stepTimer <= 0) {
+        f.isMoving = !f.isMoving;
+        f.stepTimer = f.isMoving
+            ? 0.9 + _rand.nextDouble() * 0.9
+            : 0.7 + _rand.nextDouble() * 1.6;
+        if (!f.isMoving && _rand.nextDouble() < 0.35) {
+          f.facingRight = !f.facingRight;
+        }
+      }
+      if (f.isMoving) {
+        // Speed swells mid-stride and eases at both ends of each pull.
+        f.stepPhase += dt * 5.0;
+        final stride = 0.55 + 0.45 * sin(f.stepPhase * 2.0).abs();
+        f.x += (f.facingRight ? 26.0 : -26.0) * stride * dt;
+      }
     } else {
       // Crab scuttle: short sideways bursts with pauses between.
       f.stepTimer -= dt;
@@ -415,11 +487,6 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
             vx = (f.facingRight ? -1.0 : 1.0) * 235.0;
             f.pitchAngle = (f.facingRight ? -0.35 : 0.35);
           }
-        } else if (f.item.kind == FishKind.octopus) {
-          // Octopus hovers in the lower half with a wide, slow sway.
-          bobAmp = 24.0;
-          if (f.y < 330.0) f.y += 26.0 * dt;
-          vx *= 0.7;
         } else if (f.item.kind == FishKind.jellyfish) {
           // Pulse propulsion: the bell contracts to push up, then
           // relaxes and the jelly drifts slowly back down.
@@ -532,8 +599,12 @@ class _SimFish {
   // Creature locomotion state
   double dartTimer = 0.0; // shrimp: time until the next tail-flick dash
   double dartTime = 0.0; // shrimp: remaining dash time
-  double stepTimer = 0.0; // crab: scuttle burst / pause cycling
+  double stepTimer = 0.0; // crab/octopus: walk burst / pause cycling
+  double stepPhase = 0.0; // octopus: arm-over-arm stride cycle
   bool isMoving = true;
+  // Octopus meal ritual: a pellet tucked under the body, eaten slowly.
+  _FoodPellet? grabbedPellet;
+  double grabTimer = 0.0;
 
   /// True while the fish is in its 3-hour post-feeding satiety window
   bool get isSatiated => SaveManager.instance.isFishInSatietyCooldown(item.id);
@@ -697,6 +768,14 @@ class _TankPainter extends CustomPainter {
       canvas.drawCircle(Offset(p.x, p.y), 4.0, _foodGlow);
       canvas.drawCircle(Offset(p.x, p.y), 2.5, _foodPaint);
     }
+    // Pellets an octopus has tucked underneath itself: drawn before the
+    // creatures, so the body sits on top of the meal while it eats.
+    for (final f in simFish) {
+      final gp = f.grabbedPellet;
+      if (gp == null) continue;
+      canvas.drawCircle(Offset(gp.x, gp.y), 4.0, _foodGlow);
+      canvas.drawCircle(Offset(gp.x, gp.y), 2.5, _foodPaint);
+    }
 
     // 6. Eat particles & tap reaction hearts
     for (final ep in eatParticles) {
@@ -747,10 +826,26 @@ class _TankPainter extends CustomPainter {
           canvas.rotate(sin(time * 6.0 + f.tailPhase) * 0.07);
           break;
         case FishKind.octopus:
-          // Breathing squash-and-stretch plus a dreamy bob
-          final pulse = 1.0 + sin(time * 2.4 + f.tailPhase) * 0.05;
-          canvas.scale(pulse, 2.0 - pulse);
-          canvas.translate(0, sin(time * 1.8 + f.tailPhase) * 5.0);
+          if (f.grabbedPellet != null) {
+            // Hunched over the meal tucked under its body: pressed down
+            // onto the sand, mantle pulsing with each bite at the beak.
+            final bite = sin(time * 10.0 + f.tailPhase);
+            canvas.scale(1.07, 0.90 + bite * 0.02);
+            canvas.translate(0, 3.0 + bite * 0.4);
+          } else if (f.isMoving) {
+            // Arm-over-arm crawl: the mantle rides up once per stride
+            // and leans into the pull, on top of its slow breathing.
+            final stride = sin(f.stepPhase * 2.0);
+            canvas.translate(0, -stride.abs() * 2.6);
+            canvas.rotate(stride * 0.05);
+            final pulse = 1.0 + sin(time * 2.4 + f.tailPhase) * 0.04;
+            canvas.scale(pulse, 2.0 - pulse);
+          } else {
+            // Settled on the sand: breathing squash-and-stretch.
+            final pulse = 1.0 + sin(time * 2.4 + f.tailPhase) * 0.05;
+            canvas.scale(pulse, 2.0 - pulse);
+            canvas.translate(0, sin(time * 1.8 + f.tailPhase) * 1.6);
+          }
           break;
         case FishKind.jellyfish:
           // Bell pulse synced with the sim thrust: squeeze wide and

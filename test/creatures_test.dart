@@ -25,7 +25,7 @@ void main() {
       expect(FishItem.getById('snail').isBottomDweller, isTrue);
       expect(FishItem.getById('crab').isBottomDweller, isTrue);
       expect(FishItem.getById('shrimp').isBottomDweller, isFalse);
-      expect(FishItem.getById('octopus').isBottomDweller, isFalse);
+      expect(FishItem.getById('octopus').isBottomDweller, isTrue);
       expect(FishItem.getById('jellyfish').isBottomDweller, isFalse);
       expect(FishItem.getById('arowana').isBottomDweller, isFalse);
     });
