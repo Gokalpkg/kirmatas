@@ -203,7 +203,7 @@ void main() {
       );
 
       // Trigger SANDIK onClaim directly
-      final sandikReward = FortuneWheelDialog.rewards.firstWhere((r) => r.label == 'SANDIK');
+      final sandikReward = FortuneWheelDialog.rewards.firstWhere((r) => r.label == 'KASA');
       sandikReward.onClaim(tester.element(find.byType(Scaffold)), save);
 
       // Allow async save to persist

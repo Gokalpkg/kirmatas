@@ -5,6 +5,7 @@ import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
+import 'chest_widget.dart';
 import 'kaunos_ui.dart';
 
 class WheelReward {
@@ -123,13 +124,13 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       onClaim: (context, save) => save.addGold(500),
     ),
     WheelReward(
-      label: 'SANDIK',
-      subtitle: 'Gizemli Ödül',
-      icon: Icons.inventory_2,
-      primaryColor: const Color(0xFFE040FB),
-      secondaryColor: const Color(0xFF7C4DFF),
+      label: 'KASA',
+      subtitle: 'Ahtapot Kasası',
+      icon: Icons.lock_rounded,
+      primaryColor: const Color(0xFFAB47BC),
+      secondaryColor: const Color(0xFF6A1B9A),
       onClaim: (context, save) async {
-        final crateDef = CrateDef.allCrates.first;
+        final crateDef = CrateDef.octopusVault;
         final rand = Random();
         final luckLevel = save.upgrades['luck'] ?? 0;
         final weights = Map<Rarity, double>.from(crateDef.weights);
@@ -562,71 +563,56 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     final displayLabel = customLabel ?? reward.label;
     final displaySubtitle = customSubtitle ?? reward.subtitle;
     final displayIcon = customIcon ?? reward.icon;
-    final isChest = reward.label == 'SANDIK';
+    final isChest = reward.label == 'KASA';
+
+    // The big catches get a full spectacle; small ones stay casual.
+    final spectacle = isChest ||
+        reward.label == '500 ' ||
+        reward.label == '250 ' ||
+        reward.label == '+1 İNCİ';
+
+    // Same chest visual the opening screen uses (rolled rarity tier).
+    Rarity? chestTier;
+    Color? chestPrimary;
+    Color? chestSecondary;
+    if (isChest) {
+      final pending = SaveManager.instance.pendingCrate;
+      final idx = (pending?.rarityIndex ?? 0).clamp(0, Rarity.values.length - 1);
+      chestTier = Rarity.values[idx];
+      switch (chestTier) {
+        case Rarity.common:
+          chestPrimary = const Color(0xFF8D6E63);
+          chestSecondary = const Color(0xFF5D4037);
+        case Rarity.rare:
+          chestPrimary = const Color(0xFF00E5FF);
+          chestSecondary = const Color(0xFF006064);
+        case Rarity.epic:
+          chestPrimary = const Color(0xFFE040FB);
+          chestSecondary = const Color(0xFF4A148C);
+        case Rarity.legendary:
+          chestPrimary = const Color(0xFFFFD54F);
+          chestSecondary = const Color(0xFFE65100);
+      }
+    }
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xF0101320),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: BorderSide(color: reward.primaryColor, width: 2),
-        ),
-        title: Column(
-          children: [
-            Icon(displayIcon, color: reward.primaryColor, size: 54),
-            const SizedBox(height: 12),
-            const Text(
-              'TEBRİKLER!',
-              style: TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.w900, fontSize: 20),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              displayLabel,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: reward.primaryColor,
-                fontWeight: FontWeight.w900,
-                fontSize: displayLabel.length > 10 ? 21 : 25,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              displaySubtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.3),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              isChest ? 'Sandığın arkaya bırakıldı! Çıkışta hemen açabilirsin.' : 'Ödül hesabınıza aktarıldı!',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          Center(
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                if (isChest) {
-                  Navigator.of(context).pop();
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: reward.primaryColor,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-              ),
-              child: Text(isChest ? 'SANDIĞI AÇ!' : 'HARİKA!', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-            ),
-          ),
-        ],
+      builder: (ctx) => _PrizeRevealDialog(
+        reward: reward,
+        displayLabel: displayLabel,
+        displaySubtitle: displaySubtitle,
+        displayIcon: displayIcon,
+        isChest: isChest,
+        spectacle: spectacle,
+        chestTier: chestTier,
+        chestPrimary: chestPrimary,
+        chestSecondary: chestSecondary,
+        onDone: () {
+          Navigator.of(ctx).pop();
+          if (isChest) {
+            Navigator.of(context).pop();
+          }
+        },
       ),
     );
   }
@@ -1081,6 +1067,201 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       ),
     );
   }
+}
+
+/// Animated prize reveal: rotating light rays + pulsing prize. Big wins
+/// (jackpot, 250g, pearl, Octopus Vault) get the full spectacle; the
+/// chest is drawn with the very same ChestWidget the opening screen
+/// uses, so what you win is exactly what you later open.
+class _PrizeRevealDialog extends StatefulWidget {
+  final WheelReward reward;
+  final String displayLabel;
+  final String displaySubtitle;
+  final IconData displayIcon;
+  final bool isChest;
+  final bool spectacle;
+  final Rarity? chestTier;
+  final Color? chestPrimary;
+  final Color? chestSecondary;
+  final VoidCallback onDone;
+
+  const _PrizeRevealDialog({
+    required this.reward,
+    required this.displayLabel,
+    required this.displaySubtitle,
+    required this.displayIcon,
+    required this.isChest,
+    required this.spectacle,
+    required this.chestTier,
+    required this.chestPrimary,
+    required this.chestSecondary,
+    required this.onDone,
+  });
+
+  @override
+  State<_PrizeRevealDialog> createState() => _PrizeRevealDialogState();
+}
+
+class _PrizeRevealDialogState extends State<_PrizeRevealDialog> with SingleTickerProviderStateMixin {
+  late final AnimationController _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(vsync: this, duration: const Duration(seconds: 16))..repeat();
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.reward.primaryColor;
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        decoration: BoxDecoration(
+          color: const Color(0xF5101320),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: color, width: 2.2),
+          boxShadow: [
+            BoxShadow(color: color.withValues(alpha: 0.45), blurRadius: 26, offset: const Offset(0, 8)),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 170,
+              height: 150,
+              child: AnimatedBuilder(
+                animation: _anim,
+                builder: (context, _) {
+                  final pulse = 1.0 + (widget.spectacle ? 0.05 * sin(_anim.value * 2 * pi * 3) : 0.0);
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (widget.spectacle)
+                        Transform.rotate(
+                          angle: _anim.value * 2 * pi,
+                          child: CustomPaint(
+                            size: const Size(170, 150),
+                            painter: _RaysPainter(color: color),
+                          ),
+                        ),
+                      Transform.scale(
+                        scale: pulse,
+                        child: widget.isChest
+                            ? ChestWidget(
+                                size: 118,
+                                tier: widget.chestTier,
+                                primaryColor: widget.chestPrimary ?? color,
+                                secondaryColor: widget.chestSecondary ?? const Color(0xFF4A148C),
+                                time: _anim.value * 2 * pi,
+                              )
+                            : Container(
+                                width: 92,
+                                height: 92,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: RadialGradient(
+                                    colors: [color.withValues(alpha: 0.95), color.withValues(alpha: 0.45)],
+                                  ),
+                                  border: Border.all(color: Colors.white70, width: 1.6),
+                                  boxShadow: [
+                                    BoxShadow(color: color.withValues(alpha: 0.65), blurRadius: 18),
+                                  ],
+                                ),
+                                child: Icon(widget.displayIcon, color: Colors.white, size: 46),
+                              ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            Text(
+              widget.spectacle ? '💥 BÜYÜK ÖDÜL!' : 'TEBRİKLER!',
+              style: TextStyle(
+                color: widget.spectacle ? const Color(0xFFFFD54F) : Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: widget.spectacle ? 23 : 19,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.displayLabel,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w900,
+                fontSize: widget.displayLabel.length > 10 ? 21 : 26,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              widget.displaySubtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.3),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              widget.isChest
+                  ? 'Ahtapot Kasası arkaya bırakıldı! Açmak için ${CrateDef.octopusVaultPearlCost} inci gerekir.'
+                  : 'Ödül hesabınıza aktarıldı!',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+            ElevatedButton(
+              onPressed: widget.onDone,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+              ),
+              child: Text(
+                widget.isChest ? 'KASAYI AÇ!' : 'HARİKA!',
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RaysPainter extends CustomPainter {
+  final Color color;
+  const _RaysPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width * 0.52;
+    final paint = Paint()..style = PaintingStyle.fill;
+    const wedges = 12;
+    for (var i = 0; i < wedges; i += 2) {
+      final start = (i / wedges) * 2 * pi;
+      final path = Path()
+        ..moveTo(center.dx, center.dy)
+        ..arcTo(Rect.fromCircle(center: center, radius: radius), start, (2 * pi / wedges) * 0.9, false)
+        ..close();
+      paint.color = color.withValues(alpha: 0.13);
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RaysPainter oldDelegate) => oldDelegate.color != color;
 }
 
 class _WheelPainter extends CustomPainter {

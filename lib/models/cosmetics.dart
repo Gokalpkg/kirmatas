@@ -697,6 +697,27 @@ class CrateDef {
       },
     ),
   ];
+
+  /// Pearls needed to unlock an Octopus Vault (wheel prize). The vault is
+  /// never sold in the shop, so it stays out of [allCrates].
+  static const int octopusVaultPearlCost = 3;
+
+  /// The Octopus Vault: a legendary fish vault guarded by the octopus.
+  /// Won from the fortune wheel; opens only for [octopusVaultPearlCost]
+  /// pearls, with premium fish odds inside.
+  static const CrateDef octopusVault = CrateDef(
+    id: 'octopus',
+    name: 'Ahtapot Kasası',
+    cost: 0,
+    tier: Rarity.legendary,
+    primaryColor: Color(0xFFAB47BC),
+    weights: {
+      Rarity.common: 10.0,
+      Rarity.rare: 35.0,
+      Rarity.epic: 40.0,
+      Rarity.legendary: 15.0,
+    },
+  );
 }
 
 class UpgradeDef {

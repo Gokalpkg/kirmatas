@@ -91,6 +91,11 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   Timer? _autoOpenTimer;
 
   int _tapCount = 0; // 0 (start), 1, 2, 3 (open)
+  bool _vaultUnlocked = false;
+
+  /// The Octopus Vault (wheel prize) stays pearl-locked until paid for.
+  bool get _isVault => _effectiveCrate?.id == 'octopus';
+  bool get _vaultLocked => _isVault && !_vaultUnlocked && !_opened;
   Rarity _currentRarity = Rarity.common;
   bool _isShaking = false;
   bool _isOpening = false;
@@ -121,11 +126,68 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     if (widget.crate != null) return widget.crate;
     final pending = widget.pendingCrate ?? SaveManager.instance.pendingCrate;
     if (pending?.crateId != null) {
+      if (pending!.crateId == CrateDef.octopusVault.id) {
+        return CrateDef.octopusVault;
+      }
       try {
-        return CrateDef.allCrates.firstWhere((c) => c.id == pending!.crateId);
+        return CrateDef.allCrates.firstWhere((c) => c.id == pending.crateId);
       } catch (_) {}
     }
     return null;
+  }
+
+  /// Pearl-lock panel shown while an Octopus Vault waits to be unlocked.
+  Widget _buildVaultLockPanel() {
+    final save = SaveManager.instance;
+    const cost = CrateDef.octopusVaultPearlCost;
+    final canPay = save.pearls >= cost;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0x2BAB47BC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFAB47BC), width: 1.4),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            '🐙 AHTAPOT KASASI',
+            style: TextStyle(color: Color(0xFFEA80FC), fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.0),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Ahtapot hazinesini sıkı sıkı tutuyor. Kasayı açmak için inci ister.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 9),
+          ElevatedButton.icon(
+            onPressed: canPay
+                ? () {
+                    if (save.spendPearls(cost)) {
+                      AudioManager.instance.playSfx(GameSfx.powerupBuff);
+                      setState(() => _vaultUnlocked = true);
+                    }
+                  }
+                : null,
+            icon: const Icon(Icons.lock_open_rounded, size: 16),
+            label: Text(
+              canPay ? '$cost İNCİYLE KİLİDİ AÇ' : 'İNCİ YETERSİZ (Sende: ${save.pearls}/$cost)',
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFAB47BC),
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: Colors.white12,
+              disabledForegroundColor: Colors.white38,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   CategoryCrateInfo? get _effectiveCategoryCrate {
@@ -177,6 +239,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   }
 
   String get _tapPromptText {
+    if (_vaultLocked) return 'Kasa Kilitli';
     if (_tapCount == 0) return 'Sandığa Dokun (1/3)';
     if (_tapCount == 1) return 'Tekrar Dokun (2/3)';
     if (_tapCount == 2) return 'Açmak İçin Dokun! (3/3)';
@@ -444,6 +507,10 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   }
 
   Future<void> _handleChestTap() async {
+    if (_vaultLocked) {
+      AudioManager.instance.playSfx(GameSfx.hitWall);
+      return;
+    }
     if (_opened || _isShaking || _isOpening || _dropController.value < 0.80) return;
 
     _resetAutoOpenTimer();
@@ -1303,6 +1370,10 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                 ),
                               ),
                               const SizedBox(height: 18),
+                              if (_vaultLocked) ...[
+                                _buildVaultLockPanel(),
+                                const SizedBox(height: 10),
+                              ],
                               AnimatedOpacity(
                                 opacity: (_dropController.value > 0.80 && !_isOpening) ? 1.0 : 0.45,
                                 duration: const Duration(milliseconds: 150),
