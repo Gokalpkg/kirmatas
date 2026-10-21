@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:kirmatas/engine/game_controller.dart';
+import 'package:kirmatas/models/black_hole.dart';
 import 'package:kirmatas/models/easter_egg.dart';
 import 'package:kirmatas/models/game_state.dart';
 import 'package:kirmatas/models/powerup.dart';
@@ -99,7 +100,7 @@ void main() {
       expect(ctrl.stats.score, greaterThan(scoreBefore));
     });
 
-    test('vortex drags the bee onto the paddle, marks it, then it escapes',
+    test('vortex drags the bee onto the paddle, where it is crushed dead',
         () {
       final ctrl = startedController();
       ctrl.paddle.hasVortex = true;
@@ -112,23 +113,47 @@ void main() {
         ctrl.update(0.016);
         if (ctrl.activeBee?.state == BeeState.stuckToPaddle) stuck = true;
       }
-      expect(stuck, isTrue, reason: 'bee should get stuck to the paddle');
+      expect(stuck, isTrue, reason: 'bee should get pinned to the paddle');
       expect(ctrl.beePaddleMarkTimer, greaterThan(0));
-      expect(ctrl.stats.score, scoreBefore + 50);
+      // No points yet: the +50 lands when the crush actually kills it.
+      expect(ctrl.stats.score, scoreBefore);
 
-      var escaped = false;
-      for (var i = 0; i < 600 && !escaped; i++) {
+      var crushed = false;
+      for (var i = 0; i < 600 && !crushed; i++) {
+        pinBall(ctrl);
+        ctrl.update(0.016);
+        if (ctrl.activeBee == null) crushed = true;
+      }
+      expect(crushed, isTrue, reason: 'pinned bee must be crushed dead');
+      expect(ctrl.stats.score, scoreBefore + 50);
+    });
+
+    test('ambient black hole never pulls the bee toward the paddle', () {
+      final ctrl = startedController();
+      ctrl.paddle.hasVortex = false;
+      ctrl.blackHoles.add(BlackHole(
+        x: ctrl.screenWidth / 2,
+        y: 300,
+        radius: 30,
+        mass: 30.0 * 5000.0,
+        timeLeft: 9.0,
+        isSupercharged: true,
+      ));
+      ctrl.spawnEasterEggBee(customY: 200, facingRight: true);
+      final beeY = ctrl.activeBee!.baseY;
+
+      var touchedPaddle = false;
+      for (var i = 0; i < 900; i++) {
         pinBall(ctrl);
         ctrl.update(0.016);
         final bee = ctrl.activeBee;
-        if (bee != null &&
-            bee.state == BeeState.flying &&
-            bee.escapeVy < 0) {
-          escaped = true;
-        }
-        if (bee == null) escaped = true; // already flew off the top
+        if (bee == null) break; // flew off screen on its own — fine
+        if (bee.state == BeeState.stuckToPaddle) touchedPaddle = true;
+        // The bee must keep its own flight lane, never dragged down.
+        expect(bee.baseY, beeY);
       }
-      expect(escaped, isTrue, reason: 'bee should shake loose and escape');
+      expect(touchedPaddle, isFalse,
+          reason: 'black holes pull balls, not the bee');
     });
   });
 

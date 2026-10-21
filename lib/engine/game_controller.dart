@@ -1527,9 +1527,10 @@ class GameController extends ChangeNotifier {
 
     switch (bee.state) {
       case BeeState.flying:
-        // Vortex drags the bee down onto the paddle.
-        final vortexActive = blackHoles.isNotEmpty || paddle.hasVortex;
-        if (vortexActive && bee.escapeVy == 0.0) {
+        // Only an active Vortex power-up drags the bee down onto the
+        // paddle. Ambient black holes pull balls, never the bee — with
+        // no Vortex up, the bee simply flies its route across the top.
+        if (paddle.hasVortex) {
           final targetX = paddle.x + paddle.width / 2;
           final targetY = paddle.y - 12.0;
           final pull = min(1.0, dt * 2.6);
@@ -1544,22 +1545,12 @@ class GameController extends ChangeNotifier {
             bee.stuckOffsetX = (bee.x - paddle.x).clamp(8.0, max(8.0, paddle.width - 8.0));
             beePaddleMarkX = bee.x;
             beePaddleMarkTimer = 5.0;
-            stats.score += 50;
             particles.spawnBurst(bee.x, bee.y, const Color(0xFFFFD54F), count: 14, speed: 90.0);
-            particles.spawnFloatingText(bee.x, bee.y - 20.0, 'ARI YAKALANDI! +50', const Color(0xFFFFD54F), isLarge: true);
             audio.playSfx(GameSfx.powerupBuff);
           }
         } else {
-          if (bee.escapeVy < 0) {
-            bee.baseY += bee.escapeVy * dt;
-          }
           bee.update(dt);
-          if (bee.escapeVy < 0) {
-            if (bee.y < -45.0) {
-              activeBee = null;
-              return;
-            }
-          } else if (bee.isOffScreen(screenWidth)) {
+          if (bee.isOffScreen(screenWidth)) {
             activeBee = null;
             return;
           }
@@ -1602,18 +1593,18 @@ class GameController extends ChangeNotifier {
         break;
 
       case BeeState.stuckToPaddle:
+        // Pinned on the paddle: struggles briefly, then the paddle
+        // crushes it flat — it dies right there, no escape.
         bee.stateTime += dt;
         bee.x = paddle.x + bee.stuckOffsetX;
         bee.y = paddle.y - 9.0;
-        if (bee.stateTime >= 3.0) {
-          // Shakes loose and rockets up off the top of the screen.
-          bee.state = BeeState.flying;
-          bee.stateTime = 0.0;
-          bee.baseY = bee.y;
-          bee.escapeVy = -200.0;
-          particles.spawnBurst(bee.x, bee.y, const Color(0xFFFFD54F), count: 10, speed: 80.0);
-          particles.spawnFloatingText(bee.x, bee.y - 20.0, 'ARI KAÇTI!', const Color(0xFFFFD54F));
-          audio.playSfx(GameSfx.powerupBuff, playbackRate: 1.4);
+        if (bee.stateTime >= 0.45) {
+          stats.score += 50;
+          particles.spawnBurst(bee.x, bee.y, const Color(0xFFFFD54F), count: 18, speed: 120.0);
+          particles.spawnBurst(bee.x, bee.y, const Color(0xFF424242), count: 8, speed: 60.0);
+          particles.spawnFloatingText(bee.x, bee.y - 20.0, 'ARI EZİLDİ! +50', const Color(0xFFFFD54F), isLarge: true);
+          audio.playSfx(GameSfx.breakBrick, combo: stats.combo);
+          activeBee = null;
         }
         break;
     }

@@ -6001,6 +6001,11 @@ class _GameWorldPainter extends CustomPainter {
     final stuckJitter = isStuck ? sin(bee.stateTime * 30.0) * 1.6 : 0.0;
     canvas.translate(bee.x + stuckJitter, bee.y);
     canvas.scale(0.58, 0.58);
+    if (isStuck) {
+      // Squash flat over the crush duration as the paddle flattens it.
+      final crush = (bee.stateTime / 0.45).clamp(0.0, 1.0);
+      canvas.scale(1.0 + 0.30 * crush, 1.0 - 0.60 * crush);
+    }
     if (isFrozen) {
       canvas.rotate(bee.fallSpin);
     } else if (isStuck) {

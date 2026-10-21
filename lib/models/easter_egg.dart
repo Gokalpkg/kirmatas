@@ -1,8 +1,9 @@
 import 'dart:math';
 
 /// What the bee is currently doing. Different balls end its flight in
-/// different ways: fire burns it to ash, frost freezes it solid, a vortex
-/// drags it onto the paddle where it stays stuck for a few seconds.
+/// different ways: fire burns it to ash, frost freezes it solid, and an
+/// active Vortex power-up drags it onto the paddle, where it is crushed
+/// flat and dies. Nothing else ever pulls the bee toward the paddle.
 enum BeeState { flying, burning, frozenFalling, stuckToPaddle }
 
 class EasterEggBee {
@@ -24,11 +25,8 @@ class EasterEggBee {
   /// Tumble angle while falling frozen.
   double fallSpin = 0.0;
 
-  /// Where along the paddle the bee is glued (offset from paddle.x).
+  /// Where along the paddle the bee is pinned (offset from paddle.x).
   double stuckOffsetX = 0.0;
-
-  /// Upward escape velocity after breaking free from the paddle (< 0 = none).
-  double escapeVy = 0.0;
 
   EasterEggBee({
     required this.x,
