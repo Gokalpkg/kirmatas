@@ -1325,7 +1325,9 @@ class LevelDesign {
       }
 
       if (isBossWaveRow && c == bossCol) {
-        final bossHp = 40 + (wave ~/ 10) * 30;
+        // Toned down (~40% less): the boss shares the row with the whole
+        // descending wall, so old HP made wave 10+ a war of attrition.
+        final bossHp = 25 + (wave ~/ 10) * 18;
         bricks.add(
           Brick(
             x: chaosMargin + c * (bw + chaosGap),

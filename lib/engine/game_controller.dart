@@ -15,6 +15,7 @@ import '../models/powerup.dart';
 import '../storage/save_manager.dart';
 import 'audio_manager.dart';
 import 'ad_manager.dart';
+import 'play_games_manager.dart';
 import 'i18n.dart';
 import 'particle_system.dart';
 
@@ -3982,6 +3983,9 @@ class GameController extends ChangeNotifier {
       save.clearChaosSession();
     }
     save.updateHighScore(currentMode, stats.score);
+    // Real global ranking: push the fresh best to Play Games (no-op
+    // while signed out or leaderboards are not created yet).
+    PlayGamesManager.instance.submitBestScores(save);
     audio.playSfx(GameSfx.gameOver);
   }
 
@@ -4132,9 +4136,41 @@ class GameController extends ChangeNotifier {
     }
   }
 
+  /// Chaos revive rescue: wipes the lowest [rows] brick rows so the wall
+  /// that just crushed the player can't instantly crush them again after
+  /// watching the revive ad. Returns how many bricks were cleared.
+  int clearChaosBottomRows(int rows) {
+    if (currentMode != GameMode.chaos) return 0;
+    final alive = bricks.where((b) => b.isAlive && !b.isBallPickup).toList();
+    if (alive.isEmpty) return 0;
+    final rowKeys = alive.map((b) => (b.targetY / LevelDesign.chaosStep).round()).toSet().toList()..sort();
+    final doomed = rowKeys.reversed.take(rows).toSet();
+    var cleared = 0;
+    for (final b in alive) {
+      if (doomed.contains((b.targetY / LevelDesign.chaosStep).round())) {
+        b.isAlive = false;
+        cleared++;
+        particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, b.color, count: 8);
+      }
+    }
+    if (cleared > 0) {
+      particles.spawnFloatingText(
+        screenWidth / 2,
+        chaosFloorY - 130,
+        'ALT $rows SIRA TEMİZLENDİ!',
+        const Color(0xFF69F0AE),
+        isLarge: true,
+      );
+    }
+    return cleared;
+  }
+
   void reviveWithOneLife() {
     if (!canRevive) return;
     revivesUsed++;
+    if (currentMode == GameMode.chaos) {
+      clearChaosBottomRows(3);
+    }
     stats.lives = 1;
     lowLifeAlertTimer = lowLifeAlertDuration;
     _lastKnownLives = 1;

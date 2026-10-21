@@ -456,6 +456,12 @@ class _StatsDialogState extends State<StatsDialog> {
                 ),
               ],
             ),
+          const SizedBox(height: 8),
+          _gamesButton(
+            label: '🏆 SIRALAMA',
+            icon: Icons.leaderboard_rounded,
+            onTap: _busy ? null : () => _run(() => _games.showLeaderboard()),
+          ),
         ],
       ),
     );

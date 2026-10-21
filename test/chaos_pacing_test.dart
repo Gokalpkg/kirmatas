@@ -115,6 +115,53 @@ void main() {
           reason: 'A run tops out at the five distinct perks');
     });
 
+    test('chaos boss HP is toned down at wave 10', () {
+      final gc = GameController();
+      gc.setDimensions(360, 640);
+      gc.startNewGame(GameMode.chaos, explicitStartLevel: 10);
+      final boss = gc.bricks.firstWhere((b) => b.isBoss);
+      expect(boss.maxHp, 43, reason: 'Wave-10 boss: 25 + 1*18 (was 70)');
+    });
+
+    test('chaos revive clears the bottom 3 rows so death does not loop', () {
+      final gc = freshChaos();
+      // Six stacked rows marching on the player.
+      final bricks = <Brick>[];
+      for (var row = 0; row < 6; row++) {
+        for (var col = 0; col < 3; col++) {
+          bricks.add(Brick(
+            x: 20.0 + col * 55.0,
+            y: 100.0 + row * 34.0,
+            width: 44,
+            height: 26,
+            hp: 3,
+            maxHp: 3,
+            color: Colors.blue,
+          ));
+        }
+      }
+      gc.bricks = bricks;
+      final cleared = gc.clearChaosBottomRows(3);
+      expect(cleared, 9, reason: 'Bottom 3 rows x 3 cols wiped');
+      final aliveRows = gc.bricks.where((b) => b.isAlive).map((b) => b.y).toSet();
+      expect(aliveRows.length, 3, reason: 'Top 3 rows survive');
+      expect(gc.bricks.where((b) => b.isAlive).every((b) => b.y < 250), isTrue,
+          reason: 'Nothing alive remains in the kill zone');
+    });
+
+    test('reviveWithOneLife in chaos also clears the bottom rows', () {
+      final gc = freshChaos();
+      final bricks = <Brick>[];
+      for (var row = 0; row < 5; row++) {
+        bricks.add(Brick(x: 40, y: 120.0 + row * 34.0, width: 44, height: 26, hp: 3, maxHp: 3, color: Colors.red));
+      }
+      gc.bricks = bricks;
+      gc.status = GameStatus.gameOver;
+      gc.reviveWithOneLife();
+      expect(gc.bricks.where((b) => b.isAlive).length, 2,
+          reason: 'Bottom 3 of 5 rows cleared by the revive rescue');
+    });
+
     test('wave-5 offer still shows 3 fresh perks', () {
       final gc = GameController();
       gc.setDimensions(360, 640);

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:games_services/games_services.dart';
 
+import '../models/game_state.dart';
 import '../storage/save_manager.dart';
 
 /// Google Play Games bridge: silent sign-in + whole-save cloud snapshots.
@@ -15,6 +16,15 @@ class PlayGamesManager extends ChangeNotifier {
   static final PlayGamesManager instance = PlayGamesManager._();
 
   static const String _snapshotName = 'kirmatas_main';
+
+  /// Play Games leaderboard ids (Play Console > Play Games services >
+  /// Leaderboards > leaderboard details). Empty until the leaderboards
+  /// are created in the console; every leaderboard call below no-ops
+  /// gracefully while an id is empty.
+  static const String classicLeaderboardId = '';
+  static const String chaosLeaderboardId = '';
+
+  bool get hasLeaderboard => classicLeaderboardId.isNotEmpty;
 
   bool _initialized = false;
   bool _signedIn = false;
@@ -45,6 +55,7 @@ class PlayGamesManager extends ChangeNotifier {
         // Only auto-restore when the cloud save is clearly newer/newer
         // equipment than a fresh local install.
         await tryAutoRestore();
+        await submitBestScores(SaveManager.instance);
       }
       notifyListeners();
     } catch (_) {
@@ -59,13 +70,53 @@ class PlayGamesManager extends ChangeNotifier {
       _signedIn = (result != null && result.isNotEmpty) ||
           await GameAuth.isSignedIn;
       _statusText = _signedIn ? 'Bağlandın!' : 'Bağlantı kurulamadı';
-      if (_signedIn) await tryAutoRestore();
+      if (_signedIn) {
+        await tryAutoRestore();
+        await submitBestScores(SaveManager.instance);
+      }
       notifyListeners();
       return _statusText;
     } catch (_) {
       _statusText = 'Play Games henüz hazır değil';
       notifyListeners();
       return _statusText;
+    }
+  }
+
+  /// Pushes the player's best classic & chaos scores to Play Games
+  /// leaderboards (real global ranking). Silent no-op while signed out
+  /// or while the leaderboard ids are not filled in yet.
+  Future<void> submitBestScores(SaveManager save) async {
+    if (!_signedIn) return;
+    try {
+      if (classicLeaderboardId.isNotEmpty) {
+        final best = save.getHighScore(GameMode.classic);
+        if (best > 0) {
+          await Leaderboards.submitScore(
+            score: Score(androidLeaderboardID: classicLeaderboardId, value: best),
+          );
+        }
+      }
+      if (chaosLeaderboardId.isNotEmpty) {
+        final best = save.getHighScore(GameMode.chaos);
+        if (best > 0) {
+          await Leaderboards.submitScore(
+            score: Score(androidLeaderboardID: chaosLeaderboardId, value: best),
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
+  /// Opens the native Play Games leaderboard screen for the classic board.
+  Future<String> showLeaderboard() async {
+    if (!_signedIn) return 'Önce giriş yap';
+    if (classicLeaderboardId.isEmpty) return 'Sıralama yakında açılıyor';
+    try {
+      await Leaderboards.showLeaderboards(androidLeaderboardID: classicLeaderboardId);
+      return 'Sıralama açıldı';
+    } catch (_) {
+      return 'Sıralama açılamadı';
     }
   }
 
