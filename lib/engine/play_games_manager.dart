@@ -20,9 +20,10 @@ class PlayGamesManager extends ChangeNotifier {
   /// Play Games leaderboard ids (Play Console > Play Games services >
   /// Leaderboards > leaderboard details). An empty id makes every
   /// leaderboard call below no-op gracefully.
-  /// classic: 'En Yüksek Skor' (created 2026-10-21).
+  /// classic: 'En Yüksek Skor', chaos: 'Kaos Skor'
+  /// (both created 2026-10-21).
   static const String classicLeaderboardId = 'CgkIwf_oppkBEAIQAA';
-  static const String chaosLeaderboardId = '';
+  static const String chaosLeaderboardId = 'CgkIwf_oppkBEAIQAQ';
 
   bool get hasLeaderboard => classicLeaderboardId.isNotEmpty;
 

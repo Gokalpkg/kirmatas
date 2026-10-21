@@ -19,8 +19,11 @@ void main() {
       await games.submitBestScores(SaveManager.instance);
     });
 
-    test('classic leaderboard id is wired', () {
+    test('classic and chaos leaderboard ids are wired', () {
       expect(PlayGamesManager.classicLeaderboardId, startsWith('CgkI'));
+      expect(PlayGamesManager.chaosLeaderboardId, startsWith('CgkI'));
+      expect(PlayGamesManager.chaosLeaderboardId,
+          isNot(PlayGamesManager.classicLeaderboardId));
       expect(PlayGamesManager.instance.hasLeaderboard, isTrue);
     });
 
