@@ -522,7 +522,7 @@ void main() {
 
       expect(tester.takeException(), isNull);
       // In 568px height, scroll down to reveal bottom item
-      final questsList = find.byType(ListView);
+      final questsList = find.byType(SingleChildScrollView);
       expect(questsList, findsOneWidget);
       await tester.drag(questsList, const Offset(0, -200));
       await tester.pump();

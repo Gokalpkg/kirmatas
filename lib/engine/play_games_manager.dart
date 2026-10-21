@@ -1,0 +1,132 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:games_services/games_services.dart';
+
+import '../storage/save_manager.dart';
+
+/// Google Play Games bridge: silent sign-in + whole-save cloud snapshots.
+///
+/// Fully defensive: when Play Games is not configured yet (project id /
+/// OAuth client missing on the developer console side) every call simply
+/// fails silently and the game runs exactly as before.
+class PlayGamesManager extends ChangeNotifier {
+  PlayGamesManager._();
+  static final PlayGamesManager instance = PlayGamesManager._();
+
+  static const String _snapshotName = 'kirmatas_main';
+
+  bool _initialized = false;
+  bool _signedIn = false;
+  String? _playerName;
+  String _statusText = 'Play Games kapalı';
+  DateTime? _lastSync;
+
+  bool get signedIn => _signedIn;
+  String? get playerName => _playerName;
+  String get statusText => _statusText;
+  DateTime? get lastSync => _lastSync;
+
+  Future<void> init() async {
+    if (_initialized) return;
+    _initialized = true;
+    try {
+      GameAuth.player.listen((data) {
+        _signedIn = data != null;
+        _playerName = data?.displayName;
+        _statusText = _signedIn
+            ? (_playerName ?? 'Oyuncu bağlı')
+            : 'Play Games kapalı';
+        notifyListeners();
+      });
+      _signedIn = await GameAuth.isSignedIn;
+      if (_signedIn) {
+        _statusText = 'Play Games bağlı';
+        // Only auto-restore when the cloud save is clearly newer/newer
+        // equipment than a fresh local install.
+        await tryAutoRestore();
+      }
+      notifyListeners();
+    } catch (_) {
+      _signedIn = false;
+      _statusText = 'Play Games kapalı';
+    }
+  }
+
+  Future<String> signIn() async {
+    try {
+      final result = await GameAuth.signIn();
+      _signedIn = (result != null && result.isNotEmpty) ||
+          await GameAuth.isSignedIn;
+      _statusText = _signedIn ? 'Bağlandın!' : 'Bağlantı kurulamadı';
+      if (_signedIn) await tryAutoRestore();
+      notifyListeners();
+      return _statusText;
+    } catch (_) {
+      _statusText = 'Play Games henüz hazır değil';
+      notifyListeners();
+      return _statusText;
+    }
+  }
+
+  Future<String> saveToCloud(SaveManager save) async {
+    if (!_signedIn) return 'Önce giriş yap';
+    try {
+      final payload = await save.exportAllToJson();
+      await SaveGame.saveGame(data: payload, name: _snapshotName);
+      await save.markLocalSavedNow();
+      _lastSync = DateTime.now();
+      _statusText = 'Buluta kaydedildi';
+      notifyListeners();
+      return 'Buluta kaydedildi ✓';
+    } catch (_) {
+      _statusText = 'Bulut kaydı başarısız';
+      notifyListeners();
+      return 'Bulut kaydı başarısız';
+    }
+  }
+
+  Future<String> loadFromCloud(SaveManager save) async {
+    if (!_signedIn) return 'Önce giriş yap';
+    try {
+      final raw = await SaveGame.loadGame(name: _snapshotName);
+      if (raw == null || raw.isEmpty) return 'Bulutta kayıt bulunamadı';
+      final ok = await save.importAllFromJson(raw);
+      if (!ok) return 'Kayıt okunamadı';
+      _lastSync = DateTime.now();
+      _statusText = 'Buluttan yüklendi';
+      notifyListeners();
+      return 'Buluttan yüklendi ✓';
+    } catch (_) {
+      return 'Buluttan yüklenemedi';
+    }
+  }
+
+  /// Restores the cloud save only when it is newer than the local one
+  /// and actually contains progress (never clobbers a real local game
+  /// with an older cloud stub).
+  Future<bool> tryAutoRestore({SaveManager? save}) async {
+    try {
+      final manager = save ?? SaveManager.instance;
+      final raw = await SaveGame.loadGame(name: _snapshotName);
+      if (raw == null || raw.isEmpty) return false;
+      final cloudMs = SaveManager.cloudSavedAtMs(raw);
+      if (cloudMs == null) return false;
+      final localMs = manager.localSavedAtMs;
+      final freshLocal = manager.highestLevel <= 1;
+      final newer = cloudMs > localMs;
+      if ((freshLocal || newer) && (freshLocal || cloudMs > 0)) {
+        final ok = await manager.importAllFromJson(raw);
+        if (ok) {
+          _lastSync = DateTime.now();
+          _statusText = 'Bulut kaydı geri yüklendi';
+          notifyListeners();
+        }
+        return ok;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+}

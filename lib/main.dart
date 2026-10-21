@@ -11,6 +11,7 @@ import 'storage/save_manager.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'engine/analytics_manager.dart';
+import 'engine/play_games_manager.dart';
 import 'ui/splash_screen.dart';
 
 void main() async {
@@ -38,6 +39,7 @@ void main() async {
   await AssetCache.instance.init();
   await AdManager.instance.init();
   unawaited(RemoveAdsBilling.instance.init());
+  unawaited(PlayGamesManager.instance.init());
 
   runApp(const KirmatasApp());
 }

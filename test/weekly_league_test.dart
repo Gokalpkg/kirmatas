@@ -1,0 +1,156 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:kirmatas/storage/save_manager.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  late SaveManager save;
+
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    save = SaveManager.instance;
+    await save.init();
+  });
+
+  group('Weekly league calendar math', () {
+    test('week starts on Monday and id is stable inside the week', () {
+      // 2026-10-21 is a Wednesday.
+      final start = SaveManager.leagueWeekStartFor(DateTime(2026, 10, 21, 15));
+      expect(start, DateTime(2026, 10, 19));
+      expect(SaveManager.leagueWeekIdFor(start), '2026-10-19');
+      // Sunday belongs to the same week, next Monday starts a new one.
+      expect(
+        SaveManager.leagueWeekStartFor(DateTime(2026, 10, 25, 23)),
+        DateTime(2026, 10, 19),
+      );
+      expect(
+        SaveManager.leagueWeekStartFor(DateTime(2026, 10, 26)),
+        DateTime(2026, 10, 26),
+      );
+    });
+
+    test('progress runs 0 -> 1 across the week', () {
+      final monday = DateTime(2026, 10, 19);
+      expect(save.leagueWeekProgress(now: monday), 0.0);
+      final mid = save.leagueWeekProgress(now: DateTime(2026, 10, 22, 12));
+      expect(mid, closeTo(0.5, 0.01));
+      final remaining = save.leagueTimeRemaining(now: monday);
+      expect(remaining, const Duration(days: 7));
+    });
+
+    test('reward table scales with tier multiplier', () {
+      expect(SaveManager.leagueBaseGoldForRank(1), 400);
+      expect(SaveManager.leagueBaseGoldForRank(3), 220);
+      expect(SaveManager.leagueBaseGoldForRank(7), 120);
+      expect(SaveManager.leagueBaseGoldForRank(15), 40);
+      expect(SaveManager.leaguePearlsForRank(1), 2);
+      expect(SaveManager.leaguePearlsForRank(3), 1);
+      expect(SaveManager.leaguePearlsForRank(4), 0);
+      save.leagueTier = 2;
+      expect(save.leagueRewardGoldForRank(1), 1200);
+    });
+  });
+
+  group('Weekly league bots', () {
+    test('bot scores grow as the week progresses and stay in tier range',
+        () {
+      save.leagueTier = 0;
+      final monday = SaveManager.leagueWeekStartFor(DateTime.now());
+      final early = save.getLeagueRivals(now: monday.add(const Duration(hours: 1)));
+      final late = save.getLeagueRivals(
+          now: monday.add(const Duration(days: 6, hours: 23)));
+
+      expect(early.length, 15);
+      expect(late.length, 15);
+      final earlyByName = {
+        for (final r in early.where((r) => !r.isPlayer)) r.name: r.score
+      };
+      var grew = 0;
+      for (final r in late.where((r) => !r.isPlayer)) {
+        expect(r.score, greaterThanOrEqualTo(earlyByName[r.name]!));
+        expect(r.score, inInclusiveRange(600, 2799));
+        if (r.score > earlyByName[r.name]!) grew++;
+      }
+      expect(grew, greaterThan(10),
+          reason: 'most bots should gain points during the week');
+    });
+
+    test('same week generates the same bot names (persisted group)', () {
+      final a = save
+          .getLeagueRivals()
+          .where((r) => !r.isPlayer)
+          .map((r) => r.name)
+          .toSet();
+      final b = save
+          .getLeagueRivals()
+          .where((r) => !r.isPlayer)
+          .map((r) => r.name)
+          .toSet();
+      expect(a, b);
+      expect(a.length, 14);
+    });
+  });
+
+  group('Weekly league settlement', () {
+    test('winning the week promotes and pays gold + pearls', () {
+      final past = DateTime(2020, 1, 6); // a Monday
+      save.ensureLeagueWeek(now: past); // adopt the past week
+      save.leagueTier = 0;
+      save.ensureLeagueWeek(now: past); // regenerate bots at tier 0
+      save.weeklyTournamentScore = 999999;
+
+      final gold0 = save.gold;
+      final pearls0 = save.pearls;
+      save.ensureLeagueWeek(); // back to the real week -> settles
+
+      expect(save.leagueLastRank, 1);
+      expect(save.leagueLastMovement, 1);
+      expect(save.leagueTier, 1);
+      expect(save.leagueLastRewardGold, 400);
+      expect(save.leagueLastRewardPearls, 2);
+      expect(save.gold, gold0 + 400);
+      expect(save.pearls, pearls0 + 2);
+      expect(save.weeklyTournamentScore, 0);
+      expect(save.hasUnseenLeagueResult, isTrue);
+
+      save.markLeagueResultSeen();
+      expect(save.hasUnseenLeagueResult, isFalse);
+    });
+
+    test('finishing last demotes and pays the small reward', () {
+      final past = DateTime(2020, 1, 13); // the next Monday
+      save.ensureLeagueWeek(now: past);
+      save.leagueTier = 2;
+      save.ensureLeagueWeek(now: past); // regenerate bots at tier 2
+      save.weeklyTournamentScore = 0;
+
+      final gold0 = save.gold;
+      save.ensureLeagueWeek();
+
+      expect(save.leagueLastRank, 15);
+      expect(save.leagueLastMovement, -1);
+      expect(save.leagueTier, 1);
+      expect(save.leagueLastRewardGold, 120); // 40 * (tier 2 + 1)
+      expect(save.gold, gold0 + 120);
+      expect(save.weeklyTournamentScore, 0);
+    });
+  });
+
+  group('League point sources', () {
+    test('points only flow once the league is unlocked', () {
+      save.highestLevel = 10;
+      expect(save.isLeagueUnlocked, isTrue);
+      final before = save.weeklyTournamentScore;
+      save.addTournamentScore(100);
+      expect(save.weeklyTournamentScore, before + 100);
+
+      save.highestLevel = 3;
+      expect(save.isLeagueUnlocked, isFalse);
+      save.addTournamentScore(100);
+      expect(save.weeklyTournamentScore, before + 100);
+      save.highestLevel = 10; // restore for other tests
+    });
+  });
+}

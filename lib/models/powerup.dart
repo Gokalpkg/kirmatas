@@ -24,13 +24,15 @@ enum PowerUpType {
   vortex('Girdap', Color(0xFFE040FB), 9.0, PowerUpKind.buff, Icons.cyclone),
   mirror('Ayna', Color(0xFFF48FB1), 0.0, PowerUpKind.buff, Icons.flip),
   lock('Kilit', Color(0xFFFFAB00), 0.0, PowerUpKind.buff, Icons.lock),
+  shrapnel('Şarapnel', Color(0xFFB0BEC5), 7.0, PowerUpKind.buff, Icons.grain),
+  frost('Buz Topu', Color(0xFF80D8FF), 7.0, PowerUpKind.buff, Icons.ac_unit),
 
   // Debuffs
-  shrink('Dar Raket', Color(0xFF90A4AE), 8.0, PowerUpKind.debuff, Icons.unfold_less),
-  fastball('Hızlı Top', Color(0xFFFFB74D), 8.0, PowerUpKind.debuff, Icons.speed),
-  reverse('Ters Kontrol', Color(0xFFCE93D8), 7.0, PowerUpKind.debuff, Icons.sync_problem),
-  clumsy('Buz / Kayma', Color(0xFF80CBC4), 7.0, PowerUpKind.debuff, Icons.skateboarding),
-  invis('Hayalet Raket', Color(0xFFCFD8DC), 4.5, PowerUpKind.debuff, Icons.visibility_off);
+  shrink('Dar Raket', Color(0xFF90A4AE), 5.5, PowerUpKind.debuff, Icons.unfold_less),
+  fastball('Hızlı Top', Color(0xFFFFB74D), 5.0, PowerUpKind.debuff, Icons.speed),
+  reverse('Ters Kontrol', Color(0xFFCE93D8), 4.0, PowerUpKind.debuff, Icons.sync_problem),
+  clumsy('Buz / Kayma', Color(0xFF80CBC4), 4.5, PowerUpKind.debuff, Icons.skateboarding),
+  invis('Hayalet Raket', Color(0xFFCFD8DC), 4.0, PowerUpKind.debuff, Icons.visibility_off);
 
   final String _label;
   final Color color;

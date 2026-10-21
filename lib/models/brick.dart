@@ -64,7 +64,7 @@ class Brick {
     this.maxX = 380.0,
     bool isBoss = false,
     this.bossVx = 70.0,
-    this.shootTimer = 2.0,
+    this.shootTimer = 3.4,
     this.isTuft = false,
     this.tuftFilled = false,
     this.tuftColor = const Color(0xFFFF7043),

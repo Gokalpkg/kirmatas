@@ -42,6 +42,13 @@
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-9694275729123906~2311223088"/>
+
+        <!-- Google Play Games app id (numeric project id from Play Console).
+             Replace game_services_project_id in res/values/strings.xml with
+             the real id to activate sign-in + cloud saves. -->
+        <meta-data
+            android:name="com.google.android.gms.games.APP_ID"
+            android:value="@string/game_services_project_id" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -379,6 +379,10 @@ class TrailSkin {
   }
 }
 
+/// How a tank dweller moves: classic swimmers, bottom walkers and
+/// the special shrimp / octopus locomotion styles.
+enum FishKind { fish, snail, shrimp, octopus, crab }
+
 class FishItem {
   final String id;
   final String? _name;
@@ -386,6 +390,7 @@ class FishItem {
   final double size;
   final Color color;
   final Color secondaryColor;
+  final FishKind kind;
 
   const FishItem({
     required this.id,
@@ -394,7 +399,10 @@ class FishItem {
     required this.size,
     required this.color,
     required this.secondaryColor,
+    this.kind = FishKind.fish,
   }) : _name = name;
+
+  bool get isBottomDweller => kind == FishKind.snail || kind == FishKind.crab;
 
   String get name => _name != null ? I18n.tr(id) : I18n.tr(id);
   String get assetPath => 'assets/images/fishes/$id.png';
@@ -583,6 +591,44 @@ class FishItem {
       size: 1.9,
       color: Color(0xFFECEFF1),
       secondaryColor: Color(0xFFB0BEC5),
+    ),
+
+    // 7. Bottom & reef creatures
+    FishItem(
+      id: 'snail',
+      name: 'Neon Salyangoz',
+      rarity: Rarity.common,
+      size: 0.8,
+      color: Color(0xFFFFCC80),
+      secondaryColor: Color(0xFF8D6E63),
+      kind: FishKind.snail,
+    ),
+    FishItem(
+      id: 'shrimp',
+      name: 'Ateş Karidesi',
+      rarity: Rarity.rare,
+      size: 0.85,
+      color: Color(0xFFFF7043),
+      secondaryColor: Color(0xFFD84315),
+      kind: FishKind.shrimp,
+    ),
+    FishItem(
+      id: 'crab',
+      name: 'Yakut Yengeç',
+      rarity: Rarity.epic,
+      size: 1.05,
+      color: Color(0xFFFF5252),
+      secondaryColor: Color(0xFFB71C1C),
+      kind: FishKind.crab,
+    ),
+    FishItem(
+      id: 'octopus',
+      name: 'Kozmik Ahtapot',
+      rarity: Rarity.legendary,
+      size: 1.5,
+      color: Color(0xFFB388FF),
+      secondaryColor: Color(0xFF7E57C2),
+      kind: FishKind.octopus,
     ),
   ];
 

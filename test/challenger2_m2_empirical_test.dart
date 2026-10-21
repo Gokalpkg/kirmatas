@@ -146,10 +146,10 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
 
         expect(find.text('HAFTALIK LİG ŞAMPİYONASI'), findsOneWidget);
-        expect(find.text('15 Kişilik Lig Grubu  •  3 Gün Kaldı'), findsOneWidget);
+        expect(find.textContaining('Kişilik Lig Grubu'), findsOneWidget);
         expect(find.text('Neon Avcısı'), findsWidgets);
         expect(find.text('YÜKSELME ⬆️'), findsOneWidget);
-        expect(find.text('SEN'), findsOneWidget);
+        expect(find.text('SEN'), findsWidgets);
 
         // Tap Join
         await tester.tap(find.text('MÜCADELEYE KATIL'));

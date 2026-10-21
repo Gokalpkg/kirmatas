@@ -4,6 +4,7 @@ import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
 import '../storage/save_manager.dart';
 import 'kaunos_ui.dart';
+import 'stats_dialog.dart';
 
 /// Dedicated Settings dialog for audio, haptics, language, game tour,
 /// and isolated progress code backup/restore.
@@ -78,10 +79,13 @@ class SettingsDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.close_rounded, color: Colors.white70),
-                onPressed: () => Navigator.of(context).pop(),
-                visualDensity: VisualDensity.compact,
+              KaunosPressGlow(
+                isCircle: true,
+                child: IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                  onPressed: () => Navigator.of(context).pop(),
+                  visualDensity: VisualDensity.compact,
+                ),
               ),
             ],
           ),
@@ -198,6 +202,58 @@ class SettingsDialog extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: KaunosPalette.goldHighlight,
+                                fontFamily: 'Rajdhani',
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13.0,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Stats + Play Games trigger button
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      StatsDialog.show(context, save: save);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0D2B1A), Color(0xFF07170E)],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color(0xFF66BB6A).withValues(alpha: 0.7),
+                          width: 1.2,
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x3343A047),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.bar_chart_rounded, color: Color(0xFFA5D6A7), size: 20),
+                          SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              'İSTATİSTİKLERİM & PLAY GAMES',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Color(0xFFA5D6A7),
                                 fontFamily: 'Rajdhani',
                                 fontWeight: FontWeight.w900,
                                 fontSize: 13.0,

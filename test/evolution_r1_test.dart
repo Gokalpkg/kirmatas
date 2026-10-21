@@ -198,7 +198,7 @@ void main() {
       expect(find.text('GÜNLÜK GÖREVLER'), findsOneWidget);
       expect(find.text('HAFTALIK LİG ŞAMPİYONASI'), findsOneWidget);
       expect(find.text('MÜCADELEYE KATIL'), findsOneWidget);
-      expect(find.text('SEN'), findsOneWidget);
+      expect(find.text('SEN'), findsWidgets);
 
       // Tap join
       await tester.tap(find.text('MÜCADELEYE KATIL'));

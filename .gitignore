@@ -49,3 +49,11 @@ app.*.map.json
 *.jks
 *.keystore
 **/key.properties
+
+# Local tooling junk (video-gen scripts, agent scratch, bundles)
+node_modules/
+.agents/
+*.aab
+/*.mjs
+/package.json
+/package-lock.json

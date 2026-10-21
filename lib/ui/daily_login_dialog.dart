@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
 import '../storage/save_manager.dart';
+import 'kaunos_ui.dart';
 
 class DailyLoginDialog extends StatefulWidget {
   const DailyLoginDialog({super.key});
@@ -179,10 +180,14 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                         ),
                       ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                      onPressed: () => Navigator.of(context).pop(),
-                      visualDensity: VisualDensity.compact,
+                    KaunosJuicyInteractive(
+                      isCircle: true,
+                      waveColor: const Color(0xFFFFD54F),
+                      onTap: () => Navigator.of(context).pop(),
+                      child: const Padding(
+                        padding: EdgeInsets.all(6),
+                        child: Icon(Icons.close, color: Colors.white70, size: 20),
+                      ),
                     ),
                   ],
                 ),
@@ -465,13 +470,11 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
     );
 
     if (isToday) {
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: _claimNormalReward,
-          child: cardContent,
-        ),
+      return KaunosJuicyInteractive(
+        borderRadius: 16,
+        waveColor: const Color(0xFFFFD54F),
+        onTap: _claimNormalReward,
+        child: cardContent,
       );
     }
     return cardContent;
@@ -578,13 +581,12 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
     );
 
     if (isToday) {
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: _claimNormalReward,
-          child: cardContent,
-        ),
+      return KaunosJuicyInteractive(
+        borderRadius: 18,
+        waveColor: const Color(0xFFFFB300),
+        isHighStakes: true,
+        onTap: _claimNormalReward,
+        child: cardContent,
       );
     }
     return cardContent;

@@ -5,6 +5,7 @@ import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
 import '../storage/save_manager.dart';
 import 'daily_login_dialog.dart';
+import 'kaunos_ui.dart';
 
 /// Tüm ödülleri (Çark, 7 Günlük Giriş, Ücretsiz Hediye) tek çatı altında toplayan şık Ödül Merkezi
 class RewardsHubDialog extends StatelessWidget {
@@ -102,9 +103,12 @@ class RewardsHubDialog extends StatelessWidget {
                 ],
               ),
               const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.close_rounded, color: Colors.white60),
-                onPressed: () => Navigator.of(context).pop(),
+              KaunosPressGlow(
+                isCircle: true,
+                child: IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white60),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
               ),
             ],
           ),
@@ -123,7 +127,7 @@ class RewardsHubDialog extends StatelessWidget {
                 iconGradient: [const Color(0xFF00E5FF), const Color(0xFFD500F9)],
                 title: 'Şans Çarkı',
                 subtitle: hasSpins
-                    ? '$spinsLeft / 3 Çevirme Hakkın Var!'
+                    ? '$spinsLeft / ${SaveManager.maxDailyWheelSpins} Çevirme Hakkın Var!'
                     : 'Bugünkü tüm haklar kullanıldı',
                 badgeText: hasSpins ? '$spinsLeft HAK' : 'BİTTİ',
                 badgeColor: hasSpins ? const Color(0xFF00E5FF) : Colors.white24,

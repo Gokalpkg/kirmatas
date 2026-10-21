@@ -9,6 +9,7 @@ import '../models/fish_synergy.dart';
 import '../storage/save_manager.dart';
 import 'eco_tank_background.dart';
 import 'fish_hoard_chest.dart';
+import 'kaunos_ui.dart';
 
 class AquariumView extends StatefulWidget {
   final VoidCallback? onBackToMenu;
@@ -44,9 +45,55 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
     super.dispose();
   }
 
+  Widget _statusChip(IconData icon, Color color, String label) {
+    return Flexible(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 13),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Human-friendly remaining time: "5 sa 12 dk", "42 dk".
+  String _fmtRemaining(int ms) {
+    if (ms <= 0) return 'şimdi';
+    final totalMin = (ms / 60000).ceil();
+    final h = totalMin ~/ 60;
+    final m = totalMin % 60;
+    if (h > 0) return m > 0 ? '$h sa $m dk' : '$h sa';
+    return '$m dk';
+  }
+
   void _onFeedPressed() {
     if (_save.fishFood <= 0) {
       _showGetFoodDialog();
+      return;
+    }
+    if (!_save.hasWaitingFish && _save.unlockedFish.isNotEmpty) {
+      // Every fish is already producing: explain instead of wasting food.
+      final readyGold = _save.currentAvailableFishGold;
+      final msg = readyGold > 0
+          ? 'Altın hazır! Sağdaki sandığa dokunup altını al, sonra balıkları yine yemleyebilirsin.'
+          : 'Bütün balıklar üretimde. Sıradaki altın ${_fmtRemaining(_save.remainingFedDurationMs)} sonra hazır olur.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: const Color(0xFF1E2438),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      );
       return;
     }
 
@@ -89,10 +136,14 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17),
                           ),
                         ),
-                        IconButton(
-                          onPressed: () => Navigator.of(dlgContext).pop(),
-                          icon: const Icon(Icons.close, color: Colors.white54, size: 20),
-                          visualDensity: VisualDensity.compact,
+                        KaunosPressGlow(
+                          isCircle: true,
+                          waveColor: const Color(0xFF4FC3F7),
+                          child: IconButton(
+                            onPressed: () => Navigator.of(dlgContext).pop(),
+                            icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                            visualDensity: VisualDensity.compact,
+                          ),
                         ),
                       ],
                     ),
@@ -135,13 +186,14 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                 const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
                                 const SizedBox(width: 5),
                                 Flexible(
-                                  child: Text( '${_save.gold} ',
+                                  child: RollingNumberText(
+                                    value: _save.gold,
+                                    format: (v) => '$v ',
                                     style: const TextStyle(
                                       color: Color(0xFFFFD54F),
                                       fontWeight: FontWeight.w900,
                                       fontSize: 13,
                                     ),
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
@@ -459,17 +511,21 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                         SizedBox(
                           width: 38,
                           height: 38,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
-                            style: IconButton.styleFrom(backgroundColor: const Color(0x80000000)),
-                            onPressed: () {
-                              if (widget.onBackToMenu != null) {
-                                widget.onBackToMenu!();
-                              } else if (Navigator.of(context).canPop()) {
-                                Navigator.of(context).pop();
-                              }
-                            },
+                          child: KaunosPressGlow(
+                            isCircle: true,
+                            waveColor: const Color(0xFF4FC3F7),
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+                              style: IconButton.styleFrom(backgroundColor: const Color(0x80000000)),
+                              onPressed: () {
+                                if (widget.onBackToMenu != null) {
+                                  widget.onBackToMenu!();
+                                } else if (Navigator.of(context).canPop()) {
+                                  Navigator.of(context).pop();
+                                }
+                              },
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -499,7 +555,10 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                         // Food Pill
                         GestureDetector(
                           onTap: _showGetFoodDialog,
-                          child: Container(
+                          child: KaunosPressGlow(
+                            borderRadius: 16,
+                            waveColor: const Color(0xFF4FC3F7),
+                            child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                             decoration: BoxDecoration(
                               color: const Color(0x990D1B2A),
@@ -518,6 +577,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                 const Icon(Icons.add_circle, color: Color(0xFF4FC3F7), size: 14),
                               ],
                             ),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -534,7 +594,8 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                             children: [
                               const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 15),
                               const SizedBox(width: 4),
-                              Text( '${_save.gold}',
+                              RollingNumberText(
+                                value: _save.gold,
                                 style: const TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.w900, fontSize: 12),
                               ),
                             ],
@@ -596,10 +657,53 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                     ),
                                   ],
                                 ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '🪙 Hazır: ${_save.readyFishCount}  •  ⏳ Üretimde: ${_save.producingFishCount}  •  🐟 Yem bekleyen: ${_save.waitingFishCount}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Colors.white70, fontSize: 10.5, fontWeight: FontWeight.w700),
+                                ),
+                                if (_save.currentAvailableFishGold > 0)
+                                  const Text(
+                                    'Altın sandıkta bekliyor — almak için sağdaki sandığa dokun.',
+                                    style: TextStyle(color: Color(0xFFFFD54F), fontSize: 10.5, fontWeight: FontWeight.w700),
+                                  )
+                                else if (_save.remainingFedDurationMs > 0)
+                                  Text(
+                                    'Sıradaki altın ${_fmtRemaining(_save.remainingFedDurationMs)} sonra sandığa düşer.',
+                                    style: const TextStyle(color: Colors.white54, fontSize: 10.5, fontWeight: FontWeight.w600),
+                                  ),
+                                const SizedBox(height: 8),
+                                // Biriken altın (sandıkta toplanır, dokununca alınır)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0x22FFD54F),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: const Color(0x55FFD54F)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
+                                      const SizedBox(width: 6),
+                                      const Expanded(
+                                        child: Text(
+                                          'Sandıkta Biriken Altın',
+                                          style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700),
+                                        ),
+                                      ),
+                                      Text(
+                                        '${_save.currentAvailableFishGold}',
+                                        style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 13, fontWeight: FontWeight.w900),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                                 const SizedBox(height: 8),
                                 const Divider(color: Colors.white24, height: 1),
                                 const SizedBox(height: 6),
-                                // 8-Shard Fish Progress Indicator
+                                // 8-Shard Fish Progress Indicator (segmentli elmas göstergesi)
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
@@ -608,7 +712,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                         const Icon(Icons.diamond_rounded, color: Color(0xFF00E5FF), size: 15),
                                         const SizedBox(width: 5),
                                         Text(
-                                          'Balık Eklentisi: ${_save.fishShards} / 8',
+                                          'Balık Parçası: ${_save.fishShards} / 8',
                                           style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 11, fontWeight: FontWeight.w900),
                                         ),
                                       ],
@@ -623,33 +727,43 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 5),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: LinearProgressIndicator(
-                                    value: (_save.fishShards / 8.0).clamp(0.0, 1.0),
-                                    minHeight: 5,
-                                    backgroundColor: Colors.white12,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      _save.fishShards >= 8 ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF),
-                                    ),
-                                  ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: List.generate(8, (i) {
+                                    final filled = i < _save.fishShards;
+                                    final ready = _save.fishShards >= 8;
+                                    return Expanded(
+                                      child: Container(
+                                        height: 8,
+                                        margin: EdgeInsets.only(right: i == 7 ? 0 : 4),
+                                        decoration: BoxDecoration(
+                                          color: filled
+                                              ? (ready ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF))
+                                              : Colors.white12,
+                                          borderRadius: BorderRadius.circular(4),
+                                          boxShadow: filled
+                                              ? [BoxShadow(color: (ready ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF)).withValues(alpha: 0.45), blurRadius: 5)]
+                                              : null,
+                                        ),
+                                      ),
+                                    );
+                                  }),
                                 ),
                                 if (_save.fishShards >= 8) ...[
                                   const SizedBox(height: 8),
                                   SizedBox(
                                     width: double.infinity,
-                                    child: ElevatedButton(
+                                    child: KaunosPressGlow(
+                                      borderRadius: 10,
+                                      waveColor: const Color(0xFF00E5FF),
+                                      child: ElevatedButton(
                                       onPressed: () async {
                                         final ok = await _save.consumeFishShards(8);
                                         if (ok && context.mounted) {
-                                          showDialog(
-                                            context: context,
-                                            barrierDismissible: false,
-                                            builder: (_) => const CrateOpeningDialog(
-                                              isGuaranteedRedemption: true,
-                                              category: 'fish',
-                                            ),
+                                          CrateOpeningDialog.show(
+                                            context,
+                                            isGuaranteedRedemption: true,
+                                            category: 'fish',
                                           );
                                         }
                                       },
@@ -662,6 +776,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                       child: const Text(
                                         'Garantili Yeni Balık Sandığı Aç (8/8)',
                                         style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                                      ),
                                       ),
                                     ),
                                   ),
@@ -715,6 +830,43 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                           ),
                         ),
 
+                        // Always-visible status strip: ready gold, production, waiting fish
+                        if (totalFish > 0) ...[
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0x880A1218),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0x334FC3F7), width: 1.0),
+                            ),
+                            child: Row(
+                              children: [
+                                if (_save.currentAvailableFishGold > 0) ...[
+                                  _statusChip(Icons.monetization_on, const Color(0xFFFFD54F),
+                                      '${_save.currentAvailableFishGold} hazır'),
+                                  const SizedBox(width: 10),
+                                ],
+                                _statusChip(
+                                  Icons.hourglass_bottom_rounded,
+                                  const Color(0xFF4FC3F7),
+                                  _save.remainingFedDurationMs > 0
+                                      ? '${_save.producingFishCount} üretimde • ${_fmtRemaining(_save.remainingFedDurationMs)}'
+                                      : '${_save.producingFishCount} üretimde',
+                                ),
+                                const SizedBox(width: 10),
+                                _statusChip(
+                                  Icons.set_meal_rounded,
+                                  const Color(0xFFAED581),
+                                  _save.waitingFishCount > 0
+                                      ? '${_save.waitingFishCount} yem bekliyor'
+                                      : 'yem bekleyen yok',
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
                         // Ultra-Compact Translucent Floating Bottom Pill Bar (Does NOT block the aquarium!)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -735,7 +887,10 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                               // 1. Info / Status Toggle Pill
                               GestureDetector(
                                 onTap: () => setState(() => _isHudExpanded = !_isHudExpanded),
-                                child: Container(
+                                child: KaunosPressGlow(
+                                  borderRadius: 18,
+                                  waveColor: const Color(0xFF4FC3F7),
+                                  child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                                   decoration: BoxDecoration(
                                     color: _isHudExpanded ? const Color(0x334FC3F7) : Colors.black38,
@@ -756,6 +911,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                       ),
                                     ],
                                   ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 6),
@@ -765,32 +921,51 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                 flex: 6,
                                 child: ScaleTransition(
                                   scale: _pulseScale,
-                                  child: ElevatedButton.icon(
+                                  child: KaunosPressGlow(
+                                    borderRadius: 16,
+                                    waveColor: const Color(0xFF4FC3F7),
+                                    child: ElevatedButton.icon(
                                     onPressed: _onFeedPressed,
                                     icon: Icon(
-                                      _save.fishFood <= 0 ? Icons.add_shopping_cart : Icons.grain,
+                                      _save.fishFood <= 0
+                                          ? Icons.add_shopping_cart
+                                          : (!_save.hasWaitingFish && _save.unlockedFish.isNotEmpty)
+                                              ? Icons.check_circle_rounded
+                                              : Icons.grain,
                                       size: 15,
                                     ),
                                     label: Text(
-                                      _save.fishFood <= 0 ? 'Yem Al' : 'Yem At (${_save.fishFood})',
+                                      _save.fishFood <= 0
+                                          ? 'Yem Al'
+                                          : (!_save.hasWaitingFish && _save.unlockedFish.isNotEmpty)
+                                              ? 'Hepsi Üretimde'
+                                              : 'Yem At (${_save.fishFood})',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5),
                                     ),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: _save.fishFood <= 0 ? const Color(0xD9FF9800) : const Color(0xCC00ACC1),
+                                      backgroundColor: _save.fishFood <= 0
+                                          ? const Color(0xD9FF9800)
+                                          : (!_save.hasWaitingFish && _save.unlockedFish.isNotEmpty)
+                                              ? const Color(0xCC546E7A)
+                                              : const Color(0xCC00ACC1),
                                       foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(vertical: 8),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                       elevation: 0,
                                     ),
                                   ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 6),
 
                               // 3. Compact Fish Encyclopedia Button
-                              IconButton(
+                              KaunosPressGlow(
+                                borderRadius: 16,
+                                waveColor: const Color(0xFF4FC3F7),
+                                child: IconButton(
                                 tooltip: 'Balık Koleksiyonu',
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -813,6 +988,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                     builder: (_) => _buildFishSheet(context, _save),
                                   );
                                 },
+                                ),
                               ),
                             ],
                           ),
@@ -829,7 +1005,48 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
     );
   }
 
+  /// Per-fish care-state chip used in the collection sheet.
+  Widget _fishStateChip(SaveManager save, String fishId) {
+    final state = save.fishCareState(fishId);
+    final Color color;
+    final String label;
+    switch (state) {
+      case FishCareState.ready:
+        color = const Color(0xFFFFD54F);
+        label = 'Altını hazır';
+      case FishCareState.producing:
+        color = const Color(0xFF4FC3F7);
+        label = 'Üretimde • ${_fmtRemaining(save.remainingFishPayoutMs(fishId))}';
+      case FishCareState.waiting:
+        color = const Color(0xFF90A4AE);
+        label = 'Yem bekliyor';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.55), width: 0.7),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: color, fontSize: 7.5, fontWeight: FontWeight.w800),
+      ),
+    );
+  }
+
   Widget _buildFishSheet(BuildContext context, SaveManager save) {
+    // Sahip olunan türler önce, sonra nadirlik sırasına göre kilitliler.
+    final sortedFish = [...FishItem.allFish]..sort((a, b) {
+        final aOwned = save.unlockedFish.contains(a.id) ? 0 : 1;
+        final bOwned = save.unlockedFish.contains(b.id) ? 0 : 1;
+        if (aOwned != bOwned) return aOwned - bOwned;
+        return a.rarity.index - b.rarity.index;
+      });
+    final ownedCount = save.unlockedFish.length;
+    final totalCount = FishItem.allFish.length;
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.72,
       child: Padding(
@@ -843,12 +1060,33 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                   I18n.tr('collected_species'),
                   style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
                 ),
-                Text( '${save.unlockedFish.length} / ${FishItem.allFish.length}',
+                Text( '$ownedCount / $totalCount',
                   style: const TextStyle(color: Color(0xFF4FC3F7), fontWeight: FontWeight.bold),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            // Koleksiyon tamamlanma çubuğu
+            ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: LinearProgressIndicator(
+                value: totalCount == 0 ? 0 : ownedCount / totalCount,
+                minHeight: 7,
+                backgroundColor: Colors.white10,
+                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4FC3F7)),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                ownedCount >= totalCount
+                    ? 'Koleksiyon tamamlandı! Efsane koleksiyoncu!'
+                    : 'Sıradaki türler sandıklardan ve garantili balık sandığından çıkar.',
+                style: const TextStyle(color: Colors.white38, fontSize: 10.5, fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 12),
             Expanded(
               child: GridView.builder(
                 physics: const BouncingScrollPhysics(),
@@ -858,9 +1096,9 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
                 ),
-                itemCount: FishItem.allFish.length,
+                itemCount: sortedFish.length,
                 itemBuilder: (context, index) {
-                  final fish = FishItem.allFish[index];
+                  final fish = sortedFish[index];
                   final owned = save.unlockedFish.contains(fish.id);
 
                   final count = save.getFishCount(fish.id);
@@ -931,6 +1169,10 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
+                            if (owned) ...[
+                              const SizedBox(height: 3),
+                              _fishStateChip(save, fish.id),
+                            ],
                           ],
                         ),
                       ],

@@ -7,6 +7,7 @@ import '../models/level_design.dart';
 import '../models/sector_data.dart';
 import '../storage/save_manager.dart';
 import 'pixel_art.dart';
+import 'kaunos_ui.dart';
 
 bool _showFirstShot(GameController controller) {
   return controller.currentMode == GameMode.classic &&
@@ -84,6 +85,43 @@ class HudOverlay extends StatelessWidget {
 
                         const SizedBox(width: 8),
 
+                        // Gold Pill — coin orbs land here and the number ticks up
+                        Transform.scale(
+                          scale: 1.0 + controller.hudGoldPunchTimer * 0.15,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: controller.hudGoldPunchTimer > 0.05
+                                  ? const Color(0x55FFD54F)
+                                  : const Color(0x2BFFFFFF),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: controller.hudGoldPunchTimer > 0.05
+                                    ? const Color(0xFFFFD54F)
+                                    : const Color(0x55FFD54F),
+                                width: controller.hudGoldPunchTimer > 0.05 ? 1.5 : 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 15),
+                                const SizedBox(width: 4),
+                                RollingNumberText(
+                                  value: controller.hudGoldShown,
+                                  style: const TextStyle(
+                                    color: Color(0xFFFFD54F),
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 8),
+
                         // Stage / Mode Center Badge
                         Expanded(
                           child: Center(
@@ -146,6 +184,54 @@ class HudOverlay extends StatelessWidget {
                                           ),
                                         ],
                                       )
+                                    : controller.currentMode == GameMode.descend
+                                    ? Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '${I18n.tr('descend').toUpperCase()} • SIRA ${controller.descendRowsSurvived}',
+                                            style: const TextStyle(
+                                              color: Color(0xFFFFD54F),
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 12,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Rekor: ${controller.save.getHighScore(GameMode.descend)}',
+                                            style: const TextStyle(
+                                              color: Color(0xFFB388FF),
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 9.5,
+                                              letterSpacing: 0.4,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : controller.currentMode == GameMode.zen
+                                    ? Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '${I18n.tr('zen').toUpperCase()} • ${(controller.runElapsedSeconds ~/ 60)}:${(controller.runElapsedSeconds % 60).floor().toString().padLeft(2, '0')}',
+                                            style: const TextStyle(
+                                              color: Color(0xFFFFD54F),
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 12,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Rekor: ${controller.save.getHighScore(GameMode.zen)}',
+                                            style: const TextStyle(
+                                              color: Color(0xFF80DEEA),
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 9.5,
+                                              letterSpacing: 0.4,
+                                            ),
+                                          ),
+                                        ],
+                                      )
                                     : Text(
                                         controller.currentMode == GameMode.chaos
                                             ? '${I18n.tr('chaos').toUpperCase()} ${stats.level}'
@@ -170,7 +256,10 @@ class HudOverlay extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: const Color(0x2BFFFFFF),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0x22FFFFFF)),
+                            border: Border.all(
+                              color: const Color(0x22FFFFFF),
+                              width: 1.0,
+                            ),
                           ),
                           child: TweenAnimationBuilder<double>(
                             tween: Tween<double>(begin: 0.0, end: stats.score.toDouble()),
@@ -217,6 +306,129 @@ class HudOverlay extends StatelessWidget {
                   ),
                 ),
               ),
+
+              // Compact combo chip: tiny, quiet, and only informative
+              // (combo count + the score multiplier it currently grants).
+              if (stats.combo >= 2 && controller.status == GameStatus.playing)
+                Positioned(
+                  top: 64,
+                  left: 12,
+                  child: IgnorePointer(
+                    child: Builder(
+                      builder: (context) {
+                        final stage = stats.isFever ? 2 : (stats.combo >= 4 ? 1 : 0);
+                        final stageColor = [
+                          const Color(0xFF00E5FF),
+                          const Color(0xFFFF9100),
+                          const Color(0xFFFFD600),
+                        ][stage];
+                        final multLabel = stats.isFever ? 'x3' : (stats.combo >= 4 ? 'x2' : 'x1');
+                        final dying = !stats.isFever && controller.comboTimer < 0.6 && controller.comboTimer > 0;
+                        return Opacity(
+                          opacity: dying ? 0.55 : 0.92,
+                          child: Transform.scale(
+                            scale: 1.0 + controller.comboPulseTimer * 0.10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xB3141724),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: stageColor.withValues(alpha: 0.55), width: 0.9),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    stats.isFever ? Icons.local_fire_department : Icons.bolt,
+                                    color: stageColor,
+                                    size: 11,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'KOMBO x${stats.combo}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'SKOR $multLabel',
+                                    style: TextStyle(
+                                      color: stageColor,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 9,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+              // NEW BEST banner (whip-snaps in the moment the record falls)
+              if (controller.newRecordBannerTimer > 0)
+                Positioned(
+                  top: 62,
+                  left: 60,
+                  right: 60,
+                  child: IgnorePointer(
+                    child: Builder(
+                      builder: (context) {
+                        final elapsed = 2.4 - controller.newRecordBannerTimer;
+                        final enter = (elapsed / 0.38).clamp(0.0, 1.0);
+                        final elastic = Curves.elasticOut.transform(enter);
+                        return Opacity(
+                          opacity: (controller.newRecordBannerTimer / 0.4).clamp(0.0, 1.0),
+                          child: Transform.translate(
+                            offset: Offset(0, -26.0 * (1.0 - elastic)),
+                            child: Transform.scale(
+                              scale: 0.7 + 0.3 * elastic,
+                              child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFFD600), Color(0xFFFF8F00)],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFFFF9C4), width: 1.5),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x88FFD600), blurRadius: 16, offset: Offset(0, 3)),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.emoji_events, color: Color(0xFF3E2723), size: 17),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                I18n.tr('new_record_broken'),
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFF3E2723),
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 14,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
 
               // Classic Mode Checkpoint Reached Banner
               if (controller.checkpointBannerTimer > 0)

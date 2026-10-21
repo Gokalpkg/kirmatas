@@ -9,6 +9,7 @@ import 'crate_opening_dialog.dart';
 import 'fortune_wheel_dialog.dart';
 import 'rewarded_ad_button.dart';
 import 'pixel_art.dart';
+import 'kaunos_ui.dart';
 
 class ShopView extends StatefulWidget {
   final VoidCallback? onBackToMenu;
@@ -43,17 +44,6 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 950),
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && SaveManager.instance.pendingCrate != null) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => CrateOpeningDialog(
-            pendingCrate: SaveManager.instance.pendingCrate,
-          ),
-        );
-      }
-    });
   }
 
   @override
@@ -191,10 +181,9 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
       onComplete: () async {
         final ok = await SaveManager.instance.spendGold(cost);
         if (ok && mounted) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => CrateOpeningDialog(categoryCrate: crateInfo),
+          CrateOpeningDialog.show(
+            context,
+            categoryCrate: crateInfo,
           );
         }
       },
@@ -212,10 +201,9 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
       onComplete: () async {
         final ok = await SaveManager.instance.spendGold(crate.cost);
         if (ok && mounted) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => CrateOpeningDialog(crate: crate),
+          CrateOpeningDialog.show(
+            context,
+            crate: crate,
           );
         }
       },
@@ -337,7 +325,8 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                     children: [
                       const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
                       const SizedBox(width: 6),
-                      Text( '${_displayGold ?? save.gold}',
+                      RollingNumberText(
+                        value: _displayGold ?? save.gold,
                         style: TextStyle(
                           color: _isPurchasing ? const Color(0xFFFFF176) : const Color(0xFFFFD54F),
                           fontWeight: FontWeight.w900,
@@ -661,14 +650,11 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                         }
                         final ok = await save.consumeShards(category, 3);
                         if (ok && context.mounted) {
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (_) => CrateOpeningDialog(
-                              isGuaranteedRedemption: true,
-                              category: category,
-                              categoryCrate: crateInfo,
-                            ),
+                          CrateOpeningDialog.show(
+                            context,
+                            isGuaranteedRedemption: true,
+                            category: category,
+                            categoryCrate: crateInfo,
                           );
                         }
                       },
@@ -812,18 +798,22 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
               ),
             )
           else
-            ElevatedButton(
-              onPressed: onEquip,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: accentColor,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                elevation: 0,
-              ),
-              child: Text(
-                I18n.tr('use'),
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+            KaunosPressGlow(
+              borderRadius: 14,
+              waveColor: accentColor,
+              child: ElevatedButton(
+                onPressed: onEquip,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: accentColor,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  elevation: 0,
+                ),
+                child: Text(
+                  I18n.tr('use'),
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                ),
               ),
             ),
         ],
@@ -850,7 +840,10 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
           ),
         ],
       ),
-      child: Material(
+      child: KaunosPressGlow(
+        borderRadius: 22,
+        waveColor: const Color(0xFFFFD54F),
+        child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
@@ -860,12 +853,9 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
               builder: (_) => const FortuneWheelDialog(),
             );
             if (context.mounted && SaveManager.instance.pendingCrate != null) {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (_) => CrateOpeningDialog(
-                  pendingCrate: SaveManager.instance.pendingCrate,
-                ),
+              CrateOpeningDialog.show(
+                context,
+                pendingCrate: SaveManager.instance.pendingCrate,
               );
             }
           },
@@ -974,6 +964,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
               ],
             ),
           ),
+        ),
         ),
       ),
     );
@@ -1099,13 +1090,10 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                           onPressed: () async {
                             final ok = await save.consumeFishShards(8);
                             if (ok && context.mounted) {
-                              showDialog(
-                                context: context,
-                                barrierDismissible: false,
-                                builder: (_) => const CrateOpeningDialog(
-                                  isGuaranteedRedemption: true,
-                                  category: 'fish',
-                                ),
+                              CrateOpeningDialog.show(
+                                context,
+                                isGuaranteedRedemption: true,
+                                category: 'fish',
                               );
                             }
                           },
@@ -1315,7 +1303,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
           child: _buildRandomOptionCard(
             context: context,
             title: ' RASTGELE BLOK',
-            desc: 'Sahip olduğun blok stilleri arasından her oyunda rastgele biri seçilir.',
+            desc: 'Sahip olduğun blok stilleri arasından her oyunda rastgele biri seçilir. Seçtiğin blok görünümü Ana Macera ve Özel Mod dahil tüm modlarda kullanılır.',
             icon: Icons.casino_rounded,
             accentColor: const Color(0xFFFFD54F),
             isEquipped: save.activeBrickStyle == 'random',
@@ -1364,9 +1352,13 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                     if (equipped)
                       Text(I18n.tr('equipped'), style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.w900, fontSize: 11))
                     else if (owned)
-                      TextButton(
-                        onPressed: () => save.equipBrickStyle(style.id),
-                        child: Text(I18n.tr('use'), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w800)),
+                      KaunosPressGlow(
+                        borderRadius: 12,
+                        waveColor: style.rarity.primaryColor,
+                        child: TextButton(
+                          onPressed: () => save.equipBrickStyle(style.id),
+                          child: Text(I18n.tr('use'), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w800)),
+                        ),
                       )
                     else
                       Container(
@@ -1467,9 +1459,13 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                     if (equipped)
                       Text(I18n.tr('equipped'), style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.w900, fontSize: 11))
                     else if (owned)
-                      TextButton(
-                        onPressed: () => save.equipBall(skin.id),
-                        child: Text(I18n.tr('use'), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w800)),
+                      KaunosPressGlow(
+                        borderRadius: 12,
+                        waveColor: skin.rarity.primaryColor,
+                        child: TextButton(
+                          onPressed: () => save.equipBall(skin.id),
+                          child: Text(I18n.tr('use'), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w800)),
+                        ),
                       )
                     else
                       Container(
@@ -1560,10 +1556,14 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                     if (equipped)
                       Text(I18n.tr('equipped'), style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.w900))
                     else if (owned)
-                      OutlinedButton(
-                        onPressed: () => save.equipPaddle(skin.id),
-                        style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
-                        child: Text(I18n.tr('use')),
+                      KaunosPressGlow(
+                        borderRadius: 12,
+                        waveColor: skin.rarity.primaryColor,
+                        child: OutlinedButton(
+                          onPressed: () => save.equipPaddle(skin.id),
+                          style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
+                          child: Text(I18n.tr('use')),
+                        ),
                       )
                     else
                       Container(
@@ -1742,20 +1742,24 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                               ),
                             )
                           else if (owned)
-                            ElevatedButton(
-                              onPressed: () {
-                                save.equipTrail(trail.id);
-                                setState(() {
-                                  _selectedPreviewTrailId = trail.id;
-                                });
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00E5FF),
-                                foregroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            KaunosPressGlow(
+                              borderRadius: 12,
+                              waveColor: const Color(0xFF00E5FF),
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  save.equipTrail(trail.id);
+                                  setState(() {
+                                    _selectedPreviewTrailId = trail.id;
+                                  });
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF00E5FF),
+                                  foregroundColor: Colors.black,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: Text(I18n.tr('use'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
                               ),
-                              child: Text(I18n.tr('use'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
                             )
                           else
                             Container(

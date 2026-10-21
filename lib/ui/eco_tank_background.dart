@@ -58,13 +58,16 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
         _SimFish(
           item: item,
           x: 50.0 + (i * 65.0) % 280.0,
-          y: 180.0 + (i * 70.0) % 360.0,
+          y: item.isBottomDweller
+              ? 690.0
+              : 180.0 + (i * 70.0) % 360.0,
           vx: (_rand.nextBool() ? 1 : -1) * (26.0 + _rand.nextDouble() * 18.0),
           vy: (_rand.nextDouble() * 2 - 1) * 8.0,
           facingRight: _rand.nextBool(),
           tailPhase: _rand.nextDouble() * pi * 2,
         ),
       );
+      _simFish.last.dartTimer = 2.0 + _rand.nextDouble() * 4.0;
     }
   }
 
@@ -111,9 +114,15 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
     dropSinglePellet();
   }
 
-  /// Drops 1 pellet from the top of the tank (used by the bottom button)
+  /// Drops 1 pellet from the top of the tank (used by the bottom button).
+  /// Refuses (without consuming food) while every fish is already in its
+  /// production cycle — a pellet then would sink uneaten and waste food.
   bool dropSinglePellet() {
     final save = SaveManager.instance;
+    if (!save.hasWaitingFish) {
+      AudioManager.instance.playSfx(GameSfx.hitWall);
+      return false;
+    }
     if (!save.consumeFishFoodOne()) {
       AudioManager.instance.playSfx(GameSfx.hitWall);
       return false;
@@ -176,6 +185,11 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
   void _addFood(Offset pos) {
     if (!widget.interactive) return;
     final save = SaveManager.instance;
+    // Bütün balıklar üretimdeyse yem boşa gitmesin: tüketme, animasyon da yok
+    if (!save.hasWaitingFish) {
+      AudioManager.instance.playSfx(GameSfx.hitWall);
+      return;
+    }
     // Yem yoksa yem atılma animasyonu olmasın
     if (!save.consumeFishFoodOne()) {
       AudioManager.instance.playSfx(GameSfx.hitWall);
@@ -192,6 +206,72 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       ),
     );
     AudioManager.instance.playSfx(GameSfx.click);
+  }
+
+  void _eatPellet(_SimFish f, _FoodPellet pellet, SaveManager save) {
+    _foodPellets.remove(pellet);
+    f.eatCooldown = 1.0;
+    f.satiatedTimer = 14.0;
+    save.onFishAtePellet(f.item.id);
+
+    // Spawn eat sparkles
+    for (int k = 0; k < 5; k++) {
+      _eatParticles.add(
+        _EatParticle(
+          x: f.x + (_rand.nextDouble() * 2 - 1) * 8.0,
+          y: f.y - 6.0,
+          maxLife: 0.9 + _rand.nextDouble() * 0.4,
+          color: const Color(0xFFFFD54F),
+        ),
+      );
+    }
+    AudioManager.instance.playSfx(GameSfx.bubble);
+  }
+
+  /// Snails glide and crabs scuttle along the sand. They crawl toward a
+  /// sinking pellet and nibble it once it reaches the bottom.
+  void _updateBottomDweller(
+      _SimFish f, _FoodPellet? pellet, double dt, SaveManager save) {
+    const floorY = 690.0;
+    f.y += (floorY - f.y) * min(1.0, dt * 3.0);
+    f.pitchAngle = 0.0;
+    final isSnail = f.item.kind == FishKind.snail;
+
+    if (pellet != null && !f.isSatiated) {
+      final dx = pellet.x - f.x;
+      f.facingRight = dx >= 0;
+      f.isMoving = true;
+      final speed = isSnail ? 20.0 : 46.0;
+      final step = speed * dt;
+      f.x += dx.abs() < step ? dx : (dx > 0 ? step : -step);
+      if (dx.abs() < 20.0 && pellet.y > 600.0) {
+        _eatPellet(f, pellet, save);
+      }
+    } else if (isSnail) {
+      f.isMoving = true;
+      f.x += (f.facingRight ? 10.0 : -10.0) * dt;
+    } else {
+      // Crab scuttle: short sideways bursts with pauses between.
+      f.stepTimer -= dt;
+      if (f.stepTimer <= 0) {
+        f.isMoving = !f.isMoving;
+        f.stepTimer = f.isMoving ? 0.55 : 0.4;
+        if (!f.isMoving && _rand.nextDouble() < 0.3) {
+          f.facingRight = !f.facingRight;
+        }
+      }
+      if (f.isMoving) {
+        f.x += (f.facingRight ? 30.0 : -30.0) * dt;
+      }
+    }
+
+    if (f.x < 35.0) {
+      f.x = 35.0;
+      f.facingRight = true;
+    } else if (f.x > 375.0) {
+      f.x = 375.0;
+      f.facingRight = false;
+    }
   }
 
   void _updateSimulation(double dt) {
@@ -283,6 +363,11 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
     for (final f in _simFish) {
       final targetPellet = fishTargetPellet[f];
 
+      if (f.item.isBottomDweller) {
+        _updateBottomDweller(f, targetPellet, dt, save);
+        continue;
+      }
+
       if (targetPellet != null && !f.isSatiated) {
         // Eagerly swim towards assigned food pellet
         final dx = targetPellet.x - f.x;
@@ -290,24 +375,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
         final dist = max(0.001, sqrt(dx * dx + dy * dy));
 
         if (dist < 22.0) {
-          // Eat pellet!
-          _foodPellets.remove(targetPellet);
-          f.eatCooldown = 1.0;
-          f.satiatedTimer = 14.0;
-          save.onFishAtePellet(f.item.id);
-
-          // Spawn eat sparkles
-          for (int k = 0; k < 5; k++) {
-            _eatParticles.add(
-              _EatParticle(
-                x: f.x + (_rand.nextDouble() * 2 - 1) * 8.0,
-                y: f.y - 6.0,
-                maxLife: 0.9 + _rand.nextDouble() * 0.4,
-                color: const Color(0xFFFFD54F),
-              ),
-            );
-          }
-          AudioManager.instance.playSfx(GameSfx.bubble);
+          _eatPellet(f, targetPellet, save);
         } else {
           final swimSpeed = (dist > 140 ? 115.0 : 88.0) * (1.0 + f.item.size * 0.1);
           f.x += (dx / dist) * swimSpeed * dt;
@@ -319,9 +387,34 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
         // Calm ambient swimming (satiated fish swim slower and happier)
         final speedMult = f.isSatiated ? 0.8 : 1.0;
         final speed = f.vx.abs() * speedMult;
-        f.x += (f.facingRight ? speed : -speed) * dt;
-        f.y += sin(_animTime * 1.5 + f.tailPhase) * 12.0 * dt;
-        f.pitchAngle = sin(_animTime * 1.6 + f.tailPhase) * 0.08;
+        var vx = (f.facingRight ? speed : -speed);
+        var bobAmp = 12.0;
+
+        if (f.item.kind == FishKind.shrimp) {
+          // Tail-flick dash: every few seconds the shrimp snaps backward
+          // without turning around, just like the real animal.
+          f.dartTimer -= dt;
+          if (f.dartTimer <= 0 && f.dartTime <= 0) {
+            f.dartTime = 0.32;
+            f.dartTimer = 3.5 + _rand.nextDouble() * 4.0;
+          }
+          if (f.dartTime > 0) {
+            f.dartTime -= dt;
+            vx = (f.facingRight ? -1.0 : 1.0) * 235.0;
+            f.pitchAngle = (f.facingRight ? -0.35 : 0.35);
+          }
+        } else if (f.item.kind == FishKind.octopus) {
+          // Octopus hovers in the lower half with a wide, slow sway.
+          bobAmp = 24.0;
+          if (f.y < 330.0) f.y += 26.0 * dt;
+          vx *= 0.7;
+        }
+
+        f.x += vx * dt;
+        f.y += sin(_animTime * 1.5 + f.tailPhase) * bobAmp * dt;
+        if (f.dartTime <= 0) {
+          f.pitchAngle = sin(_animTime * 1.6 + f.tailPhase) * 0.08;
+        }
 
         if (f.x < 35.0) {
           f.x = 35.0;
@@ -409,6 +502,11 @@ class _SimFish {
   double satiatedTimer = 0.0;
   double flipTimer = 0.0;
   double flipProgress = 0.0;
+  // Creature locomotion state
+  double dartTimer = 0.0; // shrimp: time until the next tail-flick dash
+  double dartTime = 0.0; // shrimp: remaining dash time
+  double stepTimer = 0.0; // crab: scuttle burst / pause cycling
+  bool isMoving = true;
 
   /// True while the fish is in its 3-hour post-feeding satiety window
   bool get isSatiated => SaveManager.instance.isFishInSatietyCooldown(item.id);
@@ -587,6 +685,33 @@ class _TankPainter extends CustomPainter {
       final rollAngle = f.flipTimer > 0 ? (f.flipProgress * pi * 2.0) : 0.0;
       canvas.rotate(f.pitchAngle + rollAngle);
 
+      // Creature motion language on top of the shared swim transform
+      switch (f.item.kind) {
+        case FishKind.snail:
+          // Slow contented rocking as it glides
+          canvas.rotate(sin(time * 2.0 + f.tailPhase) * 0.03);
+          break;
+        case FishKind.crab:
+          // Little scuttle hops while it walks
+          if (f.isMoving) {
+            canvas.translate(0, -sin(time * 16.0 + f.tailPhase).abs() * 2.2);
+          }
+          canvas.rotate(sin(time * 8.0 + f.tailPhase) * 0.045);
+          break;
+        case FishKind.shrimp:
+          // Constant gentle body curl sway
+          canvas.rotate(sin(time * 6.0 + f.tailPhase) * 0.07);
+          break;
+        case FishKind.octopus:
+          // Breathing squash-and-stretch plus a dreamy bob
+          final pulse = 1.0 + sin(time * 2.4 + f.tailPhase) * 0.05;
+          canvas.scale(pulse, 2.0 - pulse);
+          canvas.translate(0, sin(time * 1.8 + f.tailPhase) * 5.0);
+          break;
+        case FishKind.fish:
+          break;
+      }
+
       final img = AssetCache.instance.getFishImage(f.item.id);
       if (img != null) {
         // Scaled down: ~45-60px width
@@ -623,14 +748,42 @@ class _TankPainter extends CustomPainter {
         canvas.drawCircle(const Offset(8, -2), 0.9, _eyeBlack);
       }
 
-      // 8. Golden sparkle indicator above fed/producing fish
+      // 8. Status marker above fed fish: a bouncing gold coin once the
+      // 6h gold is ready to collect, otherwise a thin 6h progress bar.
       if (f.isProducing || f.satiatedTimer > 0) {
+        final save = SaveManager.instance;
         final floatY = -18.0 + sin(time * 3.5 + f.tailPhase) * 2.5;
         final pulse = 0.65 + 0.35 * sin(time * 4.0 + f.tailPhase);
-        _sparkPaint.color = const Color(0xFFFFD54F).withValues(alpha: 0.65 * pulse);
-        canvas.drawCircle(Offset(0, floatY), 2.2, _sparkPaint);
-        _sparkPaint.color = Colors.white.withValues(alpha: 0.85 * pulse);
-        canvas.drawCircle(Offset(0, floatY), 1.0, _sparkPaint);
+        if (save.isFishGoldReady(f.item.id)) {
+          // Ready coin: collect me from the hoard chest!
+          _sparkPaint.color = const Color(0xFFFFD54F).withValues(alpha: 0.95);
+          canvas.drawCircle(Offset(0, floatY), 5.6, _sparkPaint);
+          _sparkPaint.color = const Color(0xFFFF8F00).withValues(alpha: 0.9);
+          canvas.drawCircle(Offset(0, floatY), 3.4, _sparkPaint);
+          _sparkPaint.color = Colors.white.withValues(alpha: 0.9 * pulse);
+          canvas.drawCircle(Offset(-1.4, floatY - 1.4), 1.3, _sparkPaint);
+        } else {
+          _sparkPaint.color = const Color(0xFFFFD54F).withValues(alpha: 0.65 * pulse);
+          canvas.drawCircle(Offset(0, floatY), 2.2, _sparkPaint);
+          _sparkPaint.color = Colors.white.withValues(alpha: 0.85 * pulse);
+          canvas.drawCircle(Offset(0, floatY), 1.0, _sparkPaint);
+          if (f.isProducing) {
+            // Production progress: fills up over the 6-hour cycle.
+            final remain = save.remainingFishPayoutMs(f.item.id);
+            final frac = (1.0 - remain / SaveManager.fishPayoutDurationMs).clamp(0.0, 1.0);
+            const barW = 30.0;
+            _sparkPaint.color = const Color(0x59000000);
+            canvas.drawRRect(
+              RRect.fromRectAndRadius(const Rect.fromLTWH(-barW / 2, -27, barW, 3.6), const Radius.circular(2)),
+              _sparkPaint,
+            );
+            _sparkPaint.color = const Color(0xFF4FC3F7).withValues(alpha: 0.9);
+            canvas.drawRRect(
+              RRect.fromRectAndRadius(Rect.fromLTWH(-barW / 2, -27, barW * frac, 3.6), const Radius.circular(2)),
+              _sparkPaint,
+            );
+          }
+        }
       }
 
       canvas.restore();

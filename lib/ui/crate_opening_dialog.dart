@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,6 +24,35 @@ class CrateOpeningDialog extends StatefulWidget {
     this.category,
     this.pendingCrate,
   }) : assert(crate != null || categoryCrate != null || isGuaranteedRedemption || pendingCrate != null);
+
+  static bool isShowing = false;
+
+  static Future<void> show(
+    BuildContext context, {
+    CrateDef? crate,
+    CategoryCrateInfo? categoryCrate,
+    bool isGuaranteedRedemption = false,
+    String? category,
+    PendingCrate? pendingCrate,
+  }) async {
+    if (isShowing) return;
+    isShowing = true;
+    try {
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => CrateOpeningDialog(
+          crate: crate,
+          categoryCrate: categoryCrate,
+          isGuaranteedRedemption: isGuaranteedRedemption,
+          category: category,
+          pendingCrate: pendingCrate,
+        ),
+      );
+    } finally {
+      isShowing = false;
+    }
+  }
 
   @override
   State<CrateOpeningDialog> createState() => _CrateOpeningDialogState();
@@ -58,6 +88,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   bool _impactTriggered = false;
   bool _openThumpFired = false;
   bool _openJingleFired = false;
+  Timer? _autoOpenTimer;
 
   int _tapCount = 0; // 0 (start), 1, 2, 3 (open)
   Rarity _currentRarity = Rarity.common;
@@ -158,7 +189,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
     _dropController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 700),
+      duration: const Duration(milliseconds: 320),
     );
     _dropAnimation = CurvedAnimation(
       parent: _dropController,
@@ -325,6 +356,23 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         HapticFeedback.heavyImpact();
       }
     });
+
+    _startAutoOpenTimer();
+  }
+
+  void _startAutoOpenTimer() {
+    _autoOpenTimer?.cancel();
+    _autoOpenTimer = Timer(const Duration(milliseconds: 3800), () {
+      if (mounted && !_opened && !_isOpening) {
+        _openChestSequence();
+      }
+    });
+  }
+
+  void _resetAutoOpenTimer() {
+    if (!_opened && !_isOpening) {
+      _startAutoOpenTimer();
+    }
   }
 
   void _onOpenTick() {
@@ -390,11 +438,15 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     _landingDustController.dispose();
     _popDustController.dispose();
     _bouncingLootController.dispose();
+    _autoOpenTimer?.cancel();
+    _autoOpenTimer = null;
     super.dispose();
   }
 
   Future<void> _handleChestTap() async {
     if (_opened || _isShaking || _isOpening || _dropController.value < 0.80) return;
+
+    _resetAutoOpenTimer();
 
     if (_tapCount == 0) {
       // 1. Dokunuş: Sıradan -> Ender kontrolü
@@ -407,8 +459,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       if (willUpgrade) {
         _crystalFlareController.forward(from: 0.0);
       }
-      await _shakeController.forward(from: 0.0);
-      if (!mounted) return;
+      _shakeController.forward(from: 0.0).whenComplete(() {
+        _isShaking = false;
+      });
       if (willUpgrade) {
         setState(() {
           _currentRarity = Rarity.rare;
@@ -419,7 +472,6 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         AudioManager.instance.playSfx(GameSfx.hitPaddle);
         HapticFeedback.mediumImpact();
       }
-      _isShaking = false;
       setState(() {});
     } else if (_tapCount == 1) {
       // 2. Dokunuş: Ender -> Destansı kontrolü
@@ -432,8 +484,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       if (willUpgrade) {
         _crystalFlareController.forward(from: 0.0);
       }
-      await _shakeController.forward(from: 0.0);
-      if (!mounted) return;
+      _shakeController.forward(from: 0.0).whenComplete(() {
+        _isShaking = false;
+      });
       if (willUpgrade) {
         setState(() {
           _currentRarity = Rarity.epic;
@@ -444,15 +497,24 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         AudioManager.instance.playSfx(GameSfx.hitPaddle);
         HapticFeedback.mediumImpact();
       }
-      _isShaking = false;
       setState(() {});
-    } else if (_tapCount == 2) {
-      // 3. Dokunuş: Destansı -> Efsanevi kontrolü & AÇILIŞ!
-      _tapCount = 3;
-      _isOpening = true;
-      _openThumpFired = false;
-      _openJingleFired = false;
+    } else if (_tapCount >= 2) {
+      await _openChestSequence();
+    }
+  }
 
+  Future<void> _openChestSequence() async {
+    if (_opened || _isOpening) return;
+    _autoOpenTimer?.cancel();
+    _autoOpenTimer = null;
+
+    // 3. Dokunuş / Otomatik Açılış: Destansı -> Efsanevi kontrolü & AÇILIŞ!
+    _tapCount = 3;
+    _isOpening = true;
+    _openThumpFired = false;
+    _openJingleFired = false;
+
+    try {
       final isLegendary = _rewardRarity == Rarity.legendary;
       if (isLegendary) {
         setState(() {
@@ -463,7 +525,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       }
 
       // Step 1: Make chests shake before it opens (anticipation rattle tremor)
-      _shakeController.duration = const Duration(milliseconds: 320);
+      _shakeController.duration = const Duration(milliseconds: 280);
       await _shakeController.forward(from: 0.0);
       if (!mounted) return;
 
@@ -483,23 +545,28 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
       // Pop the lid! Thump & Little Jingle are executed on precise hinge ticks via _onOpenTick
       await _openController.forward(from: 0.0);
-      if (!mounted) return;
+    } catch (e) {
+      debugPrint('Error in crate opening sequence: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _opened = true;
+          _isOpening = false;
+          _impactTriggered = false;
+        });
 
-      setState(() {
-        _opened = true;
-        _isOpening = false;
-        _impactTriggered = false;
-      });
+        // Claim reward atomically now that chest has opened!
+        await SaveManager.instance.claimPendingCrate();
 
-      // Claim reward atomically now that chest has opened!
-      await SaveManager.instance.claimPendingCrate();
+        _suctionController.forward(from: 0.0);
+        _cardFlipController.forward(from: 0.0);
+        _revealController.forward(from: 0.0);
 
-      _suctionController.forward(from: 0.0);
-      _cardFlipController.forward(from: 0.0);
-      _revealController.forward(from: 0.0);
-
-      // Stage 1: Arcane rising charge sound on card emergence
-      AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 0.95);
+        // Stage 1: Arcane rising charge sound on card emergence
+        AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 0.95);
+      } else {
+        await SaveManager.instance.claimPendingCrate();
+      }
     }
   }
 
@@ -928,9 +995,10 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: _opened,
+      canPop: true,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop && _opened) {
+        if (didPop) {
+          _autoOpenTimer?.cancel();
           SaveManager.instance.claimPendingCrate();
         }
       },
@@ -944,7 +1012,6 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
           _shakeController,
           _openController,
           _flashController,
-          _auraController,
           _shockwaveController,
           _impactController,
           _electricController,
@@ -959,9 +1026,12 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
             clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
-              // Dialog Main Shell
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+              // Dialog Main Shell (Any tap on the dialog triggers opening)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _opened ? null : _handleChestTap,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
                 decoration: BoxDecoration(
                   gradient: const RadialGradient(
                     center: Alignment(0, -0.2),
@@ -978,9 +1048,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: activeColor.withValues(alpha: 0.40),
-                      blurRadius: 42,
-                      spreadRadius: 3,
+                      color: Colors.black.withValues(alpha: 0.60),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
@@ -1040,14 +1110,17 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                     // 1. Ambient Sunburst Aura behind chest
                                     Positioned(
                                       top: -10,
-                                      child: Transform.rotate(
-                                        angle: _auraController.value * 2 * pi,
-                                        child: CustomPaint(
-                                          size: const Size(210, 180),
-                                          painter: _CrateSunburstPainter(
-                                            color: activeColor,
-                                            intensity: 0.40 + _tapCount * 0.22,
-                                            spokeCount: 14,
+                                      child: AnimatedBuilder(
+                                        animation: _auraController,
+                                        builder: (context, _) => Transform.rotate(
+                                          angle: _auraController.value * 2 * pi,
+                                          child: CustomPaint(
+                                            size: const Size(210, 180),
+                                            painter: _CrateSunburstPainter(
+                                              color: activeColor,
+                                              intensity: 0.40 + _tapCount * 0.22,
+                                              spokeCount: 14,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -1115,75 +1188,75 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                       ),
 
                                     // Step 4: Light pouring out from inside the chest (colored by reward rarity)
-                                    AnimatedBuilder(
-                                      animation: _openAnimation,
-                                      builder: (context, _) {
-                                        if (_openAnimation.value <= 0.03) return const SizedBox.shrink();
-                                        return Positioned(
-                                          top: 15,
-                                          child: CustomPaint(
+                                    Positioned(
+                                      top: 15,
+                                      child: AnimatedBuilder(
+                                        animation: _openAnimation,
+                                        builder: (context, _) {
+                                          if (_openAnimation.value <= 0.03) return const SizedBox.shrink();
+                                          return CustomPaint(
                                             size: const Size(190, 150),
                                             painter: _ChestInteriorGlowPainter(
                                               openProgress: _openAnimation.value,
                                               color: _rewardRarity.primaryColor,
                                             ),
-                                          ),
-                                        );
-                                      },
+                                          );
+                                        },
+                                      ),
                                     ),
 
                                     // Step 4: Landing Dust when chest impacts ground
-                                    AnimatedBuilder(
-                                      animation: _landingDustController,
-                                      builder: (context, _) {
-                                        if (!_landingDustController.isAnimating) return const SizedBox.shrink();
-                                        return Positioned(
-                                          bottom: 12,
-                                          child: CustomPaint(
+                                    Positioned(
+                                      bottom: 12,
+                                      child: AnimatedBuilder(
+                                        animation: _landingDustController,
+                                        builder: (context, _) {
+                                          if (!_landingDustController.isAnimating) return const SizedBox.shrink();
+                                          return CustomPaint(
                                             size: const Size(220, 45),
                                             painter: _FloorDustPainter(
                                               progress: _landingDustController.value,
                                               color: const Color(0xFFCFD8DC),
                                             ),
-                                          ),
-                                        );
-                                      },
+                                          );
+                                        },
+                                      ),
                                     ),
 
                                     // Step 4: Pop Dust kicked up when lid bursts open
-                                    AnimatedBuilder(
-                                      animation: _popDustController,
-                                      builder: (context, _) {
-                                        if (!_popDustController.isAnimating) return const SizedBox.shrink();
-                                        return Positioned(
-                                          bottom: 12,
-                                          child: CustomPaint(
+                                    Positioned(
+                                      bottom: 12,
+                                      child: AnimatedBuilder(
+                                        animation: _popDustController,
+                                        builder: (context, _) {
+                                          if (!_popDustController.isAnimating) return const SizedBox.shrink();
+                                          return CustomPaint(
                                             size: const Size(240, 50),
                                             painter: _FloorDustPainter(
                                               progress: _popDustController.value,
                                               color: _rewardRarity.primaryColor,
                                             ),
-                                          ),
-                                        );
-                                      },
+                                          );
+                                        },
+                                      ),
                                     ),
 
                                     // Step 5: Bouncing Loot (Coins, Gems, Shards launching & bouncing)
-                                    AnimatedBuilder(
-                                      animation: _bouncingLootController,
-                                      builder: (context, _) {
-                                        if (!_bouncingLootController.isAnimating) return const SizedBox.shrink();
-                                        return Positioned(
-                                          top: 0,
-                                          child: CustomPaint(
+                                    Positioned(
+                                      top: 0,
+                                      child: AnimatedBuilder(
+                                        animation: _bouncingLootController,
+                                        builder: (context, _) {
+                                          if (!_bouncingLootController.isAnimating) return const SizedBox.shrink();
+                                          return CustomPaint(
                                             size: const Size(240, 160),
                                             painter: _BouncingLootPainter(
                                               progress: _bouncingLootController.value,
                                               color: _rewardRarity.primaryColor,
                                             ),
-                                          ),
-                                        );
-                                      },
+                                          );
+                                        },
+                                      ),
                                     ),
 
                                     // 6. 3D Animated Floating, Tilting, Squash-and-Stretch Shaking Chest
@@ -1213,7 +1286,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                               scaleY: scaleY,
                                               alignment: Alignment.bottomCenter,
                                               child: ChestWidget(
-                                                size: 122,
+                                                size: 138,
                                                 primaryColor: _currentPrimaryColor,
                                                 secondaryColor: _currentSecondaryColor,
                                                 openProgress: _openAnimation.value,
@@ -1231,7 +1304,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                               ),
                               const SizedBox(height: 18),
                               AnimatedOpacity(
-                                opacity: (_dropController.value > 0.80 && !_isShaking && !_isOpening) ? 1.0 : 0.45,
+                                opacity: (_dropController.value > 0.80 && !_isOpening) ? 1.0 : 0.45,
                                 duration: const Duration(milliseconds: 150),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -1373,6 +1446,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                       _chromaticController,
                                       _lightningController,
                                       _shineSweepController,
+                                      _auraController,
                                     ]),
                                     builder: (context, child) {
                                       final t = _cardFlipController.value;
@@ -1401,6 +1475,14 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                         translateY = -32.0 * (1.0 - elastic);
                                         angle = (1.0 - elastic) * 0.15;
                                         scale = 0.92 + 0.08 * elastic;
+                                      }
+
+                                      // Kart yerleştikten sonra havada süzülmeye devam eder:
+                                      // yavaş nefes alan bir Y dönüşü + dikey salınım.
+                                      if (t >= 1.0) {
+                                        final auraT = _auraController.value * 2 * pi;
+                                        translateY += sin(auraT) * 3.2 - 4.0;
+                                        angle += sin(auraT * 0.5) * 0.42;
                                       }
 
                                       final cardWithTransform = Transform.translate(
@@ -1722,6 +1804,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                   ],
                 ),
                 ),
+              ),
               ),
 
               // Fullscreen Screen Flash Bloom on Legendary or Opening
@@ -2791,7 +2874,7 @@ class _FloorDustPainter extends CustomPainter {
       final isLeft = i.isEven;
       final seed = rand.nextDouble();
       final speed = 0.6 + seed * 0.8;
-      final dist = (22.0 + seed * 68.0) * Curves.easeOutCubic.transform(progress * speed);
+      final dist = (22.0 + seed * 68.0) * Curves.easeOutCubic.transform((progress * speed).clamp(0.0, 1.0));
       final px = cx + (isLeft ? -dist : dist);
       final py = baseY - sin(progress * pi) * (6.0 + seed * 16.0);
       final radius = (6.0 + seed * 10.0) * (0.6 + progress * 0.8);

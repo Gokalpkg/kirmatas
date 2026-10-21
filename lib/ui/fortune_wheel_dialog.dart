@@ -5,6 +5,7 @@ import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
+import 'kaunos_ui.dart';
 
 class WheelReward {
   final String label;
@@ -29,6 +30,8 @@ class FortuneWheelDialog extends StatefulWidget {
 
   static List<WheelReward> get rewards => _FortuneWheelDialogState.rewards;
 
+  static List<double> get spinWeights => _FortuneWheelDialogState.spinWeights;
+
   @override
   State<FortuneWheelDialog> createState() => _FortuneWheelDialogState();
 }
@@ -39,6 +42,32 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
 
   double _currentRotation = 0.0;
   bool _isSpinning = false;
+  int? _winningIndex;
+  double _pointerBend = 0.0;
+  double _lastSpinValue = 0.0;
+
+  // Spin listener bookkeeping: every spin MUST detach the previous spin's
+  // listeners, otherwise stale tweens keep writing _currentRotation on each
+  // tick and the wheel visibly stutters/fights itself on later spins.
+  int _spinSession = 0;
+  Animation<double>? _windAnim;
+  VoidCallback? _windListener;
+  Animation<double>? _mainAnim;
+  VoidCallback? _mainListener;
+  int _lastTickSoundAtMs = 0;
+
+  void _detachSpinListeners() {
+    if (_windAnim != null && _windListener != null) {
+      _windAnim!.removeListener(_windListener!);
+    }
+    if (_mainAnim != null && _mainListener != null) {
+      _mainAnim!.removeListener(_mainListener!);
+    }
+    _windAnim = null;
+    _windListener = null;
+    _mainAnim = null;
+    _mainListener = null;
+  }
 
   // Manual Drag-to-Spin tracking
   Offset _lastTouchPos = Offset.zero;
@@ -78,6 +107,12 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
   }
 
   List<WheelReward> get _rewards => rewards;
+
+  /// Spin probability per sector (sums to 100), aligned with [rewards].
+  /// Gold sectors keep their classic odds; the pearl & food sectors take
+  /// their small share from the crate/shard/life sectors.
+  static const List<double> spinWeights = [2.5, 4.0, 5.0, 9.0, 20.0, 7.5, 23.0, 25.0, 2.0, 2.0];
+
   static final List<WheelReward> rewards = [
     WheelReward(
       label: '500 ',
@@ -213,6 +248,22 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       secondaryColor: const Color(0xFF8E24AA),
       onClaim: (context, save) => save.addGold(75),
     ),
+    WheelReward(
+      label: '+1 İNCİ',
+      subtitle: 'İnci',
+      icon: Icons.circle,
+      primaryColor: const Color(0xFFF48FB1),
+      secondaryColor: const Color(0xFFEC407A),
+      onClaim: (context, save) => save.addPearls(1),
+    ),
+    WheelReward(
+      label: '+4 YEM',
+      subtitle: 'Balık Yemi',
+      icon: Icons.set_meal_rounded,
+      primaryColor: const Color(0xFFAED581),
+      secondaryColor: const Color(0xFF7CB342),
+      onClaim: (context, save) => save.addFishFood(4),
+    ),
   ];
 
   @override
@@ -226,30 +277,62 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
 
   @override
   void dispose() {
+    _detachSpinListeners();
     _spinController.dispose();
     super.dispose();
   }
 
-  void _triggerWheelSpin({bool clockwise = true}) {
+  Future<void> _triggerWheelSpin({bool clockwise = true}) async {
     if (_isSpinning) return;
+    _detachSpinListeners();
+    final session = ++_spinSession;
     setState(() {
       _isSpinning = true;
+      _winningIndex = null;
     });
 
+    // Wind-back: coil the wheel against the spin direction with ratchet
+    // clicks before launching it forward.
+    AudioManager.instance.playSfx(GameSfx.hitBrick, playbackRate: 0.7);
+    _spinController.duration = const Duration(milliseconds: 200);
+    final windTween = Tween<double>(
+      begin: _currentRotation,
+      end: _currentRotation + (clockwise ? -0.22 : 0.22),
+    ).animate(CurvedAnimation(parent: _spinController, curve: Curves.easeOut));
+    _windAnim = windTween;
+    _windListener = () {
+      if (!mounted || session != _spinSession) return;
+      setState(() {
+        _currentRotation = windTween.value;
+      });
+    };
+    windTween.addListener(_windListener!);
+    await _spinController.forward(from: 0.0);
+    if (_windAnim == windTween && _windListener != null) {
+      windTween.removeListener(_windListener!);
+      _windAnim = null;
+      _windListener = null;
+    }
+    if (!mounted) return;
+    AudioManager.instance.playSfx(GameSfx.hitBrick, playbackRate: 1.1);
+    _spinController.duration = const Duration(milliseconds: 4600);
+
     final rand = Random();
-    // Weighted selection: visually all 8 sectors are identically sized (45 degrees),
-    // but lower/mid rewards have a noticeably higher probability (75, 100, 150 gold total ~68%)
-    // while high-tier prizes remain rare and exciting.
+    // Weighted selection: all 10 sectors are identically sized (36 degrees).
+    // Gold odds are the classic ones; two small variety sectors (pearl,
+    // fish food) joined by trimming crate/shard/life a little.
     // Indexes:
     // 0: 500g   (Jackpot) -> 2.5%
-    // 1: Crate  (Gizemli) -> 4.5%
-    // 2: Shard  (Parça)   -> 6.0%
+    // 1: Crate  (Gizemli) -> 4.0%
+    // 2: Shard  (Parça)   -> 5.0%
     // 3: 250g   (Büyük)   -> 9.0%
     // 4: 150g   (Altın)   -> 20.0%
-    // 5: +1 Can (Can)     -> 10.0%
+    // 5: +1 Can (Can)     -> 7.5%
     // 6: 100g   (Altın)   -> 23.0%
     // 7: 75g    (Altın)   -> 25.0%
-    final weights = [2.5, 4.5, 6.0, 9.0, 20.0, 10.0, 23.0, 25.0];
+    // 8: +1 İnci          -> 2.0%
+    // 9: +4 Yem           -> 2.0%
+    final weights = spinWeights;
     final totalWeight = weights.reduce((a, b) => a + b);
     double roll = rand.nextDouble() * totalWeight;
     int targetIndex = 0;
@@ -284,26 +367,52 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     );
 
     int lastTickSector = -1;
-    _spinAnimation.addListener(() {
+    _lastSpinValue = _currentRotation;
+    _mainAnim = _spinAnimation;
+    _mainListener = () {
+      if (!mounted || session != _spinSession) return;
+      final delta = _spinAnimation.value - _lastSpinValue;
+      _lastSpinValue = _spinAnimation.value;
       setState(() {
         _currentRotation = _spinAnimation.value;
+        // The pointer pin drags against the pegs: it bends with wheel
+        // speed and springs back as the wheel crawls to a stop.
+        final target = (delta * 3.2).clamp(-0.55, 0.55);
+        _pointerBend = _pointerBend * 0.55 + target * 0.45;
       });
 
-      // Sound effect ticks when crossing sector dividers
+      // Tick when crossing sector dividers, throttled so a fast wheel does
+      // not flood the audio channel (which used to hitch the animation).
       final currentSector = ((_currentRotation / sectorAngle).floor()) % _rewards.length;
       if (currentSector != lastTickSector) {
         lastTickSector = currentSector;
-        AudioManager.instance.playSfx(GameSfx.hitBrick);
+        final nowMs = DateTime.now().millisecondsSinceEpoch;
+        if (nowMs - _lastTickSoundAtMs >= 45) {
+          _lastTickSoundAtMs = nowMs;
+          AudioManager.instance.playSfx(GameSfx.hitBrick);
+        }
       }
-    });
+    };
+    _spinAnimation.addListener(_mainListener!);
 
-    _spinController.forward(from: 0.0).then((_) {
+    _spinController.forward(from: 0.0).then((_) async {
+      if (session == _spinSession) {
+        _detachSpinListeners();
+      }
       final selectedReward = _rewards[targetIndex];
+      if (!mounted) return;
+      // Freeze-frame: flash the winning wedge before the prize burst.
+      setState(() {
+        _winningIndex = targetIndex;
+      });
+      AudioManager.instance.playSfx(GameSfx.victory);
+      AudioManager.instance.playSfx(GameSfx.ulti);
+      await Future.delayed(const Duration(milliseconds: 380));
+      if (!mounted) return;
       setState(() {
         _isSpinning = false;
+        _winningIndex = null;
       });
-
-      AudioManager.instance.playSfx(GameSfx.ulti);
 
       // Claim reward into save
       selectedReward.onClaim(context, SaveManager.instance);
@@ -331,17 +440,30 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     });
   }
 
+  Future<void> _executeFreeSpin({bool clockwise = true}) async {
+    if (_isSpinning) return;
+    final ok = await SaveManager.instance.recordWheelSpin();
+    if (ok && mounted) {
+      _triggerWheelSpin(clockwise: clockwise);
+    }
+  }
+
   void _onManualFlingSpin({bool clockwise = true}) {
     final save = SaveManager.instance;
     if (!save.canSpinFortuneWheel) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Bugünkü 3 çark hakkını kullandın! Yarın yeni haklar gelecek.'),
+          content: const Text('Bugünkü çark haklarını kullandın! Yarın yeni haklar gelecek.'),
           backgroundColor: const Color(0xFF1E2438),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
       );
+      return;
+    }
+
+    if (save.isNextWheelSpinFree) {
+      _executeFreeSpin(clockwise: clockwise);
       return;
     }
 
@@ -384,12 +506,17 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     if (!save.canSpinFortuneWheel) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Bugünkü 3 çark hakkını kullandın! Yarın yeni haklar gelecek.'),
+          content: const Text('Bugünkü çark haklarını kullandın! Yarın yeni haklar gelecek.'),
           backgroundColor: const Color(0xFF1E2438),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
       );
+      return;
+    }
+
+    if (save.isNextWheelSpinFree) {
+      _executeFreeSpin();
       return;
     }
 
@@ -564,9 +691,13 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                         ],
                       ),
                     ),
-                    IconButton(
-                      onPressed: _isSpinning ? null : () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, color: Colors.white70),
+                    KaunosPressGlow(
+                      isCircle: true,
+                      waveColor: const Color(0xFF00E5FF),
+                      child: IconButton(
+                        onPressed: _isSpinning ? null : () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                      ),
                     ),
                   ],
                 ),
@@ -576,10 +707,14 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: canSpin ? const Color(0x2E00E5FF) : const Color(0x33FF5252),
+                    color: canSpin
+                        ? (save.isNextWheelSpinFree ? const Color(0x2E00E676) : const Color(0x2E00E5FF))
+                        : const Color(0x33FF5252),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: canSpin ? const Color(0xFF00E5FF) : const Color(0xFFFF5252),
+                      color: canSpin
+                          ? (save.isNextWheelSpinFree ? const Color(0xFF00E676) : const Color(0xFF00E5FF))
+                          : const Color(0xFFFF5252),
                       width: 1.2,
                     ),
                   ),
@@ -587,20 +722,28 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        canSpin ? Icons.local_activity_rounded : Icons.lock_clock,
-                        color: canSpin ? const Color(0xFF00E5FF) : const Color(0xFFFF5252),
+                        canSpin
+                            ? (save.isNextWheelSpinFree ? Icons.card_giftcard_rounded : Icons.local_activity_rounded)
+                            : Icons.lock_clock,
+                        color: canSpin
+                            ? (save.isNextWheelSpinFree ? const Color(0xFF69F0AE) : const Color(0xFF00E5FF))
+                            : const Color(0xFFFF5252),
                         size: 14,
                       ),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           canSpin
-                              ? 'Bugün Kalan Hak: $spinsLeft / 3'
-                              : 'Günlük Hak Bitti (0/3)',
+                              ? (save.isNextWheelSpinFree
+                                  ? 'Günün 1. Çevirmesi ÜCRETSİZ! (Kalan: $spinsLeft/${SaveManager.maxDailyWheelSpins})'
+                                  : 'Bugün Kalan Hak: $spinsLeft / ${SaveManager.maxDailyWheelSpins}')
+                              : 'Günlük Hak Bitti (0/${SaveManager.maxDailyWheelSpins})',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: canSpin ? const Color(0xFF00E5FF) : const Color(0xFFFF8A80),
+                            color: canSpin
+                                ? (save.isNextWheelSpinFree ? const Color(0xFF69F0AE) : const Color(0xFF00E5FF))
+                                : const Color(0xFFFF8A80),
                             fontSize: 11,
                             fontWeight: FontWeight.w900,
                           ),
@@ -658,7 +801,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                     });
 
                     // Audio feedback on manual drag
-                    const sectorAngle = (2 * pi) / 8;
+                    final sectorAngle = (2 * pi) / _rewards.length;
                     final currentSector = ((_currentRotation / sectorAngle).floor()) % _rewards.length;
                     if (currentSector != _lastDragTickSector) {
                       _lastDragTickSector = currentSector;
@@ -675,7 +818,14 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                       _onManualFlingSpin(clockwise: cw);
                     }
                   },
-                  child: SizedBox(
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween<double>(end: _winningIndex != null ? 1.05 : 1.0),
+                    duration: const Duration(milliseconds: 240),
+                    curve: Curves.easeOutBack,
+                    builder: (context, scale, child) {
+                      return Transform.scale(scale: scale, child: child);
+                    },
+                    child: SizedBox(
                     width: 270,
                     height: 270,
                     child: Stack(
@@ -686,7 +836,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                           angle: _currentRotation,
                           child: CustomPaint(
                             size: const Size(270, 270),
-                            painter: _WheelPainter(rewards: _rewards),
+                            painter: _WheelPainter(rewards: _rewards, highlightIndex: _winningIndex),
                           ),
                         ),
 
@@ -712,32 +862,43 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                           ),
                         ),
 
-                        // Top Indicator Arrow
+                        // Top Indicator Arrow (bends against the pegs)
                         Positioned(
                           top: 0,
-                          child: CustomPaint(
-                            size: const Size(26, 26),
-                            painter: _PointerArrowPainter(),
+                          child: Transform.rotate(
+                            angle: _pointerBend,
+                            alignment: Alignment.topCenter,
+                            child: CustomPaint(
+                              size: const Size(26, 26),
+                              painter: _PointerArrowPainter(),
+                            ),
                           ),
                         ),
                       ],
+                    ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 18),
 
-                // Action Button: Watch Skippable Ad & Spin
+                // Action Button: Spin or Watch Ad & Spin
                 Container(
                   decoration: BoxDecoration(
                     gradient: (!canSpin)
                         ? null
                         : (isLoading
                             ? null
-                            : const LinearGradient(
-                                colors: [Color(0xFFFFF176), Color(0xFFFFB300), Color(0xFFFF8F00)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              )),
+                            : (save.isNextWheelSpinFree
+                                ? const LinearGradient(
+                                    colors: [Color(0xFF69F0AE), Color(0xFF00E676), Color(0xFF00B0FF)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  )
+                                : const LinearGradient(
+                                    colors: [Color(0xFFFFF176), Color(0xFFFFB300), Color(0xFFFF8F00)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ))),
                     color: (!canSpin)
                         ? const Color(0xFF1E2436)
                         : (isLoading ? const Color(0x33FFB300) : null),
@@ -745,14 +906,18 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                     border: Border.all(
                       color: (!canSpin)
                           ? Colors.white24
-                          : (isLoading ? Colors.white12 : const Color(0xFFFFFDE7)),
+                          : (isLoading
+                              ? Colors.white12
+                              : (save.isNextWheelSpinFree ? const Color(0xFFB9F6CA) : const Color(0xFFFFFDE7))),
                       width: 1.8,
                     ),
                     boxShadow: (!canSpin || isLoading)
                         ? null
                         : [
                             BoxShadow(
-                              color: const Color(0xFFFF8F00).withValues(alpha: 0.5),
+                              color: save.isNextWheelSpinFree
+                                  ? const Color(0xFF00E676).withValues(alpha: 0.5)
+                                  : const Color(0xFFFF8F00).withValues(alpha: 0.5),
                               blurRadius: 18,
                               offset: const Offset(0, 4),
                             ),
@@ -790,23 +955,70 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text( 'GÜNLÜK HAK BİTTİ (0 / 3)',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 13,
-                                      letterSpacing: 0.4,
+                                  children: const [
+                                    Text(
+                                      'GÜNLÜK HAK BİTTİ (0 / ${SaveManager.maxDailyWheelSpins})',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 13,
+                                        letterSpacing: 0.4,
+                                      ),
                                     ),
-                                  ),
-                                  Text( 'Yarın yeni 3 çevirme hakkı eklenecek!',
-                                    style: TextStyle(
-                                      color: Colors.white38,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 10,
+                                    Text(
+                                      'Yarın yeni ${SaveManager.maxDailyWheelSpins} çevirme hakkı eklenecek!',
+                                      style: TextStyle(
+                                        color: Colors.white38,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 10,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
+                              ),
+                            ] else if (save.isNextWheelSpinFree) ...[
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF003816),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF00E676).withValues(alpha: 0.6),
+                                      blurRadius: 6,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(Icons.card_giftcard_rounded, color: Color(0xFF69F0AE), size: 18),
+                              ),
+                              const SizedBox(width: 10),
+                              Flexible(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: const [
+                                    Text(
+                                      ' ÜCRETSİZ ÇEVİR! (1 / ${SaveManager.maxDailyWheelSpins})',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Color(0xFF003816),
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 13,
+                                        letterSpacing: 0.4,
+                                      ),
+                                    ),
+                                    Text(
+                                      ' Günün İlk Çevirmesi Bedava! (Reklamsız)',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Color(0xFF004D20),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ] else ...[
@@ -822,34 +1034,36 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                     ),
                                   ],
                                 ),
-                                child: const Icon(Icons.fast_forward_rounded, color: Color(0xFFFFD54F), size: 18),
+                                child: const Icon(Icons.ondemand_video_rounded, color: Color(0xFFFFD54F), size: 18),
                               ),
                               const SizedBox(width: 10),
                               Flexible(
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text( ' ŞANSINI DENE & ÇEVİR! ($spinsLeft / 3)',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Color(0xFF2E1C00),
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 13,
-                                      letterSpacing: 0.4,
+                                  children: [
+                                    Text(
+                                      ' REKLAM İZLE & ÇEVİR! (${save.fortuneWheelSpinsToday + 1} / ${SaveManager.maxDailyWheelSpins})',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Color(0xFF2E1C00),
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 13,
+                                        letterSpacing: 0.4,
+                                      ),
                                     ),
-                                  ),
-                                  const Text( ' Geçilebilir Kısa Reklam İzle & Çevir',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Color(0xFF4E342E),
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 10,
+                                    const Text(
+                                      ' Geçilebilir Kısa Reklam İzle & Çevir',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Color(0xFF4E342E),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 10,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
                                 ),
                               ),
                             ],
@@ -871,10 +1085,11 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
 
 class _WheelPainter extends CustomPainter {
   final List<WheelReward> rewards;
+  final int? highlightIndex;
   static final Map<String, TextPainter> _textPainters = {};
   static final Map<int, Shader> _sectorShaders = {};
 
-  _WheelPainter({required this.rewards});
+  _WheelPainter({required this.rewards, this.highlightIndex});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -918,6 +1133,18 @@ class _WheelPainter extends CustomPainter {
         sectorPaint,
       );
 
+      if (highlightIndex == i) {
+        final flashPaint = Paint()
+          ..style = PaintingStyle.fill
+          ..color = const Color(0xAAFFFFFF);
+        canvas.drawArc(circleRect, startAngle, sectorAngle, true, flashPaint);
+        final flashStroke = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.5
+          ..color = const Color(0xFFFFD600);
+        canvas.drawArc(circleRect, startAngle, sectorAngle, true, flashStroke);
+      }
+
       // Draw Divider
       final divX = center.dx + cos(startAngle) * radius;
       final divY = center.dy + sin(startAngle) * radius;
@@ -936,11 +1163,11 @@ class _WheelPainter extends CustomPainter {
       final tp = _textPainters.putIfAbsent(reward.label, () {
         final textSpan = TextSpan(
           text: reward.label,
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w900,
-            fontSize: 12,
-            shadows: [Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1))],
+            fontSize: rewards.length > 8 ? 10.5 : 12,
+            shadows: const [Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1))],
           ),
         );
         return TextPainter(

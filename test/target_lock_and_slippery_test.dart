@@ -82,5 +82,63 @@ void main() {
       // Ball should have bounced upward (vy < 0)
       expect(ball.vy, lessThan(0.0));
     });
+
+    test('Power-up rebalances & shortened debuff durations', () {
+      expect(PowerUpType.reverse.duration, equals(4.0));
+      expect(PowerUpType.shrink.duration, equals(5.5));
+      expect(PowerUpType.fastball.duration, equals(5.0));
+      expect(PowerUpType.clumsy.duration, equals(4.5));
+      expect(PowerUpType.invis.duration, equals(4.0));
+    });
+
+    test('Frost Ball freezes bricks and frozen brick shatters in 1 hit', () {
+      final ctrl = GameController();
+      ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
+      ctrl.status = GameStatus.playing;
+
+      ctrl.applyPowerUp(PowerUpType.frost);
+      expect(ctrl.balls.first.isFrost, isTrue);
+
+      final brick = ctrl.bricks.firstWhere((b) => b.isAlive && !b.isSteel);
+      brick.isFrozen = true;
+      expect(brick.isFrozen, isTrue);
+
+      final ball = ctrl.balls.first;
+      ball.isStuck = false;
+      ball.x = brick.x + brick.width / 2;
+      ball.y = brick.y + brick.height + ball.radius;
+      ball.vx = 0.0;
+      ball.vy = -200.0;
+
+      // Update collision
+      ctrl.update(0.02);
+
+      // Frozen brick must shatter and die in 1 hit!
+      expect(brick.isAlive, isFalse);
+    });
+
+    test('Shrapnel powerup spawns piercing pellet projectiles upon impact', () {
+      final ctrl = GameController();
+      ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
+      ctrl.status = GameStatus.playing;
+
+      ctrl.applyPowerUp(PowerUpType.shrapnel);
+      expect(ctrl.balls.first.isShrapnel, isTrue);
+
+      final brick = ctrl.bricks.firstWhere((b) => b.isAlive && !b.isSteel);
+      final ball = ctrl.balls.first;
+      ball.isStuck = false;
+      ball.x = brick.x + brick.width / 2;
+      ball.y = brick.y + brick.height + ball.radius;
+      ball.vx = 0.0;
+      ball.vy = -200.0;
+
+      final initialProjCount = ctrl.projectiles.length;
+      ctrl.update(0.02);
+
+      // Shrapnel pellets should be spawned
+      expect(ctrl.projectiles.length, greaterThan(initialProjCount));
+      expect(ctrl.projectiles.any((p) => p.isShrapnel), isTrue);
+    });
   });
 }

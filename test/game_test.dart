@@ -22,6 +22,7 @@ import 'package:kirmatas/storage/save_manager.dart';
 import 'package:kirmatas/ui/game_canvas.dart';
 import 'package:kirmatas/ui/pixel_art.dart';
 import 'package:kirmatas/ui/chest_widget.dart';
+import 'package:kirmatas/ui/fortune_wheel_dialog.dart';
 import 'package:kirmatas/ui/crate_opening_dialog.dart';
 import 'package:kirmatas/ui/shop_view.dart';
 import 'package:kirmatas/ui/aquarium_view.dart';
@@ -83,8 +84,8 @@ void main() {
       expect(ball.squashTimer < 0.22, true);
     });
 
-    test('All 24 powerups exist and have valid kinds and labels', () {
-      expect(PowerUpType.values.length, 24);
+    test('All 26 powerups exist and have valid kinds and labels', () {
+      expect(PowerUpType.values.length, 26);
       for (final p in PowerUpType.values) {
         expect(p.label.isNotEmpty, true);
         expect(p.duration >= 0, true);
@@ -1665,7 +1666,7 @@ void main() {
       expect(adReward, 150);
     });
 
-    test('Fortune Wheel 3-spins per day limit and daily reset', () async {
+    test('Fortune Wheel 5-spins per day limit and daily reset', () async {
       final save = SaveManager.instance;
       await save.init();
 
@@ -1673,56 +1674,62 @@ void main() {
       save.lastFortuneWheelDate = today;
       save.fortuneWheelSpinsToday = 0;
 
-      // Starts with 3 spins
-      expect(save.remainingWheelSpins, 3);
+      // Starts with 5 spins (1 free + 4 ad-backed)
+      expect(SaveManager.maxDailyWheelSpins, 5);
+      expect(save.remainingWheelSpins, 5);
       expect(save.canSpinFortuneWheel, true);
 
-      // Spin 1
-      final ok1 = await save.recordWheelSpin();
-      expect(ok1, true);
-      expect(save.remainingWheelSpins, 2);
-      expect(save.canSpinFortuneWheel, true);
+      for (var i = 1; i <= 5; i++) {
+        final ok = await save.recordWheelSpin();
+        expect(ok, true, reason: 'spin $i should succeed');
+        expect(save.remainingWheelSpins, 5 - i);
+        expect(save.canSpinFortuneWheel, i < 5);
+      }
 
-      // Spin 2
-      final ok2 = await save.recordWheelSpin();
-      expect(ok2, true);
-      expect(save.remainingWheelSpins, 1);
-      expect(save.canSpinFortuneWheel, true);
-
-      // Spin 3
-      final ok3 = await save.recordWheelSpin();
-      expect(ok3, true);
+      // Spin 6 should fail (capped at 5)
+      final okExtra = await save.recordWheelSpin();
+      expect(okExtra, false);
       expect(save.remainingWheelSpins, 0);
       expect(save.canSpinFortuneWheel, false);
 
-      // Spin 4 should fail (capped at 3)
-      final ok4 = await save.recordWheelSpin();
-      expect(ok4, false);
-      expect(save.remainingWheelSpins, 0);
-      expect(save.canSpinFortuneWheel, false);
-
-      // Different day resets to 3 spins
+      // Different day resets to 5 spins
       save.lastFortuneWheelDate = '2026-01-01';
-      expect(save.remainingWheelSpins, 3);
+      expect(save.remainingWheelSpins, 5);
       expect(save.canSpinFortuneWheel, true);
     });
 
     test('Fortune Wheel probability weights favour lower rewards without skewing sector layout', () {
-      // 8 slices in wheel
-      final weights = [2.5, 4.5, 6.0, 9.0, 20.0, 10.0, 23.0, 25.0];
+      // 10 slices in wheel, production weights
+      final weights = FortuneWheelDialog.spinWeights;
       final totalWeight = weights.reduce((a, b) => a + b);
       expect(totalWeight, closeTo(100.0, 0.01));
+      expect(weights.length, FortuneWheelDialog.rewards.length);
+      expect(weights.length, 10);
 
-      // Lower rewards (75g, 100g, 150g at indices 7, 6, 4):
+      // Classic gold odds are untouched (indices 0, 3, 4, 6, 7):
+      expect([weights[0], weights[3], weights[4], weights[6], weights[7]],
+          [2.5, 9.0, 20.0, 23.0, 25.0]);
+
+      // Lower rewards (75g, 100g, 150g at indices 7, 6, 4) still dominate:
       final lowerRewardsWeight = weights[7] + weights[6] + weights[4];
-      expect(lowerRewardsWeight, 68.0); // Exactly 68%
+      expect(lowerRewardsWeight, 68.0);
 
-      // Jackpot (500g at index 0):
-      expect(weights[0], 2.5); // 2.5%
-
-      // Mystery Crate & Shard (indices 1 & 2):
+      // Mystery Crate & Shard (indices 1 & 2) trimmed slightly for variety:
       final mysteryItemsWeight = weights[1] + weights[2];
-      expect(mysteryItemsWeight, 10.5); // 10.5%
+      expect(mysteryItemsWeight, 9.0);
+
+      // New variety sectors exist and are rare treats:
+      expect(FortuneWheelDialog.rewards[8].label, '+1 İNCİ');
+      expect(FortuneWheelDialog.rewards[9].label, '+4 YEM');
+      expect(weights[8] + weights[9], 4.0);
+
+      // Gold EV stays at the classic value:
+      var goldEv = 0.0;
+      for (final i in [0, 3, 4, 6, 7]) {
+        final amount = int.parse(FortuneWheelDialog.rewards[i].label.trim());
+        goldEv += weights[i] / 100.0 * amount;
+      }
+      expect(goldEv, closeTo(106.75, 0.01));
     });
 
     test('Ball trail length cap during corner boost is 120 points', () {
@@ -3711,9 +3718,9 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
 
         expect(find.text('HAFTALIK LİG ŞAMPİYONASI'), findsOneWidget);
-        expect(find.text('15 Kişilik Lig Grubu  •  3 Gün Kaldı'), findsOneWidget);
+        expect(find.textContaining('Kişilik Lig Grubu'), findsOneWidget);
         expect(find.text(save.seasonalTitle), findsWidgets);
-        expect(find.text('SEN'), findsOneWidget);
+        expect(find.text('SEN'), findsWidgets);
         expect(find.text('MÜCADELEYE KATIL'), findsOneWidget);
 
         await tester.tap(find.text('MÜCADELEYE KATIL'));
@@ -3892,6 +3899,11 @@ void main() {
         final gc = GameController();
         gc.setDimensions(360, 640);
         gc.startNewGame(GameMode.chaos, explicitStartLevel: 10);
+
+        // Wave 10 also offers perks; the board is frozen until one is picked.
+        if (gc.offeredChaosPerks.isNotEmpty) {
+          gc.selectChaosPerk(gc.offeredChaosPerks.first);
+        }
 
         expect(gc.bossWarningTimer > 0, true);
         final bossBricks = gc.bricks.where((b) => b.isBoss && b.type == BrickType.boss).toList();

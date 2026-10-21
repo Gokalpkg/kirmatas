@@ -120,12 +120,136 @@ class BrickShard {
   }
 }
 
+/// A collectible coin/energy orb: bursts outward, bounces on its floor,
+/// glows for a beat, then flies to the HUD counter on a curved path.
+class CoinOrb {
+  double x;
+  double y;
+  double vx;
+  double vy;
+  final double floorY;
+  final double staggerDelay;
+  final Color color;
+  final double size;
+  double age = 0.0;
+  double spin = 0.0;
+  double flyT = -1.0; // -1 = scatter/glow phase, 0..1 = flying
+  double startX = 0.0;
+  double startY = 0.0;
+  bool arrived = false;
+
+  /// Gold value this orb delivers to the HUD counter when it lands.
+  final int value;
+  final List<Offset> trail = [];
+
+  CoinOrb({
+    required this.x,
+    required this.y,
+    required this.vx,
+    required this.vy,
+    required this.floorY,
+    required this.staggerDelay,
+    this.color = const Color(0xFFFFD54F),
+    this.size = 6.0,
+    this.value = 0,
+  });
+
+  static const double scatterDuration = 0.30;
+  static const double glowDuration = 0.16;
+  static const double flyDuration = 0.42;
+
+  bool get isFlying => flyT >= 0.0;
+  bool get isGlowing => !isFlying && age > scatterDuration;
+
+  void update(double dt, Offset target) {
+    age += dt;
+    spin += dt * (isFlying ? 14.0 : 5.0);
+    if (!isFlying) {
+      if (age <= scatterDuration) {
+        vy += 900.0 * dt;
+        x += vx * dt;
+        y += vy * dt;
+        if (y > floorY) {
+          y = floorY;
+          vy = -vy.abs() * 0.45;
+          vx *= 0.7;
+          if (vy.abs() < 40.0) vy = 0.0;
+        }
+      }
+      if (age >= scatterDuration + glowDuration + staggerDelay) {
+        flyT = 0.0;
+        startX = x;
+        startY = y;
+      }
+      return;
+    }
+    trail.add(Offset(x, y));
+    if (trail.length > 7) trail.removeAt(0);
+    flyT += dt / flyDuration;
+    if (flyT >= 1.0) {
+      flyT = 1.0;
+      arrived = true;
+      x = target.dx;
+      y = target.dy;
+      return;
+    }
+    final t = flyT;
+    // Magnet pull: slow release, then accelerating snap into the counter.
+    final ease = t * t * t * (t * (t * 6 - 15) + 10);
+    final ctrlX = (startX + target.dx) / 2;
+    final ctrlY = min(startY, target.dy) - 90.0;
+    final inv = 1 - ease;
+    x = inv * inv * startX + 2 * inv * ease * ctrlX + ease * ease * target.dx;
+    y = inv * inv * startY + 2 * inv * ease * ctrlY + ease * ease * target.dy;
+  }
+}
+
 class ParticleSystem {
   final List<Particle> particles = [];
   final List<Shockwave> shockwaves = [];
   final List<FloatingText> floatingTexts = [];
   final List<BrickShard> shards = [];
+  final List<CoinOrb> coinOrbs = [];
   final Random _rand = Random();
+
+  static const int maxCoinOrbs = 22;
+
+  void spawnCoinOrbs(double x, double y,
+      {int count = 3, Color color = const Color(0xFFFFD54F), int totalValue = 0}) {
+    final safeCount = count < 1 ? 1 : count;
+    for (int i = 0; i < safeCount; i++) {
+      if (coinOrbs.length >= maxCoinOrbs) coinOrbs.removeAt(0);
+      final angle = -pi / 2 + (_rand.nextDouble() - 0.5) * 2.2;
+      final spd = 130.0 + _rand.nextDouble() * 170.0;
+      // Split the brick's gold across its orbs (remainder lands first).
+      final orbValue = totalValue <= 0
+          ? 0
+          : (totalValue ~/ safeCount) + (i < totalValue % safeCount ? 1 : 0);
+      coinOrbs.add(
+        CoinOrb(
+          x: x,
+          y: y,
+          vx: cos(angle) * spd,
+          vy: sin(angle) * spd,
+          floorY: y + 55.0 + _rand.nextDouble() * 45.0,
+          staggerDelay: i * 0.055,
+          color: color,
+          size: 5.0 + _rand.nextDouble() * 2.6,
+          value: orbValue,
+        ),
+      );
+    }
+  }
+
+  /// Advances coin orbs toward [target]; calls [onArrive] with each orb's
+  /// gold value as it lands.
+  void updateCoinOrbs(double dt, Offset target, void Function(int value) onArrive) {
+    for (final orb in coinOrbs) {
+      orb.update(dt, target);
+      if (orb.arrived) onArrive(orb.value);
+    }
+    coinOrbs.removeWhere((o) => o.arrived);
+  }
 
   double shakeTimeLeft = 0.0;
   double shakeMagnitude = 0.0;
@@ -280,6 +404,7 @@ class ParticleSystem {
     shockwaves.clear();
     floatingTexts.clear();
     shards.clear();
+    coinOrbs.clear();
     shakeTimeLeft = 0.0;
   }
 }

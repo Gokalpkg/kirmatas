@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
+import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../models/fish_synergy.dart';
 import '../storage/save_manager.dart';
+import 'kaunos_ui.dart';
 
-class UpgradesView extends StatelessWidget {
+class UpgradesView extends StatefulWidget {
   final VoidCallback? onBackToMenu;
   const UpgradesView({super.key, this.onBackToMenu});
+
+  @override
+  State<UpgradesView> createState() => _UpgradesViewState();
+}
+
+class _UpgradesViewState extends State<UpgradesView> {
+  String? _justUpgradedId;
+  int _upgradeSeq = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -23,8 +33,8 @@ class UpgradesView extends StatelessWidget {
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70, size: 20),
               onPressed: () {
-                if (onBackToMenu != null) {
-                  onBackToMenu!();
+                if (widget.onBackToMenu != null) {
+                  widget.onBackToMenu!();
                 } else if (Navigator.of(context).canPop()) {
                   Navigator.of(context).pop();
                 }
@@ -77,8 +87,8 @@ class UpgradesView extends StatelessWidget {
                   children: [
                     const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 15),
                     const SizedBox(width: 4),
-                    Text(
-                      '${save.gold}',
+                    RollingNumberText(
+                      value: save.gold,
                       style: const TextStyle(
                         color: Color(0xFFFFD54F),
                         fontWeight: FontWeight.w900,
@@ -217,19 +227,29 @@ class UpgradesView extends StatelessWidget {
                 final cost = stat.getCostForLevel(currentLvl);
                 final canAfford = !isMax && save.gold >= cost;
 
+                final justUpgraded = _justUpgradedId == stat.id;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        stat.color.withValues(alpha: 0.12),
+                        justUpgraded ? const Color(0xFFFFD54F).withValues(alpha: 0.28) : stat.color.withValues(alpha: 0.12),
                         const Color(0xFF121522),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(18),
+                    boxShadow: justUpgraded
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFFFFB300).withValues(alpha: 0.35),
+                              blurRadius: 16,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
                     border: Border.all(
                       color: isMax
                           ? const Color(0xFF69F0AE).withValues(alpha: 0.6)
@@ -268,25 +288,40 @@ class UpgradesView extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: isMax
-                                        ? const Color(0x3369F0AE)
-                                        : stat.color.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: isMax
-                                          ? const Color(0xFF69F0AE)
-                                          : stat.color.withValues(alpha: 0.5),
+                                TweenAnimationBuilder<double>(
+                                  key: ValueKey('${stat.id}-$currentLvl'),
+                                  tween: Tween<double>(begin: 1.45, end: 1.0),
+                                  duration: const Duration(milliseconds: 380),
+                                  curve: Curves.elasticOut,
+                                  builder: (context, scale, child) {
+                                    return Transform.scale(scale: scale, child: child);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: justUpgraded
+                                          ? const Color(0x66FFD54F)
+                                          : (isMax
+                                              ? const Color(0x3369F0AE)
+                                              : stat.color.withValues(alpha: 0.2)),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: justUpgraded
+                                            ? const Color(0xFFFFD54F)
+                                            : (isMax
+                                                ? const Color(0xFF69F0AE)
+                                                : stat.color.withValues(alpha: 0.5)),
+                                      ),
                                     ),
-                                  ),
-                                  child: Text(
-                                    isMax ? I18n.tr('max_level') : '${I18n.tr('lvl')} $currentLvl/${stat.maxLevel}',
-                                    style: TextStyle(
-                                      color: isMax ? const Color(0xFF69F0AE) : stat.color,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 10,
+                                    child: Text(
+                                      isMax ? I18n.tr('max_level') : '${I18n.tr('lvl')} $currentLvl/${stat.maxLevel}',
+                                      style: TextStyle(
+                                        color: justUpgraded
+                                            ? const Color(0xFFFFD54F)
+                                            : (isMax ? const Color(0xFF69F0AE) : stat.color),
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 10,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -341,37 +376,26 @@ class UpgradesView extends StatelessWidget {
                           child: const Icon(Icons.check_rounded, color: Color(0xFF69F0AE), size: 22),
                         )
                       else
-                        ElevatedButton(
-                          onPressed: canAfford
-                              ? () async {
-                                  await save.buyStatUpgrade(stat.id, cost);
+                        _JuiceBuyButton(
+                          cost: cost,
+                          canAfford: canAfford,
+                          onBuy: () async {
+                            final before = save.getUpgradeLevel(stat.id);
+                            await save.buyStatUpgrade(stat.id, cost);
+                            if (!mounted) return;
+                            if (save.getUpgradeLevel(stat.id) > before) {
+                              setState(() {
+                                _justUpgradedId = stat.id;
+                                _upgradeSeq++;
+                              });
+                              final seq = _upgradeSeq;
+                              Future.delayed(const Duration(milliseconds: 1500), () {
+                                if (mounted && seq == _upgradeSeq) {
+                                  setState(() => _justUpgradedId = null);
                                 }
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFFD54F),
-                            foregroundColor: Colors.black,
-                            disabledBackgroundColor: Colors.white12,
-                            disabledForegroundColor: Colors.white30,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: canAfford ? 3 : 0,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.monetization_on, size: 14, color: Colors.black87),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$cost',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
+                              });
+                            }
+                          },
                         ),
                     ],
                   ),
@@ -814,6 +838,113 @@ class UpgradesView extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Buy button with a charging-vortex press: the coin icon spins and
+/// compresses, the button flashes white on the anvil strike, then the
+/// frame keeps a warm breathing aura for a moment.
+class _JuiceBuyButton extends StatefulWidget {
+  final int cost;
+  final bool canAfford;
+  final Future<void> Function() onBuy;
+
+  const _JuiceBuyButton({
+    required this.cost,
+    required this.canAfford,
+    required this.onBuy,
+  });
+
+  @override
+  State<_JuiceBuyButton> createState() => _JuiceBuyButtonState();
+}
+
+class _JuiceBuyButtonState extends State<_JuiceBuyButton> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  bool _aura = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 480));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _press() async {
+    AudioManager.instance.playSfx(GameSfx.steel);
+    AudioManager.instance.triggerHaptic(() async => AudioManager.instance.playSfx(GameSfx.click));
+    _ctrl.forward(from: 0.0);
+    await widget.onBuy();
+    if (!mounted) return;
+    setState(() => _aura = true);
+    Future.delayed(const Duration(milliseconds: 1400), () {
+      if (mounted) setState(() => _aura = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        final t = _ctrl.value;
+        final compress = t < 0.35 ? 1.0 - t * 0.9 : 0.685 + (t - 0.35) * 0.49;
+        final flash = t >= 0.35 && t < 0.55 ? 1.0 : 0.0;
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: _aura
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFFFB300).withValues(alpha: 0.45 + 0.2 * (0.5 + 0.5 * (1 - t))),
+                      blurRadius: 14,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
+          child: ElevatedButton(
+            onPressed: widget.canAfford ? _press : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: flash > 0 ? Colors.white : const Color(0xFFFFD54F),
+              foregroundColor: Colors.black,
+              disabledBackgroundColor: Colors.white12,
+              disabledForegroundColor: Colors.white30,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: widget.canAfford ? 3 : 0,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Transform.rotate(
+                  angle: t * 6.28,
+                  child: Transform.scale(
+                    scale: compress,
+                    child: const Icon(Icons.monetization_on, size: 14, color: Colors.black87),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${widget.cost}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

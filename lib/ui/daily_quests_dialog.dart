@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
 import '../storage/save_manager.dart';
+import 'kaunos_ui.dart';
 
 class DailyQuestsDialog extends StatefulWidget {
   final VoidCallback? onPlayToday;
@@ -22,12 +23,15 @@ class DailyQuestsDialog extends StatefulWidget {
 
 class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
   final SaveManager _save = SaveManager.instance;
+  String? _justClaimedId;
 
   void _claimQuest(String questId) async {
     final reward = await _save.claimQuestReward(questId);
     if (!mounted) return;
     if (reward > 0) {
-      AudioManager.instance.playSfx(GameSfx.powerupBuff);
+      _justClaimedId = questId;
+      AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.0);
+      AudioManager.instance.playSfx(GameSfx.bubble, playbackRate: 1.25);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text( ' +$reward ${I18n.tr('quest_gold')}',
@@ -92,10 +96,13 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                         ),
                       ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                      onPressed: () => Navigator.of(context).pop(),
-                      visualDensity: VisualDensity.compact,
+                    KaunosPressGlow(
+                      isCircle: true,
+                      child: IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                        onPressed: () => Navigator.of(context).pop(),
+                        visualDensity: VisualDensity.compact,
+                      ),
                     ),
                   ],
                 ),
@@ -143,9 +150,13 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                 ),
 
                 const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(I18n.tr('close'), style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+                KaunosPressGlow(
+                  borderRadius: 12,
+                  waveColor: Colors.white54,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(I18n.tr('close'), style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+                  ),
                 ),
               ],
             ),
@@ -171,7 +182,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B2032),
+        color: isClaimed ? const Color(0xFF12151F) : const Color(0xFF1B2032),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isCompleted ? color : Colors.white12,
@@ -217,30 +228,52 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
               ),
               const SizedBox(width: 8),
               if (isClaimed) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white10,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    I18n.tr('quest_claimed'),
-                    style: const TextStyle(color: Colors.white38, fontWeight: FontWeight.w900, fontSize: 11),
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: _justClaimedId == id ? 1.9 : 1.0, end: 1.0),
+                  duration: const Duration(milliseconds: 420),
+                  curve: Curves.elasticOut,
+                  builder: (context, scale, child) {
+                    return Transform.rotate(
+                      angle: -0.06,
+                      child: Transform.scale(scale: scale, child: child),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _justClaimedId == id ? const Color(0x33FFD54F) : Colors.white10,
+                      borderRadius: BorderRadius.circular(12),
+                      border: _justClaimedId == id
+                          ? Border.all(color: const Color(0xFFFFD54F), width: 1.2)
+                          : null,
+                    ),
+                    child: Text(
+                      I18n.tr('quest_claimed'),
+                      style: TextStyle(
+                        color: _justClaimedId == id ? const Color(0xFFFFD54F) : Colors.white38,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 11,
+                      ),
+                    ),
                   ),
                 ),
               ] else if (isCompleted) ...[
-                ElevatedButton(
-                  onPressed: () => _claimQuest(id),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF69F0AE),
-                    foregroundColor: const Color(0xFF003314),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  child: Text(
-                    I18n.tr('quest_claim'),
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                KaunosPressGlow(
+                  borderRadius: 12,
+                  waveColor: const Color(0xFF69F0AE),
+                  child: ElevatedButton(
+                    onPressed: () => _claimQuest(id),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF69F0AE),
+                      foregroundColor: const Color(0xFF003314),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: Text(
+                      I18n.tr('quest_claim'),
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                    ),
                   ),
                 ),
               ] else ...[
@@ -260,6 +293,30 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
               valueColor: AlwaysStoppedAnimation<Color>(isCompleted ? const Color(0xFF69F0AE) : color),
             ),
           ),
+          if (_justClaimedId == id) ...[
+            const SizedBox(height: 7),
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 550),
+              curve: Curves.elasticOut,
+              builder: (context, t, child) {
+                return Opacity(
+                  opacity: t.clamp(0.0, 1.0),
+                  child: Transform.scale(scale: 0.5 + 0.5 * t, child: child),
+                );
+              },
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.star, color: Color(0xFFFFD54F), size: 15),
+                  SizedBox(width: 5),
+                  Icon(Icons.star, color: Color(0xFFFFF9C4), size: 19),
+                  SizedBox(width: 5),
+                  Icon(Icons.star, color: Color(0xFFFFD54F), size: 15),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

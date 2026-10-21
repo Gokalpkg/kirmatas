@@ -7,6 +7,7 @@ import '../models/game_state.dart';
 import '../storage/save_manager.dart';
 import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
+import 'kaunos_ui.dart';
 
 class PauseGameOverOverlay extends StatelessWidget {
   final GameController controller;
@@ -42,9 +43,21 @@ class PauseGameOverOverlay extends StatelessWidget {
 
         return Container(
           color: const Color(0xCC05060A),
-          child: Center(
+          child: Stack(
+            children: [
+              Center(
             child: SingleChildScrollView(
-              child: Container(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 650),
+                curve: Curves.elasticOut,
+                builder: (context, t, child) {
+                  return Transform.translate(
+                    offset: Offset(0, -46.0 * (1.0 - t)),
+                    child: Opacity(opacity: t.clamp(0.0, 1.0), child: child),
+                  );
+                },
+                child: Container(
                 width: 320,
                 margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 padding: const EdgeInsets.all(22),
@@ -100,12 +113,20 @@ class PauseGameOverOverlay extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(I18n.tr('score'), style: const TextStyle(color: Colors.white70)),
-                                Text( '${stats.score}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 18,
-                                  ),
+                                TweenAnimationBuilder<double>(
+                                  tween: Tween<double>(begin: 0.0, end: stats.score.toDouble()),
+                                  duration: const Duration(milliseconds: 700),
+                                  curve: Curves.easeOutCubic,
+                                  builder: (context, value, _) {
+                                    return Text(
+                                      '${value.round()}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 18,
+                                      ),
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -174,12 +195,33 @@ class PauseGameOverOverlay extends StatelessWidget {
                       ),
                       if (isNewRecord) ...[
                         const SizedBox(height: 10),
-                        Text(
-                          I18n.tr('new_record'),
-                          style: const TextStyle(
-                            color: Color(0xFFFFD54F),
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.0,
+                        TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 2.2, end: 1.0),
+                          duration: const Duration(milliseconds: 450),
+                          curve: Curves.elasticOut,
+                          builder: (context, scale, child) {
+                            return Transform.rotate(
+                              angle: -0.07,
+                              child: Transform.scale(scale: scale, child: child),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFFFD54F), width: 2),
+                              boxShadow: const [
+                                BoxShadow(color: Color(0x66FFD600), blurRadius: 14),
+                              ],
+                            ),
+                            child: Text(
+                              I18n.tr('new_record'),
+                              style: const TextStyle(
+                                color: Color(0xFFFFD54F),
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -241,31 +283,39 @@ class PauseGameOverOverlay extends StatelessWidget {
                     if (isPaused) const SizedBox(height: 16),
                     // Actions
                     if (isPaused)
-                      ElevatedButton.icon(
-                        onPressed: onResume,
-                        icon: const Icon(Icons.play_arrow),
-                        label: Text(I18n.tr('resume')),
+                      KaunosPressGlow(
+                        borderRadius: 16,
+                        waveColor: const Color(0xFF00E5FF),
+                        child: ElevatedButton.icon(
+                          onPressed: onResume,
+                          icon: const Icon(Icons.play_arrow),
+                          label: Text(I18n.tr('resume')),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00E5FF),
+                            foregroundColor: Colors.black,
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    KaunosPressGlow(
+                      borderRadius: 16,
+                      waveColor: const Color(0xFFFFD54F),
+                      child: ElevatedButton.icon(
+                        onPressed: onRestart,
+                        icon: const Icon(Icons.replay),
+                        label: Text(
+                          isGameOver && controller.currentMode == GameMode.classic
+                              ? I18n.tr('continue_band').replaceAll('{level}', '${controller.classicCheckpointLevel}')
+                              : I18n.tr('restart'),
+                        ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00E5FF),
+                          backgroundColor: const Color(0xFFFFD54F),
                           foregroundColor: Colors.black,
                           minimumSize: const Size.fromHeight(48),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
-                      ),
-                    const SizedBox(height: 8),
-                    ElevatedButton.icon(
-                      onPressed: onRestart,
-                      icon: const Icon(Icons.replay),
-                      label: Text(
-                        isGameOver && controller.currentMode == GameMode.classic
-                            ? I18n.tr('continue_band').replaceAll('{level}', '${controller.classicCheckpointLevel}')
-                            : I18n.tr('restart'),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFD54F),
-                        foregroundColor: Colors.black,
-                        minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -277,21 +327,34 @@ class PauseGameOverOverlay extends StatelessWidget {
                       _EndGameDiceMultiplierCard(controller: controller),
                       const SizedBox(height: 12),
                     ],
-                    OutlinedButton.icon(
-                      onPressed: onMainMenu,
-                      icon: const Icon(Icons.home),
-                      label: Text(I18n.tr('main_menu')),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white70,
-                        minimumSize: const Size.fromHeight(48),
-                        side: const BorderSide(color: Colors.white24),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    KaunosPressGlow(
+                      borderRadius: 16,
+                      waveColor: Colors.white70,
+                      child: OutlinedButton.icon(
+                        onPressed: onMainMenu,
+                        icon: const Icon(Icons.home),
+                        label: Text(I18n.tr('main_menu')),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white70,
+                          minimumSize: const Size.fromHeight(48),
+                          side: const BorderSide(color: Colors.white24),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
                       ),
                     ),
                   ],
                 ),
+                ),
               ),
-            ),
+              ),
+              ),
+              if (isNewRecord && !isPaused)
+                const Positioned.fill(
+                  child: IgnorePointer(
+                    child: _RecordConfetti(),
+                  ),
+                ),
+            ],
           ),
         );
       },
@@ -364,7 +427,37 @@ class PauseGameOverOverlay extends StatelessWidget {
                 },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Glossy sheen sweep across the revive action
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: -1.2, end: 2.2),
+                      duration: const Duration(milliseconds: 1500),
+                      builder: (context, pos, _) {
+                        return FractionalTranslation(
+                          translation: Offset(pos, 0),
+                          child: Container(
+                            width: 46,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.0),
+                                  Colors.white.withValues(alpha: 0.30),
+                                  Colors.white.withValues(alpha: 0.0),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (isLoading) ...[
@@ -383,19 +476,27 @@ class PauseGameOverOverlay extends StatelessWidget {
                     ),
                   ),
                 ] else ...[
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.white.withValues(alpha: 0.5),
-                          blurRadius: 8,
-                        ),
-                      ],
+                  TweenAnimationBuilder<double>(
+                    tween: Tween<double>(begin: 1.7, end: 1.0),
+                    duration: const Duration(milliseconds: 650),
+                    curve: Curves.elasticOut,
+                    builder: (context, scale, child) {
+                      return Transform.scale(scale: scale, child: child);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.favorite, color: Color(0xFFFF1744), size: 18),
                     ),
-                    child: const Icon(Icons.favorite, color: Color(0xFFFF1744), size: 18),
                   ),
                   const SizedBox(width: 12),
                   Column(
@@ -434,6 +535,8 @@ class PauseGameOverOverlay extends StatelessWidget {
                     ],
                   ),
                 ],
+                ],
+                ),
               ],
             ),
           ),
@@ -441,6 +544,85 @@ class PauseGameOverOverlay extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Finite confetti cannons from both bottom corners for a new record.
+/// Runs once and stops, so it never blocks page settling.
+class _RecordConfetti extends StatefulWidget {
+  const _RecordConfetti();
+
+  @override
+  State<_RecordConfetti> createState() => _RecordConfettiState();
+}
+
+class _RecordConfettiState extends State<_RecordConfetti> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2300))..forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        return CustomPaint(
+          painter: _RecordConfettiPainter(_ctrl.value),
+          size: Size.infinite,
+        );
+      },
+    );
+  }
+}
+
+class _RecordConfettiPainter extends CustomPainter {
+  final double t;
+  _RecordConfettiPainter(this.t);
+
+  static const _colors = [
+    Color(0xFFFFD600),
+    Color(0xFF00E5FF),
+    Color(0xFFFF4081),
+    Color(0xFF69F0AE),
+    Color(0xFFFF9100),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (t >= 1.0) return;
+    final paint = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < 36; i++) {
+      final fromLeft = i.isEven;
+      final seed = (i * 37 % 100) / 100.0;
+      final seed2 = (i * 53 % 100) / 100.0;
+      final originX = fromLeft ? 12.0 : size.width - 12.0;
+      final dir = fromLeft ? 1.0 : -1.0;
+      final vx = dir * (50.0 + seed * 130.0);
+      final vy = -(260.0 + seed2 * 220.0);
+      final elapsed = t * 2.3;
+      final x = originX + vx * elapsed;
+      final y = size.height - 10 + vy * elapsed + 340.0 * elapsed * elapsed;
+      if (y > size.height + 12 || y < -12) continue;
+      paint.color = _colors[i % _colors.length].withValues(alpha: (1.0 - t * 0.7).clamp(0.0, 1.0));
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(seed * 6.28 + t * (4.0 + seed * 6.0));
+      canvas.drawRect(const Rect.fromLTWH(-3.4, -2.0, 6.8, 4.0), paint);
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RecordConfettiPainter oldDelegate) => oldDelegate.t != t;
 }
 
 class _EndGameDiceMultiplierCard extends StatefulWidget {

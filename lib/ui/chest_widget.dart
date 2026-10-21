@@ -120,8 +120,12 @@ class _ChestPainter extends CustomPainter {
     // -------------------------------------------------------------
     if (showGlow) {
       final glowPaint = Paint()
-        ..color = accent.withValues(alpha: (0.22 + effectiveOpen * 0.20) * pulse)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * (0.16 + effectiveOpen * 0.10));
+        ..shader = RadialGradient(
+          colors: [
+            accent.withValues(alpha: (0.35 + effectiveOpen * 0.20) * pulse),
+            accent.withValues(alpha: 0.0),
+          ],
+        ).createShader(Rect.fromCircle(center: Offset(w * 0.5, h * 0.52), radius: w * 0.44));
       canvas.drawCircle(Offset(w * 0.5, h * 0.52), w * 0.44, glowPaint);
     }
 
@@ -550,11 +554,16 @@ class _ChestPainter extends CustomPainter {
     final lidTop = h * 0.18;
 
     if (effectiveOpen > 0.03) {
-      final pivot = Offset(w * 0.5, h * 0.44);
-      canvas.translate(pivot.dx, pivot.dy);
-      // Realistic lid opening swing
-      canvas.rotate(-effectiveOpen * 1.10);
-      canvas.translate(-pivot.dx, -pivot.dy - effectiveOpen * h * 0.08);
+      // MENTEŞE AÇILIŞI: kapak yana kaymaz; arka (üst) kenarındaki menteşe
+      // etrafında geriye devrilir. Geriye devrilme, dikey kısalma
+      // (foreshortening) + hafif yukarı kalkış + minik eğim ile verilir.
+      final t = effectiveOpen.clamp(0.0, 1.0);
+      final hinge = Offset(w * 0.5, lidTop + lidH * 0.10);
+      canvas.translate(hinge.dx, hinge.dy);
+      canvas.rotate(-0.10 * t);
+      final squashY = (1.0 - 0.60 * t).clamp(0.34, 1.0);
+      canvas.scale(1.0 + 0.03 * t, squashY);
+      canvas.translate(-hinge.dx, -hinge.dy - t * h * 0.13);
     }
 
     final lidRect = Rect.fromLTWH(lidLeft, lidTop, lidW, lidH);
@@ -931,9 +940,13 @@ class _ChestPainter extends CustomPainter {
 
         // Warm Ember Core Glow
         final emberGlow = Paint()
-          ..color = const Color(0xFFFF8F00).withValues(alpha: (0.75 + 0.20 * sin(time * 3.2)) * pulse)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, max(1.2, w * 0.038));
-        canvas.drawCircle(lockCenter, lockW * 0.24, emberGlow);
+          ..shader = RadialGradient(
+            colors: [
+              const Color(0xFFFF8F00).withValues(alpha: (0.85 + 0.15 * sin(time * 3.2)) * pulse),
+              Colors.transparent,
+            ],
+          ).createShader(Rect.fromCircle(center: lockCenter, radius: lockW * 0.28));
+        canvas.drawCircle(lockCenter, lockW * 0.28, emberGlow);
 
         // Keyhole aperture (Circle + tapered keyhole slot)
         final keyholePath = Path()
@@ -981,9 +994,13 @@ class _ChestPainter extends CustomPainter {
 
         // Runic glow
         final aquaGlow = Paint()
-          ..color = const Color(0xFF00E5FF).withValues(alpha: 0.85 * pulse)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, max(1.2, w * 0.040));
-        canvas.drawCircle(lockCenter, lockW * 0.25, aquaGlow);
+          ..shader = RadialGradient(
+            colors: [
+              const Color(0xFF00E5FF).withValues(alpha: 0.85 * pulse),
+              Colors.transparent,
+            ],
+          ).createShader(Rect.fromCircle(center: lockCenter, radius: lockW * 0.28));
+        canvas.drawCircle(lockCenter, lockW * 0.28, aquaGlow);
 
         // Raw Aquamarine Crystal Shard (Facet-cut diamond crystal)
         final shardPath = Path()
@@ -1030,9 +1047,13 @@ class _ChestPainter extends CustomPainter {
 
         // Amethyst bloom
         final purpleGlow = Paint()
-          ..color = const Color(0xFFE040FB).withValues(alpha: 0.88 * pulse)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, max(1.4, w * 0.045));
-        canvas.drawCircle(lockCenter, lockW * 0.26, purpleGlow);
+          ..shader = RadialGradient(
+            colors: [
+              const Color(0xFFE040FB).withValues(alpha: 0.88 * pulse),
+              Colors.transparent,
+            ],
+          ).createShader(Rect.fromCircle(center: lockCenter, radius: lockW * 0.30));
+        canvas.drawCircle(lockCenter, lockW * 0.30, purpleGlow);
 
         // Faceted Amethyst Gem
         final gemPath = Path()
@@ -1101,9 +1122,13 @@ class _ChestPainter extends CustomPainter {
 
         // Radiant Solar Aura
         final solarAura = Paint()
-          ..color = const Color(0xFFFFB300).withValues(alpha: 0.95 * pulse)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, max(1.5, w * 0.050));
-        canvas.drawCircle(lockCenter, lockW * 0.22, solarAura);
+          ..shader = RadialGradient(
+            colors: [
+              const Color(0xFFFFB300).withValues(alpha: 0.95 * pulse),
+              Colors.transparent,
+            ],
+          ).createShader(Rect.fromCircle(center: lockCenter, radius: lockW * 0.26));
+        canvas.drawCircle(lockCenter, lockW * 0.26, solarAura);
 
         // Multi-faceted Star-Cut Kaunos Solar Crystal Gem
         final starPath = Path();

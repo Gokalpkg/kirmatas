@@ -14,6 +14,7 @@ import 'pixel_art.dart';
 import '../models/cosmetics.dart';
 import '../models/sector_data.dart';
 import '../models/portal.dart';
+import '../models/easter_egg.dart';
 
 class GameCanvas extends StatefulWidget {
   final GameController controller;
@@ -381,7 +382,7 @@ class _ScreenVignettePainter extends CustomPainter {
                   ? 0.55 * (1.0 - (t - 0.36) / 0.16)
                   : 0.0;
       final fade = (c.lowLifeAlertTimer / 0.8).clamp(0.0, 1.0);
-      redAlpha = (0.10 + 0.22 * beat.clamp(0.0, 1.0)) * fade;
+      redAlpha = (0.05 + 0.10 * beat.clamp(0.0, 1.0)) * fade;
     }
     final flash = (c.nearMissFlashTimer / 0.55).clamp(0.0, 1.0);
     if (redAlpha <= 0.0 && flash <= 0.0) return;
@@ -396,7 +397,7 @@ class _ScreenVignettePainter extends CustomPainter {
             color.withValues(alpha: 0.0),
             color.withValues(alpha: alpha),
           ],
-          stops: const [0.0, 0.62, 1.0],
+          stops: const [0.0, 0.78, 1.0],
         ).createShader(rect);
       canvas.drawRect(rect, paint);
     }
@@ -499,6 +500,13 @@ class _GameWorldPainter extends CustomPainter {
     _drawDrone(canvas);
     _drawDice(canvas);
     _drawParticles(canvas);
+    _drawCoinOrbs(canvas);
+    if (c.stats.isFever) {
+      _drawFeverEdges(canvas, size);
+    }
+    if (c.reviveFlashTimer > 0) {
+      _drawReviveFlash(canvas, size);
+    }
 
     _drawBossWarningBanner(canvas, size);
     _drawLevelClearCelebration(canvas, size);
@@ -558,6 +566,138 @@ class _GameWorldPainter extends CustomPainter {
       canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _fill);
       _fill.shader = null;
     }
+
+    // Side-mode ambience: each mode gets the same atmospheric love as
+    // the classic sectors, tinted to its own identity.
+    if (c.currentMode == GameMode.zen) {
+      _drawModeAura(canvas, size, const Color(0xFF26A69A), const Color(0xFF80DEEA));
+      _drawZenMotes(canvas, size);
+    } else if (c.currentMode == GameMode.shapes) {
+      _drawModeAura(canvas, size, const Color(0xFF8E24AA), const Color(0xFFEA80FC));
+    } else if (c.currentMode == GameMode.descend) {
+      _drawModeAura(canvas, size, const Color(0xFF5E35B1), const Color(0xFFB388FF));
+      _drawDescendDanger(canvas, size);
+    }
+  }
+
+  void _drawModeAura(Canvas canvas, Size size, Color primary, Color accent) {
+    final aura = RadialGradient(
+      center: const Alignment(0, -0.65),
+      radius: 1.15,
+      colors: [
+        primary.withValues(alpha: 0.14),
+        accent.withValues(alpha: 0.05),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.45, 1.0],
+    ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    _fill.shader = aura;
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _fill);
+    _fill.shader = null;
+  }
+
+  static double _fract(double v) => v - v.floorToDouble();
+
+  /// Slow drifting dust motes that give Zen its calm, breathing air.
+  void _drawZenMotes(Canvas canvas, Size size) {
+    _fill.shader = null;
+    _fill.style = PaintingStyle.fill;
+    for (var i = 0; i < 16; i++) {
+      final fx = _fract(sin(i * 127.1) * 43758.5453);
+      final fy = _fract(sin(i * 311.7) * 12543.123);
+      final fallSpeed = 4.0 + (i % 5) * 1.6;
+      final y = ((fy * size.height + time * fallSpeed) % (size.height + 24.0)) - 12.0;
+      final x = fx * size.width + sin(time * 0.6 + i * 1.7) * 10.0;
+      final r = 1.2 + (i % 3) * 0.7;
+      _fill.color = _ca(const Color(0xFFB2DFDB), 0.08 + (i % 4) * 0.03);
+      canvas.drawCircle(Offset(x, y), r, _fill);
+    }
+  }
+
+  /// Descend telegraphing: a filling next-drop bar plus a bottom danger
+  /// glow and warning line as the wall closes in on the paddle.
+  void _drawDescendDanger(Canvas canvas, Size size) {
+    if (c.status == GameStatus.gameOver) return;
+    _fill.shader = null;
+    _fill.style = PaintingStyle.fill;
+
+    // Next-drop countdown bar, just under the HUD pills.
+    final progress = c.descendDropProgress;
+    const barY = 66.0;
+    _fill.color = _ca(Colors.white, 0.10);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+          Rect.fromLTWH(10, barY, size.width - 20, 3), const Radius.circular(2)),
+      _fill,
+    );
+    _fill.color = _ca(
+        progress > 0.75 ? const Color(0xFFFF5252) : const Color(0xFFB388FF),
+        0.85);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+          Rect.fromLTWH(10, barY, (size.width - 20) * progress, 3),
+          const Radius.circular(2)),
+      _fill,
+    );
+
+    // Proximity of the lowest live brick to the paddle line.
+    var lowest = 0.0;
+    for (final b in c.bricks) {
+      if (!b.isAlive) continue;
+      final bottom = b.targetY + b.height;
+      if (bottom > lowest) lowest = bottom;
+    }
+    if (lowest <= 0) return;
+    final gap = c.paddle.y - lowest;
+    if (gap >= 150) return;
+
+    final intensity = (1.0 - (gap / 150.0)).clamp(0.0, 1.0);
+    final pulse = 0.6 + 0.4 * sin(time * (4.0 + intensity * 5.0));
+
+    // Rising red glow from the bottom edge.
+    final glowH = 90.0 + intensity * 60.0;
+    final glow = LinearGradient(
+      begin: Alignment.bottomCenter,
+      end: Alignment.topCenter,
+      colors: [
+        _ca(const Color(0xFFFF1744), 0.05 + 0.16 * intensity * pulse),
+        Colors.transparent,
+      ],
+    ).createShader(Rect.fromLTWH(0, size.height - glowH, size.width, glowH));
+    _fill.shader = glow;
+    canvas.drawRect(
+        Rect.fromLTWH(0, size.height - glowH, size.width, glowH), _fill);
+    _fill.shader = null;
+
+    // Pulsing danger line on the paddle row.
+    _stroke
+      ..strokeWidth = 2.0
+      ..color = _ca(const Color(0xFFFF1744), 0.25 + 0.55 * intensity * pulse);
+    canvas.drawLine(
+        Offset(8, c.paddle.y - 6), Offset(size.width - 8, c.paddle.y - 6), _stroke);
+
+    if (gap < 78 && c.status == GameStatus.playing) {
+      _tp.text = TextSpan(
+        text: '⚠ DUVAR YAKLAŞIYOR!',
+        style: TextStyle(
+          fontFamily: 'Rajdhani',
+          fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
+          color: _ca(const Color(0xFFFF5252), 0.55 + 0.45 * pulse),
+          fontSize: 13.0,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.6,
+          shadows: [
+            Shadow(
+                color: _ca(const Color(0xFFFF1744), 0.7 * pulse),
+                blurRadius: 10.0),
+            const Shadow(color: Colors.black, offset: Offset(0, 2), blurRadius: 4.0),
+          ],
+        ),
+      );
+      _tp.layout();
+      _tp.paint(
+          canvas, Offset((size.width - _tp.width) / 2, c.paddle.y - 44));
+    }
   }
 
   void _drawAmbientPointLight(Canvas canvas, Size size) {
@@ -598,19 +738,81 @@ class _GameWorldPainter extends CustomPainter {
     // Subtle paddle parallax offset (-1.0 to 1.0 based on center)
     final paddleNorm = size.width > 0 ? ((c.paddle.x + c.paddle.width / 2) / size.width - 0.5) * 2.0 : 0.0;
 
-    for (int i = 0; i < 36; i++) {
-      final speed = 10.0 + (i % 4) * 4.0;
-      final parallaxDepth = 0.5 + (i % 4) * 0.4;
-      final parallaxDx = paddleNorm * 14.0 * parallaxDepth;
-      final rawX = ((i * 97 + 23) % size.width.toInt()).toDouble() - parallaxDx;
-      final x = (rawX % size.width + size.width) % size.width;
-      final y = ((i * 139 + time * speed) % size.height);
-      final twinkle = 0.15 * sin(time * 2.5 + i);
-      final alpha = (0.25 + (i % 4) * 0.15 + twinkle).clamp(0.1, 0.85);
-      final isLarge = (i % 5 == 0);
+    // Üç katmanlı kayan yıldız alanı: uzak (soluk/yavaş) -> yakın (parlak/hızlı).
+    // Seeded pseudo-random dağılım; yıldızlar ışıltılı ve bir kısmı 4 köşeli
+    // parıltı (sparkle) formunda çizilir — düz nokta ızgarası görünümü yok.
+    _drawStarLayer(canvas, size,
+        count: 42, speed: 7.0, radius: 0.8, parallax: 6.0, paddleNorm: paddleNorm, seed: 11, sparkleEvery: 0);
+    _drawStarLayer(canvas, size,
+        count: 30, speed: 15.0, radius: 1.25, parallax: 12.0, paddleNorm: paddleNorm, seed: 47, sparkleEvery: 7);
+    _drawStarLayer(canvas, size,
+        count: 16, speed: 26.0, radius: 1.7, parallax: 20.0, paddleNorm: paddleNorm, seed: 83, sparkleEvery: 4);
 
-      _fill.color = _ca((i % 3 == 0 ? const Color(0xFF80D8FF) : Colors.white), alpha);
-      canvas.drawCircle(Offset(x, y), isLarge ? 1.8 : 1.0, _fill);
+    // Ara ara geçen kayan yıldız (her ~8 saniyede bir, 0.9 sn sürer).
+    final shootCycle = time % 8.0;
+    if (shootCycle < 0.9 && size.width > 10 && size.height > 10) {
+      final shootSeed = (time / 8.0).floor();
+      final rand = Random(shootSeed * 31 + 7);
+      final startX = size.width * (0.15 + rand.nextDouble() * 0.6);
+      final startY = size.height * (0.05 + rand.nextDouble() * 0.25);
+      final t = shootCycle / 0.9;
+      final headX = startX + t * size.width * 0.42;
+      final headY = startY + t * size.height * 0.20;
+      final tailX = headX - size.width * 0.16;
+      final tailY = headY - size.height * 0.075;
+      final fade = (1.0 - t) * (t < 0.15 ? t / 0.15 : 1.0);
+      _stroke
+        ..strokeWidth = 1.8
+        ..strokeCap = StrokeCap.round
+        ..color = _ca(const Color(0xFFB3E5FC), 0.75 * fade);
+      canvas.drawLine(Offset(tailX, tailY), Offset(headX, headY), _stroke);
+      _fill.color = _ca(Colors.white, 0.9 * fade);
+      canvas.drawCircle(Offset(headX, headY), 1.9, _fill);
+      _stroke.strokeCap = StrokeCap.butt;
+    }
+  }
+
+  /// Bir yıldız katmanı çizer: aşağı kayan, titreyen (twinkle) yıldızlar.
+  /// [sparkleEvery] > 0 ise her N'inci yıldız 4 köşeli parıltı olarak çizilir.
+  void _drawStarLayer(Canvas canvas, Size size,
+      {required int count,
+      required double speed,
+      required double radius,
+      required double parallax,
+      required double paddleNorm,
+      required int seed,
+      required int sparkleEvery}) {
+    if (size.width < 10 || size.height < 10) return;
+    final rand = Random(seed);
+    for (int i = 0; i < count; i++) {
+      final fx = rand.nextDouble();
+      final fy = rand.nextDouble();
+      final phase = rand.nextDouble() * pi * 2;
+      final tintPick = rand.nextDouble();
+      final jitter = 0.75 + rand.nextDouble() * 0.5;
+      final rawX = fx * size.width - paddleNorm * parallax * jitter;
+      final x = (rawX % size.width + size.width) % size.width;
+      final y = (fy * size.height + time * speed * jitter) % size.height;
+      final twinkle = 0.5 + 0.5 * sin(time * (1.8 + jitter) + phase);
+      final alpha = (0.28 + 0.62 * twinkle).clamp(0.15, 0.95);
+      final color = tintPick < 0.22
+          ? const Color(0xFF80D8FF)
+          : (tintPick < 0.36 ? const Color(0xFFFFF9C4) : Colors.white);
+      final pos = Offset(x, y);
+      if (sparkleEvery > 0 && i % sparkleEvery == 0) {
+        // 4 köşeli ışıltı yıldızı: merkez + ince çapraz kollar, nabız atan boy.
+        final r = radius * (1.6 + 1.1 * twinkle);
+        _fill.color = _ca(color, alpha);
+        canvas.drawCircle(pos, radius * 0.85, _fill);
+        _stroke
+          ..strokeWidth = 1.1
+          ..color = _ca(color, alpha * 0.85);
+        canvas.drawLine(Offset(x - r, y), Offset(x + r, y), _stroke);
+        canvas.drawLine(Offset(x, y - r), Offset(x, y + r), _stroke);
+      } else {
+        _fill.color = _ca(color, alpha);
+        canvas.drawCircle(pos, radius * (0.8 + 0.5 * twinkle), _fill);
+      }
     }
   }
 
@@ -4631,7 +4833,7 @@ class _GameWorldPainter extends CustomPainter {
         }
       }
 
-      if (!isFireball && !isCornerBoost && !ball.isPurple && !ball.isBomb) {
+      if (!isFireball && !isCornerBoost && !ball.isPurple && !ball.isBomb && !ball.isFrost && !ball.isShrapnel) {
         _drawBallSkinDetails(canvas, ball, c.activeBallSkin, time);
       } else {
         // Base ball glow ring
@@ -4639,7 +4841,11 @@ class _GameWorldPainter extends CustomPainter {
             ? const Color(0xFFE040FB)
             : (isFireball
                 ? const Color(0xFFFFAB00)
-                : (isCornerBoost ? cbFlameGlow : skinGlow));
+                : (isCornerBoost
+                    ? cbFlameGlow
+                    : (ball.isFrost
+                        ? const Color(0xFF80D8FF)
+                        : (ball.isShrapnel ? const Color(0xFFCFD8DC) : (ball.isBomb ? const Color(0xFFFF5252) : skinGlow)))));
         _fill
           ..style = PaintingStyle.fill
           ..maskFilter = null
@@ -4653,7 +4859,9 @@ class _GameWorldPainter extends CustomPainter {
                 ? const Color(0xFFFF6D00)
                 : (isCornerBoost
                     ? cbFlameBase
-                    : (ball.isBomb ? const Color(0xFFFF5252) : skinMain)));
+                    : (ball.isFrost
+                        ? const Color(0xFF00B0FF)
+                        : (ball.isShrapnel ? const Color(0xFF78909C) : (ball.isBomb ? const Color(0xFFFF5252) : skinMain)))));
         _fill.color = coreColor;
         canvas.drawCircle(Offset.zero, ball.radius, _fill);
 
@@ -4671,6 +4879,33 @@ class _GameWorldPainter extends CustomPainter {
           canvas.drawCircle(Offset.zero, ball.radius * 0.55, _fill);
           _fill.color = Colors.white;
           canvas.drawCircle(Offset.zero, ball.radius * 0.30, _fill);
+        } else if (ball.isFrost) {
+          // Ice core with a rotating six-spoke snowflake and frost aura
+          _fill.color = const Color(0xFF80D8FF).withValues(alpha: 0.30 + 0.10 * sin(time * 10.0));
+          canvas.drawCircle(Offset.zero, ball.radius * 1.45, _fill);
+          _fill.color = const Color(0xFFE0F7FA);
+          canvas.drawCircle(Offset.zero, ball.radius * 0.60, _fill);
+          _stroke
+            ..color = Colors.white
+            ..strokeWidth = 1.4
+            ..style = PaintingStyle.stroke;
+          final flakeSpin = time * 2.6;
+          for (int spoke = 0; spoke < 6; spoke++) {
+            final a = flakeSpin + spoke * pi / 3;
+            canvas.drawLine(
+              Offset.zero,
+              Offset(cos(a) * ball.radius * 0.52, sin(a) * ball.radius * 0.52),
+              _stroke,
+            );
+          }
+          _fill.color = Colors.white;
+          canvas.drawCircle(Offset.zero, ball.radius * 0.20, _fill);
+        } else if (ball.isShrapnel) {
+          // Metallic steel core
+          _fill.color = const Color(0xFFECEFF1);
+          canvas.drawCircle(Offset.zero, ball.radius * 0.55, _fill);
+          _fill.color = Colors.white;
+          canvas.drawCircle(Offset.zero, ball.radius * 0.28, _fill);
         }
 
         // Specular shine
@@ -5237,6 +5472,11 @@ class _GameWorldPainter extends CustomPainter {
       } else if (p.isRocket) {
         _fill.color = const Color(0xFFFF5722);
         canvas.drawOval(Rect.fromCenter(center: Offset(p.x, p.y), width: 6, height: 14), _fill);
+      } else if (p.isShrapnel) {
+        _fill.color = const Color(0xFFCFD8DC);
+        canvas.drawCircle(Offset(p.x, p.y), p.radius, _fill);
+        _fill.color = Colors.white;
+        canvas.drawCircle(Offset(p.x - 0.7, p.y - 0.7), p.radius * 0.45, _fill);
       } else {
         // Laser
         _stroke
@@ -5246,6 +5486,84 @@ class _GameWorldPainter extends CustomPainter {
         canvas.drawLine(Offset(p.x, p.y), Offset(p.x, p.y - 14), _stroke);
       }
     }
+  }
+
+  void _drawCoinOrbs(Canvas canvas) {
+    for (final orb in c.particles.coinOrbs) {
+      // Glowing motion trail while flying to the counter
+      for (int i = 0; i < orb.trail.length; i++) {
+        final t = orb.trail[i];
+        final a = (i + 1) / orb.trail.length;
+        _fill.color = orb.color.withValues(alpha: 0.10 + a * 0.22);
+        canvas.drawCircle(t, 3.0 + a * 3.5, _fill);
+      }
+      final glow = orb.isGlowing ? 1.0 + sin(time * 18.0) * 0.25 : 1.0;
+      final r = orb.size * glow;
+      // Soft halo
+      _fill.color = orb.color.withValues(alpha: 0.28);
+      canvas.drawCircle(Offset(orb.x, orb.y), r * 1.7, _fill);
+      // Coin body with a darker forged rim
+      _fill.color = const Color(0xFFFF8F00);
+      canvas.drawCircle(Offset(orb.x, orb.y), r, _fill);
+      _fill.color = orb.color;
+      canvas.drawCircle(Offset(orb.x, orb.y), r * 0.78, _fill);
+      // Rotating shine sweep across the face
+      final sx = orb.x + cos(orb.spin) * r * 0.38;
+      final sy = orb.y + sin(orb.spin) * r * 0.38;
+      _fill.color = const Color(0xFFFFF9C4);
+      canvas.drawCircle(Offset(sx - r * 0.18, sy - r * 0.18), r * 0.30, _fill);
+      _fill.color = Colors.white.withValues(alpha: 0.85);
+      canvas.drawCircle(Offset(orb.x - r * 0.28, orb.y - r * 0.30), r * 0.16, _fill);
+    }
+  }
+
+  void _drawFeverEdges(Canvas canvas, Size size) {
+    // Mythic gold lighting: pulsing edge runes while fever burns.
+    final pulse = 0.55 + sin(time * 9.0) * 0.25;
+    // Warm vignette closes the world in around the action (kept very light:
+    // a soft amber breath at the very edges, no red wash over the screen).
+    final vignette = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          Colors.transparent,
+          const Color(0xFFFF8F00).withValues(alpha: 0.04 + pulse * 0.03),
+          const Color(0xFFFF6D00).withValues(alpha: 0.06 + pulse * 0.03),
+        ],
+        stops: const [0.62, 0.86, 1.0],
+      ).createShader(Offset.zero & size);
+    canvas.drawRect(Offset.zero & size, vignette);
+    _stroke
+      ..color = const Color(0xFFFFB300).withValues(alpha: pulse * 0.8)
+      ..strokeWidth = 3.0
+      ..style = PaintingStyle.stroke;
+    canvas.drawRect(Rect.fromLTWH(3, 3, size.width - 6, size.height - 6), _stroke);
+    _fill.color = const Color(0xFFFFD54F).withValues(alpha: pulse);
+    const step = 46.0;
+    for (double x = step / 2; x < size.width; x += step) {
+      canvas.save();
+      canvas.translate(x, 10);
+      canvas.rotate(pi / 4);
+      canvas.drawRect(const Rect.fromLTWH(-3.5, -3.5, 7, 7), _fill);
+      canvas.restore();
+      canvas.save();
+      canvas.translate(x, size.height - 10);
+      canvas.rotate(pi / 4);
+      canvas.drawRect(const Rect.fromLTWH(-3.5, -3.5, 7, 7), _fill);
+      canvas.restore();
+    }
+  }
+
+  void _drawReviveFlash(Canvas canvas, Size size) {
+    // Grayscale shatters outward into full color on revive.
+    final t = c.reviveFlashTimer.clamp(0.0, 1.0);
+    final radius = (1.0 - t) * size.width * 0.75 + 40.0;
+    _stroke
+      ..color = const Color(0xFFFFD54F).withValues(alpha: t * 0.9)
+      ..strokeWidth = 4.0 + t * 5.0
+      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(Offset(size.width / 2, size.height * 0.72), radius, _stroke);
+    _fill.color = Colors.white.withValues(alpha: t * 0.16);
+    canvas.drawRect(Offset.zero & size, _fill);
   }
 
   void _drawParticles(Canvas canvas) {
@@ -5647,13 +5965,65 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawBee(Canvas canvas) {
+    // Amber scorch mark where the bee slammed into the paddle (fades out).
+    if (c.beePaddleMarkTimer > 0) {
+      final fade = (c.beePaddleMarkTimer / 1.2).clamp(0.0, 1.0);
+      _fill
+        ..style = PaintingStyle.fill
+        ..maskFilter = null
+        ..shader = null
+        ..color = _ca(const Color(0xFFFF8F00), 0.30 * fade);
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset(c.beePaddleMarkX, c.paddle.y + 4), width: 30, height: 7),
+        _fill,
+      );
+      _fill.color = _ca(const Color(0xFF4E2600), 0.55 * fade);
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset(c.beePaddleMarkX, c.paddle.y + 4), width: 17, height: 4),
+        _fill,
+      );
+      _fill.color = _ca(const Color(0xFFFFD54F), 0.7 * fade);
+      canvas.drawCircle(Offset(c.beePaddleMarkX - 7, c.paddle.y + 2.5), 1.4, _fill);
+      canvas.drawCircle(Offset(c.beePaddleMarkX + 6, c.paddle.y + 5.5), 1.1, _fill);
+    }
+
     final bee = c.activeBee;
     if (bee == null || !bee.isAlive) return;
 
+    final isBurning = bee.state == BeeState.burning;
+    final isFrozen = bee.state == BeeState.frozenFalling;
+    final isStuck = bee.state == BeeState.stuckToPaddle;
+
     canvas.save();
-    canvas.translate(bee.x, bee.y);
+    final stuckJitter = isStuck ? sin(bee.stateTime * 30.0) * 1.6 : 0.0;
+    canvas.translate(bee.x + stuckJitter, bee.y);
     canvas.scale(0.58, 0.58);
+    if (isFrozen) {
+      canvas.rotate(bee.fallSpin);
+    } else if (isStuck) {
+      canvas.rotate(sin(bee.stateTime * 24.0) * 0.16);
+    }
     canvas.rotate(bee.tiltAngle);
+
+    if (isBurning) {
+      // Flickering ember glow behind the charred body (layered soft
+      // circles — canvas code keeps a strict zero-blur perf rule).
+      final flicker = 15.0 + sin(time * 42.0) * 3.5;
+      _fill.style = PaintingStyle.fill;
+      for (final (r, a) in [(1.25, 0.10), (1.0, 0.22), (0.72, 0.45)]) {
+        _fill.color = _ca(const Color(0xFFFF6D00), a);
+        canvas.drawCircle(Offset.zero, flicker * r, _fill);
+      }
+    }
+    if (isStuck) {
+      // Amber glue glow while it struggles on the paddle.
+      _fill.style = PaintingStyle.fill;
+      final pulse = 0.40 + 0.12 * sin(time * 10.0);
+      for (final (r, a) in [(1.3, 0.10), (1.0, pulse * 0.6), (0.7, pulse)]) {
+        _fill.color = _ca(const Color(0xFFFFB300), a);
+        canvas.drawCircle(Offset.zero, 17.0 * r, _fill);
+      }
+    }
 
     // Flip horizontally if facing left
     if (!bee.isFacingRight) {
@@ -5690,15 +6060,17 @@ class _GameWorldPainter extends CustomPainter {
       canvas.drawPath(legPath, _stroke);
     }
 
-    // 3. Plump Oval Body
+    // 3. Plump Oval Body (charred when burning, pale blue when frozen)
     final bodyRect = Rect.fromCenter(center: Offset.zero, width: 32.0, height: 24.0);
-    _fill.color = const Color(0xFFFFD600);
+    _fill.color = isBurning
+        ? const Color(0xFF263238)
+        : (isFrozen ? const Color(0xFFB3E5FC) : const Color(0xFFFFD600));
     canvas.drawOval(bodyRect, _fill);
 
     // 4. Bold Black Stripes (Curved within body contour)
     canvas.save();
     canvas.clipPath(Path()..addOval(bodyRect));
-    _fill.color = const Color(0xFF1B1B1B);
+    _fill.color = isFrozen ? const Color(0xFF0277BD) : const Color(0xFF1B1B1B);
     // Stripe 1 (rear)
     canvas.drawRect(const Rect.fromLTWH(-7.0, -14.0, 5.0, 28.0), _fill);
     // Stripe 2 (front)
@@ -5763,6 +6135,24 @@ class _GameWorldPainter extends CustomPainter {
     // Rosy cheek
     _fill.color = const Color(0x55FF8A80);
     canvas.drawCircle(const Offset(11.5, 3.8), 2.2, _fill);
+
+    // Ice casing while frozen solid
+    if (isFrozen) {
+      final iceRect = Rect.fromCenter(center: Offset.zero, width: 46, height: 38);
+      _fill
+        ..style = PaintingStyle.fill
+        ..color = _ca(const Color(0xFF81D4FA), 0.35);
+      canvas.drawRRect(RRect.fromRectAndRadius(iceRect, const Radius.circular(10)), _fill);
+      _stroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6
+        ..color = _ca(const Color(0xFFE1F5FE), 0.9);
+      canvas.drawRRect(RRect.fromRectAndRadius(iceRect, const Radius.circular(10)), _stroke);
+      _fill.color = _ca(Colors.white, 0.85);
+      canvas.drawCircle(const Offset(-14, -10), 1.5, _fill);
+      canvas.drawCircle(const Offset(12, 8), 1.2, _fill);
+      canvas.drawCircle(const Offset(6, -13), 1.0, _fill);
+    }
 
     canvas.restore();
   }

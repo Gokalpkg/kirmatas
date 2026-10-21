@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../engine/audio_manager.dart';
@@ -753,6 +754,188 @@ class _KaunosJuicyInteractiveState extends State<KaunosJuicyInteractive> with Ti
           ),
         );
       },
+    );
+  }
+}
+
+/// Hafif, jest-yarışına girmeyen basma efekti: mevcut butonları (IconButton,
+/// ElevatedButton, TextButton...) sarmak için tasarlandı. Listener ile basıncı
+/// izler; çocuk kendi onTap'ini çalıştırmaya devam ederken ölçek ezilmesi +
+/// bırakışta neon dalga ve kıvılcım patlaması verir.
+class KaunosPressGlow extends StatefulWidget {
+  final Widget child;
+  final double borderRadius;
+  final bool isCircle;
+  final Color waveColor;
+  final double pressedScale;
+
+  const KaunosPressGlow({
+    super.key,
+    required this.child,
+    this.borderRadius = 14.0,
+    this.isCircle = false,
+    this.waveColor = KaunosPalette.goldHighlight,
+    this.pressedScale = 0.93,
+  });
+
+  @override
+  State<KaunosPressGlow> createState() => _KaunosPressGlowState();
+}
+
+class _KaunosPressGlowState extends State<KaunosPressGlow> with SingleTickerProviderStateMixin {
+  bool _pressed = false;
+  late final AnimationController _burst;
+  List<_KaunosSparkParticle> _particles = const [];
+  final math.Random _random = math.Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _burst = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
+  }
+
+  @override
+  void dispose() {
+    _burst.dispose();
+    super.dispose();
+  }
+
+  void _spawnParticles() {
+    const count = 12;
+    _particles = List.generate(count, (i) {
+      final angle = (i * (2 * math.pi / count)) + (_random.nextDouble() * 0.4 - 0.2);
+      return _KaunosSparkParticle(
+        angle: angle,
+        distance: 14.0 + _random.nextDouble() * 18.0,
+        size: 1.8 + _random.nextDouble() * 2.0,
+        color: [widget.waveColor, KaunosPalette.goldGlint, Colors.white][_random.nextInt(3)],
+        speedMultiplier: 0.85 + _random.nextDouble() * 0.45,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (_) {
+        if (!_pressed) {
+          setState(() => _pressed = true);
+          HapticFeedback.lightImpact();
+        }
+      },
+      onPointerUp: (_) {
+        if (_pressed) {
+          setState(() => _pressed = false);
+          _spawnParticles();
+          _burst.forward(from: 0.0);
+        }
+      },
+      onPointerCancel: (_) {
+        if (_pressed) setState(() => _pressed = false);
+      },
+      child: AnimatedScale(
+        scale: _pressed ? widget.pressedScale : 1.0,
+        duration: const Duration(milliseconds: 90),
+        curve: Curves.easeOut,
+        child: AnimatedBuilder(
+          animation: _burst,
+          builder: (context, child) => CustomPaint(
+            foregroundPainter: _KaunosJuicyOverlayPainter(
+              waveProgress: _burst.value,
+              particleProgress: _burst.value,
+              particles: _particles,
+              waveColor: widget.waveColor,
+              borderRadius: widget.borderRadius,
+              isCircle: widget.isCircle,
+            ),
+            child: child,
+          ),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+/// Animasyonlu sayı sayacı: değer değiştiğinde aradaki sayıları tek tek,
+/// hızla sayarak ilerler (kazanınca yukarı, harcayınca aşağı). Küçük
+/// farklarda her tam sayı görünür; büyük sıçramalar ~0.55 sn'de tamamlanır.
+class RollingNumberText extends StatefulWidget {
+  final int value;
+  final TextStyle? style;
+  final String Function(int value)? format;
+
+  const RollingNumberText({
+    super.key,
+    required this.value,
+    this.style,
+    this.format,
+  });
+
+  @override
+  State<RollingNumberText> createState() => _RollingNumberTextState();
+}
+
+class _RollingNumberTextState extends State<RollingNumberText> with SingleTickerProviderStateMixin {
+  late final Ticker _ticker;
+  double _shown = 0;
+  int _target = 0;
+  Duration _lastElapsed = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _shown = widget.value.toDouble();
+    _target = widget.value;
+    _ticker = createTicker(_onTick);
+  }
+
+  @override
+  void didUpdateWidget(covariant RollingNumberText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _target = widget.value;
+    if (_target != _shown.round() && !_ticker.isActive) {
+      _lastElapsed = Duration.zero;
+      _ticker.start();
+    }
+  }
+
+  void _onTick(Duration elapsed) {
+    final dt = _lastElapsed == Duration.zero
+        ? 0.016
+        : (elapsed - _lastElapsed).inMicroseconds / 1000000.0;
+    _lastElapsed = elapsed;
+    final diff = _target - _shown;
+    if (diff == 0) {
+      _ticker.stop();
+      return;
+    }
+    final speed = math.max(80.0, diff.abs() / 0.55);
+    final step = speed * math.min(dt, 0.05);
+    setState(() {
+      if (diff.abs() <= step) {
+        _shown = _target.toDouble();
+      } else {
+        _shown += step * diff.sign;
+      }
+    });
+    if (_shown == _target.toDouble()) {
+      _ticker.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final v = _shown.round();
+    return Text(
+      widget.format?.call(v) ?? '$v',
+      style: widget.style,
     );
   }
 }

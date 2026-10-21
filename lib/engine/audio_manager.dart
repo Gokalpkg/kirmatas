@@ -52,6 +52,8 @@ class AudioManager {
     if (_appInForeground == value) return;
     _appInForeground = value;
     if (!_appInForeground) {
+      _bgmSessionStart = null;
+      _longSessionDuck = 1.0;
       stopAll();
     } else {
       if (isBgmAllowed && SaveManager.instance.bgmVolume > 0) {
@@ -62,7 +64,42 @@ class AudioManager {
   bool isBgmAllowed = true;
   double playDuck = 1.0;
 
-  double get _bgmGain => (SaveManager.instance.bgmVolume / 8.0) * 0.32 * playDuck;
+  DateTime? _bgmSessionStart;
+  double _longSessionDuck = 1.0;
+
+  double get _bgmGain =>
+      (SaveManager.instance.bgmVolume / 8.0) * 0.32 * playDuck * _longSessionDuck;
+
+  /// The same loop gets tiring over a long sitting, so the music gently
+  /// steps itself down — never off, never abruptly. Full volume for the
+  /// first [duckStartSeconds], then one small step every
+  /// [duckStepSeconds], reaching [duckFloor] at [duckFullSeconds] and
+  /// resting there. Pausing resets the session.
+  static const int duckStartSeconds = 120; // 2:00
+  static const int duckStepSeconds = 30;
+  static const int duckFullSeconds = 480; // 8:00
+  static const double duckFloor = 0.55;
+
+  static double duckGainForElapsed(Duration elapsed) {
+    final s = elapsed.inSeconds;
+    if (s <= duckStartSeconds) return 1.0;
+    if (s >= duckFullSeconds) return duckFloor;
+    final steps = (s - duckStartSeconds) ~/ duckStepSeconds;
+    final totalSteps = (duckFullSeconds - duckStartSeconds) ~/ duckStepSeconds;
+    return 1.0 - (1.0 - duckFloor) * steps / totalSteps;
+  }
+
+  void _updateLongSessionDuck() {
+    final start = _bgmSessionStart;
+    if (start == null) return;
+    final target = duckGainForElapsed(DateTime.now().difference(start));
+    if (target != _longSessionDuck) {
+      _longSessionDuck = target;
+      try {
+        _bgmLead.setVolume(_bgmGain);
+      } catch (_) {}
+    }
+  }
 
   Future<void> _loadPool(String key, String path, int count) async {
     try {
@@ -125,6 +162,7 @@ class AudioManager {
       _bgmNextReady = true;
       _seamArmed = false;
       if (isBgmAllowed && appInForeground && SaveManager.instance.bgmVolume > 0) {
+        _bgmSessionStart ??= DateTime.now();
         await _bgmLead.setVolume(_bgmGain);
         await _bgmLead.resume();
         if (!isBgmAllowed || !appInForeground) {
@@ -142,6 +180,7 @@ class AudioManager {
       if (d > _bgmDuration) _bgmDuration = d;
     });
     player.onPositionChanged.listen((pos) {
+      _updateLongSessionDuck();
       if (!identical(player, _bgmLead) || _seamArmed || !_bgmNextReady) return;
       if (!isBgmAllowed || !appInForeground || SaveManager.instance.bgmVolume <= 0) return;
       if (_bgmDuration == Duration.zero || pos < const Duration(seconds: 2)) return;
@@ -262,6 +301,8 @@ class AudioManager {
   }
 
   Future<void> pauseBgm() async {
+    _bgmSessionStart = null;
+    _longSessionDuck = 1.0;
     try {
       _seamTimer?.cancel();
       if (_seamArmed) {
@@ -280,6 +321,7 @@ class AudioManager {
 
   Future<void> resumeBgm() async {
     if (!isBgmAllowed || !appInForeground) return;
+    _bgmSessionStart ??= DateTime.now();
     final vol = SaveManager.instance.bgmVolume;
     if (vol <= 0) {
       await pauseBgm();

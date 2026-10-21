@@ -82,6 +82,7 @@ class Projectile {
   bool isLaser;
   bool isRocket;
   bool isBossBullet;
+  bool isShrapnel;
   bool isAlive;
 
   Projectile({
@@ -93,6 +94,7 @@ class Projectile {
     this.isLaser = false,
     this.isRocket = false,
     this.isBossBullet = false,
+    this.isShrapnel = false,
     this.isAlive = true,
   });
 

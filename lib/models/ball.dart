@@ -22,6 +22,8 @@ class Ball {
   bool isBomb;
   bool isPierce;
   bool isMirror;
+  bool isFrost;
+  bool isShrapnel;
   int overload;
   double squashTimer;
   double squashAngle;
@@ -50,6 +52,8 @@ class Ball {
     this.isBomb = false,
     this.isPierce = false,
     this.isMirror = false,
+    this.isFrost = false,
+    this.isShrapnel = false,
     this.overload = 0,
     this.squashTimer = 0.0,
     this.squashAngle = 0.0,

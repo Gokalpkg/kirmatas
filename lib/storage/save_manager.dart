@@ -21,6 +21,35 @@ class LeagueRival {
   });
 }
 
+/// One weekly-league bot: drifts from [startScore] on Monday to
+/// [endScore] by week end so the table stays alive all week.
+class _LeagueBot {
+  final String name;
+  final int startScore;
+  final int endScore;
+
+  const _LeagueBot({
+    required this.name,
+    required this.startScore,
+    required this.endScore,
+  });
+
+  int scoreAt(double weekProgress) =>
+      startScore + ((endScore - startScore) * weekProgress).round();
+
+  Map<String, dynamic> toJson() => {
+        'n': name,
+        's': startScore,
+        'e': endScore,
+      };
+
+  factory _LeagueBot.fromJson(Map<String, dynamic> json) => _LeagueBot(
+        name: json['n'].toString(),
+        startScore: (json['s'] as num?)?.toInt() ?? 0,
+        endScore: (json['e'] as num?)?.toInt() ?? 0,
+      );
+}
+
 class PendingCrate {
   final String crateType; // 'aquarium', 'category', 'guaranteed'
   final String? crateId;
@@ -89,6 +118,12 @@ class PendingCrate {
   );
 }
 
+/// Care state of a single fish, for aquarium UI:
+/// - [ready]: its 6h cycle finished, gold waits in the hoard chest.
+/// - [producing]: fed, 6h gold timer still running.
+/// - [waiting]: not in a cycle; feeding it starts gold production.
+enum FishCareState { ready, producing, waiting }
+
 class SaveManager extends ChangeNotifier {
   static final SaveManager instance = SaveManager._internal();
   SaveManager._internal();
@@ -141,6 +176,51 @@ class SaveManager extends ChangeNotifier {
   List<String> unlockedFish = ['guppy', 'tetra'];
   Map<String, int> ownedFishCounts = {'guppy': 1, 'tetra': 1};
   int fishShards = 0; // 0..8 (8 unlocks guaranteed unowned fish chest)
+
+  // --- LOCAL LIFETIME STATS (balance insight, shown in the stats screen) ---
+  int statTotalRuns = 0;
+  int statTotalDeaths = 0;
+  int statTotalClears = 0;
+  int statBricksBrokenTotal = 0;
+  int statGoldEarnedTotal = 0;
+  int statPlaySeconds = 0;
+  Map<int, int> statDeathsByLevel = {};
+  Map<int, int> statClearsByLevel = {};
+
+  /// Best chaos wave ever reached (drives the chaos rank title).
+  int bestChaosWave = 0;
+
+  static const List<String> chaosRankTitles = [
+    'Dalga Çaylakı',
+    'Kaos Acemisi',
+    'Dalga Kırıcı',
+    'Fırtına Ustası',
+    'Kaos Lordu',
+    'Uçurum Fatihi',
+    'Kozmik Yıkıcı',
+  ];
+
+  String get chaosRankTitle {
+    final w = bestChaosWave;
+    if (w >= 45) return chaosRankTitles[6];
+    if (w >= 30) return chaosRankTitles[5];
+    if (w >= 20) return chaosRankTitles[4];
+    if (w >= 15) return chaosRankTitles[3];
+    if (w >= 10) return chaosRankTitles[2];
+    if (w >= 5) return chaosRankTitles[1];
+    return chaosRankTitles[0];
+  }
+
+  int get chaosRankTier {
+    final w = bestChaosWave;
+    if (w >= 45) return 6;
+    if (w >= 30) return 5;
+    if (w >= 20) return 4;
+    if (w >= 15) return 3;
+    if (w >= 10) return 2;
+    if (w >= 5) return 1;
+    return 0;
+  }
   static const int maxFishShards = 8;
   int aquariumSand = 1;
   int aquariumMoss = 2;
@@ -166,8 +246,8 @@ class SaveManager extends ChangeNotifier {
   String? lastDailyLoginAdClaimDate;
   int dailyLoginClaimedDay = 1;
 
-  // --- FORTUNE WHEEL (3 SPINS PER DAY) ---
-  static const int maxDailyWheelSpins = 3;
+  // --- FORTUNE WHEEL (5 SPINS PER DAY: 1 FREE + 4 AD-BACKED) ---
+  static const int maxDailyWheelSpins = 5;
   String? lastFortuneWheelDate;
   int fortuneWheelSpinsToday = 0;
 
@@ -176,6 +256,9 @@ class SaveManager extends ChangeNotifier {
   int questBricksBroken = 0;
   bool questFishFed = false;
   bool questAdOrWinDone = false;
+  int questZenSeconds = 0;
+  int questShapesClears = 0;
+  int questDescendRows = 0;
   Set<String> claimedQuests = {};
 
   int lastAdWatchTime = 0;
@@ -319,6 +402,8 @@ class SaveManager extends ChangeNotifier {
 
   void addTournamentScore(int points) {
     if (points <= 0) return;
+    if (!isLeagueUnlocked) return;
+    ensureLeagueWeek();
     weeklyTournamentScore += points;
   }
 
@@ -349,30 +434,207 @@ class SaveManager extends ChangeNotifier {
     }
   }
 
-  List<LeagueRival> getLeagueRivals() {
-    final rng = math.Random(DateTime.now().year * 100 + DateTime.now().month);
-    final rivalNames = [
-      'DemirBilek', 'PikselUsta', 'NeonFırtına', 'KozmikGezgin',
-      'YıldızAvcısı', 'GlitchKing', 'AuraBreaker', 'GölgeSavaşçı',
-      'NovaKıran', 'SiberPence', 'KuvarsGozu', 'EterYolcusu',
-      'FotonUstası', 'ZirveBekçisi'
-    ];
+  // --- WEEKLY LEAGUE CYCLE ---
+  // One group of 14 bots is generated per calendar week (Mon 00:00 ->
+  // next Mon 00:00) and persisted. Bot scores grow from their start
+  // score to their end-of-week target as the week progresses, so the
+  // table moves while you play. When a new week begins the previous
+  // week is settled: final rank pays gold/pearls and the top 3 promote
+  // while ranks 11-15 demote.
 
-    final minScores = [600, 2500, 8000, 20000, 50000];
-    final maxScores = [2800, 9500, 24000, 55000, 130000];
-    final tierIdx = leagueTier.clamp(0, 4);
-    final minScore = minScores[tierIdx];
-    final maxScore = maxScores[tierIdx];
+  static const int leagueGroupSize = 15;
+  static const int leaguePromotionCutoff = 3;
+  static const int leagueDemotionStart = 11;
 
-    final List<LeagueRival> list = [];
-    for (int i = 0; i < rivalNames.length; i++) {
-      final score = minScore + rng.nextInt(maxScore - minScore);
-      list.add(LeagueRival(name: rivalNames[i], score: score, isPlayer: false));
+  static const List<int> _leagueMinScores = [600, 2500, 8000, 20000, 50000];
+  static const List<int> _leagueMaxScores = [2800, 9500, 24000, 55000, 130000];
+
+  static const List<String> _leagueRivalNames = [
+    'DemirBilek', 'PikselUsta', 'NeonFırtına', 'KozmikGezgin',
+    'YıldızAvcısı', 'GlitchKing', 'AuraBreaker', 'GölgeSavaşçı',
+    'NovaKıran', 'SiberPence', 'KuvarsGozu', 'EterYolcusu',
+    'FotonUstası', 'ZirveBekçisi'
+  ];
+
+  String leagueWeekId = '';
+  int leagueRivalsTier = -1;
+  List<_LeagueBot> _leagueBots = [];
+
+  int leagueLastRank = 0;
+  int leagueLastTierPlayed = 0;
+  int leagueLastRewardGold = 0;
+  int leagueLastRewardPearls = 0;
+  int leagueLastMovement = 0; // -1 demoted, 0 stayed, 1 promoted
+  bool leagueLastResultSeen = true;
+
+  bool get hasUnseenLeagueResult =>
+      leagueLastRank > 0 && !leagueLastResultSeen;
+
+  // --- PROGRESSIVE UNLOCK REVEAL ---
+  // Features the player has already opened at least once. Anything
+  // unlocked but not yet seen gets a quiet "YENİ!" badge in the menu,
+  // so new systems announce themselves once instead of all shouting
+  // for attention from day one.
+  Set<String> seenUnlocks = {};
+
+  bool isUnlockNew(String id, bool unlocked) =>
+      unlocked && !seenUnlocks.contains(id);
+
+  Future<void> markUnlockSeen(String id) async {
+    if (seenUnlocks.add(id)) {
+      await _prefs?.setStringList('seenUnlocks', seenUnlocks.toList());
+      notifyListeners();
     }
+  }
 
-    list.add(LeagueRival(name: 'SEN', score: weeklyTournamentScore, isPlayer: true));
-    list.sort((a, b) => b.score.compareTo(a.score));
+  static DateTime leagueWeekStartFor(DateTime now) {
+    final d = DateTime(now.year, now.month, now.day);
+    return d.subtract(Duration(days: d.weekday - 1));
+  }
 
+  static String leagueWeekIdFor(DateTime weekStart) =>
+      '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-'
+      '${weekStart.day.toString().padLeft(2, '0')}';
+
+  DateTime leagueWeekEndFor({DateTime? now}) =>
+      leagueWeekStartFor(now ?? DateTime.now()).add(const Duration(days: 7));
+
+  Duration leagueTimeRemaining({DateTime? now}) {
+    final n = now ?? DateTime.now();
+    final r = leagueWeekEndFor(now: n).difference(n);
+    return r.isNegative ? Duration.zero : r;
+  }
+
+  double leagueWeekProgress({DateTime? now}) {
+    final n = now ?? DateTime.now();
+    final start = leagueWeekStartFor(n);
+    return (n.difference(start).inSeconds / (7 * 24 * 3600))
+        .clamp(0.0, 1.0);
+  }
+
+  static int leagueBaseGoldForRank(int rank) {
+    if (rank <= 1) return 400;
+    if (rank == 2) return 300;
+    if (rank == 3) return 220;
+    if (rank <= 10) return 120;
+    return 40;
+  }
+
+  static int leaguePearlsForRank(int rank) =>
+      rank == 1 ? 2 : (rank <= 3 ? 1 : 0);
+
+  /// Prospective reward at the tier you are currently playing in.
+  int leagueRewardGoldForRank(int rank) =>
+      leagueBaseGoldForRank(rank) * (leagueTier + 1);
+
+  void _persistLeagueState() {
+    _prefs?.setString('leagueWeekId', leagueWeekId);
+    _prefs?.setInt('leagueRivalsTier', leagueRivalsTier);
+    _prefs?.setString(
+      'leagueRivalsJson',
+      jsonEncode(_leagueBots.map((b) => b.toJson()).toList()),
+    );
+    _prefs?.setInt('leagueLastRank', leagueLastRank);
+    _prefs?.setInt('leagueLastTierPlayed', leagueLastTierPlayed);
+    _prefs?.setInt('leagueLastRewardGold', leagueLastRewardGold);
+    _prefs?.setInt('leagueLastRewardPearls', leagueLastRewardPearls);
+    _prefs?.setInt('leagueLastMovement', leagueLastMovement);
+    _prefs?.setBool('leagueLastResultSeen', leagueLastResultSeen);
+  }
+
+  void _generateLeagueBots(String weekId) {
+    final tierIdx = leagueTier.clamp(0, 4);
+    final rng = math.Random(weekId.hashCode ^ (tierIdx * 7919));
+    final names = List<String>.from(_leagueRivalNames)..shuffle(rng);
+    final minS = _leagueMinScores[tierIdx];
+    final maxS = _leagueMaxScores[tierIdx];
+    _leagueBots = [];
+    for (var i = 0; i < leagueGroupSize - 1; i++) {
+      final end = minS + (maxS - minS) * (0.25 + rng.nextDouble() * 0.72);
+      final start = minS + (end - minS) * (0.05 + rng.nextDouble() * 0.25);
+      _leagueBots.add(_LeagueBot(
+        name: names[i],
+        startScore: start.round(),
+        endScore: end.round(),
+      ));
+    }
+    leagueRivalsTier = tierIdx;
+    _persistLeagueState();
+  }
+
+  /// Settles the finished week: pays rewards and moves the player
+  /// between tiers based on the final rank (bots at end-of-week form).
+  void _settleLeagueWeek() {
+    final playerScore = _weeklyTournamentScore;
+    var rank = 1;
+    for (final bot in _leagueBots) {
+      if (bot.endScore > playerScore) rank++;
+    }
+    final playedTier =
+        (leagueRivalsTier >= 0 ? leagueRivalsTier : leagueTier).clamp(0, 4);
+    final gold = leagueBaseGoldForRank(rank) * (playedTier + 1);
+    final pearls = leaguePearlsForRank(rank);
+
+    leagueLastRank = rank;
+    leagueLastTierPlayed = playedTier;
+    leagueLastRewardGold = gold;
+    leagueLastRewardPearls = pearls;
+    leagueLastMovement = 0;
+    if (rank <= leaguePromotionCutoff && playedTier < 4) {
+      leagueTier = playedTier + 1;
+      leagueLastMovement = 1;
+    } else if (rank >= leagueDemotionStart && playedTier > 0) {
+      leagueTier = playedTier - 1;
+      leagueLastMovement = -1;
+    }
+    leagueLastResultSeen = false;
+    if (gold > 0) addGold(gold);
+    if (pearls > 0) addPearls(pearls);
+  }
+
+  /// Adopts the current calendar week, settling the previous one first
+  /// when the week has rolled over. Safe to call on every read.
+  void ensureLeagueWeek({DateTime? now}) {
+    final id = leagueWeekIdFor(leagueWeekStartFor(now ?? DateTime.now()));
+    if (leagueWeekId == id) {
+      if (_leagueBots.length != leagueGroupSize - 1 ||
+          leagueRivalsTier != leagueTier) {
+        _generateLeagueBots(id);
+      }
+      return;
+    }
+    final hadPreviousWeek =
+        leagueWeekId.isNotEmpty && _leagueBots.length == leagueGroupSize - 1;
+    if (hadPreviousWeek) {
+      _settleLeagueWeek();
+      _weeklyTournamentScore = 0;
+      _prefs?.setInt('weeklyTournamentScore', 0);
+    }
+    leagueWeekId = id;
+    _generateLeagueBots(id);
+    _persistLeagueState();
+    notifyListeners();
+  }
+
+  void markLeagueResultSeen() {
+    if (leagueLastResultSeen) return;
+    leagueLastResultSeen = true;
+    _prefs?.setBool('leagueLastResultSeen', true);
+    notifyListeners();
+  }
+
+  List<LeagueRival> getLeagueRivals({DateTime? now}) {
+    ensureLeagueWeek(now: now);
+    final progress = leagueWeekProgress(now: now);
+    final List<LeagueRival> list = [
+      for (final b in _leagueBots)
+        LeagueRival(name: b.name, score: b.scoreAt(progress), isPlayer: false),
+      LeagueRival(name: 'SEN', score: weeklyTournamentScore, isPlayer: true),
+    ];
+    list.sort((a, b) {
+      final byScore = b.score.compareTo(a.score);
+      return byScore != 0 ? byScore : a.name.compareTo(b.name);
+    });
     for (int i = 0; i < list.length; i++) {
       list[i].rank = i + 1;
     }
@@ -445,6 +707,15 @@ class SaveManager extends ChangeNotifier {
 
     unlockedFish = _prefs?.getStringList('unlockedFish') ?? ['guppy', 'tetra'];
     fishShards = _prefs?.getInt('fishShards') ?? 0;
+    statTotalRuns = _prefs?.getInt('statTotalRuns') ?? 0;
+    statTotalDeaths = _prefs?.getInt('statTotalDeaths') ?? 0;
+    statTotalClears = _prefs?.getInt('statTotalClears') ?? 0;
+    statBricksBrokenTotal = _prefs?.getInt('statBricksBrokenTotal') ?? 0;
+    statGoldEarnedTotal = _prefs?.getInt('statGoldEarnedTotal') ?? 0;
+    statPlaySeconds = _prefs?.getInt('statPlaySeconds') ?? 0;
+    bestChaosWave = _prefs?.getInt('bestChaosWave') ?? 0;
+    statDeathsByLevel = _loadIntMap('statDeathsByLevel');
+    statClearsByLevel = _loadIntMap('statClearsByLevel');
     final fishCountsStr = _prefs?.getString('ownedFishCounts');
     if (fishCountsStr != null) {
       try {
@@ -507,6 +778,10 @@ class SaveManager extends ChangeNotifier {
     questBricksBroken = _prefs?.getInt('questBricksBroken') ?? 0;
     questFishFed = _prefs?.getBool('questFishFed') ?? false;
     questAdOrWinDone = _prefs?.getBool('questAdOrWinDone') ?? false;
+    seenUnlocks = (_prefs?.getStringList('seenUnlocks') ?? []).toSet();
+    questZenSeconds = _prefs?.getInt('questZenSeconds') ?? 0;
+    questShapesClears = _prefs?.getInt('questShapesClears') ?? 0;
+    questDescendRows = _prefs?.getInt('questDescendRows') ?? 0;
     claimedQuests = (_prefs?.getStringList('claimedQuests') ?? []).toSet();
     _checkAndResetQuests();
 
@@ -544,6 +819,30 @@ class SaveManager extends ChangeNotifier {
     lastDailyBlitzDate = _prefs?.getString('lastDailyBlitzDate');
     _leagueTier = (_prefs?.getInt('leagueTier') ?? 0).clamp(0, 4);
     _weeklyTournamentScore = _prefs?.getInt('weeklyTournamentScore') ?? 0;
+    leagueWeekId = _prefs?.getString('leagueWeekId') ?? '';
+    leagueRivalsTier = _prefs?.getInt('leagueRivalsTier') ?? -1;
+    leagueLastRank = _prefs?.getInt('leagueLastRank') ?? 0;
+    leagueLastTierPlayed = _prefs?.getInt('leagueLastTierPlayed') ?? 0;
+    leagueLastRewardGold = _prefs?.getInt('leagueLastRewardGold') ?? 0;
+    leagueLastRewardPearls = _prefs?.getInt('leagueLastRewardPearls') ?? 0;
+    leagueLastMovement = _prefs?.getInt('leagueLastMovement') ?? 0;
+    leagueLastResultSeen = _prefs?.getBool('leagueLastResultSeen') ?? true;
+    _leagueBots = [];
+    try {
+      final rawBots = _prefs?.getString('leagueRivalsJson');
+      if (rawBots != null && rawBots.isNotEmpty) {
+        final decoded = jsonDecode(rawBots);
+        if (decoded is List) {
+          _leagueBots = decoded
+              .whereType<Map>()
+              .map((e) => _LeagueBot.fromJson(
+                  e.map((k, v) => MapEntry(k.toString(), v))))
+              .toList();
+        }
+      }
+    } catch (_) {
+      _leagueBots = [];
+    }
 
     final pendingJson = _prefs?.getString(_kPendingCrate);
     if (pendingJson != null && pendingJson.isNotEmpty) {
@@ -557,6 +856,7 @@ class SaveManager extends ChangeNotifier {
     }
 
     _initialized = true;
+    ensureLeagueWeek();
     notifyListeners();
   }
 
@@ -646,8 +946,136 @@ class SaveManager extends ChangeNotifier {
 
   Future<void> addGold(int amount) async {
     gold += amount;
+    if (amount > 0) {
+      statGoldEarnedTotal += amount;
+      await _prefs?.setInt('statGoldEarnedTotal', statGoldEarnedTotal);
+    }
     await _prefs?.setInt('gold', gold);
     notifyListeners();
+  }
+
+  Map<int, int> _loadIntMap(String key) {
+    final raw = _prefs?.getString(key);
+    if (raw == null) return {};
+    try {
+      final Map<String, dynamic> decoded = jsonDecode(raw);
+      return decoded.map((k, v) => MapEntry(int.tryParse(k) ?? 0, (v as num).toInt()));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> _saveIntMap(String key, Map<int, int> map) async {
+    await _prefs?.setString(key, jsonEncode(map.map((k, v) => MapEntry('$k', v))));
+  }
+
+  Future<void> recordRunStarted() async {
+    statTotalRuns++;
+    await _prefs?.setInt('statTotalRuns', statTotalRuns);
+  }
+
+  Future<void> recordClassicLevelFailed(int level) async {
+    statTotalDeaths++;
+    statDeathsByLevel[level] = (statDeathsByLevel[level] ?? 0) + 1;
+    await _prefs?.setInt('statTotalDeaths', statTotalDeaths);
+    await _saveIntMap('statDeathsByLevel', statDeathsByLevel);
+  }
+
+  Future<void> recordClassicLevelCleared(int level) async {
+    statTotalClears++;
+    statClearsByLevel[level] = (statClearsByLevel[level] ?? 0) + 1;
+    await _prefs?.setInt('statTotalClears', statTotalClears);
+    await _saveIntMap('statClearsByLevel', statClearsByLevel);
+  }
+
+  Future<void> addLifetimeRunStats({required int bricks, required int seconds}) async {
+    if (bricks > 0) {
+      statBricksBrokenTotal += bricks;
+      await _prefs?.setInt('statBricksBrokenTotal', statBricksBrokenTotal);
+    }
+    if (seconds > 0) {
+      statPlaySeconds += seconds;
+      await _prefs?.setInt('statPlaySeconds', statPlaySeconds);
+    }
+  }
+
+  Future<void> noteBestChaosWave(int wave) async {
+    if (wave > bestChaosWave) {
+      bestChaosWave = wave;
+      await _prefs?.setInt('bestChaosWave', bestChaosWave);
+      notifyListeners();
+    }
+  }
+
+  // --- FULL SAVE EXPORT / IMPORT (Play Games cloud snapshots) ---
+
+  /// Serializes every persisted key into one JSON envelope.
+  Future<String> exportAllToJson() async {
+    final data = <String, dynamic>{};
+    final keys = _prefs?.getKeys() ?? const <String>{};
+    for (final k in keys) {
+      data[k] = _prefs?.get(k);
+    }
+    return jsonEncode({
+      'app': 'kirmatas',
+      'version': 1,
+      'savedAtMs': DateTime.now().millisecondsSinceEpoch,
+      'data': data,
+    });
+  }
+
+  /// savedAtMs of a cloud envelope, or null if it is not one of ours.
+  static int? cloudSavedAtMs(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map && decoded['app'] == 'kirmatas') {
+        return (decoded['savedAtMs'] as num?)?.toInt();
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  int get localSavedAtMs => _prefs?.getInt('localSavedAtMs') ?? 0;
+
+  Future<void> markLocalSavedNow() async {
+    await _prefs?.setInt('localSavedAtMs', DateTime.now().millisecondsSinceEpoch);
+  }
+
+  /// Overwrites the whole local save from a cloud envelope and reloads.
+  Future<bool> importAllFromJson(String raw) async {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map || decoded['app'] != 'kirmatas') return false;
+      final data = decoded['data'];
+      if (data is! Map) return false;
+      final prefs = _prefs;
+      if (prefs == null) return false;
+      for (final entry in data.entries) {
+        final key = entry.key.toString();
+        final value = entry.value;
+        if (value is int) {
+          await prefs.setInt(key, value);
+        } else if (value is double) {
+          await prefs.setDouble(key, value);
+        } else if (value is bool) {
+          await prefs.setBool(key, value);
+        } else if (value is String) {
+          await prefs.setString(key, value);
+        } else if (value is List) {
+          await prefs.setStringList(key, value.map((e) => e.toString()).toList());
+        }
+      }
+      final cloudMs = cloudSavedAtMs(raw);
+      if (cloudMs != null) {
+        await prefs.setInt('localSavedAtMs', cloudMs);
+      }
+      _initialized = false; // force a full reload from the new prefs
+      await init();
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<bool> spendGold(int amount) async {
@@ -910,6 +1338,28 @@ class SaveManager extends ChangeNotifier {
     final remaining = fishSatietyDurationMs - elapsed;
     return remaining > 0 ? remaining : 0;
   }
+
+  /// Care state of one fish (see [FishCareState]).
+  FishCareState fishCareState(String fishId) {
+    if (isFishGoldReady(fishId)) return FishCareState.ready;
+    if (isFishProducing(fishId)) return FishCareState.producing;
+    return FishCareState.waiting;
+  }
+
+  /// Fish whose gold is ready to collect from the hoard chest.
+  int get readyFishCount =>
+      unlockedFish.where((id) => fishCareState(id) == FishCareState.ready).length;
+
+  /// Fish fed and still inside their 6-hour production cycle.
+  int get producingFishCount =>
+      unlockedFish.where((id) => fishCareState(id) == FishCareState.producing).length;
+
+  /// Fish not in any cycle; feeding one of these starts its production.
+  int get waitingFishCount =>
+      unlockedFish.where((id) => fishCareState(id) == FishCareState.waiting).length;
+
+  /// True while at least one fish would actually benefit from a pellet.
+  bool get hasWaitingFish => waitingFishCount > 0;
 
   /// Number of fish currently fed (in 6-hour cycle or ready to claim)
   int get fedFishCount {
@@ -1368,7 +1818,7 @@ class SaveManager extends ChangeNotifier {
     };
   }
 
-  // --- FORTUNE WHEEL (3 SPINS PER DAY) ---
+  // --- FORTUNE WHEEL (5 SPINS PER DAY) ---
 
   int get remainingWheelSpins {
     final today = DateTime.now().toIso8601String().substring(0, 10);
@@ -1379,6 +1829,15 @@ class SaveManager extends ChangeNotifier {
   }
 
   bool get canSpinFortuneWheel => remainingWheelSpins > 0;
+
+  bool get isNextWheelSpinFree {
+    if (!canSpinFortuneWheel) return false;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    if (lastFortuneWheelDate != today) {
+      return true;
+    }
+    return fortuneWheelSpinsToday == 0;
+  }
 
   Future<bool> recordWheelSpin() async {
     final today = DateTime.now().toIso8601String().substring(0, 10);
@@ -1405,11 +1864,17 @@ class SaveManager extends ChangeNotifier {
       questBricksBroken = 0;
       questFishFed = false;
       questAdOrWinDone = false;
+      questZenSeconds = 0;
+      questShapesClears = 0;
+      questDescendRows = 0;
       claimedQuests = {};
       _prefs?.setString('currentQuestDate', today);
       _prefs?.setInt('questBricksBroken', 0);
       _prefs?.setBool('questFishFed', false);
       _prefs?.setBool('questAdOrWinDone', false);
+      _prefs?.setInt('questZenSeconds', 0);
+      _prefs?.setInt('questShapesClears', 0);
+      _prefs?.setInt('questDescendRows', 0);
       _prefs?.setStringList('claimedQuests', []);
     }
   }
@@ -1435,6 +1900,28 @@ class SaveManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addQuestZenSeconds(int seconds) {
+    if (seconds <= 0) return;
+    _checkAndResetQuests();
+    questZenSeconds += seconds;
+    _prefs?.setInt('questZenSeconds', questZenSeconds);
+    notifyListeners();
+  }
+
+  void recordShapesClearQuest() {
+    _checkAndResetQuests();
+    questShapesClears++;
+    _prefs?.setInt('questShapesClears', questShapesClears);
+    notifyListeners();
+  }
+
+  void recordDescendRowQuest() {
+    _checkAndResetQuests();
+    questDescendRows++;
+    _prefs?.setInt('questDescendRows', questDescendRows);
+    notifyListeners();
+  }
+
   Future<int> claimQuestReward(String questId) async {
     _checkAndResetQuests();
     if (claimedQuests.contains(questId)) return 0;
@@ -1447,6 +1934,12 @@ class SaveManager extends ChangeNotifier {
       reward = 120;
     } else if (questId == 'ad_or_win' && questAdOrWinDone) {
       reward = 150;
+    } else if (questId == 'zen_time' && questZenSeconds >= 600) {
+      reward = 80;
+    } else if (questId == 'shapes_clear' && questShapesClears >= 1) {
+      reward = 100;
+    } else if (questId == 'descend_rows' && questDescendRows >= 10) {
+      reward = 90;
     }
 
     if (reward > 0) {

@@ -64,12 +64,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_save.pendingCrate != null && mounted && _activeGame == null) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => CrateOpeningDialog(
-            pendingCrate: _save.pendingCrate,
-          ),
+        CrateOpeningDialog.show(
+          context,
+          pendingCrate: _save.pendingCrate,
         );
         return;
       }
@@ -183,6 +180,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       _showLockedFeedback('Bu özellik Bölüm 3 seviyesinde açılır.');
       return;
     }
+    if (page == 0) _save.markUnlockSeen('shop');
+    if (page == 2) _save.markUnlockSeen('aquarium');
+    if (page == 3) _save.markUnlockSeen('workshop');
     if (_pageController.hasClients) {
       final bool jumpsAcrossLocked = (page == 3 && !_save.isAquariumUnlocked) ||
           (_currentPage == 3 && page <= 1 && !_save.isAquariumUnlocked);
@@ -400,12 +400,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
     if (mounted) {
       if (_save.pendingCrate != null && _activeGame == null) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => CrateOpeningDialog(
-            pendingCrate: _save.pendingCrate,
-          ),
+        CrateOpeningDialog.show(
+          context,
+          pendingCrate: _save.pendingCrate,
         );
       }
       setState(() => _highlightWheelButton = true);
@@ -701,7 +698,28 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           children: [
             Positioned.fill(
               child: RepaintBoundary(
-                child: GameCanvas(controller: _activeGame!),
+                child: ListenableBuilder(
+                  listenable: _activeGame!,
+                  builder: (context, _) {
+                    final isGameOver = _activeGame!.status == GameStatus.gameOver;
+                    return ColorFiltered(
+                      colorFilter: isGameOver
+                          ? const ColorFilter.matrix(<double>[
+                              0.33, 0.59, 0.11, 0, 0,
+                              0.33, 0.59, 0.11, 0, 0,
+                              0.33, 0.59, 0.11, 0, 0,
+                              0, 0, 0, 1, 0,
+                            ])
+                          : const ColorFilter.matrix(<double>[
+                              1, 0, 0, 0, 0,
+                              0, 1, 0, 0, 0,
+                              0, 0, 1, 0, 0,
+                              0, 0, 0, 1, 0,
+                            ]),
+                      child: GameCanvas(controller: _activeGame!),
+                    );
+                  },
+                ),
               ),
             ),
             RepaintBoundary(
@@ -854,36 +872,39 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: KaunosPalette.obsidianGlassElevated,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: KaunosPalette.crystalBorderStarlight.withValues(alpha: 0.6),
-                              width: 1.2,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0xFF020308),
-                                offset: Offset(0, 3),
-                                blurRadius: 0,
-                              ),
-                              BoxShadow(
-                                color: Color(0x25FFFFFF),
-                                offset: Offset(0, 1),
-                                blurRadius: 0,
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
+                        KaunosPressGlow(
+                          borderRadius: 14,
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: KaunosPalette.obsidianGlassElevated,
                               borderRadius: BorderRadius.circular(14),
-                              onTap: _showSettingsDialog,
-                              child: const Center(
-                                child: Icon(Icons.settings_rounded, color: KaunosPalette.goldHighlight, size: 20),
+                              border: Border.all(
+                                color: KaunosPalette.crystalBorderStarlight.withValues(alpha: 0.6),
+                                width: 1.2,
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0xFF020308),
+                                  offset: Offset(0, 3),
+                                  blurRadius: 0,
+                                ),
+                                BoxShadow(
+                                  color: Color(0x25FFFFFF),
+                                  offset: Offset(0, 1),
+                                  blurRadius: 0,
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: _showSettingsDialog,
+                                child: const Center(
+                                  child: Icon(Icons.settings_rounded, color: KaunosPalette.goldHighlight, size: 20),
+                                ),
                               ),
                             ),
                           ),
@@ -893,7 +914,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         Flexible(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: GestureDetector(
+                            child: KaunosJuicyInteractive(
+                              borderRadius: 16,
+                              waveColor: _save.leagueTierColor,
                               onTap: () {
                                 if (!_save.isLeagueUnlocked) {
                                   _showLockedFeedback('Haftalık Lig Bölüm 7 seviyesinde açılır.');
@@ -978,8 +1001,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             children: [
                               const KaunosEmblem.coin(size: 16),
                               const SizedBox(width: 5),
-                              Text(
-                                '${_save.gold}',
+                              RollingNumberText(
+                                value: _save.gold,
                                 style: const TextStyle(
                                   color: KaunosPalette.goldHighlight,
                                   fontWeight: FontWeight.w900,
@@ -1078,6 +1101,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
                           const SizedBox(height: 3),
 
+                          // Quiet roadmap of what unlocks next
+                          _buildUnlockRoadmap(),
+
                           // COLLAPSIBLE ARCADE MODES BUTTON
                           Material(
                             color: Colors.transparent,
@@ -1141,12 +1167,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     icon: Icons.spa_rounded,
                                     color1: const Color(0xFF00B4D8),
                                     color2: const Color(0xFF0077B6),
-                                    badge: !_save.isLeagueUnlocked ? '🔒 Bölüm 7' : null,
+                                    badge: !_save.isLeagueUnlocked
+                                        ? '🔒 Bölüm 7'
+                                        : (_save.isUnlockNew('zen', _save.isLeagueUnlocked) ? 'YENİ!' : null),
+                                    dimmed: !_save.isLeagueUnlocked,
                                     onTap: () {
                                       if (!_save.isLeagueUnlocked) {
                                         _showLockedFeedback('Bu özellik Bölüm 7 seviyesinde açılır.');
                                         return;
                                       }
+                                      _save.markUnlockSeen('zen');
                                       _launchGame(GameMode.zen);
                                     },
                                   ),
@@ -1187,12 +1217,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               color2: const Color(0xFFFF5252),
                               badge: !_save.isLeagueUnlocked
                                   ? '🔒 Bölüm 7'
-                                  : (_save.isDailyBlitzCompletedToday ? 'TAMAMLANDI ✓' : '250G + 3İ'),
+                                  : (_save.isUnlockNew('daily', _save.isLeagueUnlocked)
+                                      ? 'YENİ!'
+                                      : (_save.isDailyBlitzCompletedToday ? 'TAMAMLANDI ✓' : '250G + 3İ')),
+                              dimmed: !_save.isLeagueUnlocked,
                               onTap: () {
                                 if (!_save.isLeagueUnlocked) {
                                   _showLockedFeedback('Günün Operasyonu Bölüm 7 seviyesinde açılır.');
                                   return;
                                 }
+                                _save.markUnlockSeen('daily');
                                 _launchDailyBlitz();
                               },
                             ),
@@ -1337,7 +1371,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   emblem: const KaunosEmblem.pearl(size: 20),
                   icon: Icons.storefront_rounded,
                   label: I18n.tr('shop'),
-                  badge: !_save.isShopUnlocked ? '🔒 Bölüm 2' : null,
+                  badge: !_save.isShopUnlocked
+                      ? '🔒 Bölüm 2'
+                      : (_save.isUnlockNew('shop', _save.isShopUnlocked) ? 'YENİ!' : null),
                   onTap: () => _goToPage(0),
                 ),
               ),
@@ -1354,7 +1390,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     label: I18n.tr('aquarium'),
                     badge: !_save.isAquariumUnlocked
                         ? '🔒 Bölüm 5'
-                        : (_save.currentAvailableFishGold > 0 ? '' : null),
+                        : (_save.isUnlockNew('aquarium', _save.isAquariumUnlocked)
+                            ? 'YENİ!'
+                            : (_save.currentAvailableFishGold > 0 ? '' : null)),
                     onTap: () => _goToPage(2),
                   ),
                 ),
@@ -1366,7 +1404,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     emblem: const KaunosEmblem.anvil(size: 20, steelColor: KaunosPalette.goldHighlight),
                     icon: Icons.auto_awesome_rounded,
                     label: I18n.tr('upgrades'),
-                    badge: !_save.isWorkshopUnlocked ? '🔒 Bölüm 3' : null,
+                    badge: !_save.isWorkshopUnlocked
+                        ? '🔒 Bölüm 3'
+                        : (_save.isUnlockNew('workshop', _save.isWorkshopUnlocked) ? 'YENİ!' : null),
                     onTap: () => _goToPage(3),
                   ),
                 ),
@@ -1428,15 +1468,19 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       ? Colors.white12
                       : (_highlightWheelButton
                           ? const Color(0xFFFFFF00)
-                          : (hasSpins ? const Color(0xFF00E5FF) : Colors.white12)),
+                          : (hasSpins
+                              ? (_save.isNextWheelSpinFree ? const Color(0xFF00E676) : const Color(0xFF00E5FF))
+                              : Colors.white12)),
                   glowColor: _highlightWheelButton
                       ? const Color(0xFFFFD700)
-                      : const Color(0xFF00E5FF),
+                      : (_save.isNextWheelSpinFree ? const Color(0xFF00E676) : const Color(0xFF00E5FF)),
                   isGlowing: !isLocked && (hasSpins || _highlightWheelButton),
                   iconGradient: isLocked
                       ? const [Color(0xFF455A64), Color(0xFF263238)]
                       : (hasSpins
-                          ? const [Color(0xFF00E5FF), Color(0xFFD500F9)]
+                          ? (_save.isNextWheelSpinFree
+                              ? const [Color(0xFF00E676), Color(0xFF00B0FF)]
+                              : const [Color(0xFF00E5FF), Color(0xFFD500F9)])
                           : const [Color(0xFF455A64), Color(0xFF263238)]),
                   emblem: isLocked
                       ? const KaunosEmblem.padlock(size: 15, bodyColor: Colors.white70)
@@ -1446,14 +1490,32 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   icon: isLocked ? Icons.lock_rounded : Icons.motion_photos_on_rounded,
                   iconColor: isLocked ? Colors.white54 : (hasSpins ? Colors.white : Colors.white54),
                   title: 'ÇARK',
-                  titleColor: isLocked ? Colors.white60 : (hasSpins ? const Color(0xFF80D8FF) : Colors.white60),
-                  subtitle: isLocked ? 'Kilitli' : (hasSpins ? '$spinsLeft/3' : 'Bitti'),
-                  subColor: isLocked ? Colors.white38 : (hasSpins ? const Color(0xFF00E5FF) : Colors.white38),
-                  badgeText: isLocked ? '🔒 Bölüm 2' : (hasSpins ? '$spinsLeft' : null),
+                  titleColor: isLocked
+                      ? Colors.white60
+                      : (hasSpins
+                          ? (_save.isNextWheelSpinFree ? const Color(0xFFA7FFEB) : const Color(0xFF80D8FF))
+                          : Colors.white60),
+                  subtitle: isLocked
+                      ? 'Kilitli'
+                      : (hasSpins
+                          ? (_save.isNextWheelSpinFree ? 'Ücretsiz!' : '$spinsLeft/${SaveManager.maxDailyWheelSpins}')
+                          : 'Bitti'),
+                  subColor: isLocked
+                      ? Colors.white38
+                      : (hasSpins
+                          ? (_save.isNextWheelSpinFree ? const Color(0xFF69F0AE) : const Color(0xFF00E5FF))
+                          : Colors.white38),
+                  badgeText: isLocked
+                      ? '🔒 Bölüm 2'
+                      : (hasSpins
+                          ? (_save.isNextWheelSpinFree ? 'BEDAVA' : '$spinsLeft')
+                          : null),
                   badgeGradient: isLocked
                       ? const [Color(0xFF455A64), Color(0xFF37474F)]
                       : (hasSpins
-                          ? const [Color(0xFF00E5FF), Color(0xFF7C4DFF)]
+                          ? (_save.isNextWheelSpinFree
+                              ? const [Color(0xFF00E676), Color(0xFF00B0FF)]
+                              : const [Color(0xFF00E5FF), Color(0xFF7C4DFF)])
                           : null),
                   onTap: () {
                     if (isLocked) {
@@ -1557,12 +1619,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     List<Color>? badgeGradient,
     required VoidCallback onTap,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Container(
+    return KaunosJuicyInteractive(
+      borderRadius: 14,
+      waveColor: glowColor,
+      onTap: onTap,
+      child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -1700,7 +1761,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             ],
           ),
         ),
-      ),
     );
   }
 
@@ -1790,20 +1850,22 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 ),
                               ),
                             ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: KaunosPalette.obsidianGlassElevated,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: KaunosPalette.crystalBorderStarlight.withValues(alpha: 0.4), width: 1.0),
-                            ),
+                          // Açıklama yazısı: koyu plaka yok — başlığın hemen üstünde
+                          // hafif gölgeli, 3B hissi veren düz beyaz yazı.
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
                             child: Text(
                               I18n.tr('classic_desc'),
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.4,
                                 fontFamily: 'Rajdhani',
+                                shadows: [
+                                  Shadow(color: Color(0xCC2A0E00), offset: Offset(0, 1.6), blurRadius: 2),
+                                  Shadow(color: Color(0x66FFFFFF), offset: Offset(0, -0.8), blurRadius: 0),
+                                ],
                               ),
                             ),
                           ),
@@ -2034,6 +2096,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               _showLockedFeedback('Bu özellik Bölüm 5 seviyesinde açılır.');
               return;
             }
+            _save.markUnlockSeen('chaos');
             _startOrPromptResume(GameMode.chaos);
           },
           child: Padding(
@@ -2055,20 +2118,22 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               borderColor: const Color(0xFFEF5350).withValues(alpha: 0.6),
                             )
                           else ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: KaunosPalette.obsidianGlassElevated,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: KaunosPalette.deepJadeBorder.withValues(alpha: 0.4), width: 1.0),
-                              ),
+                            // Açıklama yazısı: koyu plaka yok — başlığın hemen üstünde
+                            // hafif gölgeli, 3B hissi veren düz beyaz yazı.
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
                               child: Text(
                                 I18n.tr('chaos_desc'),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.3,
                                   fontFamily: 'Rajdhani',
+                                  shadows: [
+                                    Shadow(color: Color(0xCC00140F), offset: Offset(0, 1.6), blurRadius: 2),
+                                    Shadow(color: Color(0x66FFFFFF), offset: Offset(0, -0.8), blurRadius: 0),
+                                  ],
                                 ),
                               ),
                             ),
@@ -2130,6 +2195,27 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           ),
                         ],
                       ),
+                      if (!isLocked && _save.isUnlockNew('chaos', true)) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00E676).withValues(alpha: 0.22),
+                            borderRadius: BorderRadius.circular(9),
+                            border: Border.all(color: const Color(0xFF00E676), width: 0.9),
+                          ),
+                          child: const Text(
+                            'YENİ!',
+                            style: TextStyle(
+                              color: Color(0xFF69F0AE),
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.3,
+                              fontFamily: 'Rajdhani',
+                            ),
+                          ),
+                        ),
+                      ],
                       if (best > 0) ...[
                         const SizedBox(height: 4),
                         Text(
@@ -2139,6 +2225,27 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             fontFamily: 'Rajdhani',
+                          ),
+                        ),
+                      ],
+                      if (!isLocked && _save.bestChaosWave > 0) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0x2B00E5FF),
+                            borderRadius: BorderRadius.circular(9),
+                            border: Border.all(color: const Color(0x6600E5FF), width: 0.9),
+                          ),
+                          child: Text(
+                            '🏆 ${_save.chaosRankTitle} • En İyi Dalga ${_save.bestChaosWave}',
+                            style: const TextStyle(
+                              color: Color(0xFF80D8FF),
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.3,
+                              fontFamily: 'Rajdhani',
+                            ),
                           ),
                         ),
                       ],
@@ -2201,6 +2308,50 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     );
   }
 
+  /// One slim, quiet line that tells a new player what is coming and
+  /// when — instead of a wall of locked, shouting cards. Shrinks as
+  /// features unlock and disappears when everything is open.
+  Widget _buildUnlockRoadmap() {
+    final upcoming = <String>[
+      if (!_save.isShopUnlocked) 'Mağaza (Bölüm 2)',
+      if (!_save.isWorkshopUnlocked) 'Atölye (Bölüm 3)',
+      if (!_save.isAquariumUnlocked) 'Akvaryum (Bölüm 5)',
+      if (!_save.isChaosUnlocked) 'Kaos (Bölüm 5)',
+      if (!_save.isLeagueUnlocked) 'Lig & Etkinlikler (Bölüm 7)',
+    ];
+    if (upcoming.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0x22101828),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.lock_clock_rounded, color: Colors.white38, size: 13),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Yakında açılacaklar: ${upcoming.join('  •  ')}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white38,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEventsLeagueCard() {
     final isLocked = !_save.isLeagueUnlocked;
     final tierColor = _save.leagueTierColor;
@@ -2255,6 +2406,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               _showLockedFeedback('Etkinlikler ve Lig Bölüm 7 seviyesinde açılır.');
               return;
             }
+            _save.markUnlockSeen('league');
             TournamentDialog.show(
               context,
               save: _save,
@@ -2360,6 +2512,26 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            if (_save.isUnlockNew('league', _save.isLeagueUnlocked)) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF00E676),
+                                  borderRadius: BorderRadius.circular(7),
+                                ),
+                                child: const Text(
+                                  'YENİ!',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 9.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                            ],
                             Text(
                               'LİG SEZONU',
                               maxLines: 1,
@@ -2394,11 +2566,15 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     required Color color2,
     required VoidCallback onTap,
     String? badge,
+    bool showRecord = true,
+    bool dimmed = false,
   }) {
     final best = _save.getHighScore(mode);
 
-    return Container(
-      height: 115,
+    return Opacity(
+      opacity: dimmed ? 0.6 : 1.0,
+      child: Container(
+      height: 126,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [color1.withValues(alpha: 0.9), color2.withValues(alpha: 0.9)],
@@ -2416,7 +2592,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2500,12 +2676,42 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (showRecord) ...[
+                      const SizedBox(height: 3),
+                      SizedBox(
+                        height: 13,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.emoji_events_rounded,
+                                  color: Color(0xFFFFD54F), size: 11),
+                              const SizedBox(width: 4),
+                              Text(
+                                best > 0 ? 'Rekor: $best' : 'Henüz rekor yok',
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: best > 0
+                                      ? const Color(0xFFFFD54F)
+                                      : Colors.white38,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ],
             ),
           ),
         ),
+      ),
       ),
     );
   }
