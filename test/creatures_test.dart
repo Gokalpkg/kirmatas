@@ -74,7 +74,7 @@ void main() {
         expect(item.assetPath, 'assets/images/fishes/$id.png');
         expect(item.name, isNot(id)); // localized display name exists
       }
-      expect(FishItem.getById('snail').name, 'Neon Salyangoz');
+      expect(FishItem.getById('snail').name, 'Altın Elma Salyangozu');
       expect(FishItem.getById('octopus').name, 'Kozmik Ahtapot');
       expect(FishItem.getById('jellyfish').name, 'Ay Denizanası');
     });

@@ -862,6 +862,32 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                       ? '${_save.waitingFishCount} yem bekliyor'
                                       : 'yem bekleyen yok',
                                 ),
+                                const SizedBox(width: 10),
+                                // Food stock chip: tap opens the food shop.
+                                GestureDetector(
+                                  onTap: _showGetFoodDialog,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0x33FF9800),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: const Color(0x66FF9800)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.grain, color: Color(0xFFFFB74D), size: 13),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Yem: ${_save.fishFood}',
+                                          style: const TextStyle(color: Color(0xFFFFB74D), fontSize: 10.5, fontWeight: FontWeight.w900),
+                                        ),
+                                        const SizedBox(width: 2),
+                                        const Icon(Icons.add_circle_rounded, color: Color(0xFFFFB74D), size: 13),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),

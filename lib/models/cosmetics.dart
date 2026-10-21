@@ -596,7 +596,7 @@ class FishItem {
     // 7. Bottom & reef creatures
     FishItem(
       id: 'snail',
-      name: 'Neon Salyangoz',
+      name: 'Altın Elma Salyangozu',
       rarity: Rarity.common,
       size: 0.8,
       color: Color(0xFFFFCC80),

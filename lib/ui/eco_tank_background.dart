@@ -59,7 +59,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
           item: item,
           x: 50.0 + (i * 65.0) % 280.0,
           y: item.isBottomDweller
-              ? 690.0
+              ? 726.0
               : 180.0 + (i * 70.0) % 360.0,
           vx: (_rand.nextBool() ? 1 : -1) * (26.0 + _rand.nextDouble() * 18.0),
           vy: (_rand.nextDouble() * 2 - 1) * 8.0,
@@ -139,8 +139,17 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
     return true;
   }
 
-  void _onTankTap(Offset pos) {
+  void _onTankTap(Offset rawPos) {
     if (!widget.interactive) return;
+
+    // The simulation lives in a fixed 410x800 world; convert the real
+    // tap position into world coordinates before hit-testing.
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || box.size.isEmpty) return;
+    final pos = Offset(
+      rawPos.dx * 410.0 / box.size.width,
+      rawPos.dy * 800.0 / box.size.height,
+    );
 
     // 1. Check if tap directly touches any fish
     _SimFish? hitFish;
@@ -230,9 +239,12 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
 
   /// Snails glide and crabs scuttle along the sand. They crawl toward a
   /// sinking pellet and nibble it once it reaches the bottom.
+  /// [floorY] is the creature centre line in world coordinates; the
+  /// sand surface sits at ~y=745, so bodies rest on the floor instead
+  /// of hovering above it.
   void _updateBottomDweller(
       _SimFish f, _FoodPellet? pellet, double dt, SaveManager save) {
-    const floorY = 690.0;
+    const floorY = 726.0;
     f.y += (floorY - f.y) * min(1.0, dt * 3.0);
     f.pitchAngle = 0.0;
     final isSnail = f.item.kind == FishKind.snail;
@@ -453,20 +465,22 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
         if (dist < minDistance && dist > 0.001) {
           final overlap = (minDistance - dist) / minDistance;
           final pushX = (dx / dist) * overlap * 30.0 * dt;
-          final pushY = (dy / dist) * overlap * 30.0 * dt;
-
           f1.x += pushX;
-          f1.y += pushY;
           f2.x -= pushX;
-          f2.y -= pushY;
 
-          // Steer vertically away from each other
-          if (f1.y < f2.y) {
-            f1.y -= 16.0 * dt;
-            f2.y += 16.0 * dt;
-          } else {
-            f1.y += 16.0 * dt;
-            f2.y -= 16.0 * dt;
+          // Vertical separation only between swimmers: bottom dwellers
+          // stay glued to the floor (their update re-pins y anyway).
+          if (!f1.item.isBottomDweller && !f2.item.isBottomDweller) {
+            final pushY = (dy / dist) * overlap * 30.0 * dt;
+            f1.y += pushY;
+            f2.y -= pushY;
+            if (f1.y < f2.y) {
+              f1.y -= 16.0 * dt;
+              f2.y += 16.0 * dt;
+            } else {
+              f1.y += 16.0 * dt;
+              f2.y -= 16.0 * dt;
+            }
           }
 
           // If overlapping head-on, steer one away
@@ -630,30 +644,47 @@ class _TankPainter extends CustomPainter {
     _waterPaint.shader = _waterShader;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _waterPaint);
 
-    // 2. Sand layer at bottom
+    // The simulation runs in a fixed 410x800 world. Scale it onto the
+    // real canvas so the sand, plants and bottom dwellers always sit
+    // on the drawn floor, whatever the screen size.
+    canvas.scale(size.width / 410.0, size.height / 800.0);
+
+    // 2. Sand layer at the bottom of the world (surface ~y=745)
     _sandPath ??= Path()
-      ..moveTo(0, size.height - 48)
-      ..quadraticBezierTo(size.width * 0.5, size.height - 62, size.width, size.height - 44)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
+      ..moveTo(0, 752)
+      ..quadraticBezierTo(205, 738, 410, 756)
+      ..lineTo(410, 800)
+      ..lineTo(0, 800)
       ..close();
     _sandPaint.shader ??= const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [Color(0x38C2A86E), Color(0x665C4628)],
-    ).createShader(Rect.fromLTWH(0, size.height - 62, size.width, 62));
+    ).createShader(const Rect.fromLTWH(0, 738, 410, 62));
     canvas.drawPath(_sandPath!, _sandPaint);
 
-    // 3. Kelp & Moss plants swaying gently
-
-    for (int i = 0; i < 5; i++) {
-      final bx = 25.0 + i * (size.width - 50) / 4;
-      final sway = sin(time * 1.5 + i) * 11.0;
-      _plantPath
-        ..reset()
-        ..moveTo(bx, size.height - 44)
-        ..quadraticBezierTo(bx + sway * 0.5, size.height - 95, bx + sway, size.height - 145);
-      canvas.drawPath(_plantPath, _plantPaint);
+    // 3. Plant clusters rooted in the sand: several blades per cluster
+    // in two greens, each swaying on its own phase.
+    const clusterX = [36.0, 128.0, 236.0, 330.0, 392.0];
+    for (int c = 0; c < clusterX.length; c++) {
+      final bx = clusterX[c];
+      for (int blade = 0; blade < 4; blade++) {
+        final lean = (blade - 1.5) * 7.0;
+        final height = 64.0 + ((c * 37 + blade * 29) % 55);
+        final sway = sin(time * 1.3 + c * 1.7 + blade * 0.9) * (6.0 + blade * 1.6);
+        _plantPaint.color = blade.isEven
+            ? const Color(0x6643A047)
+            : const Color(0x8866BB6A);
+        _plantPaint.strokeWidth = 4.5 + (blade % 2) * 1.4;
+        _plantPath
+          ..reset()
+          ..moveTo(bx + lean * 0.4, 762)
+          ..quadraticBezierTo(
+            bx + lean + sway * 0.4, 762 - height * 0.55,
+            bx + lean + sway, 762 - height,
+          );
+        canvas.drawPath(_plantPath, _plantPaint);
+      }
     }
 
     // 4. Rising bubbles
