@@ -19,11 +19,26 @@ class AquariumView extends StatefulWidget {
   State<AquariumView> createState() => _AquariumViewState();
 }
 
-class _AquariumViewState extends State<AquariumView> with SingleTickerProviderStateMixin {
+/// One gold coin floating from the hoard chest up to the gold pill.
+class _FlyingCoin {
+  final Offset from;
+  final Offset to;
+  final double delay; // 0..0.35 of the flight controller
+  final double sway;
+
+  const _FlyingCoin({required this.from, required this.to, required this.delay, required this.sway});
+}
+
+class _AquariumViewState extends State<AquariumView> with TickerProviderStateMixin {
   final GlobalKey<EcoTankBackgroundState> _tankKey = GlobalKey<EcoTankBackgroundState>();
+  final GlobalKey _stackKey = GlobalKey();
+  final GlobalKey _goldPillKey = GlobalKey();
+  final GlobalKey _chestKey = GlobalKey();
   final SaveManager _save = SaveManager.instance;
   late final AnimationController _pulseCtrl;
   late final Animation<double> _pulseScale;
+  late final AnimationController _coinCtrl;
+  final List<_FlyingCoin> _flyingCoins = [];
   bool _isHudExpanded = false; // Start collapsed so the full beautiful aquarium tank is clearly visible!
 
   @override
@@ -37,12 +52,109 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
     _pulseScale = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
+    _coinCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..addStatusListener((status) {
+        if (status == AnimationStatus.completed && mounted) {
+          setState(() => _flyingCoins.clear());
+        }
+      });
   }
 
   @override
   void dispose() {
     _pulseCtrl.dispose();
+    _coinCtrl.dispose();
     super.dispose();
+  }
+
+  Offset? _centerOf(GlobalKey key) {
+    final box = key.currentContext?.findRenderObject() as RenderBox?;
+    final stackBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || stackBox == null || !box.hasSize) return null;
+    return stackBox.globalToLocal(box.localToGlobal(box.size.center(Offset.zero)));
+  }
+
+  /// Coins rise slowly from the chest like bubbles surfacing, then
+  /// home into the gold pill at the top of the screen.
+  void _launchFlyingCoins() {
+    final from = _centerOf(_chestKey);
+    final to = _centerOf(_goldPillKey);
+    if (from == null || to == null) return;
+    final rand = Random();
+    setState(() {
+      _flyingCoins.clear();
+      for (var i = 0; i < 9; i++) {
+        _flyingCoins.add(_FlyingCoin(
+          from: from + Offset((rand.nextDouble() - 0.5) * 26, -6 - rand.nextDouble() * 8),
+          to: to,
+          delay: i * 0.045,
+          sway: (rand.nextDouble() - 0.5) * 46,
+        ));
+      }
+    });
+    _coinCtrl.forward(from: 0);
+  }
+
+  /// One coin of the flight: phase A rises slowly from the chest like a
+  /// bubble surfacing (gentle sine sway), phase B homes into the gold pill.
+  Widget _flyingCoinWidget(_FlyingCoin coin) {
+    const size = 15.0;
+    final raw = ((_coinCtrl.value - coin.delay) / 0.62).clamp(0.0, 1.0);
+    if (raw <= 0 || raw >= 1) return const SizedBox.shrink();
+    final Offset pos;
+    final double scale;
+    if (raw < 0.55) {
+      // Rising like a bubble toward the surface.
+      final t = Curves.easeOut.transform(raw / 0.55);
+      final top = coin.from.dy - 95;
+      pos = Offset(
+        coin.from.dx + sin(t * 5.2 + coin.sway) * 9 + coin.sway * t * 0.35,
+        coin.from.dy + (top - coin.from.dy) * t,
+      );
+      scale = 0.75 + 0.25 * t;
+    } else {
+      // Homing into the gold counter, accelerating.
+      final t = Curves.easeInQuad.transform((raw - 0.55) / 0.45);
+      final riseEnd = Offset(
+        coin.from.dx + sin(5.2 + coin.sway) * 9 + coin.sway * 0.35,
+        coin.from.dy - 95,
+      );
+      pos = Offset.lerp(riseEnd, coin.to, t)!;
+      scale = 1.0 - 0.35 * t;
+    }
+    final fadeIn = (raw / 0.08).clamp(0.0, 1.0);
+    final fadeOut = raw > 0.88 ? (1 - (raw - 0.88) / 0.12) : 1.0;
+    return Positioned(
+      left: pos.dx - size / 2,
+      top: pos.dy - size / 2,
+      child: Opacity(
+        opacity: fadeIn * fadeOut,
+        child: Transform.scale(
+          scale: scale,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const RadialGradient(
+                center: Alignment(-0.35, -0.35),
+                colors: [Color(0xFFFFF59D), Color(0xFFFFD54F), Color(0xFFF9A825)],
+                stops: [0.0, 0.55, 1.0],
+              ),
+              border: Border.all(color: const Color(0xFFB8860B), width: 1),
+              boxShadow: [
+                BoxShadow(color: const Color(0xFFFFD54F).withValues(alpha: 0.55), blurRadius: 7),
+              ],
+            ),
+            child: const Center(
+              child: Icon(Icons.star, color: Color(0xFFFFF8E1), size: 8),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _statusChip(IconData icon, Color color, String label) {
@@ -101,25 +213,40 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
   }
 
   void _showGetFoodDialog() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (dlgContext) => ListenableBuilder(
         listenable: _save,
         builder: (context, _) {
-          return Dialog(
-            backgroundColor: const Color(0xFF131726),
-            insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(26),
-              side: const BorderSide(color: Color(0xFF4FC3F7), width: 1.5),
+          return Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFF131726),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+              border: Border(top: BorderSide(color: Color(0xFF4FC3F7), width: 1.5)),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Drag handle
+                      Center(
+                        child: Container(
+                          width: 46,
+                          height: 4.5,
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                     Row(
                       children: [
                         Container(
@@ -373,7 +500,8 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                       subtitle: 'Süper Paket (300 )',
                       badge: 'EN İYİ FİYAT',
                     ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -500,6 +628,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
             interactive: true,
             child: SafeArea(
               child: Stack(
+                key: _stackKey,
                 children: [
                   // Top Bar (Overflow-safe)
                   Positioned(
@@ -552,37 +681,9 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                           ),
                         ),
                         const SizedBox(width: 8),
-                        // Food Pill
-                        GestureDetector(
-                          onTap: _showGetFoodDialog,
-                          child: KaunosPressGlow(
-                            borderRadius: 16,
-                            waveColor: const Color(0xFF4FC3F7),
-                            child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0x990D1B2A),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0x664FC3F7)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.grain, color: Color(0xFF4FC3F7), size: 15),
-                                const SizedBox(width: 4),
-                                Text( '${_save.fishFood}',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
-                                ),
-                                const SizedBox(width: 3),
-                                const Icon(Icons.add_circle, color: Color(0xFF4FC3F7), size: 14),
-                              ],
-                            ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        // Gold Pill
+                        // Gold Pill (flying coins land here)
                         Container(
+                          key: _goldPillKey,
                           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                           decoration: BoxDecoration(
                             color: const Color(0x990D1B2A),
@@ -609,7 +710,11 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                   Positioned(
                     bottom: max(8.0, MediaQuery.of(context).padding.bottom + 2.0),
                     right: 12,
-                    child: FishHoardChest(save: _save),
+                    child: FishHoardChest(
+                      key: _chestKey,
+                      save: _save,
+                      onCollectStart: _launchFlyingCoins,
+                    ),
                   ),
 
                   // Bottom Compact Floating Toolbar & Optional Expanded Detail Drawer
@@ -830,15 +935,22 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                           ),
                         ),
 
-                        // Always-visible status strip: ready gold, production, waiting fish
+                        // Always-visible status strip, joined to the pill bar
+                        // below as ONE panel (no gap, shared bottom edge).
                         if (totalFish > 0) ...[
                           Container(
-                            margin: const EdgeInsets.only(bottom: 6),
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
                               color: const Color(0x880A1218),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0x334FC3F7), width: 1.0),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(18),
+                                topRight: Radius.circular(18),
+                              ),
+                              border: Border(
+                                left: BorderSide(color: Color(0x334FC3F7), width: 1.0),
+                                right: BorderSide(color: Color(0x334FC3F7), width: 1.0),
+                                top: BorderSide(color: Color(0x334FC3F7), width: 1.0),
+                              ),
                             ),
                             child: Row(
                               children: [
@@ -863,7 +975,7 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                       : 'yem bekleyen yok',
                                 ),
                                 const SizedBox(width: 10),
-                                // Food stock chip: tap opens the food shop.
+                                // Food stock chip: opens the food shop sheet.
                                 GestureDetector(
                                   onTap: _showGetFoodDialog,
                                   child: Container(
@@ -879,11 +991,9 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                                         const Icon(Icons.grain, color: Color(0xFFFFB74D), size: 13),
                                         const SizedBox(width: 4),
                                         Text(
-                                          'Yem: ${_save.fishFood}',
+                                          'Yem: ${_save.fishFood} +',
                                           style: const TextStyle(color: Color(0xFFFFB74D), fontSize: 10.5, fontWeight: FontWeight.w900),
                                         ),
-                                        const SizedBox(width: 2),
-                                        const Icon(Icons.add_circle_rounded, color: Color(0xFFFFB74D), size: 13),
                                       ],
                                     ),
                                   ),
@@ -893,12 +1003,21 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                           ),
                         ],
 
-                        // Ultra-Compact Translucent Floating Bottom Pill Bar (Does NOT block the aquarium!)
+                        // Bottom action bar — same panel as the status strip.
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           decoration: BoxDecoration(
                             color: const Color(0x880A1218),
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.only(
+                              bottomLeft: Radius.circular(24),
+                              bottomRight: Radius.circular(24),
+                              // Square-off the top when the strip above joins it.
+                              topLeft: totalFish > 0 ? Radius.zero : const Radius.circular(24),
+                              topRight: totalFish > 0 ? Radius.zero : const Radius.circular(24),
+                            ),
+                            // Uniform colour on every side (required with a
+                            // border radius); the strip above has no bottom
+                            // edge, so the seam reads as one panel divider.
                             border: Border.all(color: const Color(0x334FC3F7), width: 1.0),
                             boxShadow: [
                               BoxShadow(
@@ -1020,6 +1139,25 @@ class _AquariumViewState extends State<AquariumView> with SingleTickerProviderSt
                           ),
                         ),
                       ],
+                    ),
+                  ),
+
+                  // Flying coins: rise from the chest like bubbles, then
+                  // home into the gold pill. Purely visual — the chest
+                  // itself credits the gold.
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: AnimatedBuilder(
+                        animation: _coinCtrl,
+                        builder: (context, _) {
+                          if (_flyingCoins.isEmpty) return const SizedBox.shrink();
+                          return Stack(
+                            children: [
+                              for (final coin in _flyingCoins) _flyingCoinWidget(coin),
+                            ],
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ],

@@ -11,7 +11,11 @@ import '../storage/save_manager.dart';
 class FishHoardChest extends StatefulWidget {
   final SaveManager save;
 
-  const FishHoardChest({super.key, required this.save});
+  /// Fired the moment a collect starts, so the aquarium screen can
+  /// fly coins from the chest up to the gold counter.
+  final VoidCallback? onCollectStart;
+
+  const FishHoardChest({super.key, required this.save, this.onCollectStart});
 
   @override
   State<FishHoardChest> createState() => _FishHoardChestState();
@@ -70,6 +74,7 @@ class _FishHoardChestState extends State<FishHoardChest> with TickerProviderStat
       _nudge.forward(from: 0);
       return;
     }
+    widget.onCollectStart?.call();
     _busy = true;
     _fromFill = _fillOf(widget.save);
     var paid = false;
@@ -108,7 +113,13 @@ class _FishHoardChestState extends State<FishHoardChest> with TickerProviderStat
         animation: Listenable.merge([_glow, _pour, _nudge]),
         builder: (context, _) {
           final wobble = sin(_nudge.value * pi) * 0.08 * (1 - _nudge.value);
-          return Transform.rotate(
+          // "Pop" as the lid snaps open at the start of a collect.
+          final pop = _pour.value > 0 && _pour.value < 0.2
+              ? sin((_pour.value / 0.2) * pi) * 0.07
+              : 0.0;
+          return Transform.scale(
+            scale: 1.0 + pop,
+            child: Transform.rotate(
             angle: wobble,
             child: SizedBox(
               width: 82,
@@ -166,6 +177,7 @@ class _FishHoardChestState extends State<FishHoardChest> with TickerProviderStat
                     ),
                 ],
               ),
+            ),
             ),
           );
         },
