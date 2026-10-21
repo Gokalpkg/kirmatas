@@ -50,31 +50,46 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
 
     if (result['claimed'] == true) {
       AudioManager.instance.playSfx(GameSfx.victory);
-      final gold = result['gold'];
-      final food = result['food'] as int? ?? 0;
-
-      String message = ' +$gold Altın';
-      if (food > 0) message += ', +$food Balık Yemi ';
-      if (result['bonusItem'] != null) message += ' ve Özel Parça';
-      message += ' Kazandınız! (Alttan 2X\'e katlayabilirsiniz)';
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            message,
-            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFFD54F)),
-          ),
-          backgroundColor: const Color(0xFF161A29),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFFFFD54F), width: 1.5),
-          ),
-          duration: const Duration(seconds: 4),
-        ),
-      );
       setState(() {});
+      _showClaimReveal(result, doubled: false);
     }
+  }
+
+  /// Shared prize celebration (same shell as the fortune wheel) with
+  /// one line per granted reward.
+  void _showClaimReveal(Map<String, dynamic> result, {required bool doubled}) {
+    final gold = result['gold'];
+    final food = result['food'] as int? ?? 0;
+    showKaunosRewardReveal(
+      context: context,
+      accent: KaunosPalette.goldPrimary,
+      headline: doubled ? '2X KATLANDI!' : 'GÜNLÜK ÖDÜL!',
+      spectacle: doubled,
+      visualBuilder: (_) => Container(
+        width: 92,
+        height: 92,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const RadialGradient(
+            colors: [Color(0xFFFFF9C4), Color(0xFFFFB300)],
+          ),
+          border: Border.all(color: Colors.white70, width: 1.6),
+          boxShadow: [
+            BoxShadow(color: KaunosPalette.goldPrimary.withValues(alpha: 0.65), blurRadius: 18),
+          ],
+        ),
+        child: const Icon(Icons.card_giftcard_rounded, color: Color(0xFF4E2C00), size: 46),
+      ),
+      lines: [
+        KaunosRewardLine(icon: Icons.monetization_on, color: KaunosPalette.goldBorder, text: '+$gold Altın'),
+        if (food > 0)
+          KaunosRewardLine(icon: Icons.set_meal, color: const Color(0xFF4FC3F7), text: '+$food Balık Yemi'),
+        if (result['bonusItem'] != null)
+          const KaunosRewardLine(icon: Icons.diamond_rounded, color: Color(0xFFE040FB), text: 'Özel Parça Kazandın!'),
+      ],
+      footnote: doubled ? '2X ödülün tamamı hesabına geçti!' : 'Seriyi bozma, yarın yine gel!',
+      buttonLabel: 'HARİKA!',
+    );
   }
 
   void _watchAdToClaim() {
@@ -93,30 +108,8 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
         if (!mounted) return;
         if (result['claimed'] == true) {
           AudioManager.instance.playSfx(GameSfx.victory);
-          final gold = result['gold'];
-          final food = result['food'] as int? ?? 0;
-
-          String message = ' +$gold Altın';
-          if (food > 0) message += ', +$food Balık Yemi ';
-          if (result['bonusItem'] != null) message += ' ve Özel Parça';
-          message += alreadyClaimedBase ? ' Kazandınız! (2X Tamamlandı!)' : ' Kazandınız! (2X KATLANDI!)';
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                message,
-                style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFFD54F)),
-              ),
-              backgroundColor: const Color(0xFF161A29),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: Color(0xFFFFD54F), width: 1.5),
-              ),
-              duration: const Duration(seconds: 4),
-            ),
-          );
           setState(() {});
+          _showClaimReveal(result, doubled: true);
         }
       },
       onDismissedEarly: () {

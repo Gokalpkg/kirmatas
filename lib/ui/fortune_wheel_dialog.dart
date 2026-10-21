@@ -584,25 +584,47 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       }
     }
 
-    showDialog(
+    // Shared game-wide prize celebration (see kaunos_ui.dart) so the
+    // wheel prize looks like every other reward in the game.
+    showKaunosRewardReveal(
       context: context,
-      builder: (ctx) => _PrizeRevealDialog(
-        reward: reward,
-        displayLabel: displayLabel,
-        displaySubtitle: displaySubtitle,
-        displayIcon: displayIcon,
-        isChest: isChest,
-        spectacle: spectacle,
-        chestTier: chestTier,
-        chestPrimary: chestPrimary,
-        chestSecondary: chestSecondary,
-        onDone: () {
-          Navigator.of(ctx).pop();
-          if (isChest) {
-            Navigator.of(context).pop();
-          }
-        },
-      ),
+      accent: reward.primaryColor,
+      headline: 'TEBRİKLER!',
+      title: displayLabel,
+      subtitle: displaySubtitle,
+      spectacle: spectacle,
+      visualBuilder: (animValue) => isChest
+          ? ChestWidget(
+              size: 118,
+              tier: chestTier ?? Rarity.common,
+              primaryColor: chestPrimary ?? reward.primaryColor,
+              secondaryColor: chestSecondary ?? const Color(0xFF4A148C),
+              time: animValue * 2 * pi,
+            )
+          : Container(
+              width: 92,
+              height: 92,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [reward.primaryColor.withValues(alpha: 0.95), reward.primaryColor.withValues(alpha: 0.45)],
+                ),
+                border: Border.all(color: Colors.white70, width: 1.6),
+                boxShadow: [
+                  BoxShadow(color: reward.primaryColor.withValues(alpha: 0.65), blurRadius: 18),
+                ],
+              ),
+              child: Icon(displayIcon, color: Colors.white, size: 46),
+            ),
+      footnote: isChest
+          ? 'Ahtapot Hazinesi arkaya bırakıldı! Açmak için ${CrateDef.octopusVaultPearlCost} inci gerekir.'
+          : 'Ödül hesabınıza aktarıldı!',
+      buttonLabel: isChest ? 'KASAYI AÇ!' : 'HARİKA!',
+      onDone: () {
+        if (isChest) {
+          Navigator.of(context).pop();
+        }
+      },
     );
   }
 
@@ -1056,201 +1078,6 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       ),
     );
   }
-}
-
-/// Animated prize reveal: rotating light rays + pulsing prize. Big wins
-/// (jackpot, 250g, pearl, Octopus Vault) get the full spectacle; the
-/// chest is drawn with the very same ChestWidget the opening screen
-/// uses, so what you win is exactly what you later open.
-class _PrizeRevealDialog extends StatefulWidget {
-  final WheelReward reward;
-  final String displayLabel;
-  final String displaySubtitle;
-  final IconData displayIcon;
-  final bool isChest;
-  final bool spectacle;
-  final Rarity? chestTier;
-  final Color? chestPrimary;
-  final Color? chestSecondary;
-  final VoidCallback onDone;
-
-  const _PrizeRevealDialog({
-    required this.reward,
-    required this.displayLabel,
-    required this.displaySubtitle,
-    required this.displayIcon,
-    required this.isChest,
-    required this.spectacle,
-    required this.chestTier,
-    required this.chestPrimary,
-    required this.chestSecondary,
-    required this.onDone,
-  });
-
-  @override
-  State<_PrizeRevealDialog> createState() => _PrizeRevealDialogState();
-}
-
-class _PrizeRevealDialogState extends State<_PrizeRevealDialog> with SingleTickerProviderStateMixin {
-  late final AnimationController _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _anim = AnimationController(vsync: this, duration: const Duration(seconds: 16))..repeat();
-  }
-
-  @override
-  void dispose() {
-    _anim.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final color = widget.reward.primaryColor;
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-        decoration: BoxDecoration(
-          color: const Color(0xF5101320),
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: color, width: 2.2),
-          boxShadow: [
-            BoxShadow(color: color.withValues(alpha: 0.45), blurRadius: 26, offset: const Offset(0, 8)),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 170,
-              height: 150,
-              child: AnimatedBuilder(
-                animation: _anim,
-                builder: (context, _) {
-                  final pulse = 1.0 + (widget.spectacle ? 0.05 * sin(_anim.value * 2 * pi * 3) : 0.0);
-                  return Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      if (widget.spectacle)
-                        Transform.rotate(
-                          angle: _anim.value * 2 * pi,
-                          child: CustomPaint(
-                            size: const Size(170, 150),
-                            painter: _RaysPainter(color: color),
-                          ),
-                        ),
-                      Transform.scale(
-                        scale: pulse,
-                        child: widget.isChest
-                            ? ChestWidget(
-                                size: 118,
-                                tier: widget.chestTier,
-                                primaryColor: widget.chestPrimary ?? color,
-                                secondaryColor: widget.chestSecondary ?? const Color(0xFF4A148C),
-                                time: _anim.value * 2 * pi,
-                              )
-                            : Container(
-                                width: 92,
-                                height: 92,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: RadialGradient(
-                                    colors: [color.withValues(alpha: 0.95), color.withValues(alpha: 0.45)],
-                                  ),
-                                  border: Border.all(color: Colors.white70, width: 1.6),
-                                  boxShadow: [
-                                    BoxShadow(color: color.withValues(alpha: 0.65), blurRadius: 18),
-                                  ],
-                                ),
-                                child: Icon(widget.displayIcon, color: Colors.white, size: 46),
-                              ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-            Text(
-              widget.spectacle ? '💥 BÜYÜK ÖDÜL!' : 'TEBRİKLER!',
-              style: TextStyle(
-                color: widget.spectacle ? const Color(0xFFFFD54F) : Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: widget.spectacle ? 23 : 19,
-                letterSpacing: 0.8,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.displayLabel,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w900,
-                fontSize: widget.displayLabel.length > 10 ? 21 : 26,
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              widget.displaySubtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.3),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              widget.isChest
-                  ? 'Ahtapot Hazinesi arkaya bırakıldı! Açmak için ${CrateDef.octopusVaultPearlCost} inci gerekir.'
-                  : 'Ödül hesabınıza aktarıldı!',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-            const SizedBox(height: 14),
-            ElevatedButton(
-              onPressed: widget.onDone,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-              ),
-              child: Text(
-                widget.isChest ? 'KASAYI AÇ!' : 'HARİKA!',
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RaysPainter extends CustomPainter {
-  final Color color;
-  const _RaysPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width * 0.52;
-    final paint = Paint()..style = PaintingStyle.fill;
-    const wedges = 12;
-    for (var i = 0; i < wedges; i += 2) {
-      final start = (i / wedges) * 2 * pi;
-      final path = Path()
-        ..moveTo(center.dx, center.dy)
-        ..arcTo(Rect.fromCircle(center: center, radius: radius), start, (2 * pi / wedges) * 0.9, false)
-        ..close();
-      paint.color = color.withValues(alpha: 0.13);
-      canvas.drawPath(path, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _RaysPainter oldDelegate) => oldDelegate.color != color;
 }
 
 class _WheelPainter extends CustomPainter {

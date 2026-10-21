@@ -2600,3 +2600,283 @@ class KaunosBadge extends StatelessWidget {
     );
   }
 }
+
+// =============================================================================
+// KAUNOS REWARD REVEAL (SHARED PRIZE CELEBRATION)
+// =============================================================================
+
+/// One line inside a reward reveal (icon + text), e.g. "+250 Altın".
+class KaunosRewardLine {
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  const KaunosRewardLine({required this.icon, required this.color, required this.text});
+}
+
+/// The game's shared prize celebration: an obsidian crystal panel in
+/// the accent colour of the prize, rotating light rays and a pulsing
+/// visual for big wins, Rajdhani type and a juicy confirm button.
+/// Used by the fortune wheel and the daily-login claim so every prize
+/// in the game celebrates the same way.
+Future<void> showKaunosRewardReveal({
+  required BuildContext context,
+  required Color accent,
+  required String headline,
+  String? title,
+  String? subtitle,
+  bool spectacle = false,
+  required Widget Function(double animValue) visualBuilder,
+  List<KaunosRewardLine> lines = const [],
+  String? footnote,
+  required String buttonLabel,
+  VoidCallback? onDone,
+}) {
+  return showDialog(
+    context: context,
+    builder: (ctx) => _KaunosRewardRevealDialog(
+      accent: accent,
+      headline: headline,
+      title: title,
+      subtitle: subtitle,
+      spectacle: spectacle,
+      visualBuilder: visualBuilder,
+      lines: lines,
+      footnote: footnote,
+      buttonLabel: buttonLabel,
+      onDone: () {
+        Navigator.of(ctx).pop();
+        onDone?.call();
+      },
+    ),
+  );
+}
+
+class _KaunosRewardRevealDialog extends StatefulWidget {
+  final Color accent;
+  final String headline;
+  final String? title;
+  final String? subtitle;
+  final bool spectacle;
+  final Widget Function(double animValue) visualBuilder;
+  final List<KaunosRewardLine> lines;
+  final String? footnote;
+  final String buttonLabel;
+  final VoidCallback onDone;
+
+  const _KaunosRewardRevealDialog({
+    required this.accent,
+    required this.headline,
+    required this.title,
+    required this.subtitle,
+    required this.spectacle,
+    required this.visualBuilder,
+    required this.lines,
+    required this.footnote,
+    required this.buttonLabel,
+    required this.onDone,
+  });
+
+  @override
+  State<_KaunosRewardRevealDialog> createState() => _KaunosRewardRevealDialogState();
+}
+
+class _KaunosRewardRevealDialogState extends State<_KaunosRewardRevealDialog>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(vsync: this, duration: const Duration(seconds: 16))..repeat();
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = widget.accent;
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
+      child: KaunosPanel(
+        backgroundColor: KaunosPalette.obsidianGlassModal,
+        borderColor: accent.withValues(alpha: 0.75),
+        borderRadius: 26,
+        bottomBevelDepth: 5,
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.spectacle)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [KaunosPalette.goldDeep, KaunosPalette.goldPrimary, KaunosPalette.goldHighlight],
+                  ),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: KaunosPalette.goldBevelBottom, width: 1),
+                ),
+                child: const Text(
+                  'BÜYÜK ÖDÜL',
+                  style: TextStyle(
+                    color: Color(0xFF2E1C00),
+                    fontFamily: 'Rajdhani',
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+              ),
+            SizedBox(
+              width: 176,
+              height: 156,
+              child: AnimatedBuilder(
+                animation: _anim,
+                builder: (context, _) {
+                  final pulse = 1.0 + (widget.spectacle ? 0.05 * math.sin(_anim.value * 2 * math.pi * 3) : 0.025 * math.sin(_anim.value * 2 * math.pi * 2));
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (widget.spectacle)
+                        Transform.rotate(
+                          angle: _anim.value * 2 * math.pi,
+                          child: CustomPaint(
+                            size: const Size(176, 156),
+                            painter: _RewardRaysPainter(color: accent),
+                          ),
+                        ),
+                      Transform.scale(
+                        scale: pulse,
+                        child: widget.visualBuilder(_anim.value),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            Text(
+              widget.headline,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: widget.spectacle ? KaunosPalette.goldHighlight : Colors.white,
+                fontFamily: 'Rajdhani',
+                fontWeight: FontWeight.w900,
+                fontSize: widget.spectacle ? 24 : 20,
+                letterSpacing: 1.0,
+              ),
+            ),
+            if (widget.title != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                widget.title!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: accent,
+                  fontFamily: 'Rajdhani',
+                  fontWeight: FontWeight.w900,
+                  fontSize: widget.title!.length > 10 ? 21 : 26,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+            if (widget.subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                widget.subtitle!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70, fontFamily: 'Rajdhani', fontSize: 13.5, fontWeight: FontWeight.w600, height: 1.3),
+              ),
+            ],
+            const SizedBox(height: 10),
+            for (final line in widget.lines)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(line.icon, color: line.color, size: 19),
+                    const SizedBox(width: 7),
+                    Flexible(
+                      child: Text(
+                        line.text,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'Rajdhani',
+                          fontWeight: FontWeight.w900,
+                          fontSize: 17,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (widget.footnote != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                widget.footnote!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white54, fontFamily: 'Rajdhani', fontSize: 12.5, fontWeight: FontWeight.w600),
+              ),
+            ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: KaunosPressGlow(
+                borderRadius: 16,
+                waveColor: accent,
+                child: ElevatedButton(
+                  onPressed: widget.onDone,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accent,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    widget.buttonLabel,
+                    style: const TextStyle(fontFamily: 'Rajdhani', fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 1.0),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RewardRaysPainter extends CustomPainter {
+  final Color color;
+  const _RewardRaysPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width * 0.52;
+    final paint = Paint()..style = PaintingStyle.fill;
+    const wedges = 12;
+    for (var i = 0; i < wedges; i += 2) {
+      final start = (i / wedges) * 2 * math.pi;
+      final path = Path()
+        ..moveTo(center.dx, center.dy)
+        ..arcTo(Rect.fromCircle(center: center, radius: radius), start, (2 * math.pi / wedges) * 0.9, false)
+        ..close();
+      paint.color = color.withValues(alpha: 0.13);
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RewardRaysPainter oldDelegate) => oldDelegate.color != color;
+}
