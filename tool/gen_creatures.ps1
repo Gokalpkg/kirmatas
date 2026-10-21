@@ -206,4 +206,68 @@ $g.FillEllipse($blush, 306, 268, 28, 16)
 $bmp.Save("$outDir\octopus.png", 'Png')
 $g.Dispose(); $bmp.Dispose()
 
+# ---------------- JELLYFISH ----------------
+$bmp, $g = New-Canvas
+# tentacles (long wavy strands hanging from the bell)
+$tentPen = New-Object System.Drawing.Pen((C 235 206 147 216), 8)
+$tentPen.StartCap = 'Round'; $tentPen.EndCap = 'Round'
+foreach ($tx in @(168, 208, 250, 292, 332)) {
+    $pts = @()
+    for ($i = 0; $i -le 24; $i++) {
+        $t = $i / 24.0
+        $wave = [Math]::Sin($t * 9.0 + $tx) * (6.0 + $t * 14.0)
+        $pts += New-Object System.Drawing.PointF(($tx + $wave), (292 + $t * 148.0))
+    }
+    $g.DrawLines($tentPen, $pts)
+}
+# frilly oral arms (shorter, thicker, ruffled)
+$armPen = New-Object System.Drawing.Pen((C 245 244 143 177), 15)
+$armPen.StartCap = 'Round'; $armPen.EndCap = 'Round'
+foreach ($tx in @(218, 250, 282)) {
+    $pts = @()
+    for ($i = 0; $i -le 20; $i++) {
+        $t = $i / 20.0
+        $wave = [Math]::Sin($t * 11.0 + $tx * 2.0) * (5.0 + $t * 9.0)
+        $pts += New-Object System.Drawing.PointF(($tx + $wave), (296 + $t * 92.0))
+    }
+    $g.DrawLines($armPen, $pts)
+}
+# bell (dome) with scalloped rim
+$bellPath = New-Object System.Drawing.Drawing2D.GraphicsPath
+$bellPath.AddArc(118, 118, 264, 216, 180, 180)
+$rimY = 226.0
+for ($i = 0; $i -lt 6; $i++) {
+    $sx = 118.0 + $i * 44.0
+    $bellPath.AddArc($sx, ($rimY - 12), 44, 24, 0, 180)
+}
+$bellPath.CloseFigure()
+$bellBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+    (New-Object System.Drawing.RectangleF(118, 110, 264, 200)),
+    (C 255 248 187 208), (C 255 186 104 200), 90.0)
+$g.FillPath($bellBrush, $bellPath)
+$bellPen = New-Object System.Drawing.Pen((C 255 171 71 188), 6)
+$g.DrawPath($bellPen, $bellPath)
+# inner bell glow core
+$core = New-Object System.Drawing.SolidBrush((C 120 255 236 250))
+$g.FillEllipse($core, 178, 150, 144, 92)
+# glow spots on the bell
+$spotJ = New-Object System.Drawing.SolidBrush((C 150 255 255 255))
+$g.FillEllipse($spotJ, 168, 176, 22, 15)
+$g.FillEllipse($spotJ, 316, 196, 17, 12)
+$g.FillEllipse($spotJ, 282, 146, 14, 10)
+# highlight
+$hlJ = New-Object System.Drawing.SolidBrush((C 120 255 255 255))
+$g.FillEllipse($hlJ, 168, 132, 66, 30)
+# happy closed eyes (arcs) + smile + blush
+$facePen = New-Object System.Drawing.Pen((C 255 123 31 162), 7)
+$facePen.StartCap = 'Round'; $facePen.EndCap = 'Round'
+$g.DrawArc($facePen, 196, 200, 30, 20, 180, 180)
+$g.DrawArc($facePen, 274, 200, 30, 20, 180, 180)
+$g.DrawArc($facePen, 240, 214, 22, 15, 15, 150)
+$blushJ = New-Object System.Drawing.SolidBrush((C 170 244 143 177))
+$g.FillEllipse($blushJ, 182, 216, 26, 15)
+$g.FillEllipse($blushJ, 292, 216, 26, 15)
+$bmp.Save("$outDir\jellyfish.png", 'Png')
+$g.Dispose(); $bmp.Dispose()
+
 Write-Output 'creatures generated'

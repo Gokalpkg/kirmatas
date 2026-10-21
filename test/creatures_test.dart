@@ -10,13 +10,14 @@ void main() {
     test('snail, shrimp, crab and octopus joined the collection', () {
       final byId = {for (final f in FishItem.allFish) f.id: f};
       expect(byId.keys,
-          containsAll(['snail', 'shrimp', 'crab', 'octopus']));
-      expect(FishItem.allFish.length, 22);
+          containsAll(['snail', 'shrimp', 'crab', 'octopus', 'jellyfish']));
+      expect(FishItem.allFish.length, 23);
 
       expect(byId['snail']!.kind, FishKind.snail);
       expect(byId['shrimp']!.kind, FishKind.shrimp);
       expect(byId['crab']!.kind, FishKind.crab);
       expect(byId['octopus']!.kind, FishKind.octopus);
+      expect(byId['jellyfish']!.kind, FishKind.jellyfish);
       expect(byId['guppy']!.kind, FishKind.fish);
     });
 
@@ -25,6 +26,7 @@ void main() {
       expect(FishItem.getById('crab').isBottomDweller, isTrue);
       expect(FishItem.getById('shrimp').isBottomDweller, isFalse);
       expect(FishItem.getById('octopus').isBottomDweller, isFalse);
+      expect(FishItem.getById('jellyfish').isBottomDweller, isFalse);
       expect(FishItem.getById('arowana').isBottomDweller, isFalse);
     });
 
@@ -38,6 +40,8 @@ void main() {
       expect(FishItem.getById('shrimp').pearlCost, 15);
       expect(FishItem.getById('crab').pearlCost, 35);
       expect(FishItem.getById('octopus').pearlCost, 75);
+      expect(FishItem.getById('jellyfish').goldReward, 40);
+      expect(FishItem.getById('jellyfish').pearlCost, 35);
     });
 
     testWidgets('tank renders owned creatures without errors', (tester) async {
@@ -48,6 +52,7 @@ void main() {
       save.ownedFishCounts['shrimp'] = 1;
       save.ownedFishCounts['crab'] = 1;
       save.ownedFishCounts['octopus'] = 1;
+      save.ownedFishCounts['jellyfish'] = 1;
 
       await tester.pumpWidget(
         const MaterialApp(
@@ -64,13 +69,14 @@ void main() {
     });
 
     test('creature assets and names resolve', () {
-      for (final id in ['snail', 'shrimp', 'crab', 'octopus']) {
+      for (final id in ['snail', 'shrimp', 'crab', 'octopus', 'jellyfish']) {
         final item = FishItem.getById(id);
         expect(item.assetPath, 'assets/images/fishes/$id.png');
         expect(item.name, isNot(id)); // localized display name exists
       }
       expect(FishItem.getById('snail').name, 'Neon Salyangoz');
       expect(FishItem.getById('octopus').name, 'Kozmik Ahtapot');
+      expect(FishItem.getById('jellyfish').name, 'Ay Denizanası');
     });
   });
 }

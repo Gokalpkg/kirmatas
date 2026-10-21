@@ -33,6 +33,11 @@ class FortuneWheelDialog extends StatefulWidget {
 
   static List<double> get spinWeights => _FortuneWheelDialogState.spinWeights;
 
+  /// What the Octopus Vault hands out (see the state class for the
+  /// single-source picker).
+  static FishItem vaultRewardFish(SaveManager save) =>
+      _FortuneWheelDialogState.vaultRewardFish(save);
+
   @override
   State<FortuneWheelDialog> createState() => _FortuneWheelDialogState();
 }
@@ -109,6 +114,14 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
 
   List<WheelReward> get _rewards => rewards;
 
+  /// What the Octopus Vault hands out. This is the single place that
+  /// decides vault contents: for now the octopus itself, guaranteed.
+  /// Future vault loot joins here without touching the wheel, the
+  /// pending-crate flow, or the pearl lock.
+  static FishItem vaultRewardFish(SaveManager save) {
+    return FishItem.getById('octopus');
+  }
+
   /// Spin probability per sector (sums to 100), aligned with [rewards].
   /// Gold sectors keep their classic odds; the pearl & food sectors take
   /// their small share from the crate/shard/life sectors.
@@ -131,33 +144,10 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       secondaryColor: const Color(0xFF6A1B9A),
       onClaim: (context, save) async {
         final crateDef = CrateDef.octopusVault;
-        final rand = Random();
-        final luckLevel = save.upgrades['luck'] ?? 0;
-        final weights = Map<Rarity, double>.from(crateDef.weights);
-        weights[Rarity.legendary] = (weights[Rarity.legendary] ?? 1.0) * (1.0 + luckLevel * 0.35);
-        weights[Rarity.epic] = (weights[Rarity.epic] ?? 5.0) * (1.0 + luckLevel * 0.25);
-        double totalWeight = weights.values.fold(0.0, (a, b) => a + b);
-        double roll = rand.nextDouble() * totalWeight;
-        Rarity rolledRarity = Rarity.common;
-        for (final entry in weights.entries) {
-          if (roll <= entry.value) {
-            rolledRarity = entry.key;
-            break;
-          }
-          roll -= entry.value;
-        }
-        final available = FishItem.allFish.where((f) => f.rarity == rolledRarity).toList();
-        final unownedInRarity = available.where((f) => save.getFishCount(f.id) == 0).toList();
-        final allUnowned = FishItem.allFish.where((f) => save.getFishCount(f.id) == 0).toList();
-        FishItem fish;
-        if (unownedInRarity.isNotEmpty) {
-          fish = unownedInRarity[rand.nextInt(unownedInRarity.length)];
-        } else if (allUnowned.isNotEmpty && rand.nextDouble() < 0.75) {
-          fish = allUnowned[rand.nextInt(allUnowned.length)];
-          rolledRarity = fish.rarity;
-        } else {
-          fish = available.isNotEmpty ? available[rand.nextInt(available.length)] : FishItem.allFish.first;
-        }
+        // Vault contents come from a single picker (see vaultRewardFish):
+        // for now the octopus itself, guaranteed.
+        final fish = vaultRewardFish(save);
+        final rolledRarity = fish.rarity;
         final currentOwnedCount = save.getFishCount(fish.id);
         int shardYield = 0;
         bool isDuplicate = false;

@@ -381,7 +381,7 @@ class TrailSkin {
 
 /// How a tank dweller moves: classic swimmers, bottom walkers and
 /// the special shrimp / octopus locomotion styles.
-enum FishKind { fish, snail, shrimp, octopus, crab }
+enum FishKind { fish, snail, shrimp, octopus, crab, jellyfish }
 
 class FishItem {
   final String id;
@@ -630,6 +630,15 @@ class FishItem {
       secondaryColor: Color(0xFF7E57C2),
       kind: FishKind.octopus,
     ),
+    FishItem(
+      id: 'jellyfish',
+      name: 'Ay Denizanası',
+      rarity: Rarity.epic,
+      size: 1.1,
+      color: Color(0xFFF8BBD0),
+      secondaryColor: Color(0xFFBA68C8),
+      kind: FishKind.jellyfish,
+    ),
   ];
 
   static FishItem getById(String id) {
@@ -702,9 +711,11 @@ class CrateDef {
   /// never sold in the shop, so it stays out of [allCrates].
   static const int octopusVaultPearlCost = 3;
 
-  /// The Octopus Vault: a legendary fish vault guarded by the octopus.
+  /// The Octopus Vault: a legendary vault guarded by the octopus.
   /// Won from the fortune wheel; opens only for [octopusVaultPearlCost]
-  /// pearls, with premium fish odds inside.
+  /// pearls. For now the octopus itself comes out of it (see
+  /// FortuneWheelDialog.vaultRewardFish); the weights stay as the
+  /// premium table for future vault loot.
   static const CrateDef octopusVault = CrateDef(
     id: 'octopus',
     name: 'Ahtapot Kasası',

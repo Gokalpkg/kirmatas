@@ -408,6 +408,19 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
           bobAmp = 24.0;
           if (f.y < 330.0) f.y += 26.0 * dt;
           vx *= 0.7;
+        } else if (f.item.kind == FishKind.jellyfish) {
+          // Pulse propulsion: the bell contracts to push up, then
+          // relaxes and the jelly drifts slowly back down.
+          bobAmp = 5.0;
+          vx *= 0.35;
+          final thrust = sin(_animTime * 2.2 + f.tailPhase);
+          if (thrust > 0.2) {
+            f.y -= 30.0 * dt;
+          } else {
+            f.y += 8.0 * dt;
+          }
+          // Lives in the upper-mid water column.
+          if (f.y < 130.0) f.y += 20.0 * dt;
         }
 
         f.x += vx * dt;
@@ -707,6 +720,13 @@ class _TankPainter extends CustomPainter {
           final pulse = 1.0 + sin(time * 2.4 + f.tailPhase) * 0.05;
           canvas.scale(pulse, 2.0 - pulse);
           canvas.translate(0, sin(time * 1.8 + f.tailPhase) * 5.0);
+          break;
+        case FishKind.jellyfish:
+          // Bell pulse synced with the sim thrust: squeeze wide and
+          // short on contraction, stretch tall as it relaxes.
+          final bell = sin(time * 2.2 + f.tailPhase);
+          canvas.scale(1.0 - bell * 0.06, 1.0 + bell * 0.09);
+          canvas.rotate(sin(time * 1.4 + f.tailPhase) * 0.06);
           break;
         case FishKind.fish:
           break;

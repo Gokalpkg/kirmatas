@@ -48,6 +48,15 @@ void main() {
       expect(pending, isNotNull);
       expect(pending!.crateId, 'octopus');
       expect(pending.rewardType, 'fish');
+      // For now the vault always hands out the octopus itself.
+      expect(pending.rewardId, 'octopus');
+      expect(pending.rarityIndex, Rarity.legendary.index);
+    });
+
+    test('vaultRewardFish currently guarantees the octopus', () {
+      final save = SaveManager.instance;
+      expect(FortuneWheelDialog.vaultRewardFish(save).id, 'octopus');
+      expect(FortuneWheelDialog.vaultRewardFish(save).rarity, Rarity.legendary);
     });
 
     test('pearl gate math: 3 pearls unlock, fewer do not', () {
