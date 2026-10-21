@@ -12,6 +12,7 @@ import '../models/game_state.dart';
 import '../models/level_design.dart';
 import '../models/paddle.dart';
 import '../models/powerup.dart';
+import '../models/sector_data.dart';
 import '../storage/save_manager.dart';
 import 'audio_manager.dart';
 import 'ad_manager.dart';
@@ -498,13 +499,11 @@ class GameController extends ChangeNotifier {
 
   bool get _blackHolesAllowed => currentMode != GameMode.classic || stats.level >= 4;
 
-  /// Death returns the player to the nearest sector checkpoint (every 17 levels).
-  /// Level 1..16 -> 1, Level 17..33 -> 17, Level 34..50 -> 34, etc. (Total 14 sectors for 238 levels).
+  /// Death returns the player to the start of the current 8-level
+  /// series (SectorData is the single source for series boundaries).
   int get classicCheckpointLevel {
     final level = stats.level.clamp(1, 238);
-    if (level < 17) return 1;
-    if (level >= 221) return 221;
-    return (level ~/ 17) * 17;
+    return SectorData.getSectorForLevel(level).checkpointLevel;
   }
 
   int get endGameMultiplierBaseGold => max(stats.goldCollected, 100);

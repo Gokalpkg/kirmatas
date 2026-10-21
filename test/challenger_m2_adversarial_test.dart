@@ -348,20 +348,25 @@ void main() {
         expect(SaveManager.calculatePrestigeTier(1000), ((1000 - 239) ~/ 17) + 1);
       });
 
-      test('SectorData.allSectors length remains exactly 14 and spans levels 1 to 238', () {
-        expect(SectorData.allSectors.length, 14);
+      test('SectorData series are runs of 8 spanning levels 1 to 238', () {
+        // 238 levels in series of 8: 29 full series + a 6-level finale.
+        expect(SectorData.allSectors.length, 30);
 
         for (int i = 0; i < SectorData.allSectors.length; i++) {
           final sector = SectorData.allSectors[i];
           expect(sector.sectorIndex, i + 1);
+          expect(sector.startLevel, i * SectorData.seriesSize + 1);
+          final span = sector.endLevel - sector.startLevel + 1;
+          expect(span, i == SectorData.allSectors.length - 1 ? 6 : 8);
           if (i > 0) {
             final prevSector = SectorData.allSectors[i - 1];
             expect(sector.startLevel, prevSector.endLevel + 1);
-          } else {
-            expect(sector.startLevel, 1);
           }
         }
         expect(SectorData.allSectors.first.startLevel, 1);
+        expect(SectorData.allSectors.first.nameTr, 'Başlangıç Vadisi I');
+        expect(SectorData.getSectorForLevel(9).nameTr, 'Başlangıç Vadisi II');
+        expect(SectorData.getSectorForLevel(17).nameTr, 'Kristal Buzul I');
         expect(SectorData.allSectors.last.endLevel, 238);
       });
 

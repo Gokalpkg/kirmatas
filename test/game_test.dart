@@ -1339,7 +1339,7 @@ void main() {
       expect(movingPortal.x != initialX, true);
     });
 
-    test('Classic death returns to the start of the 17-level sector with 3 lives', () {
+    test('Classic death returns to the start of the 8-level series with 3 lives', () {
       final gc = GameController();
       gc.setDimensions(360, 640);
       gc.startNewGame(GameMode.classic);
@@ -1352,27 +1352,28 @@ void main() {
       gc.update(0.016);
 
       expect(gc.status, GameStatus.gameOver);
-      expect(SaveManager.instance.classicSavedLevel, 1);
+      // Level 15 lives in series 2 (9-16): death rewinds to its start.
+      expect(SaveManager.instance.classicSavedLevel, 9);
       expect(SaveManager.instance.classicSavedLives, 3);
       expect(SaveManager.instance.classicSavedScore, 4000);
 
-      // Verify checkpoint calculation across 17-level bands:
+      // Verify checkpoint calculation across 8-level series:
       gc.stats.level = 1;
       expect(gc.classicCheckpointLevel, 1);
-      gc.stats.level = 16;
+      gc.stats.level = 8;
       expect(gc.classicCheckpointLevel, 1);
+      gc.stats.level = 9;
+      expect(gc.classicCheckpointLevel, 9);
+      gc.stats.level = 16;
+      expect(gc.classicCheckpointLevel, 9);
       gc.stats.level = 17;
       expect(gc.classicCheckpointLevel, 17);
-      gc.stats.level = 33;
-      expect(gc.classicCheckpointLevel, 17);
-      gc.stats.level = 34;
-      expect(gc.classicCheckpointLevel, 34);
       gc.stats.level = 50;
-      expect(gc.classicCheckpointLevel, 34);
+      expect(gc.classicCheckpointLevel, 49);
       gc.stats.level = 51;
-      expect(gc.classicCheckpointLevel, 51);
+      expect(gc.classicCheckpointLevel, 49);
       gc.stats.level = 238;
-      expect(gc.classicCheckpointLevel, 221);
+      expect(gc.classicCheckpointLevel, 233);
     });
 
     test('Shapes mode provides 38 distinct figures and builds valid bricks', () {
@@ -2965,8 +2966,8 @@ void main() {
       expect(gc.chaosToLaunch, 20);
     });
 
-    test('SectorData defines 14 sectors spanning exactly 238 levels with valid checkpoints', () {
-      expect(SectorData.allSectors.length, 14);
+    test('SectorData defines 8-level series spanning exactly 238 levels with valid checkpoints', () {
+      expect(SectorData.allSectors.length, 30);
       expect(SectorData.allSectors.first.startLevel, 1);
       expect(SectorData.allSectors.last.endLevel, 238);
 
@@ -2975,19 +2976,20 @@ void main() {
         final sec = SectorData.allSectors[i];
         expect(sec.sectorIndex, i + 1);
         expect(sec.checkpointLevel, sec.startLevel);
+        expect(sec.startLevel, i * SectorData.seriesSize + 1);
         if (i > 0) {
           final prev = SectorData.allSectors[i - 1];
           expect(sec.startLevel, prev.endLevel + 1);
         }
       }
 
-      // Specific level to sector mapping
+      // Specific level to series mapping (series of 8)
       expect(SectorData.getSectorForLevel(1).sectorIndex, 1);
-      expect(SectorData.getSectorForLevel(16).sectorIndex, 1);
-      expect(SectorData.getSectorForLevel(17).sectorIndex, 2);
-      expect(SectorData.getSectorForLevel(33).sectorIndex, 2);
-      expect(SectorData.getSectorForLevel(34).sectorIndex, 3);
-      expect(SectorData.getSectorForLevel(238).sectorIndex, 14);
+      expect(SectorData.getSectorForLevel(8).sectorIndex, 1);
+      expect(SectorData.getSectorForLevel(9).sectorIndex, 2);
+      expect(SectorData.getSectorForLevel(16).sectorIndex, 2);
+      expect(SectorData.getSectorForLevel(17).sectorIndex, 3);
+      expect(SectorData.getSectorForLevel(238).sectorIndex, 30);
     });
 
     test('SaveManager sector unlocking and checkpoint logic works seamlessly', () async {
@@ -3000,34 +3002,34 @@ void main() {
       expect(save.isSectorUnlocked(1), true);
       expect(save.isSectorUnlocked(2), false);
 
-      // Reaching level 17 unlocks sector 2
-      save.noteClassicProgress(17);
+      // Reaching level 9 unlocks series 2 (8-level series)
+      save.noteClassicProgress(9);
       expect(save.highestUnlockedSector, 2);
       expect(save.isSectorUnlocked(1), true);
       expect(save.isSectorUnlocked(2), true);
       expect(save.isSectorUnlocked(3), false);
-      expect(save.getSectorCheckpoint(2), 17);
+      expect(save.getSectorCheckpoint(2), 9);
 
-      // Reaching level 51 unlocks sector 4
+      // Reaching level 51 unlocks series 7
       save.noteClassicProgress(51);
-      expect(save.highestUnlockedSector, 4);
-      expect(save.isSectorUnlocked(4), true);
-      expect(save.getSectorCheckpoint(4), 51);
+      expect(save.highestUnlockedSector, 7);
+      expect(save.isSectorUnlocked(7), true);
+      expect(save.getSectorCheckpoint(7), 49);
     });
 
     test('GameController supports starting directly from sector checkpoint with explicitStartLevel', () {
       final gc = GameController();
       gc.setDimensions(360, 640);
 
-      // Start from sector 3 checkpoint (Level 34)
-      gc.startNewGame(GameMode.classic, explicitStartLevel: 34);
-      expect(gc.stats.level, 34);
+      // Start from series 5 checkpoint (Level 33)
+      gc.startNewGame(GameMode.classic, explicitStartLevel: 33);
+      expect(gc.stats.level, 33);
       expect(gc.currentMode, GameMode.classic);
       expect(gc.status, GameStatus.ready);
 
-      // Start from sector 14 checkpoint (Level 221)
-      gc.startNewGame(GameMode.classic, explicitStartLevel: 221);
-      expect(gc.stats.level, 221);
+      // Start from the final series checkpoint (Level 233)
+      gc.startNewGame(GameMode.classic, explicitStartLevel: 233);
+      expect(gc.stats.level, 233);
     });
 
     test('AudioManager combo pitch escalation and dynamic tempo scaling', () {

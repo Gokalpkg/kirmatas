@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// 238 bölümlük Klasik Mod için 17'şer bölümlük 14 Checkpoint Sektörü
+/// Klasik Mod bölüm serileri: 238 bölüm, 8'er bölümlük seriler hâlinde.
+/// Her seri, ilk bölümünün ait olduğu temanın kimliğini taşır.
 class SectorData {
   final int sectorIndex; // 1..14
   final int startLevel;
@@ -51,7 +52,8 @@ class SectorData {
   String getName(String lang) => lang == 'en' ? nameEn : nameTr;
   String getDescription(String lang) => lang == 'en' ? descriptionEn : descriptionTr;
 
-  static const List<SectorData> allSectors = [
+  /// The 14 world themes series inherit from (legacy 17-level sectors).
+  static const List<SectorData> _themes = [
     SectorData(
       sectorIndex: 1,
       startLevel: 1,
@@ -235,6 +237,56 @@ class SectorData {
       gradientColors: [Color(0xFFFF1744), Color(0xFFFFD700)],
     ),
   ];
+
+  /// Levels per series: the campaign is grouped into runs of 8.
+  static const int seriesSize = 8;
+  static const int totalLevels = 238;
+
+  /// All series in order. Series k covers (k-1)*8+1 .. min(k*8, 238)
+  /// and inherits the theme (name root, colors, icon, description) of
+  /// the legacy sector its first level belonged to, with a stage
+  /// suffix (I, II, III). Level numbers never change, so saves and
+  /// checkpoints keep working exactly as before.
+  static final List<SectorData> allSectors = _buildSeries();
+
+  static String _roman(int n) {
+    const numerals = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+    return (n >= 1 && n <= numerals.length) ? numerals[n - 1] : '$n';
+  }
+
+  static SectorData _themeForLevel(int level) {
+    for (final t in _themes) {
+      if (level >= t.startLevel && level <= t.endLevel) return t;
+    }
+    return level > totalLevels ? _themes.last : _themes.first;
+  }
+
+  static List<SectorData> _buildSeries() {
+    final out = <SectorData>[];
+    final themeStage = <int, int>{};
+    for (var start = 1; start <= totalLevels; start += seriesSize) {
+      final theme = _themeForLevel(start);
+      final stage = (themeStage[theme.sectorIndex] ?? 0) + 1;
+      themeStage[theme.sectorIndex] = stage;
+      final end = (start + seriesSize - 1 > totalLevels)
+          ? totalLevels
+          : start + seriesSize - 1;
+      out.add(SectorData(
+        sectorIndex: out.length + 1,
+        startLevel: start,
+        endLevel: end,
+        nameTr: '${theme.nameTr} ${_roman(stage)}',
+        nameEn: '${theme.nameEn} ${_roman(stage)}',
+        descriptionTr: theme.descriptionTr,
+        descriptionEn: theme.descriptionEn,
+        icon: theme.icon,
+        primaryColor: theme.primaryColor,
+        accentColor: theme.accentColor,
+        gradientColors: theme.gradientColors,
+      ));
+    }
+    return out;
+  }
 
   /// Belirli bir bölüme denk gelen sektörü getirir
   static SectorData getSectorForLevel(int level) {

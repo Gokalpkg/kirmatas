@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/game_state.dart';
 import '../models/cosmetics.dart';
+import '../models/sector_data.dart';
 
 class LeagueRival {
   final String name;
@@ -1572,10 +1573,7 @@ class SaveManager extends ChangeNotifier {
 
   /// 14 Sektörden kilidi açılmış en yüksek sektör indeksi (1..14)
   int get highestUnlockedSector {
-    final highest = metricHighestClassicLevel;
-    if (highest < 17) return 1;
-    final sec = (highest ~/ 17) + 1;
-    return sec.clamp(1, 14);
+    return SectorData.getSectorForLevel(metricHighestClassicLevel).sectorIndex;
   }
 
   /// Belirli bir sektörün kilidi açılmış mı?
@@ -1587,7 +1585,11 @@ class SaveManager extends ChangeNotifier {
   /// Sektörün başlangıç checkpoint seviyesini döner
   int getSectorCheckpoint(int sectorIndex) {
     if (sectorIndex <= 1) return 1;
-    return (sectorIndex - 1) * 17;
+    final idx = sectorIndex - 1;
+    if (idx >= SectorData.allSectors.length) {
+      return SectorData.allSectors.last.startLevel;
+    }
+    return SectorData.allSectors[idx].startLevel;
   }
 
   void markDayBlessed(String day) {
