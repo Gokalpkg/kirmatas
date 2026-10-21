@@ -3,5 +3,5 @@
     <!-- Google Play Games project id (numeric, from Play Console >
          Play Games services > Setup and management > Configuration).
          The placeholder keeps sign-in gracefully disabled until filled in. -->
-    <string name="game_services_project_id" translatable="false">000000000000</string>
+    <string name="game_services_project_id" translatable="false">41152036801</string>
 </resources>
