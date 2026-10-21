@@ -19,6 +19,11 @@ void main() {
       await games.submitBestScores(SaveManager.instance);
     });
 
+    test('classic leaderboard id is wired', () {
+      expect(PlayGamesManager.classicLeaderboardId, startsWith('CgkI'));
+      expect(PlayGamesManager.instance.hasLeaderboard, isTrue);
+    });
+
     test('leaderboard screen asks for sign-in first', () async {
       final games = PlayGamesManager.instance;
       expect(await games.showLeaderboard(), 'Önce giriş yap');

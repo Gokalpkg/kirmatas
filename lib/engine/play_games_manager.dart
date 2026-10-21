@@ -18,10 +18,10 @@ class PlayGamesManager extends ChangeNotifier {
   static const String _snapshotName = 'kirmatas_main';
 
   /// Play Games leaderboard ids (Play Console > Play Games services >
-  /// Leaderboards > leaderboard details). Empty until the leaderboards
-  /// are created in the console; every leaderboard call below no-ops
-  /// gracefully while an id is empty.
-  static const String classicLeaderboardId = '';
+  /// Leaderboards > leaderboard details). An empty id makes every
+  /// leaderboard call below no-op gracefully.
+  /// classic: 'En Yüksek Skor' (created 2026-10-21).
+  static const String classicLeaderboardId = 'CgkIwf_oppkBEAIQAA';
   static const String chaosLeaderboardId = '';
 
   bool get hasLeaderboard => classicLeaderboardId.isNotEmpty;
