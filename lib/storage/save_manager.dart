@@ -136,6 +136,23 @@ class SaveManager extends ChangeNotifier {
   PendingCrate? pendingCrate;
 
   int gold = 300;
+
+  /// Player-chosen display name, shown on the menu badge and in the
+  /// weekly league table. Defaults to 'SEN' until renamed.
+  static const String defaultPlayerName = 'SEN';
+  static const int maxPlayerNameLength = 14;
+  String playerName = defaultPlayerName;
+
+  Future<void> setPlayerName(String raw) async {
+    var name = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (name.length > maxPlayerNameLength) {
+      name = name.substring(0, maxPlayerNameLength);
+    }
+    playerName = name.isEmpty ? defaultPlayerName : name;
+    await _prefs?.setString('playerName', playerName);
+    notifyListeners();
+  }
+
   int sfxVolume = 8;
   int bgmVolume = 3;
   int vibrationLevel = 8;
@@ -630,7 +647,7 @@ class SaveManager extends ChangeNotifier {
     final List<LeagueRival> list = [
       for (final b in _leagueBots)
         LeagueRival(name: b.name, score: b.scoreAt(progress), isPlayer: false),
-      LeagueRival(name: 'SEN', score: weeklyTournamentScore, isPlayer: true),
+      LeagueRival(name: playerName, score: weeklyTournamentScore, isPlayer: true),
     ];
     list.sort((a, b) {
       final byScore = b.score.compareTo(a.score);
@@ -662,6 +679,7 @@ class SaveManager extends ChangeNotifier {
     _prefs = await SharedPreferences.getInstance();
 
     gold = _prefs?.getInt('gold') ?? 300;
+    playerName = _prefs?.getString('playerName') ?? defaultPlayerName;
     sfxVolume = _prefs?.getInt('sfxVolume') ?? 8;
     bgmVolume = _prefs?.getInt('bgmVolume') ?? 3;
     vibrationLevel = _prefs?.getInt('vibrationLevel') ?? 8;

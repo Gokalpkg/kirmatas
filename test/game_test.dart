@@ -3730,7 +3730,7 @@ void main() {
         expect(joinTapped, true);
       });
 
-      testWidgets('R7: MainMenu profile header displays seasonal title and opens TournamentDialog', (tester) async {
+      testWidgets('R7: MainMenu profile header displays player name and renames on tap', (tester) async {
         SharedPreferences.setMockInitialValues({});
         final save = SaveManager.instance;
         await save.init();
@@ -3746,14 +3746,22 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
 
-        expect(find.text(save.seasonalTitle), findsWidgets);
+        expect(find.textContaining(save.seasonalTitle, findRichText: true), findsWidgets);
+        expect(find.textContaining(save.playerName, findRichText: true), findsWidgets);
 
-        await tester.tap(find.text(save.seasonalTitle).first);
+        // Tapping the badge opens the rename dialog.
+        await tester.tap(find.textContaining(save.seasonalTitle, findRichText: true).first);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
 
-        expect(find.text('HAFTALIK LİG ŞAMPİYONASI'), findsOneWidget);
-        expect(find.text('MÜCADELEYE KATIL'), findsOneWidget);
+        expect(find.text('Oyuncu Adı'), findsOneWidget);
+        await tester.enterText(find.byType(TextField), 'Kaptan Neon');
+        await tester.tap(find.text('Kaydet'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(save.playerName, 'Kaptan Neon');
+        expect(find.textContaining('Kaptan Neon', findRichText: true), findsWidgets);
 
         // Advance timers to prevent pending timer assertion
         await tester.pump(const Duration(seconds: 1));

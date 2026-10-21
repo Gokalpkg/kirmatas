@@ -105,6 +105,112 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     super.dispose();
   }
 
+  /// Rename dialog opened from the seasonal-title badge on the top bar.
+  void _showRenameDialog() {
+    final controller = TextEditingController(text: _save.playerName);
+    showDialog(
+      context: context,
+      builder: (dlgContext) => Dialog(
+        backgroundColor: const Color(0xFF131726),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: _save.leagueTierColor, width: 1.4),
+        ),
+        child: SingleChildScrollView(
+          child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.badge_rounded, color: _save.leagueTierColor, size: 22),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Oyuncu Adı',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17, fontFamily: 'Rajdhani'),
+                    ),
+                  ),
+                  Text(
+                    _save.seasonalTitle,
+                    style: TextStyle(color: _save.leagueTierColor, fontWeight: FontWeight.w800, fontSize: 11.5, fontFamily: 'Rajdhani'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Bu isim lig tablosunda ve menüde görünür.',
+                style: TextStyle(color: Colors.white60, fontSize: 12),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                maxLength: SaveManager.maxPlayerNameLength,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontFamily: 'Rajdhani'),
+                decoration: InputDecoration(
+                  hintText: 'Adını yaz',
+                  hintStyle: const TextStyle(color: Colors.white38),
+                  filled: true,
+                  fillColor: Colors.black38,
+                  counterStyle: const TextStyle(color: Colors.white38, fontSize: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.white24)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: _save.leagueTierColor, width: 1.4)),
+                ),
+                onSubmitted: (_) => Navigator.of(dlgContext).pop(controller.text),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(dlgContext).pop(),
+                      child: const Text('Vazgeç', style: TextStyle(color: Colors.white60, fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(dlgContext).pop(controller.text),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _save.leagueTierColor,
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('Kaydet', style: TextStyle(fontWeight: FontWeight.w900)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          ),
+        ),
+      ),
+    ).then((newName) async {
+      if (newName is String) {
+        await _save.setPlayerName(newName);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('İsmin "${_save.playerName}" olarak güncellendi.'),
+              backgroundColor: const Color(0xFF1E2438),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+          );
+        }
+      }
+      // Dispose after the closing animation so the field never touches
+      // a dead controller mid-transition.
+      Future.delayed(const Duration(milliseconds: 400), controller.dispose);
+    });
+  }
+
   void _showLockedFeedback(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
@@ -917,17 +1023,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             child: KaunosJuicyInteractive(
                               borderRadius: 16,
                               waveColor: _save.leagueTierColor,
-                              onTap: () {
-                                if (!_save.isLeagueUnlocked) {
-                                  _showLockedFeedback('Haftalık Lig Bölüm 7 seviyesinde açılır.');
-                                  return;
-                                }
-                                TournamentDialog.show(
-                                  context,
-                                  save: _save,
-                                  onJoinTournament: () => _launchGame(GameMode.classic),
-                                );
-                              },
+                              onTap: () => _showRenameDialog(),
                           child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                             decoration: BoxDecoration(
@@ -957,19 +1053,30 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     KaunosEmblem.crest(size: 15, crestColor: _save.leagueTierColor),
                                     const SizedBox(width: 5),
                                     Flexible(
-                                      child: Text(
-                                        _save.seasonalTitle,
+                                      child: Text.rich(
+                                        TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text: _save.playerName,
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11.5),
+                                            ),
+                                            const TextSpan(
+                                              text: ' • ',
+                                              style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w700, fontSize: 10.5),
+                                            ),
+                                            TextSpan(
+                                              text: _save.seasonalTitle,
+                                              style: TextStyle(color: _save.leagueTierColor, fontWeight: FontWeight.w800, fontSize: 10.5, letterSpacing: 0.3),
+                                            ),
+                                          ],
+                                        ),
                                         overflow: TextOverflow.ellipsis,
                                         maxLines: 1,
-                                        style: TextStyle(
-                                          color: _save.leagueTierColor,
-                                    fontWeight: FontWeight.w900,
-                                          fontSize: 12,
-                                          letterSpacing: 0.5,
-                                          fontFamily: 'Rajdhani',
-                                  ),
-                                ),
+                                        style: const TextStyle(fontFamily: 'Rajdhani', height: 1.0),
+                                      ),
                                     ),
+                                    const SizedBox(width: 3),
+                                    Icon(Icons.edit_rounded, color: _save.leagueTierColor.withValues(alpha: 0.8), size: 11),
                               ],
                             ),
                           ),
