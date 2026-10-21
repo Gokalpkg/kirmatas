@@ -648,7 +648,10 @@ class FishItem {
 
 class CrateDef {
   final String id;
-  final String? _name;
+
+  /// Optional i18n key for the display name when [id] is shared with
+  /// another catalogue (the octopus vault shares its id with the fish).
+  final String? nameKey;
   final int cost;
   final Rarity tier;
   final Color primaryColor;
@@ -656,19 +659,18 @@ class CrateDef {
 
   const CrateDef({
     required this.id,
-    String? name,
+    this.nameKey,
     required this.cost,
     required this.tier,
     required this.primaryColor,
     required this.weights,
-  }) : _name = name;
+  });
 
-  String get name => _name != null ? I18n.tr(id) : I18n.tr(id);
+  String get name => I18n.tr(nameKey ?? id);
 
   static const List<CrateDef> allCrates = [
     CrateDef(
       id: 'wood',
-      name: 'Ahşap Sandık',
       cost: 600,
       tier: Rarity.common,
       primaryColor: Color(0xFF8D6E63),
@@ -681,7 +683,6 @@ class CrateDef {
     ),
     CrateDef(
       id: 'coral',
-      name: 'Mercan Sandığı',
       cost: 1400,
       tier: Rarity.rare,
       primaryColor: Color(0xFF00BCD4),
@@ -692,9 +693,11 @@ class CrateDef {
         Rarity.legendary: 3.0,
       },
     ),
+    // The Octopus Treasure sits above the Abyssal Crate in the shop:
+    // 380 gold to buy, pearls to open (see octopusVaultPearlCost).
+    octopusVault,
     CrateDef(
       id: 'abyss',
-      name: 'Derinlik Sandığı',
       cost: 2800,
       tier: Rarity.legendary,
       primaryColor: Color(0xFF7C4DFF),
@@ -707,19 +710,19 @@ class CrateDef {
     ),
   ];
 
-  /// Pearls needed to unlock an Octopus Vault (wheel prize). The vault is
-  /// never sold in the shop, so it stays out of [allCrates].
+  /// Pearls needed to unlock an Octopus Treasure, whether it was won
+  /// from the fortune wheel or bought in the shop.
   static const int octopusVaultPearlCost = 3;
 
-  /// The Octopus Vault: a legendary vault guarded by the octopus.
-  /// Won from the fortune wheel; opens only for [octopusVaultPearlCost]
-  /// pearls. For now the octopus itself comes out of it (see
-  /// FortuneWheelDialog.vaultRewardFish); the weights stay as the
-  /// premium table for future vault loot.
+  /// The Octopus Treasure: a legendary chest guarded by the octopus.
+  /// Sold in the shop for gold and won from the fortune wheel; opens
+  /// only for [octopusVaultPearlCost] pearls. For now the octopus
+  /// itself comes out of it (see [octopusVaultRewardFish]); the
+  /// weights stay as the premium table for future vault loot.
   static const CrateDef octopusVault = CrateDef(
     id: 'octopus',
-    name: 'Ahtapot Kasası',
-    cost: 0,
+    nameKey: 'octopus_crate',
+    cost: 380,
     tier: Rarity.legendary,
     primaryColor: Color(0xFFAB47BC),
     weights: {
@@ -730,6 +733,11 @@ class CrateDef {
     },
   );
 }
+
+/// What the Octopus Treasure hands out. Single source shared by the
+/// wheel prize and the shop chest: for now the octopus itself,
+/// guaranteed. Future vault loot joins here.
+FishItem octopusVaultRewardFish() => FishItem.getById('octopus');
 
 class UpgradeDef {
   final String id;

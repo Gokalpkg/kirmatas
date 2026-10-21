@@ -114,12 +114,11 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
 
   List<WheelReward> get _rewards => rewards;
 
-  /// What the Octopus Vault hands out. This is the single place that
-  /// decides vault contents: for now the octopus itself, guaranteed.
-  /// Future vault loot joins here without touching the wheel, the
-  /// pending-crate flow, or the pearl lock.
+  /// What the Octopus Treasure hands out; the picker itself lives in
+  /// the model (see [octopusVaultRewardFish]) so the shop chest and
+  /// the wheel prize can never drift apart.
   static FishItem vaultRewardFish(SaveManager save) {
-    return FishItem.getById('octopus');
+    return octopusVaultRewardFish();
   }
 
   /// Spin probability per sector (sums to 100), aligned with [rewards].
@@ -138,7 +137,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     ),
     WheelReward(
       label: 'KASA',
-      subtitle: 'Ahtapot Kasası',
+      subtitle: 'Ahtapot Hazinesi',
       icon: Icons.lock_rounded,
       primaryColor: const Color(0xFFAB47BC),
       secondaryColor: const Color(0xFF6A1B9A),
@@ -1203,7 +1202,7 @@ class _PrizeRevealDialogState extends State<_PrizeRevealDialog> with SingleTicke
             const SizedBox(height: 12),
             Text(
               widget.isChest
-                  ? 'Ahtapot Kasası arkaya bırakıldı! Açmak için ${CrateDef.octopusVaultPearlCost} inci gerekir.'
+                  ? 'Ahtapot Hazinesi arkaya bırakıldı! Açmak için ${CrateDef.octopusVaultPearlCost} inci gerekir.'
                   : 'Ödül hesabınıza aktarıldı!',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white54, fontSize: 12),

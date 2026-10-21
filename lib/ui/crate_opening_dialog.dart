@@ -151,9 +151,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            '🐙 AHTAPOT KASASI',
-            style: TextStyle(color: Color(0xFFEA80FC), fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.0),
+          Text(
+            '🐙 ${CrateDef.octopusVault.name.toUpperCase()}',
+            style: const TextStyle(color: Color(0xFFEA80FC), fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.0),
           ),
           const SizedBox(height: 5),
           const Text(
@@ -724,6 +724,50 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       roll -= entry.value;
     }
     _rewardRarity = rolledRarity;
+
+    // The Octopus Treasure skips the roll: the octopus itself is
+    // guaranteed (single source: octopusVaultRewardFish).
+    if (crateDef.id == CrateDef.octopusVault.id) {
+      final fish = octopusVaultRewardFish();
+      _rewardRarity = fish.rarity;
+      _reward = fish;
+      _rewardTitle = fish.name;
+      final owned = save.getFishCount(fish.id);
+      int shardYield = 0;
+      if (owned >= 2) {
+        shardYield = 2;
+        _isDuplicate = true;
+        _isShardReward = true;
+        _isFoodBonus = false;
+        _rewardSubtitle = 'Bu balıktan 2 adede sahipsin! +$shardYield Balık Eklentisi eklendi (${save.fishShards + shardYield}/8).';
+      } else if (owned == 1) {
+        _isDuplicate = true;
+        _isShardReward = false;
+        _isFoodBonus = true;
+        _rewardSubtitle = 'Akvaryumuna 2. ${fish.name} katıldı! (+3 Yem Hediye)';
+      } else {
+        _isDuplicate = false;
+        _isShardReward = false;
+        _isFoodBonus = false;
+        _rewardSubtitle = I18n.tr('new_fish_unlocked');
+      }
+      save.savePendingCrate(PendingCrate(
+        crateType: 'aquarium',
+        crateId: crateDef.id,
+        category: 'fish',
+        rewardType: 'fish',
+        rewardId: fish.id,
+        rewardTitle: _rewardTitle,
+        rewardSubtitle: _rewardSubtitle,
+        rarityIndex: _rewardRarity.index,
+        isDuplicate: _isDuplicate,
+        isShardReward: _isShardReward,
+        shardCount: shardYield > 0 ? shardYield : 1,
+        isFoodBonus: _isFoodBonus,
+        bonusFoodCount: _isFoodBonus ? 3 : 0,
+      ));
+      return;
+    }
 
     // Fish candidate selection
     final available = FishItem.allFish.where((f) => f.rarity == rolledRarity).toList();

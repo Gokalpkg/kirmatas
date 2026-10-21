@@ -14,16 +14,22 @@ void main() {
       await SaveManager.instance.init();
     });
 
-    test('vault is premium, pearl-gated, and never sold in the shop', () {
+    test('treasure is premium, pearl-gated, sold above the abyss crate', () {
       final vault = CrateDef.octopusVault;
       expect(vault.id, 'octopus');
+      expect(vault.name, 'Ahtapot Hazinesi');
       expect(vault.tier, Rarity.legendary);
-      expect(CrateDef.octopusVaultPearlCost, 3);
-      expect(CrateDef.allCrates.any((c) => c.id == 'octopus'), isFalse,
-          reason: 'Vault must not appear among shop crates');
+      expect(vault.cost, 380); // gold to buy
+      expect(CrateDef.octopusVaultPearlCost, 3); // pearls to open
+      final ids = CrateDef.allCrates.map((c) => c.id).toList();
+      expect(ids, contains('octopus'));
+      expect(ids.indexOf('octopus'), lessThan(ids.indexOf('abyss')),
+          reason: 'Octopus Treasure sits above the Abyssal Crate');
+      // What comes out is decided in one place: the octopus itself.
+      expect(octopusVaultRewardFish().id, 'octopus');
       final total = vault.weights.values.fold(0.0, (a, b) => a + b);
       expect(total, closeTo(100.0, 0.01));
-      // Premium odds: epic+legendary dominate the vault.
+      // Premium odds table kept for future vault loot.
       expect((vault.weights[Rarity.epic] ?? 0) + (vault.weights[Rarity.legendary] ?? 0),
           greaterThan(50.0));
     });

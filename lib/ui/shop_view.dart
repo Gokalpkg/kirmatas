@@ -1206,7 +1206,10 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text( 'Akvaryum için deniz canlıları ve nadir balıklar içerir.',
+                      Text(
+                        crate.id == CrateDef.octopusVault.id
+                            ? 'Ahtapot hazinesini koruyor: içinden Kozmik Ahtapot çıkar! Kilit ${CrateDef.octopusVaultPearlCost} inciyle açılır.'
+                            : 'Akvaryum için deniz canlıları ve nadir balıklar içerir.',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.65),
                           fontSize: 12,
@@ -1227,7 +1230,19 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: Colors.white10),
               ),
-              child: Row(
+              child: crate.id == CrateDef.octopusVault.id
+                  ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.lock_rounded, color: Color(0xFFEA80FC), size: 14),
+                        SizedBox(width: 6),
+                        Text(
+                          '🐙 GARANTİ İÇERİK • 3 İNCİYLE AÇILIR',
+                          style: TextStyle(color: Color(0xFFEA80FC), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.6),
+                        ),
+                      ],
+                    )
+                  : Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildDropRateChip(I18n.tr('common'), '${crate.weights[Rarity.common]?.toInt() ?? 0}%', Colors.white60),
