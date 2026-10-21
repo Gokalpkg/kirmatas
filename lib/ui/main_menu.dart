@@ -716,7 +716,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               0, 0, 1, 0, 0,
                               0, 0, 0, 1, 0,
                             ]),
-                      child: GameCanvas(controller: _activeGame!),
+                child: GameCanvas(controller: _activeGame!),
                     );
                   },
                 ),
@@ -863,9 +863,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
   Widget _buildMainMenuHome() {
     return EcoTankBackground(
-      child: SafeArea(
-        child: Column(
-          children: [
+            child: SafeArea(
+              child: Column(
+                children: [
                   // Top Header Bar
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
@@ -928,9 +928,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                   onJoinTournament: () => _launchGame(GameMode.classic),
                                 );
                               },
-                              child: Container(
+                          child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                decoration: BoxDecoration(
+                            decoration: BoxDecoration(
                                   color: KaunosPalette.obsidianGlassElevated,
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(color: _save.leagueTierColor, width: 1.4),
@@ -950,10 +950,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                       blurRadius: 8,
                                     ),
                                   ],
-                                ),
-                                child: Row(
+                            ),
+                            child: Row(
                                   mainAxisSize: MainAxisSize.min,
-                                  children: [
+                              children: [
                                     KaunosEmblem.crest(size: 15, crestColor: _save.leagueTierColor),
                                     const SizedBox(width: 5),
                                     Flexible(
@@ -963,16 +963,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                         maxLines: 1,
                                         style: TextStyle(
                                           color: _save.leagueTierColor,
-                                          fontWeight: FontWeight.w900,
+                                    fontWeight: FontWeight.w900,
                                           fontSize: 12,
                                           letterSpacing: 0.5,
                                           fontFamily: 'Rajdhani',
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                              ),
+                                    ),
+                              ],
+                            ),
+                          ),
                             ),
                           ),
                         ),
@@ -1048,25 +1048,25 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         children: [
                           const KaunosEmblem.crest(size: 18, crestColor: KaunosPalette.goldHighlight),
                           const SizedBox(width: 10),
-                          Text(
-                            'KIRMATAS',
-                            style: TextStyle(
+                  Text(
+                    'KIRMATAS',
+                    style: TextStyle(
                               fontSize: 32,
-                              fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w900,
                               letterSpacing: 4.0,
                               fontFamily: 'Rajdhani',
-                              foreground: Paint()
-                                ..shader = const LinearGradient(
+                      foreground: Paint()
+                        ..shader = const LinearGradient(
                                   colors: [
                                     KaunosPalette.goldGlint,
                                     KaunosPalette.goldHighlight,
                                     KaunosPalette.goldPrimary,
                                     KaunosPalette.goldDeep,
                                   ],
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
                                 ).createShader(const Rect.fromLTWH(0, 0, 240, 50)),
-                              shadows: const [
+                      shadows: const [
                                 Shadow(color: Color(0x99451A03), blurRadius: 12, offset: Offset(0, 3)),
                                 Shadow(color: Color(0x66F59E0B), blurRadius: 20, offset: Offset(0, 4)),
                               ],
@@ -1108,48 +1108,48 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              onTap: () {
-                                setState(() {
-                                  _showArcadeModes = !_showArcadeModes;
-                                });
-                              },
-                              child: Container(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () {
+                              setState(() {
+                                _showArcadeModes = !_showArcadeModes;
+                              });
+                            },
+                            child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0x33101320),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: Colors.white12),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      _showArcadeModes ? Icons.grid_view_rounded : Icons.sports_esports_rounded,
-                                      color: const Color(0xFFFFD54F),
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0x33101320),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.white12),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _showArcadeModes ? Icons.grid_view_rounded : Icons.sports_esports_rounded,
+                                    color: const Color(0xFFFFD54F),
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
                                     Flexible(
                                       child: Text(
                                         _showArcadeModes ? I18n.tr('other_modes_hide') : I18n.tr('other_modes_show'),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 0.5,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.5,
                                         ),
-                                      ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    Icon(
-                                      _showArcadeModes ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                                      color: Colors.white54,
-                                      size: 18,
-                                    ),
-                                  ],
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Icon(
+                                    _showArcadeModes ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                    color: Colors.white54,
+                                    size: 18,
+                                  ),
+                                ],
                                 ),
                               ),
                             ),
@@ -1197,17 +1197,17 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             ),
                             const SizedBox(height: 10),
                             _buildArcadeMiniCard(
-                              mode: GameMode.shapes,
+                                    mode: GameMode.shapes,
                               title: '${I18n.tr('shapes').toUpperCase()} • 38 FİGÜR',
                               desc: 'Rastgele piksel figürler, özel desenler ve yüksek tempo',
                               icon: Icons.palette_rounded,
                               color1: const Color(0xFFE040FB),
                               color2: const Color(0xFF7C4DFF),
-                              onTap: () => _launchGame(GameMode.shapes),
-                            ),
+                                    onTap: () => _launchGame(GameMode.shapes),
+                                  ),
                             const SizedBox(height: 10),
                             _buildArcadeMiniCard(
-                              mode: GameMode.daily,
+                                    mode: GameMode.daily,
                               title: 'GÜNÜN OPERASYONU • GÜNLÜK MÜCADELE',
                               desc: _save.isDailyBlitzCompletedToday
                                   ? 'Bugünkü görev tamamlandı! 250 Altın + 3 İnci + 1 Parça alındı.'
@@ -1351,7 +1351,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         children: [
           _buildTopRewardsBar(),
           const SizedBox(height: 6),
-          Container(
+                  Container(
             height: 1,
             margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: const BoxDecoration(
@@ -1365,12 +1365,12 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             ),
           ),
           Row(
-            children: [
+                      children: [
               Expanded(
                 child: _buildNavButton(
                   emblem: const KaunosEmblem.pearl(size: 20),
                   icon: Icons.storefront_rounded,
-                  label: I18n.tr('shop'),
+                          label: I18n.tr('shop'),
                   badge: !_save.isShopUnlocked
                       ? '🔒 Bölüm 2'
                       : (_save.isUnlockNew('shop', _save.isShopUnlocked) ? 'YENİ!' : null),
@@ -1387,7 +1387,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       starColor: Color(0xFF4FC3F7),
                     ),
                     icon: Icons.water_drop_rounded,
-                    label: I18n.tr('aquarium'),
+                          label: I18n.tr('aquarium'),
                     badge: !_save.isAquariumUnlocked
                         ? '🔒 Bölüm 5'
                         : (_save.isUnlockNew('aquarium', _save.isAquariumUnlocked)
@@ -1403,18 +1403,18 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   child: _buildNavButton(
                     emblem: const KaunosEmblem.anvil(size: 20, steelColor: KaunosPalette.goldHighlight),
                     icon: Icons.auto_awesome_rounded,
-                    label: I18n.tr('upgrades'),
+                          label: I18n.tr('upgrades'),
                     badge: !_save.isWorkshopUnlocked
                         ? '🔒 Bölüm 3'
                         : (_save.isUnlockNew('workshop', _save.isWorkshopUnlocked) ? 'YENİ!' : null),
                     onTap: () => _goToPage(3),
                   ),
-                ),
-              ),
-            ],
+                          ),
+                        ),
+                      ],
+                  ),
+                ],
           ),
-        ],
-      ),
     );
   }
 
@@ -1424,41 +1424,41 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     final hasAnyClaim = canClaimDaily || canClaimAd;
 
     return Row(
-      children: [
-        // 1. 7 GÜNLÜK GİRİŞ (Compact Pill)
-        Expanded(
-          child: _buildFancyRewardButton(
-            gradientColors: [const Color(0xFF261A08), const Color(0xFF161004)],
-            borderColor: hasAnyClaim ? const Color(0xFFFFD54F) : Colors.white12,
-            glowColor: const Color(0xFFFFA000),
-            isGlowing: hasAnyClaim,
-            iconGradient: const [Color(0xFFFFD54F), Color(0xFFFF8F00)],
+          children: [
+            // 1. 7 GÜNLÜK GİRİŞ (Compact Pill)
+            Expanded(
+              child: _buildFancyRewardButton(
+                gradientColors: [const Color(0xFF261A08), const Color(0xFF161004)],
+                borderColor: hasAnyClaim ? const Color(0xFFFFD54F) : Colors.white12,
+                glowColor: const Color(0xFFFFA000),
+                isGlowing: hasAnyClaim,
+                iconGradient: const [Color(0xFFFFD54F), Color(0xFFFF8F00)],
             emblem: const KaunosEmblem.crest(size: 16, crestColor: Color(0xFF261500)),
-            icon: Icons.calendar_month_rounded,
-            iconColor: const Color(0xFF261500),
-            title: 'GİRİŞ',
-            titleColor: const Color(0xFFFFE082),
-            subtitle: '${_save.currentDailyLoginDay}. Gün',
-            subColor: const Color(0xFFFFB300),
-            badgeText: canClaimDaily ? 'AL!' : (canClaimAd ? '2X' : null),
-            badgeGradient: const [Color(0xFFFF5252), Color(0xFFFF1744)],
-            onTap: () => DailyLoginDialog.show(context),
-          ),
-        ),
-        const SizedBox(width: 6),
+                icon: Icons.calendar_month_rounded,
+                iconColor: const Color(0xFF261500),
+                title: 'GİRİŞ',
+                titleColor: const Color(0xFFFFE082),
+                subtitle: '${_save.currentDailyLoginDay}. Gün',
+                subColor: const Color(0xFFFFB300),
+                badgeText: canClaimDaily ? 'AL!' : (canClaimAd ? '2X' : null),
+                badgeGradient: const [Color(0xFFFF5252), Color(0xFFFF1744)],
+                onTap: () => DailyLoginDialog.show(context),
+              ),
+            ),
+            const SizedBox(width: 6),
 
-        // 2. ŞANS ÇARKI (Compact Pill)
-        Expanded(
-          child: KeyedSubtree(
-            key: _wheelButtonKey,
-            child: ListenableBuilder(
-              listenable: _save,
-              builder: (context, _) {
-                final spinsLeft = _save.remainingWheelSpins;
-                final hasSpins = spinsLeft > 0;
+            // 2. ŞANS ÇARKI (Compact Pill)
+            Expanded(
+              child: KeyedSubtree(
+                key: _wheelButtonKey,
+                child: ListenableBuilder(
+                  listenable: _save,
+                  builder: (context, _) {
+                    final spinsLeft = _save.remainingWheelSpins;
+                    final hasSpins = spinsLeft > 0;
                 final isLocked = !_save.isShopUnlocked;
 
-                return _buildFancyRewardButton(
+                    return _buildFancyRewardButton(
                   gradientColors: isLocked
                       ? const [Color(0xFF141724), Color(0xFF1A1D2B)]
                       : (hasSpins
@@ -1471,8 +1471,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           : (hasSpins
                               ? (_save.isNextWheelSpinFree ? const Color(0xFF00E676) : const Color(0xFF00E5FF))
                               : Colors.white12)),
-                  glowColor: _highlightWheelButton
-                      ? const Color(0xFFFFD700)
+                      glowColor: _highlightWheelButton
+                          ? const Color(0xFFFFD700)
                       : (_save.isNextWheelSpinFree ? const Color(0xFF00E676) : const Color(0xFF00E5FF)),
                   isGlowing: !isLocked && (hasSpins || _highlightWheelButton),
                   iconGradient: isLocked
@@ -1489,7 +1489,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           : const KaunosEmblem.wheel(size: 16, wheelColor: Colors.white54)),
                   icon: isLocked ? Icons.lock_rounded : Icons.motion_photos_on_rounded,
                   iconColor: isLocked ? Colors.white54 : (hasSpins ? Colors.white : Colors.white54),
-                  title: 'ÇARK',
+                      title: 'ÇARK',
                   titleColor: isLocked
                       ? Colors.white60
                       : (hasSpins
@@ -1524,81 +1524,81 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     }
                     _openFortuneWheelWithHero();
                   },
-                );
-              },
+                    );
+                  },
+                ),
+              ),
             ),
-          ),
-        ),
-        const SizedBox(width: 6),
+            const SizedBox(width: 6),
 
-        // 3. ÜCRETSİZ HEDİYE (Compact Pill)
-        Expanded(
-          child: ListenableBuilder(
-            listenable: AdManager.instance,
-            builder: (context, _) {
-              final cooldown = AdManager.instance.remainingCooldownSeconds;
-              final onCooldown = cooldown > 0;
-              final isLoading = AdManager.instance.isLoading || AdManager.instance.isShowing;
-              final isReady = !onCooldown && !isLoading;
+            // 3. ÜCRETSİZ HEDİYE (Compact Pill)
+            Expanded(
+              child: ListenableBuilder(
+                listenable: AdManager.instance,
+                builder: (context, _) {
+                  final cooldown = AdManager.instance.remainingCooldownSeconds;
+                  final onCooldown = cooldown > 0;
+                  final isLoading = AdManager.instance.isLoading || AdManager.instance.isShowing;
+                  final isReady = !onCooldown && !isLoading;
 
-              String sub;
-              if (isLoading) {
-                sub = '...';
-              } else if (onCooldown) {
-                final m = cooldown ~/ 60;
-                final s = cooldown % 60;
-                sub = '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-              } else {
-                sub = '+100';
-              }
+                  String sub;
+                  if (isLoading) {
+                    sub = '...';
+                  } else if (onCooldown) {
+                    final m = cooldown ~/ 60;
+                    final s = cooldown % 60;
+                    sub = '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+                  } else {
+                    sub = '+100';
+                  }
 
-              return _buildFancyRewardButton(
-                gradientColors: [const Color(0xFF082B1C), const Color(0xFF061A1D)],
-                borderColor: isReady ? const Color(0xFF00E676) : Colors.white12,
-                glowColor: const Color(0xFF00E676),
-                isGlowing: isReady,
-                iconGradient: const [Color(0xFF69F0AE), Color(0xFF00B0FF)],
+                  return _buildFancyRewardButton(
+                    gradientColors: [const Color(0xFF082B1C), const Color(0xFF061A1D)],
+                    borderColor: isReady ? const Color(0xFF00E676) : Colors.white12,
+                    glowColor: const Color(0xFF00E676),
+                    isGlowing: isReady,
+                    iconGradient: const [Color(0xFF69F0AE), Color(0xFF00B0FF)],
                 emblem: const KaunosEmblem.coin(size: 16),
-                icon: Icons.card_giftcard_rounded,
-                iconColor: const Color(0xFF00331A),
-                title: 'HEDİYE',
-                titleColor: const Color(0xFFA7FFEB),
-                subtitle: sub,
-                subColor: const Color(0xFF69F0AE),
-                badgeText: isReady ? '+100' : null,
-                badgeGradient: isReady
-                    ? const [Color(0xFF00E676), Color(0xFF00C853)]
-                    : null,
-                onTap: () {
-                  if (isReady) {
-                    AdManager.instance.watchAdForGold(
-                      context,
-                      onSuccess: (reward) {
-                        if (!context.mounted) return;
+                    icon: Icons.card_giftcard_rounded,
+                    iconColor: const Color(0xFF00331A),
+                    title: 'HEDİYE',
+                    titleColor: const Color(0xFFA7FFEB),
+                    subtitle: sub,
+                    subColor: const Color(0xFF69F0AE),
+                    badgeText: isReady ? '+100' : null,
+                    badgeGradient: isReady
+                        ? const [Color(0xFF00E676), Color(0xFF00C853)]
+                        : null,
+                    onTap: () {
+                      if (isReady) {
+                        AdManager.instance.watchAdForGold(
+                          context,
+                          onSuccess: (reward) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                            content: Text(' +$reward Altın Hesabınıza Eklendi!'),
+                                backgroundColor: const Color(0xFF161A29),
+                              ),
+                            );
+                          },
+                          onDismissedEarly: () {},
+                        );
+                      } else if (onCooldown) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(' +$reward Altın Hesabınıza Eklendi!'),
+                            content: Text('Yeni hediye için kalan süre: $sub'),
                             backgroundColor: const Color(0xFF161A29),
+                            duration: const Duration(seconds: 2),
                           ),
                         );
-                      },
-                      onDismissedEarly: () {},
-                    );
-                  } else if (onCooldown) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Yeni hediye için kalan süre: $sub'),
-                        backgroundColor: const Color(0xFF161A29),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  }
+                      }
+                    },
+                  );
                 },
-              );
-            },
-          ),
-        ),
-      ],
+              ),
+            ),
+          ],
     );
   }
 
@@ -1622,8 +1622,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     return KaunosJuicyInteractive(
       borderRadius: 14,
       waveColor: glowColor,
-      onTap: onTap,
-      child: Container(
+        onTap: onTap,
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -1647,12 +1647,12 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 blurRadius: 0,
               ),
               if (isGlowing)
-                BoxShadow(
+                    BoxShadow(
                   color: glowColor.withValues(alpha: 0.45),
-                  blurRadius: 10,
-                  spreadRadius: 1,
-                  offset: const Offset(0, 2),
-                ),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                      offset: const Offset(0, 2),
+                    ),
             ],
           ),
           child: Stack(
@@ -1759,8 +1759,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   ),
                 ),
             ],
-          ),
         ),
+      ),
     );
   }
 
@@ -1827,13 +1827,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           if (isNewPlayer)
-                            Container(
+                          Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
+                            decoration: BoxDecoration(
                                 gradient: const LinearGradient(
                                   colors: [Color(0xFF00E676), Color(0xFF00C853)],
                                 ),
-                                borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(10),
                                 border: Border.all(color: const Color(0xFFE8F5E9), width: 1.0),
                                 boxShadow: const [
                                   BoxShadow(color: Color(0x6600E676), blurRadius: 6, offset: Offset(0, 1)),
@@ -1907,7 +1907,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                       starColor: KaunosPalette.goldPrimary,
                                     ),
                                     const SizedBox(width: 4),
-                                    Text(
+                      Text(
                                       _save.prestigeTier > 0
                                           ? 'PRESTİJ ${_save.prestigeTier} • SEKTÖR 14/14 🌌'
                                           : 'SEKTÖR ${_save.highestUnlockedSector}/14 🗺️',
@@ -1931,11 +1931,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          I18n.tr('classic').toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
+                        I18n.tr('classic').toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
                             fontSize: 17,
-                            fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w900,
                             letterSpacing: 1.2,
                             fontFamily: 'Rajdhani',
                             shadows: [
@@ -1964,12 +1964,12 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               children: [
                                 const KaunosEmblem.coin(size: 12),
                                 const SizedBox(width: 5),
-                                Text(
-                                  '${I18n.tr('high_score')}: $best',
-                                  style: const TextStyle(
+                        Text(
+                          '${I18n.tr('high_score')}: $best',
+                          style: const TextStyle(
                                     color: KaunosPalette.goldHighlight,
                                     fontSize: 11.5,
-                                    fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w700,
                                     fontFamily: 'Rajdhani',
                                   ),
                                 ),
@@ -2055,9 +2055,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   KaunosPalette.deepJadePrimary,
                   KaunosPalette.chaosJadeBottom,
                 ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         border: Border.all(
           color: isLocked
               ? KaunosPalette.deepJadeBorder.withValues(alpha: 0.25)
@@ -2122,11 +2122,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             // hafif gölgeli, 3B hissi veren düz beyaz yazı.
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
-                              child: Text(
-                                I18n.tr('chaos_desc'),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
+                            child: Text(
+                              I18n.tr('chaos_desc'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 0.3,
                                   fontFamily: 'Rajdhani',
@@ -2134,30 +2134,30 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     Shadow(color: Color(0xCC00140F), offset: Offset(0, 1.6), blurRadius: 2),
                                     Shadow(color: Color(0x66FFFFFF), offset: Offset(0, -0.8), blurRadius: 0),
                                   ],
-                                ),
                               ),
                             ),
-                            if (_save.hasSavedGame(GameMode.chaos))
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xDDFFD54F),
-                                  borderRadius: BorderRadius.circular(10),
+                          ),
+                          if (_save.hasSavedGame(GameMode.chaos))
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xDDFFD54F),
+                                borderRadius: BorderRadius.circular(10),
                                   boxShadow: const [
                                     BoxShadow(color: Color(0x44FFD54F), blurRadius: 4, offset: Offset(0, 1)),
                                   ],
-                                ),
-                                child: Text(
+                              ),
+                              child: Text(
                                   'BÖLÜM ${_save.chaosSavedLevel} ',
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.5,
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
                                     fontFamily: 'Rajdhani',
-                                  ),
                                 ),
                               ),
+                            ),
                           ],
                         ],
                       ),
@@ -2166,14 +2166,14 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         children: [
                           Flexible(
                             child: Text(
-                              I18n.tr('chaos').toUpperCase(),
+                            I18n.tr('chaos').toUpperCase(),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: isLocked ? Colors.white60 : Colors.white,
                                 fontSize: 19,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.0,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.0,
                                 fontFamily: 'Rajdhani',
                                 shadows: isLocked
                                     ? null
@@ -2267,8 +2267,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               left: 0,
                               right: 0,
                               child: Container(
-                                decoration: const BoxDecoration(
-                                  shape: BoxShape.circle,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
                                   color: Color(0xFF04060A),
                                 ),
                               ),
@@ -2384,7 +2384,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           color: isLocked ? Colors.white12 : tierColor.withValues(alpha: 0.6),
           width: 1.4,
         ),
-        boxShadow: [
+                    boxShadow: [
           const BoxShadow(
             color: Color(0xFF020308),
             offset: Offset(0, 4.0),
@@ -2548,7 +2548,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         ),
                       ),
                     ),
-                  ),
+                ),
               ],
             ),
           ),
@@ -2635,21 +2635,21 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     else if (best > 0)
                       Flexible(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.black26,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
-                            child: Text(
-                              '$best',
+                        child: Text(
+                          '$best',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
@@ -2709,9 +2709,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 ),
               ],
             ),
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -2781,16 +2781,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         : (badge == '!'
                             ? Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                decoration: BoxDecoration(
+                      decoration: BoxDecoration(
                                   gradient: const LinearGradient(
                                     colors: [Color(0xFFFF1744), Color(0xFFD50000)],
                                   ),
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(color: Colors.white, width: 0.8),
-                                  boxShadow: const [
-                                    BoxShadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
-                                  ],
-                                ),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
+                        ],
+                      ),
                                 child: const Text(
                                   '!',
                                   style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
@@ -2808,17 +2808,17 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 ),
                                 child: FittedBox(
                                   fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    badge,
+                        child: Text(
+                          badge,
                                     style: const TextStyle(
                                       color: KaunosPalette.goldHighlight,
                                       fontSize: 8.5,
                                       fontWeight: FontWeight.w900,
                                       fontFamily: 'Rajdhani',
                                       letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                ),
+                        ),
+                      ),
+                    ),
                               )),
                   ),
               ],
@@ -2827,7 +2827,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                label,
+              label,
                 maxLines: 1,
                 style: const TextStyle(
                   color: Colors.white70,
