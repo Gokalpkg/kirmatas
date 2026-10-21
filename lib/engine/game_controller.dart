@@ -1510,6 +1510,58 @@ class GameController extends ChangeNotifier {
     audio.playSfx(GameSfx.breakBrick, combo: stats.combo);
   }
 
+  /// Black holes bend the bee's flight a little: inside a hole's reach
+  /// its lane drifts toward the well and curls gently around it. The
+  /// pull is feather-light next to what balls feel — it can deflect
+  /// the bee, never pin it or haul it down to the paddle. Only an
+  /// active Vortex power-up can do that.
+  void _bendBeePastBlackHoles(EasterEggBee bee, double dt) {
+    for (final bh in blackHoles) {
+      final dx = bh.x - bee.x;
+      final dy = bh.y - bee.baseY;
+      final dist = sqrt(dx * dx + dy * dy);
+      final reach = bh.maxInfluenceDist;
+      if (dist <= 0.001 || dist > reach) continue;
+      final proximity = 1.0 - (dist / reach);
+      final falloff = pow(proximity, 0.65).toDouble();
+      final drift =
+          (bh.isVortexTrap ? 105.0 : (bh.isSupercharged ? 88.0 : 66.0)) * falloff;
+      final nx = dx / dist;
+      final ny = dy / dist;
+      bee.x += nx * drift * dt;
+      bee.baseY += ny * drift * dt;
+      // A whisper of the hole's spin, so the bee curls around the well
+      // instead of spearing straight through its heart.
+      final spin = bee.isFacingRight ? 1.0 : -1.0;
+      bee.x += -ny * spin * drift * 0.45 * dt;
+      bee.baseY += nx * spin * drift * 0.45 * dt;
+    }
+    bee.baseY = bee.baseY.clamp(110.0, paddle.y - 55.0);
+  }
+
+  /// Sends the bee through a portal pair: emerges from the linked
+  /// portal on the far side, still facing (and flying) the same way.
+  /// Returns true when a hop happened.
+  bool _tryBeePortalHop(EasterEggBee bee) {
+    for (final p in portals) {
+      if (p.linkedPortal == null) continue;
+      final dx = p.x - bee.x;
+      final dy = p.y - bee.y;
+      if (dx * dx + dy * dy > p.radius * p.radius) continue;
+      final target = p.linkedPortal!;
+      particles.spawnBurst(p.x, p.y, p.color, count: 14, speed: 100.0);
+      particles.spawnShockwave(p.x, p.y, p.color, maxRadius: 30.0);
+      bee.x = target.x + (bee.isFacingRight ? 1.0 : -1.0) * (target.radius + 14.0);
+      bee.baseY = target.y.clamp(110.0, paddle.y - 55.0);
+      bee.portalCooldown = 0.7;
+      particles.spawnBurst(target.x, target.y, target.color, count: 16, speed: 110.0);
+      particles.spawnShockwave(target.x, target.y, target.color, maxRadius: 34.0);
+      audio.playSfx(GameSfx.ulti);
+      return true;
+    }
+    return false;
+  }
+
   void _updateEasterEgg(double dt) {
     if (currentMode == GameMode.chaos) return;
     if (beePaddleMarkTimer > 0) {
@@ -1527,9 +1579,13 @@ class GameController extends ChangeNotifier {
 
     switch (bee.state) {
       case BeeState.flying:
+        // Portals work on the bee just like on the ball: in one, out
+        // the linked one, still flying the same way it came in.
+        if (bee.portalCooldown > 0) bee.portalCooldown -= dt;
+        if (bee.portalCooldown <= 0) _tryBeePortalHop(bee);
+
         // Only an active Vortex power-up drags the bee down onto the
-        // paddle. Ambient black holes pull balls, never the bee — with
-        // no Vortex up, the bee simply flies its route across the top.
+        // paddle. Ambient black holes only bend its flight a little.
         if (paddle.hasVortex) {
           final targetX = paddle.x + paddle.width / 2;
           final targetY = paddle.y - 12.0;
@@ -1549,6 +1605,7 @@ class GameController extends ChangeNotifier {
             audio.playSfx(GameSfx.powerupBuff);
           }
         } else {
+          _bendBeePastBlackHoles(bee, dt);
           bee.update(dt);
           if (bee.isOffScreen(screenWidth)) {
             activeBee = null;

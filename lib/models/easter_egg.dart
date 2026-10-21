@@ -3,7 +3,9 @@ import 'dart:math';
 /// What the bee is currently doing. Different balls end its flight in
 /// different ways: fire burns it to ash, frost freezes it solid, and an
 /// active Vortex power-up drags it onto the paddle, where it is crushed
-/// flat and dies. Nothing else ever pulls the bee toward the paddle.
+/// flat and dies. Ambient black holes merely bend its flight path a
+/// little — they can never pin it or haul it down to the paddle — and
+/// flying into a portal pops it out of the linked one.
 enum BeeState { flying, burning, frozenFalling, stuckToPaddle }
 
 class EasterEggBee {
@@ -27,6 +29,10 @@ class EasterEggBee {
 
   /// Where along the paddle the bee is pinned (offset from paddle.x).
   double stuckOffsetX = 0.0;
+
+  /// Brief grace period after a portal hop so it cannot instantly
+  /// re-enter the exit portal and ping-pong between the pair.
+  double portalCooldown = 0.0;
 
   EasterEggBee({
     required this.x,

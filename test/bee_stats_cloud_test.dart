@@ -7,6 +7,7 @@ import 'package:kirmatas/engine/game_controller.dart';
 import 'package:kirmatas/models/black_hole.dart';
 import 'package:kirmatas/models/easter_egg.dart';
 import 'package:kirmatas/models/game_state.dart';
+import 'package:kirmatas/models/portal.dart';
 import 'package:kirmatas/models/powerup.dart';
 import 'package:kirmatas/storage/save_manager.dart';
 import 'package:kirmatas/ui/kaunos_ui.dart';
@@ -128,20 +129,22 @@ void main() {
       expect(ctrl.stats.score, scoreBefore + 50);
     });
 
-    test('ambient black hole never pulls the bee toward the paddle', () {
+    test('black hole bends the bee lane but can never pin it to the paddle',
+        () {
       final ctrl = startedController();
       ctrl.paddle.hasVortex = false;
       ctrl.blackHoles.add(BlackHole(
         x: ctrl.screenWidth / 2,
-        y: 300,
+        y: 320,
         radius: 30,
         mass: 30.0 * 5000.0,
-        timeLeft: 9.0,
+        timeLeft: 30.0,
         isSupercharged: true,
       ));
       ctrl.spawnEasterEggBee(customY: 200, facingRight: true);
       final beeY = ctrl.activeBee!.baseY;
 
+      var deflected = false;
       var touchedPaddle = false;
       for (var i = 0; i < 900; i++) {
         pinBall(ctrl);
@@ -149,11 +152,52 @@ void main() {
         final bee = ctrl.activeBee;
         if (bee == null) break; // flew off screen on its own — fine
         if (bee.state == BeeState.stuckToPaddle) touchedPaddle = true;
-        // The bee must keep its own flight lane, never dragged down.
-        expect(bee.baseY, beeY);
+        if ((bee.baseY - beeY).abs() > 6.0) deflected = true;
+        // Even at its lowest, the bee stays far above the paddle: the
+        // hole bends its lane, it never hauls it down.
+        expect(bee.y, lessThan(ctrl.paddle.y - 120.0));
       }
+      expect(deflected, isTrue,
+          reason: 'the hole should visibly bend the bee off its lane');
       expect(touchedPaddle, isFalse,
-          reason: 'black holes pull balls, not the bee');
+          reason: 'only a Vortex power-up may pin the bee to the paddle');
+    });
+
+    test('bee flies into a portal and out of the linked one', () {
+      final ctrl = startedController();
+      final entry = Portal(
+        x: 120,
+        y: 220,
+        radius: 26,
+        color: const Color(0xFF00E5FF),
+        isBlue: true,
+      );
+      final exit = Portal(
+        x: 300,
+        y: 260,
+        radius: 26,
+        color: const Color(0xFFFFAB00),
+        isBlue: false,
+      );
+      entry.linkedPortal = exit;
+      exit.linkedPortal = entry;
+      ctrl.portals.addAll([entry, exit]);
+
+      ctrl.spawnEasterEggBee(customY: 220, facingRight: true);
+
+      var hopped = false;
+      for (var i = 0; i < 900 && !hopped; i++) {
+        pinBall(ctrl);
+        ctrl.update(0.016);
+        final bee = ctrl.activeBee;
+        if (bee == null) break;
+        if (bee.x > 290 && bee.state == BeeState.flying) hopped = true;
+      }
+      expect(hopped, isTrue,
+          reason: 'bee should emerge beside the linked portal');
+      expect(ctrl.activeBee, isNotNull);
+      expect((ctrl.activeBee!.baseY - 260).abs(), lessThan(1.0),
+          reason: 'bee adopts the exit portal lane');
     });
   });
 
