@@ -511,12 +511,19 @@ class _SpotlightPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     canvas.drawPath(overlayPath, bgPaint);
 
-    // Glowing Neon Ring around hole
-    final glowPaint = Paint()
-      ..color = const Color(0xFFFFD54F).withValues(alpha: 0.4 + (pulseValue * 0.4))
+    // Crisp Stepped Pixel Highlight Frame around hole (Zero Blur)
+    final darkBorderPaint = Paint()
+      ..isAntiAlias = false
+      ..color = const Color(0xFF0B1021)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5 + (pulseValue * 1.5)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 4);
+      ..strokeWidth = 4.5 + (pulseValue * 1.5);
+    canvas.drawRRect(rrect, darkBorderPaint);
+
+    final glowPaint = Paint()
+      ..isAntiAlias = false
+      ..color = const Color(0xFFFFD54F).withValues(alpha: 0.65 + (pulseValue * 0.35))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5 + (pulseValue * 1.0);
 
     canvas.drawRRect(rrect, glowPaint);
   }

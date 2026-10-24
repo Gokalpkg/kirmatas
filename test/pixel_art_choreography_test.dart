@@ -240,5 +240,23 @@ void main() {
       expect(controller.particles.pixelShockwaves.length, 1);
       expect(controller.particles.shards.length, 4);
     });
+
+    test('Phase 3 Audit Fix: AudioManager resolves brick_ prefix and all distinct GameSfx pools', () async {
+      final audio = AudioManager.instance;
+      await SaveManager.instance.equipBrickStyle('pixel');
+      expect(audio.resolveSoundKey(GameSfx.breakBrick), 'brick_pixel');
+      await SaveManager.instance.equipBrickStyle('brick_neon');
+      expect(audio.resolveSoundKey(GameSfx.breakBrick), 'brick_neon');
+      await SaveManager.instance.equipBrickStyle('cosmic');
+      expect(audio.resolveSoundKey(GameSfx.breakBrick), 'brick_cosmic');
+
+      expect(audio.resolveSoundKey(GameSfx.click), 'click');
+      expect(audio.resolveSoundKey(GameSfx.victory), 'victory');
+      expect(audio.resolveSoundKey(GameSfx.gameOver), 'game_over');
+      expect(audio.resolveSoundKey(GameSfx.steel), 'steel');
+      expect(audio.resolveSoundKey(GameSfx.bubble), 'bubble');
+      expect(audio.resolveSoundKey(GameSfx.powerupBuff), 'powerup_buff');
+      expect(audio.resolveSoundKey(GameSfx.powerupDebuff), 'powerup_debuff');
+    });
   });
 }

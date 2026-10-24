@@ -2842,7 +2842,7 @@ class GameController extends ChangeNotifier {
 
         // Step 1: Endgame Pacing - Micro-nudge targeting towards remaining 1-2 bricks if stalled > 10s
         final remainingAliveBricks = bricks.where((b) => b.isAlive && !b.isSteel).toList();
-        if (remainingAliveBricks.isNotEmpty && remainingAliveBricks.length <= 2 && endgameStallTimer >= 10.0) {
+        if (remainingAliveBricks.isNotEmpty && remainingAliveBricks.length <= 2 && endgameStallTimer >= BalanceConfig.endgameStallThresholdSeconds) {
           final targetBrick = remainingAliveBricks.first;
           final targetCenterX = targetBrick.x + targetBrick.width / 2;
           final targetCenterY = targetBrick.y + targetBrick.height / 2;
@@ -3519,7 +3519,7 @@ class GameController extends ChangeNotifier {
 
       // Coin drops in Chaos Mode scaled by u_luck and u_gold
       final luckLvl = save.getUpgradeLevel('u_luck');
-      final dropRate = 0.20 + (luckLvl * 0.04) + cosmicPearlLuckBonus;
+      final dropRate = BalanceConfig.chaosCoinBaseDropRate + (luckLvl * BalanceConfig.luckUpgradeDropStep) + cosmicPearlLuckBonus;
       if (_rand.nextDouble() < dropRate) {
         final goldLvl = save.getUpgradeLevel('u_gold');
         int coins = 1 + _rand.nextInt(3);
@@ -3629,7 +3629,7 @@ class GameController extends ChangeNotifier {
     // Balanced coin gain: 30% drop rate, 2-5 coins + combo bonus
     final luckLvl = save.getUpgradeLevel('u_luck');
     final relicAlchemistBonus = (save.hasPermanentRelic && save.activeRelicStyle == 'alchemist') ? 0.15 : 0.0;
-    final coinDropRate = 0.30 + (luckLvl * 0.04) + cosmicPearlLuckBonus + relicAlchemistBonus;
+    final coinDropRate = BalanceConfig.classicCoinBaseDropRate + (luckLvl * BalanceConfig.luckUpgradeDropStep) + cosmicPearlLuckBonus + relicAlchemistBonus;
     if (_rand.nextDouble() < coinDropRate) {
       final goldLvl = save.getUpgradeLevel('u_gold');
       int coins = 2 + _rand.nextInt(4);
@@ -3839,7 +3839,7 @@ class GameController extends ChangeNotifier {
     comboTimer = 2.4 * (1.0 + activeCosmeticSynergy.comboMomentumBonus);
 
     double multiplier = activeCosmeticSynergy.scoreMultiplier;
-    if (stats.combo >= 8) {
+    if (stats.combo >= BalanceConfig.feverComboThreshold) {
       multiplier *= 3.0;
       if (!stats.isFever) {
         stats.isFever = true;
@@ -3912,8 +3912,8 @@ class GameController extends ChangeNotifier {
       if (_chaosCapsuleCooldown > 0) return;
       if (capsules.isNotEmpty) return;
     }
-    final luckLevel = save.upgrades['luck'] ?? 0;
-    var dropChance = 0.14 + luckLevel * 0.04 + cosmicPearlLuckBonus;
+    final luckLevel = save.getUpgradeLevel('u_luck');
+    var dropChance = BalanceConfig.capsuleBaseDropRate + luckLevel * BalanceConfig.luckUpgradeDropStep + cosmicPearlLuckBonus;
     if (isChaosMode) dropChance *= 0.5; // Bulk breaks: half rate per brick.
     if (!force && _rand.nextDouble() > dropChance) return;
 

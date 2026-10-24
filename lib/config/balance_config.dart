@@ -23,6 +23,21 @@ abstract final class BalanceConfig {
   /// Extreme combo threshold triggering cosmic shatter particles.
   static const int cosmicComboThreshold = 16;
 
+  /// Seconds before endgame anti-stall micro-steering nudges the ball toward the last 1-2 bricks.
+  static const double endgameStallThresholdSeconds = 10.0;
+
+  /// Base coin drop probability per brick in Classic/Special mode (30%).
+  static const double classicCoinBaseDropRate = 0.30;
+
+  /// Base coin drop probability per brick in Chaos mode (20%).
+  static const double chaosCoinBaseDropRate = 0.20;
+
+  /// Base capsule power-up drop probability per brick (14%).
+  static const double capsuleBaseDropRate = 0.14;
+
+  /// Additional drop probability per level of 'u_luck' upgrade (+4% per level).
+  static const double luckUpgradeDropStep = 0.04;
+
   // ===========================================================================
   // TIME-ANCHORED ECONOMY FORMULAS
   // ===========================================================================

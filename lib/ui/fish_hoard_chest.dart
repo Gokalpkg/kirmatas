@@ -259,15 +259,25 @@ class _HoardChestPainter extends CustomPainter {
         ).createShader(Rect.fromLTWH(0, h * 0.82, w, h * 0.14)),
     );
 
-    // Golden treasure glow when gold is inside
+    // Crisp stepped pixel golden treasure halo when gold is inside (Zero Blur)
     if (fill > 0.05 || ready) {
-      final pulse = ready ? (0.16 + 0.14 * glow) : (0.06 + fill * 0.12);
-      canvas.drawCircle(
-        Offset(w * 0.5, h * 0.58),
-        w * (0.34 + fill * 0.08),
+      final pulse = ready ? (0.18 + 0.14 * glow) : (0.08 + fill * 0.12);
+      final haloRect = Rect.fromCenter(
+        center: Offset(w * 0.5, h * 0.58),
+        width: w * (0.72 + fill * 0.12),
+        height: h * (0.56 + fill * 0.10),
+      );
+      canvas.drawRect(
+        haloRect,
         Paint()
-          ..color = _gold.withValues(alpha: pulse.clamp(0.0, 0.42))
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.14),
+          ..isAntiAlias = false
+          ..color = _gold.withValues(alpha: (pulse * 0.65).clamp(0.0, 0.32)),
+      );
+      canvas.drawRect(
+        haloRect.deflate(3.0),
+        Paint()
+          ..isAntiAlias = false
+          ..color = _goldBright.withValues(alpha: pulse.clamp(0.0, 0.42)),
       );
     }
   }
@@ -352,12 +362,12 @@ class _HoardChestPainter extends CustomPainter {
       Paint()..color = const Color(0xFF140802),
     );
 
-    // Warm golden ambient light leaking from the coins
-    canvas.drawOval(
-      cavity,
+    // Crisp stepped golden pixel rim inside the chest cavity (Zero Blur)
+    canvas.drawRect(
+      cavity.deflate(1.5),
       Paint()
-        ..color = _gold.withValues(alpha: (0.15 + fillAmount * 0.35).clamp(0.0, 0.5))
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+        ..isAntiAlias = false
+        ..color = _gold.withValues(alpha: (0.18 + fillAmount * 0.32).clamp(0.0, 0.5)),
     );
 
     // Tiered stack of 3D embossed gold coins

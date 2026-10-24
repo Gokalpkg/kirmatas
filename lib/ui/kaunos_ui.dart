@@ -485,28 +485,37 @@ class _KaunosJuicyOverlayPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
 
-    // 1. Layer 3: Expanding Neon Perimeter Wave
+    // 1. Layer 3: Expanding Crisp Pixel Perimeter Wave (Zero Blur)
     if (waveProgress > 0.0 && waveProgress < 1.0) {
       final waveAlpha = ((1.0 - waveProgress) * 0.95).clamp(0.0, 1.0);
-      final expand = waveProgress * (isHighStakes ? 26.0 : 18.0);
-      final strokeW = (2.6 * (1.0 - waveProgress) + 0.6).clamp(0.6, 3.2);
+      final expand = (waveProgress * (isHighStakes ? 26.0 : 18.0)).roundToDouble();
+      final strokeW = (2.6 * (1.0 - waveProgress) + 1.0).clamp(1.0, 3.0);
+
+      final outlinePaint = Paint()
+        ..isAntiAlias = false
+        ..color = const Color(0xFF0B1021).withValues(alpha: waveAlpha * 0.9)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeW + 2.0;
 
       final wavePaint = Paint()
+        ..isAntiAlias = false
         ..color = waveColor.withValues(alpha: waveAlpha)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeW
-        ..maskFilter = MaskFilter.blur(BlurStyle.solid, 2.5 + (1.0 - waveProgress) * 3.5);
+        ..strokeWidth = strokeW;
 
       final rect = Rect.fromLTWH(-expand, -expand, size.width + expand * 2, size.height + expand * 2);
       if (isCircle) {
+        canvas.drawOval(rect, outlinePaint);
         canvas.drawOval(rect, wavePaint);
       } else {
-        final r = Radius.circular(borderRadius + expand * 0.45);
-        canvas.drawRRect(RRect.fromRectAndRadius(rect, r), wavePaint);
+        final r = Radius.circular(borderRadius + expand * 0.35);
+        final rrect = RRect.fromRectAndRadius(rect, r);
+        canvas.drawRRect(rrect, outlinePaint);
+        canvas.drawRRect(rrect, wavePaint);
       }
     }
 
-    // 2. Layer 5: Glowing Particle Burst Shower Outward
+    // 2. Layer 5: Crisp Square Pixel Particle Burst Shower Outward
     if (particleProgress > 0.0 && particleProgress < 1.0 && particles.isNotEmpty) {
       final particleAlpha = ((1.0 - particleProgress) * 1.0).clamp(0.0, 1.0);
       final center = Offset(size.width / 2, size.height / 2);
@@ -527,22 +536,33 @@ class _KaunosJuicyOverlayPainter extends CustomPainter {
                 (halfH / (sinA.abs() > 0.001 ? sinA.abs() : 1.0)),
               );
 
-        final posX = center.dx + cosA * (basePerimeterDist + currentDist);
-        final posY = center.dy + sinA * (basePerimeterDist + currentDist);
+        final posX = (center.dx + cosA * (basePerimeterDist + currentDist)).roundToDouble();
+        final posY = (center.dy + sinA * (basePerimeterDist + currentDist)).roundToDouble();
 
-        final currentSize = (p.size * (1.0 - particleProgress * 0.6)).clamp(0.8, 6.0);
+        final currentSize = (p.size * 1.6 * (1.0 - particleProgress * 0.5)).clamp(2.0, 7.0).roundToDouble();
+        final pixelRect = Rect.fromCenter(center: Offset(posX, posY), width: currentSize, height: currentSize);
+
+        final outlinePaint = Paint()
+          ..isAntiAlias = false
+          ..color = const Color(0xFF0B1021).withValues(alpha: particleAlpha)
+          ..style = PaintingStyle.fill;
+        canvas.drawRect(pixelRect.inflate(1.0), outlinePaint);
+
         final sparkPaint = Paint()
+          ..isAntiAlias = false
           ..color = p.color.withValues(alpha: particleAlpha)
-          ..style = PaintingStyle.fill
-          ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 1.5);
+          ..style = PaintingStyle.fill;
+        canvas.drawRect(pixelRect, sparkPaint);
 
-        canvas.drawCircle(Offset(posX, posY), currentSize, sparkPaint);
-
-        // Bright specular core glint
+        // Crisp 1px top-left white pixel specular glint
         final corePaint = Paint()
+          ..isAntiAlias = false
           ..color = Colors.white.withValues(alpha: particleAlpha * 0.95)
           ..style = PaintingStyle.fill;
-        canvas.drawCircle(Offset(posX, posY), currentSize * 0.4, corePaint);
+        canvas.drawRect(
+          Rect.fromLTWH(pixelRect.left, pixelRect.top, math.max(1.0, currentSize * 0.45), math.max(1.0, currentSize * 0.45)),
+          corePaint,
+        );
       }
     }
   }
@@ -2292,11 +2312,18 @@ class KaunosEmblemPainter extends CustomPainter {
     final r = math.min(cx, cy) - 0.5;
     if (r <= 0) return;
 
-    // Ambient Purple Glow Aura
+    // Crisp Dark Pixel Outer Rim + Stepped Astral Halo (Zero Blur)
     final auraPaint = Paint()
-      ..color = (color ?? KaunosPalette.pearlAstral).withValues(alpha: 0.35)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+      ..isAntiAlias = false
+      ..color = const Color(0xFF0B1021);
     canvas.drawCircle(Offset(cx, cy), r, auraPaint);
+    canvas.drawCircle(
+      Offset(cx, cy),
+      r * 0.92,
+      Paint()
+        ..isAntiAlias = false
+        ..color = (color ?? KaunosPalette.pearlAstral).withValues(alpha: 0.55),
+    );
 
     // Spherical Pearl with Radial Shading
     final pearlRect = Rect.fromCircle(center: Offset(cx, cy), radius: r * 0.85);

@@ -1339,6 +1339,16 @@ class _GameWorldPainter extends CustomPainter {
           }
         }
 
+        // Retro-Modern Crisp Pixel Art Mandate:
+        // Enforce 1.5px sharp dark pixel outer contour (#0B1021) across all brick styles
+        _stroke
+          ..isAntiAlias = false
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..color = const Color(0xFF0B1021);
+        canvas.drawRect(rect, _stroke);
+        _stroke.isAntiAlias = true;
+
         // Organic Crystalline Damage Cracks (tactile fractures that match brick depth)
         if (b.hp < b.maxHp && b.maxHp > 1 && b.hp > 0) {
           _crackPath.reset();
@@ -1737,212 +1747,74 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawIceBrick(Canvas canvas, Rect rect, RRect rrect, double halfW, double halfH, int variant) {
-    // === STİL 3 (3A / 3B / 3C / 3D): Köşe Kırağı & Ayna Buz (Randomly chosen per level!) ===
+    // === STİL 3 (3A / 3B / 3C / 3D): Crisp Pixel Art Arctic Ice Block ===
+    _fill.isAntiAlias = false;
+    _stroke.isAntiAlias = false;
     final w = rect.width;
     final h = rect.height;
 
-    // 1. Cold Arctic Glow Shadow
+    // 1. Pixel-stepped Arctic Drop Shadow
     _fill
       ..style = PaintingStyle.fill
       ..shader = null
-      ..color = const Color(0x6600E5FF);
-    canvas.drawRRect(rrect.inflate(1.2), _fill);
+      ..color = const Color(0xFF0B1021);
+    canvas.drawRect(rect.translate(2.0, 2.5), _fill);
 
-    // 2. Deep Frozen Arctic Mirror Gradient Base
-    final iceBaseKey = Object.hash('ice_base_3', w.round(), h.round());
-    _fill.shader = _brickShaders.putIfAbsent(iceBaseKey, () {
-      return const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFFFFFFF),
-          Color(0xFFB8F2FF),
-          Color(0xFF1AD1FF),
-          Color(0xFF005B8E),
-        ],
-        stops: [0.0, 0.22, 0.62, 1.0],
-      ).createShader(rect);
-    });
-    canvas.drawRRect(rrect, _fill);
-    _fill.shader = null;
+    // 2. Stepped Frozen Arctic Pixel Ramp (3 distinct tone bands, no blurry gradient)
+    _fill.color = const Color(0xFF005B8E);
+    canvas.drawRect(rect, _fill);
+    _fill.color = const Color(0xFF1AD1FF);
+    canvas.drawRect(Rect.fromLTWH(-halfW + 1.5, -halfH + 1.5, w - 3.0, h - 4.0), _fill);
+    _fill.color = const Color(0xFFB8F2FF);
+    canvas.drawRect(Rect.fromLTWH(-halfW + 2.0, -halfH + 1.5, w - 4.0, h * 0.42), _fill);
 
-    // Inner dark-blue cold depth rim
-    _stroke
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.1
-      ..color = const Color(0x73002D55);
-    canvas.drawRRect(rrect.deflate(1.4), _stroke);
+    // Top-left 2px pure white pixel highlight
+    _fill.color = Colors.white;
+    canvas.drawRect(Rect.fromLTWH(-halfW + 2.0, -halfH + 2.0, w - 5.0, 2.0), _fill);
+    canvas.drawRect(Rect.fromLTWH(-halfW + 2.0, -halfH + 2.0, 2.0, h - 5.0), _fill);
 
-    // Clipped interior for mirror shine bands + variant frost geometry
-    canvas.save();
-    canvas.clipRRect(rrect.deflate(1.0));
-
-    // Double diagonal mirror shine bands
-    final s = sin(time * 2.2) * 2.5;
-    _tempPath
-      ..reset()
-      ..moveTo(-halfW + w * 0.16 + s, -halfH)
-      ..lineTo(-halfW + w * 0.31 + s, -halfH)
-      ..lineTo(-halfW + w * 0.13 + s, halfH)
-      ..lineTo(-halfW - w * 0.02 + s, halfH)
-      ..close();
-    _fill.color = const Color(0x75FFFFFF);
-    canvas.drawPath(_tempPath, _fill);
-
-    _tempPath
-      ..reset()
-      ..moveTo(-halfW + w * 0.37 + s, -halfH)
-      ..lineTo(-halfW + w * 0.44 + s, -halfH)
-      ..lineTo(-halfW + w * 0.26 + s, halfH)
-      ..lineTo(-halfW + w * 0.19 + s, halfH)
-      ..close();
-    _fill.color = const Color(0x3DFFFFFF);
-    canvas.drawPath(_tempPath, _fill);
-
-    final v = variant % 4;
-    if (v == 0) {
-      // === 3A: Kutup Kırağısı & Buz Sarkıtları (Hanging Icicles + Bottom Frost Teeth) ===
-      _tempPath
-        ..reset()
-        ..moveTo(-halfW, -halfH);
-      const icicles = [
-        [0.06, 0.45], [0.13, 0.22], [0.20, 0.58], [0.28, 0.25],
-        [0.36, 0.42], [0.44, 0.20], [0.52, 0.52], [0.60, 0.24],
-        [0.68, 0.48], [0.76, 0.22], [0.84, 0.55], [0.92, 0.28], [1.0, 0.40],
-      ];
-      for (final pt in icicles) {
-        _tempPath.lineTo(-halfW + w * pt[0], -halfH + h * pt[1]);
+    // Stepped pixel diagonal frost glint
+    _fill.color = const Color(0xD9FFFFFF);
+    for (int step = 0; step < 4; step++) {
+      final px = -halfW + 6.0 + step * 3.0;
+      final py = -halfH + 3.5 + step * 2.2;
+      if (px + 4.0 < halfW - 3.0 && py + 2.2 < halfH - 3.0) {
+        canvas.drawRect(Rect.fromLTWH(px, py, 3.5, 2.2), _fill);
       }
-      _tempPath
-        ..lineTo(halfW, -halfH)
-        ..close();
-      _fill.color = const Color(0xEBF0FCFF);
-      canvas.drawPath(_tempPath, _fill);
-
-      // Bottom upward frost teeth
-      _tempPath
-        ..reset()
-        ..moveTo(-halfW, halfH);
-      for (int i = 0; i <= 10; i++) {
-        final px = -halfW + (w * i) / 10.0;
-        final py = (i.isOdd) ? halfH - h * 0.24 : halfH;
-        _tempPath.lineTo(px, py);
-      }
-      _tempPath.close();
-      _fill.color = const Color(0xA6D2F5FF);
-      canvas.drawPath(_tempPath, _fill);
-    } else if (v == 1) {
-      // === 3B: Derin Donmuş Çatlak & Kristal Mühür (Deep Freeze Fracture + Diamond Seal) ===
-      _stroke
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2
-        ..color = const Color(0xD9E0F7FA);
-      _tempPath
-        ..reset()
-        ..moveTo(-halfW + w * 0.08, -halfH + h * 0.75)
-        ..lineTo(-halfW + w * 0.28, -halfH + h * 0.42)
-        ..lineTo(-halfW + w * 0.50, -halfH + h * 0.55)
-        ..lineTo(-halfW + w * 0.72, -halfH + h * 0.28)
-        ..lineTo(-halfW + w * 0.92, -halfH + h * 0.62)
-        ..moveTo(-halfW + w * 0.28, -halfH + h * 0.42)
-        ..lineTo(-halfW + w * 0.38, -halfH + h * 0.15)
-        ..moveTo(-halfW + w * 0.72, -halfH + h * 0.28)
-        ..lineTo(-halfW + w * 0.64, -halfH + h * 0.82);
-      canvas.drawPath(_tempPath, _stroke);
-
-      // Central frozen diamond-hex ice crystal core
-      final cr = h * 0.30;
-      _tempPath
-        ..reset()
-        ..moveTo(0, -cr)
-        ..lineTo(cr * 1.2, 0)
-        ..lineTo(0, cr)
-        ..lineTo(-cr * 1.2, 0)
-        ..close();
-      _fill.color = const Color(0x59FFFFFF);
-      canvas.drawPath(_tempPath, _fill);
-      _stroke
-        ..color = Colors.white
-        ..strokeWidth = 1.2;
-      canvas.drawPath(_tempPath, _stroke);
-    } else if (v == 2) {
-      // === 3C: Ağır Kar Kabuğu & Buzul Kütlesi (Heavy Snowcap & Trapped Bubbles) ===
-      _tempPath
-        ..reset()
-        ..moveTo(-halfW, -halfH + h * 0.48)
-        ..quadraticBezierTo(-halfW + w * 0.12, -halfH + h * 0.18, -halfW + w * 0.26, -halfH + h * 0.30)
-        ..quadraticBezierTo(-halfW + w * 0.40, -halfH + h * 0.40, -halfW + w * 0.52, -halfH + h * 0.22)
-        ..quadraticBezierTo(-halfW + w * 0.68, -halfH + h * 0.36, -halfW + w * 0.82, -halfH + h * 0.20)
-        ..quadraticBezierTo(-halfW + w * 0.92, -halfH + h * 0.28, halfW, -halfH + h * 0.45)
-        ..lineTo(halfW, -halfH)
-        ..lineTo(-halfW, -halfH)
-        ..close();
-      _fill.color = const Color(0xF2FFFFFF);
-      canvas.drawPath(_tempPath, _fill);
-
-      // Trapped frozen bubbles
-      _fill.color = const Color(0xD9FFFFFF);
-      const bubbles = [
-        [0.22, 0.65, 1.6],
-        [0.38, 0.72, 1.2],
-        [0.55, 0.58, 1.9],
-        [0.74, 0.68, 1.4],
-        [0.62, 0.78, 1.0],
-      ];
-      for (final b in bubbles) {
-        canvas.drawCircle(Offset(-halfW + w * b[0], -halfH + h * b[1]), b[2], _fill);
-      }
-    } else {
-      // === 3D: Mutlak Sıfır Testere Kristal (Corner Spears + 4-Point Polar Star) ===
-      _fill.color = const Color(0xC7FFFFFF);
-      const spears = [
-        [[0.0, 0.0], [0.28, 0.0], [0.16, 0.38], [0.0, 0.45]],
-        [[1.0, 0.0], [0.72, 0.0], [0.84, 0.38], [1.0, 0.45]],
-        [[0.0, 1.0], [0.28, 1.0], [0.16, 0.62], [0.0, 0.55]],
-        [[1.0, 1.0], [0.72, 1.0], [0.84, 0.62], [1.0, 0.55]],
-      ];
-      for (final pts in spears) {
-        _tempPath.reset();
-        for (int i = 0; i < pts.length; i++) {
-          final px = -halfW + w * pts[i][0];
-          final py = -halfH + h * pts[i][1];
-          if (i == 0) {
-            _tempPath.moveTo(px, py);
-          } else {
-            _tempPath.lineTo(px, py);
-          }
-        }
-        _tempPath.close();
-        canvas.drawPath(_tempPath, _fill);
-      }
-
-      // Central 4-point polar star glint
-      _tempPath
-        ..reset()
-        ..moveTo(0, -h * 0.34)
-        ..lineTo(h * 0.08, -h * 0.08)
-        ..lineTo(h * 0.34, 0)
-        ..lineTo(h * 0.08, h * 0.08)
-        ..lineTo(0, h * 0.34)
-        ..lineTo(-h * 0.08, h * 0.08)
-        ..lineTo(-h * 0.34, 0)
-        ..lineTo(-h * 0.08, -h * 0.08)
-        ..close();
-      _fill.color = Colors.white;
-      canvas.drawPath(_tempPath, _fill);
     }
 
-    canvas.restore();
+    // Variant pixel details (icicles / crystal core / snowcap / corner pixel teeth)
+    final v = variant % 4;
+    if (v == 0) {
+      _fill.color = const Color(0xFFF0FCFF);
+      for (int i = 0; i < 5; i++) {
+        final ix = -halfW + 3.0 + i * ((w - 8.0) / 4.0);
+        final ih = (i.isEven ? h * 0.36 : h * 0.22);
+        canvas.drawRect(Rect.fromLTWH(ix, -halfH + 1.5, 2.2, ih), _fill);
+      }
+    } else if (v == 1) {
+      _fill.color = Colors.white;
+      canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: 6.0, height: 2.0), _fill);
+      canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: 2.0, height: 6.0), _fill);
+    } else if (v == 2) {
+      _fill.color = const Color(0xFFF8FEFF);
+      canvas.drawRect(Rect.fromLTWH(-halfW + 1.5, -halfH + 1.5, w - 3.0, 3.8), _fill);
+      canvas.drawRect(Rect.fromLTWH(-halfW + 4.0, -halfH + 5.3, w * 0.35, 2.0), _fill);
+    } else {
+      _fill.color = Colors.white;
+      canvas.drawRect(Rect.fromLTWH(-halfW + 2.0, -halfH + 2.0, 4.0, 4.0), _fill);
+      canvas.drawRect(Rect.fromLTWH(halfW - 6.0, -halfH + 2.0, 4.0, 4.0), _fill);
+      canvas.drawRect(Rect.fromLTWH(-halfW + 2.0, halfH - 6.0, 4.0, 4.0), _fill);
+      canvas.drawRect(Rect.fromLTWH(halfW - 6.0, halfH - 6.0, 4.0, 4.0), _fill);
+    }
 
-    // Branched corner frost signature
-    _drawCornerFrost(canvas, w, h, halfW, halfH, v == 3 ? 1.22 : 1.08);
-
-    // Outer crisp frost border
     _stroke
       ..style = PaintingStyle.stroke
-      ..color = Colors.white
+      ..color = const Color(0xFF0B1021)
       ..strokeWidth = 1.6;
-    canvas.drawRRect(rrect, _stroke);
+    canvas.drawRect(rect, _stroke);
+    _fill.isAntiAlias = true;
+    _stroke.isAntiAlias = true;
   }
 
   void _drawFrozenOverlay(Canvas canvas, Rect rect, RRect rrect, double halfW, double halfH, int variant) {
@@ -2046,300 +1918,158 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawNeonBrick(Canvas canvas, Brick b, RRect rrect) {
-    // === 1. "NEON TABELA": 3D Arcade Glass Neon Tube Signboard ===
+    // === 1. "NEON TABELA": Crisp Pixel Art Arcade Neon Tube Block ===
+    _fill.isAntiAlias = false;
+    _stroke.isAntiAlias = false;
     final base = b.color;
     final rect = rrect.outerRect;
     final halfW = rect.width / 2;
-    final halfH = rect.height / 2;
 
-    // 1. 3D dark arcade shadow underneath
-    final darkShadowKey = Object.hash(base.toARGB32(), 101);
-    final darkShadow = _hslDerivedColors.putIfAbsent(darkShadowKey, () => Color.lerp(base, const Color(0xFF04060C), 0.85)!);
-    final dropRRect = RRect.fromRectAndRadius(rect.translate(0, 2.6), const Radius.circular(6.0));
+    // 1. Stepped dark arcade pixel drop shadow
     _fill
       ..style = PaintingStyle.fill
       ..shader = null
-      ..color = darkShadow;
-    canvas.drawRRect(dropRRect, _fill);
+      ..color = const Color(0xFF0B1021);
+    canvas.drawRect(rect.translate(2.0, 2.5), _fill);
 
-    // 2. Dark obsidian glass backing plate with rich inner neon ambient reflection
-    final acrylicKey = Object.hash(base.toARGB32(), rect.width.round(), rect.height.round(), 102);
-    _fill.shader = _brickShaders.putIfAbsent(acrylicKey, () {
-      final centerGlow = Color.lerp(base, const Color(0xFF0A1020), 0.58)!;
-      final deepEdge = Color.lerp(base, const Color(0xFF050811), 0.88)!;
-      return RadialGradient(
-        center: Alignment.center,
-        radius: 0.95,
-        colors: [
-          centerGlow,
-          deepEdge,
-        ],
-      ).createShader(rect);
-    });
-    canvas.drawRRect(rrect, _fill);
-    _fill.shader = null;
+    // 2. Stepped dark obsidian pixel housing (2-step pixel ramp, no radial gradient)
+    final deepEdge = Color.lerp(base, const Color(0xFF050811), 0.88)!;
+    final centerGlow = Color.lerp(base, const Color(0xFF0A1020), 0.62)!;
+    _fill.color = deepEdge;
+    canvas.drawRect(rect, _fill);
+    _fill.color = centerGlow;
+    canvas.drawRect(rect.deflate(2.5), _fill);
 
-    // 3. Diagonal smoky glass reflection slash across housing
-    _tempPath
-      ..reset()
-      ..moveTo(-halfW + 8, -halfH + 2)
-      ..lineTo(-halfW + 20, -halfH + 2)
-      ..lineTo(-halfW + 10, halfH - 2)
-      ..lineTo(-halfW + 2, halfH - 2)
-      ..close();
-    _fill.color = Colors.white.withValues(alpha: 0.07);
-    canvas.drawPath(_tempPath, _fill);
-
-    // 4. Left & right metal electrode tube holders (authentic neon hardware)
+    // 3. Left & right pixel metal electrode brackets
     _fill.color = const Color(0xFF263238);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(-halfW + 3.2, 0), width: 3.2, height: 7.0), const Radius.circular(1.2)),
-      _fill,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(halfW - 3.2, 0), width: 3.2, height: 7.0), const Radius.circular(1.2)),
-      _fill,
-    );
+    canvas.drawRect(Rect.fromCenter(center: Offset(-halfW + 3.0, 0), width: 3.0, height: 6.0), _fill);
+    canvas.drawRect(Rect.fromCenter(center: Offset(halfW - 3.0, 0), width: 3.0, height: 6.0), _fill);
 
-    // 5. Subtle neon gas tube flicker
+    // 4. Stepped Pixel Neon Phosphor Tube Frame + White Pixel Core
     final flicker = 0.95 + 0.05 * sin(time * 16.0 + halfW);
-
-    // 6. Outer & Inner Bent Neon Gas Tubes
-    final tubeRRect = rrect.deflate(1.8);
-    // Outer gas glow bloom
+    final tubeRect = rect.deflate(2.0);
     _stroke
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.6
-      ..color = _ca(base, 0.38 * flicker);
-    canvas.drawRRect(tubeRRect, _stroke);
+      ..strokeWidth = 3.0
+      ..color = _ca(base, 0.45 * flicker);
+    canvas.drawRect(tubeRect, _stroke);
 
-    // Main vibrant neon phosphor tube
     _stroke
-      ..strokeWidth = 2.2
+      ..strokeWidth = 1.8
       ..color = _ca(base, 0.98 * flicker);
-    canvas.drawRRect(tubeRRect, _stroke);
+    canvas.drawRect(tubeRect, _stroke);
 
-    // Pure incandescent cathode white core
     _stroke
-      ..strokeWidth = 0.9
+      ..strokeWidth = 1.0
       ..color = _ca(Colors.white, 0.94 * flicker);
-    canvas.drawRRect(tubeRRect, _stroke);
+    canvas.drawRect(tubeRect, _stroke);
 
-    // 7. Inner floating neon filament capsule
-    final innerCapsule = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset.zero, width: rect.width - 14.0, height: rect.height - 10.0),
-      const Radius.circular(3.5),
-    );
+    // 5. Inner pixel neon filament bar
+    final innerBar = Rect.fromCenter(center: Offset.zero, width: rect.width - 14.0, height: rect.height - 10.0);
     _stroke
       ..strokeWidth = 1.2
-      ..color = _ca(base, 0.65 * flicker);
-    canvas.drawRRect(innerCapsule, _stroke);
-    _stroke
-      ..strokeWidth = 0.5
-      ..color = _ca(Colors.white, 0.55 * flicker);
-    canvas.drawRRect(innerCapsule, _stroke);
+      ..color = _ca(base, 0.80 * flicker);
+    canvas.drawRect(innerBar, _stroke);
+
+    _fill.isAntiAlias = true;
+    _stroke.isAntiAlias = true;
   }
 
   void _drawGlossBrick(Canvas canvas, Brick b, Rect rect, RRect rrect, double halfW, double halfH) {
-    // === 2. "SİBER CAM": 5-Facet Cut Crystal Gemstone & Liquid Candy Glass ===
-    final darkKey = Object.hash(b.color.toARGB32(), 201);
-    final dark = _hslDerivedColors.putIfAbsent(darkKey, () {
-      final hsl = HSLColor.fromColor(b.color);
-      return hsl.withLightness((hsl.lightness * 0.32).clamp(0.06, 0.30)).toColor();
-    });
-    final brightKey = Object.hash(b.color.toARGB32(), 202);
-    final bright = _hslDerivedColors.putIfAbsent(brightKey, () {
-      final hsl = HSLColor.fromColor(b.color);
-      return hsl.withLightness((hsl.lightness * 1.35).clamp(0.68, 0.96)).toColor();
-    });
+    // === 2. "SİBER KRİSTAL": Crisp Pixel Art 5-Facet Cut Gemstone Block ===
+    _fill.isAntiAlias = false;
+    _stroke.isAntiAlias = false;
+    final dark = Color.lerp(b.color, const Color(0xFF0B1021), 0.65)!;
+    final bright = Color.lerp(b.color, Colors.white, 0.45)!;
+    final ultraBright = Color.lerp(b.color, Colors.white, 0.78)!;
 
-    // 1. 3D bottom drop shadow
-    final bottomRRect = RRect.fromRectAndRadius(rect.translate(0, 2.6), const Radius.circular(6.5));
+    // 1. Stepped pixel drop shadow
     _fill
       ..style = PaintingStyle.fill
       ..shader = null
-      ..color = dark;
-    canvas.drawRRect(bottomRRect, _fill);
+      ..color = const Color(0xFF0B1021);
+    canvas.drawRect(rect.translate(2.0, 2.5), _fill);
 
-    // 2. Main Gemstone Outer Body
-    final gemRRect = RRect.fromRectAndRadius(rect, const Radius.circular(6.5));
-    final bodyKey = Object.hash(b.color.toARGB32(), rect.width.round(), rect.height.round(), 203);
-    _fill.shader = _brickShaders.putIfAbsent(bodyKey, () {
-      final hsl = HSLColor.fromColor(b.color);
-      final deepEnd = hsl.withLightness((hsl.lightness * 0.48).clamp(0.12, 0.42)).toColor();
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color.lerp(bright, Colors.white, 0.50)!,
-          bright,
-          b.color,
-          deepEnd,
-        ],
-        stops: const [0.0, 0.28, 0.68, 1.0],
-      ).createShader(rect);
-    });
-    canvas.drawRRect(gemRRect, _fill);
-    _fill.shader = null;
+    // 2. Stepped 5-Facet Pixel Gemstone Body (no smooth gradients)
+    const insetX = 5.5;
+    const insetY = 4.0;
+    _fill.color = b.color;
+    canvas.drawRect(rect, _fill);
 
-    // 3. Cut Gemstone Facets (Top Crown Bevel, Bottom Pavilion Shadow, Central Jewel Table)
-    const insetX = 6.0;
-    const insetY = 4.2;
+    // Top Crown Facet (lightest pixel ramp)
+    _fill.color = ultraBright;
+    canvas.drawRect(Rect.fromLTRB(-halfW + 1.5, -halfH + 1.5, halfW - 1.5, -halfH + insetY), _fill);
 
-    // Top Trapezoid Crown Facet (Catching overhead light)
-    _tempPath
-      ..reset()
-      ..moveTo(-halfW + 3, -halfH + 1)
-      ..lineTo(halfW - 3, -halfH + 1)
-      ..lineTo(halfW - insetX, -halfH + insetY)
-      ..lineTo(-halfW + insetX, -halfH + insetY)
-      ..close();
-    _fill.color = Colors.white.withValues(alpha: 0.42);
-    canvas.drawPath(_tempPath, _fill);
+    // Left Facet (mid-bright pixel ramp)
+    _fill.color = bright;
+    canvas.drawRect(Rect.fromLTRB(-halfW + 1.5, -halfH + insetY, -halfW + insetX, halfH - insetY), _fill);
 
-    // Bottom Trapezoid Facet (Deep internal refraction)
-    _tempPath
-      ..reset()
-      ..moveTo(-halfW + insetX, halfH - insetY)
-      ..lineTo(halfW - insetX, halfH - insetY)
-      ..lineTo(halfW - 3, halfH - 1)
-      ..lineTo(-halfW + 3, halfH - 1)
-      ..close();
-    _fill.color = dark.withValues(alpha: 0.48);
-    canvas.drawPath(_tempPath, _fill);
+    // Right & Bottom Facets (shadow pixel ramp)
+    _fill.color = dark;
+    canvas.drawRect(Rect.fromLTRB(halfW - insetX, -halfH + insetY, halfW - 1.5, halfH - 1.5), _fill);
+    canvas.drawRect(Rect.fromLTRB(-halfW + 1.5, halfH - insetY, halfW - 1.5, halfH - 1.5), _fill);
 
-    // Left Facet (Light-facing bevel)
-    _tempPath
-      ..reset()
-      ..moveTo(-halfW + 1, -halfH + 3)
-      ..lineTo(-halfW + insetX, -halfH + insetY)
-      ..lineTo(-halfW + insetX, halfH - insetY)
-      ..lineTo(-halfW + 1, halfH - 3)
-      ..close();
-    _fill.color = Colors.white.withValues(alpha: 0.24);
-    canvas.drawPath(_tempPath, _fill);
-
-    // Central Raised Jewel Table with Specular Glass Sweep
+    // Central Raised Pixel Jewel Table
     final tableRect = Rect.fromLTRB(-halfW + insetX, -halfH + insetY, halfW - insetX, halfH - insetY);
-    final tableRRect = RRect.fromRectAndRadius(tableRect, const Radius.circular(3.0));
-    final tableKey = Object.hash(b.color.toARGB32(), rect.width.round(), rect.height.round(), 205);
-    _fill.shader = _brickShaders.putIfAbsent(tableKey, () {
-      return LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Color.lerp(bright, Colors.white, 0.32)!,
-          b.color,
-          Color.lerp(b.color, dark, 0.25)!,
-        ],
-      ).createShader(tableRect);
-    });
-    canvas.drawRRect(tableRRect, _fill);
-    _fill.shader = null;
+    _fill.color = b.color;
+    canvas.drawRect(tableRect, _fill);
+    _fill.color = bright;
+    canvas.drawRect(Rect.fromLTRB(tableRect.left, tableRect.top, tableRect.right, tableRect.top + 2.0), _fill);
 
-    // Crisp facet ridge lines
+    // Crisp 1px pixel facet ridge frame
     _stroke
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.9
-      ..color = Colors.white.withValues(alpha: 0.55);
-    canvas.drawRRect(tableRRect, _stroke);
-
-    // 4. Specular 4-point diamond star glint on top-left facet vertex
-    final glintCenter = Offset(-halfW + insetX + 1.5, -halfH + insetY + 1.0);
-    _fill.color = Colors.white;
-    canvas.drawCircle(glintCenter, 1.5, _fill);
-    _stroke
       ..strokeWidth = 1.0
-      ..color = Colors.white;
-    canvas.drawLine(Offset(glintCenter.dx - 3.8, glintCenter.dy), Offset(glintCenter.dx + 3.8, glintCenter.dy), _stroke);
-    canvas.drawLine(Offset(glintCenter.dx, glintCenter.dy - 3.8), Offset(glintCenter.dx, glintCenter.dy + 3.8), _stroke);
+      ..color = Colors.white.withValues(alpha: 0.75);
+    canvas.drawRect(tableRect, _stroke);
 
-    // 5. Outer crystal rim shine
-    _stroke
-      ..strokeWidth = 1.1
-      ..color = _ca(Colors.white, 0.65);
-    canvas.drawRRect(gemRRect, _stroke);
+    // Crisp 2x2 white pixel glint at top-left facet vertex
+    _fill.color = Colors.white;
+    canvas.drawRect(Rect.fromLTWH(-halfW + insetX + 1.0, -halfH + insetY + 1.0, 2.5, 2.5), _fill);
+
+    _fill.isAntiAlias = true;
+    _stroke.isAntiAlias = true;
   }
 
   void _drawNeuBrick(Canvas canvas, Brick b, RRect rrect) {
-    // === 3. "YUMUŞAK PUF" (STİL 1): Jöle / Şeker Yastık (Plush Squishy Gummy Pillow) ===
+    // === 3. "RETRO KASET / BLOK": Crisp Stepped Pixel Bevel Block (Replaces Non-Pixel Jelly Pillow) ===
+    _fill.isAntiAlias = false;
+    _stroke.isAntiAlias = false;
     final base = b.color;
     final rect = rrect.outerRect;
     final halfW = rect.width / 2;
     final halfH = rect.height / 2;
 
-    final lightKey = Object.hash(base.toARGB32(), 311);
-    final light = _hslDerivedColors.putIfAbsent(lightKey, () => Color.lerp(base, Colors.white, 0.55)!);
-    final ultraLightKey = Object.hash(base.toARGB32(), 312);
-    final ultraLight = _hslDerivedColors.putIfAbsent(ultraLightKey, () => Color.lerp(base, Colors.white, 0.80)!);
-    final darkKey = Object.hash(base.toARGB32(), 313);
-    final dark = _hslDerivedColors.putIfAbsent(darkKey, () => Color.lerp(base, Colors.black, 0.50)!);
-    final deepDarkKey = Object.hash(base.toARGB32(), 314);
-    final deepDark = _hslDerivedColors.putIfAbsent(deepDarkKey, () => Color.lerp(base, Colors.black, 0.75)!);
+    final light = Color.lerp(base, Colors.white, 0.52)!;
+    final dark = Color.lerp(base, const Color(0xFF0B1021), 0.55)!;
+    final deepDark = Color.lerp(base, const Color(0xFF0B1021), 0.78)!;
 
-    final pillowRRect = RRect.fromRectAndRadius(rect, const Radius.circular(9.5));
-
-    // 1. Soft 3D base cushion shadow
+    // 1. Stepped pixel drop shadow
     _fill
       ..style = PaintingStyle.fill
       ..shader = null
-      ..color = _ca(deepDark, 0.85);
-    canvas.drawRRect(RRect.fromRectAndRadius(rect.translate(0, 2.8), const Radius.circular(9.5)), _fill);
+      ..color = const Color(0xFF0B1021);
+    canvas.drawRect(rect.translate(2.0, 2.5), _fill);
 
-    // 2. Main plump radial body with warm subsurface glow & bottom bounce rim light
-    final bodyKey = Object.hash('neu_stil1_body', base.toARGB32(), rect.width.round(), rect.height.round());
-    _fill.shader = _brickShaders.putIfAbsent(bodyKey, () {
-      return RadialGradient(
-        center: const Alignment(-0.28, -0.45),
-        radius: 1.15,
-        colors: [
-          ultraLight,
-          base,
-          dark,
-          Color.lerp(base, Colors.white, 0.25)!,
-        ],
-        stops: const [0.0, 0.38, 0.82, 1.0],
-      ).createShader(rect);
-    });
-    canvas.drawRRect(pillowRRect, _fill);
+    // 2. Stepped 3-Band Pixel Cushion Body (Zero RadialGradient, Zero Round Pillow)
+    _fill.color = deepDark;
+    canvas.drawRect(rect, _fill);
 
-    // 3. Inner warm subsurface core glow
-    final innerRect = rect.deflate(2.0);
-    final innerKey = Object.hash('neu_stil1_inner', base.toARGB32(), rect.width.round(), rect.height.round());
-    _fill.shader = _brickShaders.putIfAbsent(innerKey, () {
-      return RadialGradient(
-        center: const Alignment(0.0, 0.25),
-        radius: 0.75,
-        colors: [
-          light.withValues(alpha: 0.55),
-          Colors.transparent,
-        ],
-      ).createShader(innerRect);
-    });
-    canvas.drawRRect(RRect.fromRectAndRadius(innerRect, const Radius.circular(8.0)), _fill);
-    _fill.shader = null;
+    _fill.color = dark;
+    canvas.drawRect(rect.deflate(1.5), _fill);
 
-    // 4. Thick curved liquid-jelly highlight pill along top-left shoulder
-    _tempPath
-      ..reset()
-      ..moveTo(-halfW + 6.5, -halfH + 2.6)
-      ..quadraticBezierTo(0, -halfH + 1.8, halfW - 14.0, -halfH + 3.0)
-      ..quadraticBezierTo(halfW - 11.0, -halfH + 4.5, halfW - 15.0, -halfH + 5.2)
-      ..quadraticBezierTo(-2.0, -halfH + 4.2, -halfW + 7.2, -halfH + 5.8)
-      ..quadraticBezierTo(-halfW + 4.5, -halfH + 4.2, -halfW + 6.5, -halfH + 2.6)
-      ..close();
-    _fill.color = const Color(0xD1FFFFFF);
-    canvas.drawPath(_tempPath, _fill);
+    _fill.color = base;
+    canvas.drawRect(Rect.fromLTRB(-halfW + 2.5, -halfH + 2.5, halfW - 3.0, halfH - 3.5), _fill);
 
-    // 5. Cute secondary specular jelly dot on top-right
-    canvas.drawCircle(Offset(halfW - 9.5, -halfH + 4.2), 1.5, _fill);
+    // 3. Stepped Pixel Top-Left Highlight Bar
+    _fill.color = light;
+    canvas.drawRect(Rect.fromLTWH(-halfW + 3.5, -halfH + 3.0, rect.width - 9.0, 2.5), _fill);
+    _fill.color = Colors.white;
+    canvas.drawRect(Rect.fromLTWH(-halfW + 4.5, -halfH + 3.5, 5.0, 2.0), _fill);
+    canvas.drawRect(Rect.fromLTWH(halfW - 7.5, -halfH + 3.5, 2.2, 2.0), _fill);
 
-    // 6. Soft glossy outer contour
-    _stroke
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.1
-      ..color = const Color(0x8CFFFFFF);
-    canvas.drawRRect(pillowRRect.deflate(0.5), _stroke);
+    _fill.isAntiAlias = true;
+    _stroke.isAntiAlias = true;
   }
 
   void _drawPixelBrick(Canvas canvas, Brick b, Rect rect, double halfW, double halfH) {
@@ -2405,108 +2135,75 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawCyberBrick(Canvas canvas, Brick b, RRect rrect, double halfW, double halfH) {
-    // === 5. "SİBERPUNK 2099" (STİL A): Kesik Köşeli Meka Reaktör, Yan Plazma Izgaraları (///) ve Tarayıcı Lazer ===
+    // === 5. "SİBERPUNK 2099": Crisp Pixel Art Mecha Reactor Block ===
+    _fill.isAntiAlias = false;
+    _stroke.isAntiAlias = false;
     final base = b.color;
     final rect = rrect.outerRect;
     final w = rect.width;
     final h = rect.height;
-    final brightKey = Object.hash(base.toARGB32(), 411);
-    final light = _hslDerivedColors.putIfAbsent(brightKey, () => Color.lerp(base, Colors.white, 0.50)!);
+    final light = Color.lerp(base, Colors.white, 0.50)!;
     final pulse = 0.75 + 0.25 * sin(time * 7.0);
 
-    // 1. Chamfered 3D Drop Shadow
-    _addChamferRect(_tempPath, -halfW, -halfH + 2.6, w, h, 4.5);
+    // 1. Stepped Pixel Drop Shadow
     _fill
       ..style = PaintingStyle.fill
       ..shader = null
-      ..color = const Color(0xFF03050B);
-    canvas.drawPath(_tempPath, _fill);
+      ..color = const Color(0xFF0B1021);
+    canvas.drawRect(rect.translate(2.0, 2.5), _fill);
 
-    // 2. Gunmetal + Brick-tinted Mecha Armor Body
-    _addChamferRect(_tempPath, -halfW, -halfH, w, h, 4.5);
-    final plateKey = Object.hash('cyber_stil_a_plate', base.toARGB32(), w.round(), h.round());
-    _fill.shader = _brickShaders.putIfAbsent(plateKey, () {
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color.lerp(base, const Color(0xFF1C2638), 0.55)!,
-          const Color(0xFF0F1726),
-          const Color(0xFF070B14),
-        ],
-        stops: const [0.0, 0.50, 1.0],
-      ).createShader(rect);
-    });
-    canvas.drawPath(_tempPath, _fill);
-    _fill.shader = null;
+    // 2. Stepped Gunmetal Pixel Armor Plates (No smooth LinearGradient)
+    _fill.color = const Color(0xFF070B14);
+    canvas.drawRect(rect, _fill);
+    _fill.color = const Color(0xFF141E30);
+    canvas.drawRect(rect.deflate(1.8), _fill);
+    _fill.color = Color.lerp(base, const Color(0xFF1C2638), 0.60)!;
+    canvas.drawRect(Rect.fromLTWH(-halfW + 2.0, -halfH + 2.0, w - 4.0, h * 0.42), _fill);
 
-    // 3. Glowing Side Plasma Vents (/// gills on left & right wings)
-    _stroke
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 1.6
-      ..color = _ca(light, 0.90 * pulse);
+    // 3. Crisp Pixel Side Plasma Vents
+    _fill.color = _ca(light, 0.90 * pulse);
     for (int v = 0; v < 2; v++) {
-      final lx = -halfW + 6.2 + v * 3.8;
-      canvas.drawLine(Offset(lx + 1.8, -halfH + 4.5), Offset(lx, halfH - 4.5), _stroke);
-      final rx = halfW - 6.2 - v * 3.8;
-      canvas.drawLine(Offset(rx - 1.8, -halfH + 4.5), Offset(rx, halfH - 4.5), _stroke);
+      final lx = -halfW + 4.5 + v * 3.6;
+      canvas.drawRect(Rect.fromLTWH(lx, -halfH + 4.0, 2.0, h - 8.0), _fill);
+      final rx = halfW - 6.5 - v * 3.6;
+      canvas.drawRect(Rect.fromLTWH(rx, -halfH + 4.0, 2.0, h - 8.0), _fill);
     }
 
-    // 4. Central Hexagonal Plasma Reactor Window
-    final cw = (w * 0.25).clamp(9.5, 13.0);
+    // 4. Central Pixel Reactor Core Window
+    final cw = (w * 0.25).clamp(9.0, 13.0);
     final ch = halfH - 3.0;
-    _tempPath
-      ..reset()
-      ..moveTo(-cw + 3.5, -ch)
-      ..lineTo(cw - 3.5, -ch)
-      ..lineTo(cw, 0)
-      ..lineTo(cw - 3.5, ch)
-      ..lineTo(-cw + 3.5, ch)
-      ..lineTo(-cw, 0)
-      ..close();
-    final coreKey = Object.hash('cyber_stil_a_core', base.toARGB32(), w.round(), h.round());
     final coreRect = Rect.fromCenter(center: Offset.zero, width: cw * 2, height: ch * 2);
-    _fill.shader = _brickShaders.putIfAbsent(coreKey, () {
-      return RadialGradient(
-        colors: [
-          Colors.white,
-          light,
-          base.withValues(alpha: 0.95),
-        ],
-        stops: const [0.0, 0.45, 1.0],
-      ).createShader(coreRect);
-    });
-    canvas.drawPath(_tempPath, _fill);
-    _fill.shader = null;
+    _fill.color = base;
+    canvas.drawRect(coreRect, _fill);
+    _fill.color = light;
+    canvas.drawRect(coreRect.deflate(2.0), _fill);
+    _fill.color = Colors.white;
+    canvas.drawRect(coreRect.deflate(4.0), _fill);
 
     _stroke
-      ..color = Colors.white
-      ..strokeWidth = 1.0;
-    canvas.drawPath(_tempPath, _stroke);
-
-    // 5. Scanning horizontal laser beam inside reactor
-    final scanY = sin(time * 5.0) * (ch - 2.2);
-    _stroke
-      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..color = const Color(0xFF0B1021)
       ..strokeWidth = 1.4;
-    canvas.drawLine(Offset(-cw + 3.0, scanY), Offset(cw - 3.0, scanY), _stroke);
+    canvas.drawRect(coreRect, _stroke);
 
-    // 6. Top & Bottom tactical HUD notches
-    _fill.color = _ca(base, 0.95);
-    canvas.drawRect(Rect.fromLTWH(-7.5, -halfH, 15.0, 1.8), _fill);
-    canvas.drawRect(Rect.fromLTWH(-7.5, halfH - 1.8, 15.0, 1.8), _fill);
+    // 5. Scanning horizontal pixel laser line inside reactor
+    final scanY = (sin(time * 5.0) * (ch - 2.2)).roundToDouble();
+    _fill.color = Colors.white;
+    canvas.drawRect(Rect.fromLTRB(-cw + 2.0, scanY - 0.8, cw - 2.0, scanY + 0.8), _fill);
 
-    // 7. Chamfered Neon Armor Rim
-    _addChamferRect(_tempPath, -halfW, -halfH, w, h, 4.5);
-    _stroke
-      ..color = _ca(base, 0.95)
-      ..strokeWidth = 1.3;
-    canvas.drawPath(_tempPath, _stroke);
+    // 6. Top & Bottom tactical pixel HUD notches
+    _fill.color = base;
+    canvas.drawRect(Rect.fromLTWH(-7.5, -halfH, 15.0, 2.0), _fill);
+    canvas.drawRect(Rect.fromLTWH(-7.5, halfH - 2.0, 15.0, 2.0), _fill);
+
+    _fill.isAntiAlias = true;
+    _stroke.isAntiAlias = true;
   }
 
   void _drawCosmicBrick(Canvas canvas, Brick b, RRect rrect, double halfW, double halfH) {
-    // === 6. "KOZMİK KRİSTAL": Legendary Astral Galaxy Prism & Deep Space Nebula ===
+    // === 6. "KOZMİK KRİSTAL": Crisp Pixel Art Astral Nebula & Star Block ===
+    _fill.isAntiAlias = false;
+    _stroke.isAntiAlias = false;
     final base = b.color;
     final rect = rrect.outerRect;
     const deepVoid = Color(0xFF070114);
@@ -2515,132 +2212,54 @@ class _GameWorldPainter extends CustomPainter {
     final cyan = Color.lerp(base, const Color(0xFF00E5FF), 0.55)!;
     final violet = Color.lerp(base, const Color(0xFF7C4DFF), 0.60)!;
 
-    // 1. 3D astral void drop shadow
-    final dropRRect = RRect.fromRectAndRadius(rect.translate(0, 2.6), const Radius.circular(6.0));
+    // 1. Stepped astral void pixel drop shadow
     _fill
       ..style = PaintingStyle.fill
       ..shader = null
-      ..color = const Color(0xFF06010D);
-    canvas.drawRRect(dropRRect, _fill);
+      ..color = const Color(0xFF0B1021);
+    canvas.drawRect(rect.translate(2.0, 2.5), _fill);
 
-    // 2. Encapsulate cosmic nebulae, stardust, and gas clouds inside the crystal body
-    canvas.save();
-    canvas.clipRRect(rrect);
-
-    // 3. Deep Space Void background with integrated Cosmic Nebula (cached shader)
-    final wKey = rect.width.round();
-    final hKey = rect.height.round();
-    final colKey = base.toARGB32();
-
-    _fill.shader = _brickShaders.putIfAbsent(
-      Object.hash('cosmic_core_nebula', colKey, wKey, hKey),
-      () => RadialGradient(
-        center: const Alignment(-0.2, -0.2),
-        radius: 1.25,
-        colors: [
-          magenta.withValues(alpha: 0.68),
-          violet.withValues(alpha: 0.45),
-          cyan.withValues(alpha: 0.35),
-          abyss,
-          deepVoid,
-        ],
-        stops: const [0.0, 0.28, 0.55, 0.82, 1.0],
-      ).createShader(rect),
-    );
+    // 2. Stepped Deep Space Pixel Bands (Zero Radial/Linear Gradients)
+    _fill.color = deepVoid;
     canvas.drawRect(rect, _fill);
+    _fill.color = abyss;
+    canvas.drawRect(rect.deflate(2.0), _fill);
 
-    // 4. Milky Way Stardust Core Band (cached per dimension)
-    _fill.shader = _brickShaders.putIfAbsent(
-      Object.hash('cosmic_band', wKey, hKey),
-      () => const LinearGradient(
-        begin: Alignment(-0.85, -0.9),
-        end: Alignment(0.85, 0.9),
-        colors: [
-          Colors.transparent,
-          Color(0x35E040FB),
-          Color(0x75FFFFFF),
-          Color(0x3500E5FF),
-          Colors.transparent,
-        ],
-        stops: [0.0, 0.32, 0.50, 0.68, 1.0],
-      ).createShader(rect),
-    );
-    canvas.drawRect(rect, _fill);
-    _fill.shader = null;
+    // Stepped diagonal pixel nebula clusters
+    _fill.color = violet;
+    canvas.drawRect(Rect.fromLTWH(-halfW + 3.0, -halfH + 3.0, rect.width * 0.55, rect.height * 0.50), _fill);
+    _fill.color = magenta;
+    canvas.drawRect(Rect.fromLTWH(-halfW + 5.0, -halfH + 4.0, rect.width * 0.35, rect.height * 0.35), _fill);
+    _fill.color = cyan;
+    canvas.drawRect(Rect.fromLTWH(0, 0, halfW - 3.0, halfH - 3.0), _fill);
 
-    // 5. Brilliant JWST Diamond Star Flare & Micro-Stars (optimized 3 focal points)
-    final majorStarPos = Offset(-halfW * 0.20, -halfH * 0.18);
+    // 3. Crisp Pixel Cross-Star & Micro-Pixel Stars
     final majorTwinkle = 0.78 + 0.22 * sin(time * 3.5);
     _fill.color = Colors.white.withValues(alpha: majorTwinkle);
-    canvas.drawCircle(majorStarPos, 1.8, _fill);
-    canvas.drawCircle(Offset(halfW * 0.35, halfH * 0.25), 1.1, _fill);
-    canvas.drawCircle(Offset(-halfW * 0.55, halfH * 0.35), 0.9, _fill);
+    final sx = (-halfW * 0.22).roundToDouble();
+    final sy = (-halfH * 0.18).roundToDouble();
+    canvas.drawRect(Rect.fromCenter(center: Offset(sx, sy), width: 6.0, height: 2.0), _fill);
+    canvas.drawRect(Rect.fromCenter(center: Offset(sx, sy), width: 2.0, height: 6.0), _fill);
+    canvas.drawRect(Rect.fromLTWH(halfW * 0.32, halfH * 0.20, 2.2, 2.2), _fill);
+    canvas.drawRect(Rect.fromLTWH(-halfW * 0.55, halfH * 0.28, 2.0, 2.0), _fill);
 
-    _stroke
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..color = Colors.white.withValues(alpha: 0.85 * majorTwinkle);
-    canvas.drawLine(Offset(majorStarPos.dx - 5.0, majorStarPos.dy), Offset(majorStarPos.dx + 5.0, majorStarPos.dy), _stroke);
-    canvas.drawLine(Offset(majorStarPos.dx, majorStarPos.dy - 4.0), Offset(majorStarPos.dx, majorStarPos.dy + 4.0), _stroke);
-
-    // 8. Crystal Prism Facet Sheen
-    final sheenRect = Rect.fromLTWH(-halfW, -halfH, rect.width, halfH * 0.85);
-    _fill.shader = _brickShaders.putIfAbsent(
-      Object.hash('cosmic_sheen', wKey, hKey),
-      () => LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.white.withValues(alpha: 0.38),
-          Colors.white.withValues(alpha: 0.08),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.40, 1.0],
-      ).createShader(sheenRect),
-    );
-    canvas.drawRect(sheenRect, _fill);
-    _fill.shader = null;
-
-    canvas.restore(); // end clip
-
-    // 9. 3D Cut-Gemstone Facet Geometry (Elmas Kesim Kristal Köşe ve Prizma Yansımaları)
+    // 4. Inner Pixel Gem Table Frame & Stepped Top Highlight
     final innerW = halfW * 1.25;
     final innerH = halfH * 1.15;
-    _tempPath.reset();
-    // Inner gem table polygon
-    _tempPath.addRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: innerW, height: innerH), const Radius.circular(3.0)));
     _stroke
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..color = Colors.white.withValues(alpha: 0.65);
-    canvas.drawPath(_tempPath, _stroke);
+      ..strokeWidth = 1.2
+      ..color = Colors.white.withValues(alpha: 0.70);
+    canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: innerW, height: innerH), _stroke);
 
-    // Facet diagonal edge lines from outer corners to inner gem table
-    canvas.drawLine(Offset(-halfW, -halfH), Offset(-innerW / 2, -innerH / 2), _stroke);
-    canvas.drawLine(Offset(halfW, -halfH), Offset(innerW / 2, -innerH / 2), _stroke);
-    canvas.drawLine(Offset(halfW, halfH), Offset(innerW / 2, innerH / 2), _stroke);
-    canvas.drawLine(Offset(-halfW, halfH), Offset(-innerW / 2, innerH / 2), _stroke);
-
-    // 10. Prismatic Iridescent Crystal Rim + Inner Facet Frame
+    // Outer stepped cyan/magenta pixel rim inside the #0B1021 outline
     _stroke
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
-      ..shader = _brickShaders.putIfAbsent(
-        Object.hash('cosmic_rim', colKey, wKey, hKey),
-        () => LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            cyan.withValues(alpha: 0.98),
-            Colors.white.withValues(alpha: 0.90),
-            magenta.withValues(alpha: 0.95),
-            base.withValues(alpha: 0.95),
-          ],
-          stops: const [0.0, 0.32, 0.68, 1.0],
-        ).createShader(rect),
-      );
-    canvas.drawRRect(rrect, _stroke);
-    _stroke.shader = null;
+      ..strokeWidth = 1.5
+      ..color = cyan;
+    canvas.drawRect(rect.deflate(1.5), _stroke);
+
+    _fill.isAntiAlias = true;
+    _stroke.isAntiAlias = true;
   }
 
   void _drawBoss(Canvas canvas, Brick b, double time, double halfW, double halfH) {

@@ -144,6 +144,14 @@ class AudioManager {
     await _loadPool('brick_gloss', 'assets/audio/y2k_digital1.mp3', 2);
     await _loadPool('brick_neu', 'assets/audio/pop2.mp3', 2);
     await _loadPool('brick_cyber', 'assets/audio/glass_shatter.mp3', 2);
+    await _loadPool('brick_cosmic', 'assets/audio/glass_glow.mp3', 2);
+    await _loadPool('steel', 'assets/audio/crystal_block.mp3', 2);
+    await _loadPool('bubble', 'assets/audio/bubble2.mp3', 2);
+    await _loadPool('click', 'assets/audio/click1.mp3', 2);
+    await _loadPool('powerup_buff', 'assets/audio/ui_a4.mp3', 2);
+    await _loadPool('powerup_debuff', 'assets/audio/ui_b3.mp3', 2);
+    await _loadPool('victory', 'assets/audio/ui_fx4.mp3', 1);
+    await _loadPool('game_over', 'assets/audio/digital_explo2.mp3', 1);
     await _loadPool('laser', 'assets/audio/custom_laser.wav', 2);
     await _loadPool('explosion', 'assets/audio/custom_explosion.wav', 2);
     await _loadPool('ulti', 'assets/audio/ui_fx1.mp3', 2);
@@ -362,6 +370,7 @@ class AudioManager {
 
   int lastPlayedCombo = 0;
   double lastPlaybackRate = 1.0;
+  String lastResolvedSoundKey = 'bounce';
 
   void setDynamicTempo({bool isFever = false, bool isBoss = false}) {
     try {
@@ -376,6 +385,83 @@ class AudioManager {
     } catch (_) {}
   }
 
+  /// Resolves the canonical sound pool key for a given [GameSfx] and active brick style.
+  String resolveSoundKey(GameSfx sfx) {
+    switch (sfx) {
+      case GameSfx.breakBrick:
+        final curStyle = SaveManager.instance.activeBrickStyle;
+        if (curStyle == 'random' || curStyle.isEmpty) {
+          return 'brick_neon';
+        }
+        return curStyle.startsWith('brick_') ? curStyle : 'brick_$curStyle';
+      case GameSfx.laser:
+      case GameSfx.cornerBoost:
+        return 'laser';
+      case GameSfx.bossHit:
+      case GameSfx.explosion:
+        return 'explosion';
+      case GameSfx.wallBounce8:
+      case GameSfx.ulti:
+        return 'ulti';
+      case GameSfx.steel:
+        return 'steel';
+      case GameSfx.bubble:
+        return 'bubble';
+      case GameSfx.click:
+        return 'click';
+      case GameSfx.powerupBuff:
+        return 'powerup_buff';
+      case GameSfx.powerupDebuff:
+        return 'powerup_debuff';
+      case GameSfx.victory:
+        return 'victory';
+      case GameSfx.gameOver:
+        return 'game_over';
+      case GameSfx.hitPaddle:
+      case GameSfx.hitWall:
+      case GameSfx.hitBrick:
+        return 'bounce';
+    }
+  }
+
+  double _resolveGain(GameSfx sfx) {
+    switch (sfx) {
+      case GameSfx.breakBrick:
+        return 0.65;
+      case GameSfx.laser:
+        return 0.50;
+      case GameSfx.cornerBoost:
+        return 0.85;
+      case GameSfx.bossHit:
+        return 0.75;
+      case GameSfx.wallBounce8:
+        return 0.80;
+      case GameSfx.explosion:
+        return 0.80;
+      case GameSfx.ulti:
+        return 0.90;
+      case GameSfx.steel:
+        return 0.60;
+      case GameSfx.bubble:
+        return 0.45;
+      case GameSfx.click:
+        return 0.50;
+      case GameSfx.powerupBuff:
+        return 0.60;
+      case GameSfx.powerupDebuff:
+        return 0.60;
+      case GameSfx.victory:
+        return 0.80;
+      case GameSfx.gameOver:
+        return 0.75;
+      case GameSfx.hitPaddle:
+        return 0.55;
+      case GameSfx.hitWall:
+      case GameSfx.hitBrick:
+        return 0.40;
+    }
+  }
+
   void playSfx(GameSfx sfx, {int combo = 0, double? playbackRate}) {
     lastPlayedCombo = combo;
     double effectiveRate = playbackRate ?? 1.0;
@@ -386,6 +472,8 @@ class AudioManager {
       effectiveRate = 1.0 + (step * 0.05);
     }
     lastPlaybackRate = effectiveRate;
+    final resolvedKey = resolveSoundKey(sfx);
+    lastResolvedSoundKey = resolvedKey;
     if (!appInForeground) return;
     if (!SaveManager.instance.sfxEnabled) return;
 
@@ -400,59 +488,9 @@ class AudioManager {
 
     final volLevel = SaveManager.instance.sfxVolume;
     if (volLevel > 0) {
-      
-      String soundKey = 'bounce';
-      double gain = 0.4;
-      
-      switch (sfx) {
-        case GameSfx.breakBrick:
-          final curStyle = SaveManager.instance.activeBrickStyle;
-          soundKey = curStyle == 'random' ? 'brick_neon' : curStyle;
-          gain = 0.65;
-          break;
-        case GameSfx.laser:
-          soundKey = 'laser';
-          gain = 0.5;
-          break;
-        case GameSfx.cornerBoost:
-          soundKey = 'laser';
-          gain = 0.85;
-          break;
-        case GameSfx.bossHit:
-          soundKey = 'explosion';
-          gain = 0.75;
-          break;
-        case GameSfx.wallBounce8:
-          soundKey = 'ulti';
-          gain = 0.8;
-          break;
-        case GameSfx.explosion:
-          soundKey = 'explosion';
-          gain = 0.8;
-          break;
-        case GameSfx.ulti:
-          soundKey = 'ulti';
-          gain = 0.9;
-          break;
-        case GameSfx.hitPaddle:
-          soundKey = 'bounce';
-          gain = 0.55;
-          break;
-        case GameSfx.hitWall:
-        case GameSfx.hitBrick:
-          soundKey = 'bounce';
-          gain = 0.4;
-          break;
-        case GameSfx.bubble:
-          soundKey = 'bounce';
-          gain = 0.3;
-          break;
-        default:
-          soundKey = 'bounce';
-          gain = 0.45;
-          break;
-      }
-      
+      String soundKey = resolvedKey;
+      final double gain = _resolveGain(sfx);
+
       if (!_pools.containsKey(soundKey) || _pools[soundKey]!.isEmpty) soundKey = 'bounce';
       
       final pool = _pools[soundKey];

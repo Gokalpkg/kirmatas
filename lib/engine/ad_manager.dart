@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show InternetAddress, Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -64,6 +65,21 @@ class AdManager extends ChangeNotifier {
   int _levelsUntilAd = 3 + (DateTime.now().microsecond % 3);
   int _clearsSinceVoluntaryAd = 99;
   int _quietClearsAfterAd = 0;
+  String _lastNoFillGraceDay = '';
+
+  Future<bool> _hasActiveInternet() async {
+    if (kIsWeb) return true;
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return true;
+      }
+      final result = await InternetAddress.lookup('google.com')
+          .timeout(const Duration(milliseconds: 1500));
+      return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
 
   bool get isLoading => _isLoading;
   bool get isLoadingHighYield => _isLoadingHighYield;
@@ -261,12 +277,33 @@ class AdManager extends ChangeNotifier {
           return;
         }
 
-        // Guaranteed Grace Reward if ads fail to fill
-        SaveManager.instance.addGold(goldRewardAmount);
-        SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
-        SaveManager.instance.recordAdOrWinQuest();
-        AudioManager.instance.playSfx(GameSfx.powerupBuff);
-        onSuccess(goldRewardAmount);
+        // Smart No-Fill Grace Protection:
+        // Only grant the fallback reward if the player is genuinely online (AdMob No-Fill)
+        // and hasn't already claimed the once-per-day No-Fill grace reward.
+        // Offline / Airplane mode players get a connection warning instead of free gold.
+        final online = await _hasActiveInternet();
+        final nowDt = DateTime.now();
+        final todayKey = '${nowDt.year}-${nowDt.month}-${nowDt.day}';
+        if (online && _lastNoFillGraceDay != todayKey) {
+          _lastNoFillGraceDay = todayKey;
+          SaveManager.instance.addGold(goldRewardAmount);
+          SaveManager.instance.setLastAdWatchTime(nowDt.millisecondsSinceEpoch);
+          SaveManager.instance.recordAdOrWinQuest();
+          AudioManager.instance.playSfx(GameSfx.powerupBuff);
+          onSuccess(goldRewardAmount);
+          return;
+        }
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Reklam yüklenemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.'),
+              backgroundColor: Color(0xFF1E2438),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
         return;
       }
     }
