@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kirmatas/engine/i18n.dart';
@@ -385,26 +384,11 @@ void main() {
       expect(save.fishFood, 15);
     });
 
-    testWidgets('SettingsDialog shows error snackbar on corrupt progress code paste', (tester) async {
-      // Mock clipboard to return corrupt code
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        (MethodCall methodCall) async {
-          if (methodCall.method == 'Clipboard.getData') {
-            return <String, dynamic>{'text': 'MALFORMED_GARBAGE_CODE'};
-          }
-          return null;
-        },
-      );
-      addTearDown(() {
-        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          SystemChannels.platform,
-          null,
-        );
-      });
-
+    testWidgets('SettingsDialog omits progress code UI and displays localized KAPALI status when muted', (tester) async {
       final save = SaveManager.instance;
+      save.language = 'tr';
       save.gold = 7777;
+      await save.setSfxVolume(0);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -422,19 +406,10 @@ void main() {
       await tester.tap(find.text('OPEN'));
       await tester.pump(const Duration(milliseconds: 300));
 
-      // Scroll to progress code section
-      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -350));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-
-      // Tap paste
-      await tester.tap(find.text(I18n.tr('progress_paste')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      // Expect invalid code snackbar
-      expect(find.text(I18n.tr('progress_invalid')), findsOneWidget);
-      // Gold must remain unchanged
+      // Progress code UI was removed per user design; verify absence
+      expect(find.text(I18n.tr('progress_paste')), findsNothing);
+      // Localized Turkish status label (Kapalı) is shown instead of OFF
+      expect(find.textContaining(I18n.tr('off')), findsWidgets);
       expect(save.gold, 7777);
     });
   });

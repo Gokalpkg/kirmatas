@@ -24,29 +24,36 @@ class DailyQuestsDialog extends StatefulWidget {
 class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
   final SaveManager _save = SaveManager.instance;
   String? _justClaimedId;
+  bool _isClaiming = false;
 
   void _claimQuest(String questId) async {
-    final reward = await _save.claimQuestReward(questId);
-    if (!mounted) return;
-    if (reward > 0) {
-      _justClaimedId = questId;
-      AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.0);
-      AudioManager.instance.playSfx(GameSfx.bubble, playbackRate: 1.25);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text( ' +$reward ${I18n.tr('quest_gold')}',
-            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFFD54F)),
+    if (_isClaiming) return;
+    _isClaiming = true;
+    try {
+      final reward = await _save.claimQuestReward(questId);
+      if (!mounted) return;
+      if (reward > 0) {
+        _justClaimedId = questId;
+        AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.0);
+        AudioManager.instance.playSfx(GameSfx.bubble, playbackRate: 1.25);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text( ' +$reward ${I18n.tr('quest_gold')}',
+              style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFFD54F)),
+            ),
+            backgroundColor: const Color(0xFF161A29),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0xFFFFD54F), width: 1.5),
+            ),
+            duration: const Duration(seconds: 3),
           ),
-          backgroundColor: const Color(0xFF161A29),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFFFFD54F), width: 1.5),
-          ),
-          duration: const Duration(seconds: 3),
-        ),
-      );
-      setState(() {});
+        );
+        setState(() {});
+      }
+    } finally {
+      _isClaiming = false;
     }
   }
 
@@ -114,23 +121,25 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                // Quest 1: Feed Fish
-                _buildQuestCard(
-                  id: 'feed_fish',
-                  title: I18n.tr('quest_feed'),
-                  rewardText: '+60  + 1 ${I18n.tr('food_word')} ',
-                  current: _save.questFishFed ? 1 : 0,
-                  target: 1,
-                  icon: Icons.set_meal,
-                  color: const Color(0xFF00E5FF),
-                ),
-                const SizedBox(height: 12),
+                if (_save.isAquariumUnlocked) ...[
+                  // Quest 1: Feed Fish
+                  _buildQuestCard(
+                    id: 'feed_fish',
+                    title: I18n.tr('quest_feed'),
+                    rewardText: '+60 ${I18n.tr('quest_gold')} + 1 ${I18n.tr('food_word')}',
+                    current: _save.questFishFed ? 1 : 0,
+                    target: 1,
+                    icon: Icons.set_meal,
+                    color: const Color(0xFF00E5FF),
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
                 // Quest 2: Break 100 Bricks
                 _buildQuestCard(
                   id: 'break_bricks',
                   title: I18n.tr('quest_bricks'),
-                  rewardText: '+120 ',
+                  rewardText: '+120 ${I18n.tr('quest_gold')}',
                   current: _save.questBricksBroken,
                   target: 100,
                   icon: Icons.view_module,
@@ -142,12 +151,25 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                 _buildQuestCard(
                   id: 'ad_or_win',
                   title: I18n.tr('quest_win'),
-                  rewardText: '+150 ',
+                  rewardText: '+150 ${I18n.tr('quest_gold')}',
                   current: _save.questAdOrWinDone ? 1 : 0,
                   target: 1,
                   icon: Icons.star,
                   color: const Color(0xFFE040FB),
                 ),
+
+                if (!_save.isAquariumUnlocked) ...[
+                  const SizedBox(height: 12),
+                  _buildQuestCard(
+                    id: 'feed_fish',
+                    title: I18n.tr('quest_feed'),
+                    rewardText: '+60 ${I18n.tr('quest_gold')} + 1 ${I18n.tr('food_word')} • 🔒 Bölüm 5',
+                    current: _save.questFishFed ? 1 : 0,
+                    target: 1,
+                    icon: Icons.set_meal,
+                    color: const Color(0xFF00E5FF),
+                  ),
+                ],
 
                 const SizedBox(height: 16),
                 KaunosPressGlow(

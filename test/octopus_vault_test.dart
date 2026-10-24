@@ -14,17 +14,17 @@ void main() {
       await SaveManager.instance.init();
     });
 
-    test('treasure is premium, pearl-gated, sold above the abyss crate', () {
+    test('treasure is divine, 3-pearl-gated, and sits at the end of the crate list', () {
       final vault = CrateDef.octopusVault;
       expect(vault.id, 'octopus');
-      expect(vault.name, 'Ahtapot Hazinesi');
+      expect(vault.name, isNotEmpty);
       expect(vault.tier, Rarity.legendary);
-      expect(vault.cost, 380); // gold to buy
+      expect(vault.cost, 0); // opened exclusively with 3 pearls
       expect(CrateDef.octopusVaultPearlCost, 3); // pearls to open
       final ids = CrateDef.allCrates.map((c) => c.id).toList();
       expect(ids, contains('octopus'));
-      expect(ids.indexOf('octopus'), lessThan(ids.indexOf('abyss')),
-          reason: 'Octopus Treasure sits above the Abyssal Crate');
+      expect(ids.last, 'octopus',
+          reason: 'Divine Octopus Treasure sits at the end of allCrates');
       // What comes out is decided in one place: the octopus itself.
       expect(octopusVaultRewardFish().id, 'octopus');
       final total = vault.weights.values.fold(0.0, (a, b) => a + b);

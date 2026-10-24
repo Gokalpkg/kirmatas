@@ -177,8 +177,9 @@ class SaveManager extends ChangeNotifier {
   Map<String, int> boostStocks = {'life': 0, 'wide': 0, 'multi': 0};
   Map<String, int> categoryShards = {'balls': 0, 'paddles': 0, 'trails': 0, 'bricks': 0};
 
-  // --- KALICI LÜKS YADİGAR (PERMANENT RELIC) ---
+  // --- KALICI LÜKS YADİGAR (PERMANENT RELIC) & ANTİK MÜHÜR YUVASI ---
   bool hasPermanentRelic = false;
+  String activeRelicStyle = 'aegis'; // 'aegis' (Muhafız), 'overdrive' (Hız), 'alchemist' (Simyacı)
   bool adsRemoved = false;
   bool removeAdsOfferSeen = false;
 
@@ -363,6 +364,40 @@ class SaveManager extends ChangeNotifier {
     return true;
   }
 
+  int upgradeCosmicGoldMasteryBulk([int maxSteps = 5]) {
+    int upgraded = 0;
+    for (int i = 0; i < maxSteps; i++) {
+      final cost = cosmicGoldMasteryCost;
+      if (gold < cost) break;
+      gold -= cost;
+      cosmicGoldMasteryLevel++;
+      upgraded++;
+    }
+    if (upgraded > 0) {
+      _prefs?.setInt('gold', gold);
+      _prefs?.setInt('cosmicGoldMasteryLevel', cosmicGoldMasteryLevel);
+      notifyListeners();
+    }
+    return upgraded;
+  }
+
+  int upgradeCosmicPearlMasteryBulk([int maxSteps = 5]) {
+    int upgraded = 0;
+    for (int i = 0; i < maxSteps; i++) {
+      final cost = cosmicPearlMasteryCost;
+      if (_pearls < cost) break;
+      _pearls -= cost;
+      cosmicPearlMasteryLevel++;
+      upgraded++;
+    }
+    if (upgraded > 0) {
+      _prefs?.setInt('pearls', _pearls);
+      _prefs?.setInt('cosmicPearlMasteryLevel', cosmicPearlMasteryLevel);
+      notifyListeners();
+    }
+    return upgraded;
+  }
+
   // --- R6: DAILY BLITZ & PRESTIGE ---
   String? lastDailyBlitzDate;
 
@@ -391,7 +426,9 @@ class SaveManager extends ChangeNotifier {
   }
 
   int get prestigeTier {
-    final lvl = classicSavedLevel ?? metricHighestClassicLevel;
+    final lvl = (classicSavedLevel != null && classicSavedLevel! > metricHighestClassicLevel)
+        ? classicSavedLevel!
+        : metricHighestClassicLevel;
     return lvl > 238 ? ((lvl - 239) ~/ 17) + 1 : 0;
   }
 
@@ -819,6 +856,7 @@ class SaveManager extends ChangeNotifier {
     activeBrickStyle = _prefs?.getString('activeBrickStyle') ?? 'brick_gloss';
     lastAdWatchTime = _prefs?.getInt('lastAdWatchTime') ?? 0;
     hasPermanentRelic = _prefs?.getBool('hasPermanentRelic') ?? false;
+    activeRelicStyle = _prefs?.getString('activeRelicStyle') ?? 'aegis';
     adsRemoved = _prefs?.getBool('adsRemoved') ?? false;
     removeAdsOfferSeen = _prefs?.getBool('removeAdsOfferSeen') ?? false;
 
@@ -1493,6 +1531,19 @@ class SaveManager extends ChangeNotifier {
     return true;
   }
 
+  /// Feeds all currently waiting (unfed) fish in one batch, up to available fishFood.
+  Future<int> feedAllWaitingFish() async {
+    int fed = 0;
+    for (final id in List<String>.from(unlockedFish)) {
+      if (fishFood <= 0) break;
+      if (!isFishProducing(id)) {
+        final ok = await feedFish(id);
+        if (ok) fed++;
+      }
+    }
+    return fed;
+  }
+
   /// Pays out all fish that have completed their 6-hour cycle and resets their timers
   Future<int> collectFishGold() async {
     int goldToCollect = 0;
@@ -1975,6 +2026,20 @@ class SaveManager extends ChangeNotifier {
     return reward;
   }
 
+  int get claimableQuestsCount {
+    _checkAndResetQuests();
+    int count = 0;
+    if (!claimedQuests.contains('feed_fish') && questFishFed) count++;
+    if (!claimedQuests.contains('break_bricks') && questBricksBroken >= 100) count++;
+    if (!claimedQuests.contains('ad_or_win') && questAdOrWinDone) count++;
+    if (!claimedQuests.contains('zen_time') && questZenSeconds >= 600) count++;
+    if (!claimedQuests.contains('shapes_clear') && questShapesClears >= 1) count++;
+    if (!claimedQuests.contains('descend_rows') && questDescendRows >= 10) count++;
+    return count;
+  }
+
+  bool get hasClaimableQuests => claimableQuestsCount > 0;
+
   Future<void> setSpeed(SpeedSetting s) async {
     speed = s;
     await _prefs?.setInt('speedSetting', s.index);
@@ -2069,6 +2134,13 @@ class SaveManager extends ChangeNotifier {
     await _prefs?.setBool('hasPermanentRelic', true);
     notifyListeners();
     return true;
+  }
+
+  Future<void> setActiveRelicStyle(String style) async {
+    if (activeRelicStyle == style) return;
+    activeRelicStyle = style;
+    await _prefs?.setString('activeRelicStyle', style);
+    notifyListeners();
   }
 
   bool get shouldOfferRemoveAds =>

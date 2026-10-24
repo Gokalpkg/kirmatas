@@ -444,83 +444,146 @@ class _UpgradesViewState extends State<UpgradesView> {
                       const BoxShadow(color: Color(0x33FFD54F), blurRadius: 14, offset: Offset(0, 4)),
                   ],
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        gradient: const RadialGradient(
-                          colors: [Color(0x66FFD54F), Color(0x11FFD54F)],
+                    Row(
+                      children: [
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            gradient: const RadialGradient(
+                              colors: [Color(0x66FFD54F), Color(0x11FFD54F)],
+                            ),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFFFFD54F), width: 1.5),
+                          ),
+                          child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFFFFD54F), size: 26),
                         ),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFFFFD54F), width: 1.5),
-                      ),
-                      child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFFFFD54F), size: 26),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  I18n.tr('relic_title'),
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
-                                ),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      I18n.tr('relic_title'),
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
+                                    ),
+                                  ),
+                                  if (save.hasPermanentRelic)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0x3369F0AE),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: const Color(0xFF69F0AE)),
+                                      ),
+                                      child: Text(
+                                        I18n.tr('relic_owned'),
+                                        style: const TextStyle(color: Color(0xFF69F0AE), fontSize: 10, fontWeight: FontWeight.w900),
+                                      ),
+                                    ),
+                                ],
                               ),
-                              if (save.hasPermanentRelic)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0x3369F0AE),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: const Color(0xFF69F0AE)),
-                                  ),
-                                  child: Text(
-                                    I18n.tr('relic_owned'),
-                                    style: const TextStyle(color: Color(0xFF69F0AE), fontSize: 10, fontWeight: FontWeight.w900),
-                                  ),
-                                ),
+                              const SizedBox(height: 4),
+                              Text(
+                                I18n.tr('relic_body'),
+                                style: const TextStyle(color: Colors.white70, fontSize: 11, height: 1.3),
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            I18n.tr('relic_body'),
-                            style: const TextStyle(color: Colors.white70, fontSize: 11, height: 1.3),
+                        ),
+                        const SizedBox(width: 12),
+                        if (!save.hasPermanentRelic)
+                          ElevatedButton(
+                            onPressed: save.gold >= 25000
+                                ? () async {
+                                    await save.buyPermanentRelic(cost: 25000);
+                                  }
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFFD54F),
+                              foregroundColor: Colors.black,
+                              disabledBackgroundColor: Colors.white12,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.monetization_on, size: 14, color: Colors.black87),
+                                SizedBox(width: 4),
+                                Text(
+                                  '25.000',
+                                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (save.hasPermanentRelic) ...[
+                      const SizedBox(height: 12),
+                      const Divider(color: Colors.white12, height: 1),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Icon(Icons.stars_rounded, color: Color(0xFFFFD54F), size: 15),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              I18n.tr('relic_loadout_title'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFFFFD54F),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 11,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    if (!save.hasPermanentRelic)
-                      ElevatedButton(
-                        onPressed: save.gold >= 25000
-                            ? () async {
-                                await save.buyPermanentRelic(cost: 25000);
-                              }
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFFD54F),
-                          foregroundColor: Colors.black,
-                          disabledBackgroundColor: Colors.white12,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.monetization_on, size: 14, color: Colors.black87),
-                            SizedBox(width: 4),
-                            Text(
-                              '25.000',
-                              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
-                            ),
-                          ],
-                        ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          _buildRelicStylePill(
+                            context,
+                            save: save,
+                            id: 'aegis',
+                            title: 'Muhafız',
+                            desc: '+%8 Raket • %35 Kısa Tuzak',
+                            icon: Icons.shield_rounded,
+                            color: const Color(0xFF00E5FF),
+                          ),
+                          _buildRelicStylePill(
+                            context,
+                            save: save,
+                            id: 'overdrive',
+                            title: 'Aşırı Yük',
+                            desc: '+%6 Hız • +%20 Kombo',
+                            icon: Icons.bolt_rounded,
+                            color: const Color(0xFFFF9100),
+                          ),
+                          _buildRelicStylePill(
+                            context,
+                            save: save,
+                            id: 'alchemist',
+                            title: 'Simyacı',
+                            desc: '+%15 Altın Şansı',
+                            icon: Icons.monetization_on_rounded,
+                            color: const Color(0xFFFFD700),
+                          ),
+                        ],
                       ),
+                    ],
                   ],
                 ),
               ),
@@ -596,33 +659,66 @@ class _UpgradesViewState extends State<UpgradesView> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      ElevatedButton(
-                        onPressed: canAfford
-                            ? () async {
-                                final ok = await save.spendGold(cost);
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ElevatedButton(
+                            onPressed: canAfford
+                                ? () async {
+                                    final ok = await save.spendGold(cost);
+                                    if (ok) {
+                                      save.addBoostStock(b.id, 1);
+                                    }
+                                  }
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFFD54F),
+                              foregroundColor: Colors.black,
+                              disabledBackgroundColor: Colors.white12,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.monetization_on, size: 14, color: Colors.black87),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${b.cost}',
+                                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (save.gold >= cost * 5) ...[
+                            const SizedBox(height: 4),
+                            GestureDetector(
+                              onTap: () async {
+                                final ok = await save.spendGold(cost * 5);
                                 if (ok) {
-                                  save.addBoostStock(b.id, 1);
+                                  AudioManager.instance.playSfx(GameSfx.powerupBuff);
+                                  save.addBoostStock(b.id, 5);
                                 }
-                              }
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFFD54F),
-                          foregroundColor: Colors.black,
-                          disabledBackgroundColor: Colors.white12,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.monetization_on, size: 14, color: Colors.black87),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${b.cost}',
-                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0x33FFD54F),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0x88FFD54F)),
+                                ),
+                                child: const Text(
+                                  'x5 AL',
+                                  style: TextStyle(
+                                    color: Color(0xFFFFD54F),
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
-                        ),
+                        ],
                       ),
                     ],
                   ),
@@ -716,30 +812,62 @@ class _UpgradesViewState extends State<UpgradesView> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: save.gold >= save.cosmicGoldMasteryCost
-                          ? () {
-                              save.upgradeCosmicGoldMastery();
-                            }
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFD54F),
-                        foregroundColor: Colors.black,
-                        disabledBackgroundColor: Colors.white12,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.monetization_on, size: 14, color: Colors.black87),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${save.cosmicGoldMasteryCost}',
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ElevatedButton(
+                          onPressed: save.gold >= save.cosmicGoldMasteryCost
+                              ? () {
+                                  save.upgradeCosmicGoldMastery();
+                                }
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFFD54F),
+                            foregroundColor: Colors.black,
+                            disabledBackgroundColor: Colors.white12,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.monetization_on, size: 14, color: Colors.black87),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${save.cosmicGoldMasteryCost}',
+                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (save.gold >= save.cosmicGoldMasteryCost * 2) ...[
+                          const SizedBox(height: 4),
+                          GestureDetector(
+                            onTap: () {
+                              final n = save.upgradeCosmicGoldMasteryBulk(5);
+                              if (n > 0) {
+                                AudioManager.instance.playSfx(GameSfx.powerupBuff);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0x33FFD54F),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0x88FFD54F)),
+                              ),
+                              child: const Text(
+                                'x5 BAS',
+                                style: TextStyle(
+                                  color: Color(0xFFFFD54F),
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -809,30 +937,62 @@ class _UpgradesViewState extends State<UpgradesView> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: save.pearls >= save.cosmicPearlMasteryCost
-                          ? () {
-                              save.upgradeCosmicPearlMastery();
-                            }
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE040FB),
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: Colors.white12,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.lens_blur_rounded, size: 14, color: Colors.white),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${save.cosmicPearlMasteryCost}',
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ElevatedButton(
+                          onPressed: save.pearls >= save.cosmicPearlMasteryCost
+                              ? () {
+                                  save.upgradeCosmicPearlMastery();
+                                }
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE040FB),
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.white12,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.lens_blur_rounded, size: 14, color: Colors.white),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${save.cosmicPearlMasteryCost}',
+                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (save.pearls >= save.cosmicPearlMasteryCost * 2) ...[
+                          const SizedBox(height: 4),
+                          GestureDetector(
+                            onTap: () {
+                              final n = save.upgradeCosmicPearlMasteryBulk(5);
+                              if (n > 0) {
+                                AudioManager.instance.playSfx(GameSfx.powerupBuff);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0x33E040FB),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0x88E040FB)),
+                              ),
+                              child: const Text(
+                                'x5 BAS',
+                                style: TextStyle(
+                                  color: Color(0xFFE040FB),
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -841,6 +1001,62 @@ class _UpgradesViewState extends State<UpgradesView> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildRelicStylePill(
+    BuildContext context, {
+    required SaveManager save,
+    required String id,
+    required String title,
+    required String desc,
+    required IconData icon,
+    required Color color,
+  }) {
+    final isSelected = save.activeRelicStyle == id;
+    return InkWell(
+      onTap: () => save.setActiveRelicStyle(id),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.16) : const Color(0x22FFFFFF),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? color : Colors.white24,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: isSelected ? color : Colors.white70),
+            const SizedBox(width: 6),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: isSelected ? color : Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                  ),
+                ),
+                Text(
+                  desc,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 9.5,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -899,51 +1115,62 @@ class _JuiceBuyButtonState extends State<_JuiceBuyButton> with SingleTickerProvi
         final t = _ctrl.value;
         final compress = t < 0.35 ? 1.0 - t * 0.9 : 0.685 + (t - 0.35) * 0.49;
         final flash = t >= 0.35 && t < 0.55 ? 1.0 : 0.0;
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: _aura
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFFFFB300).withValues(alpha: 0.45 + 0.2 * (0.5 + 0.5 * (1 - t))),
-                      blurRadius: 14,
-                      spreadRadius: 1,
-                    ),
-                  ]
-                : null,
-          ),
-          child: ElevatedButton(
-            onPressed: widget.canAfford ? _press : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: flash > 0 ? Colors.white : const Color(0xFFFFD54F),
-              foregroundColor: Colors.black,
-              disabledBackgroundColor: Colors.white12,
-              disabledForegroundColor: Colors.white30,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        final pressOffset = (t > 0.05 && t < 0.45) ? 2.5 : 0.0;
+
+        return Transform.translate(
+          offset: Offset(0, pressOffset),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border(
+                bottom: BorderSide(
+                  color: widget.canAfford ? const Color(0xFF78350F) : Colors.black45,
+                  width: pressOffset > 0 ? 1.0 : 3.5,
+                ),
               ),
-              elevation: widget.canAfford ? 3 : 0,
+              boxShadow: _aura
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFFFFB300).withValues(alpha: 0.45 + 0.2 * (0.5 + 0.5 * (1 - t))),
+                        blurRadius: 14,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Transform.rotate(
-                  angle: t * 6.28,
-                  child: Transform.scale(
-                    scale: compress,
-                    child: const Icon(Icons.monetization_on, size: 14, color: Colors.black87),
-                  ),
+            child: ElevatedButton(
+              onPressed: widget.canAfford ? _press : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: flash > 0 ? Colors.white : const Color(0xFFFFD54F),
+                foregroundColor: Colors.black,
+                disabledBackgroundColor: Colors.white12,
+                disabledForegroundColor: Colors.white30,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  '${widget.cost}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 12,
+                elevation: 0,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Transform.rotate(
+                    angle: t * 6.28,
+                    child: Transform.scale(
+                      scale: compress,
+                      child: const Icon(Icons.monetization_on, size: 14, color: Colors.black87),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 4),
+                  Text(
+                    '${widget.cost}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

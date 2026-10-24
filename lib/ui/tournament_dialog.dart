@@ -2,6 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
+import '../engine/play_games_manager.dart';
+import '../models/game_state.dart';
 import '../storage/save_manager.dart';
 import 'kaunos_ui.dart';
 
@@ -46,17 +48,36 @@ class _TournamentDialogState extends State<TournamentDialog> {
   late int _selectedTab;
   final ScrollController _leagueScrollController = ScrollController();
   bool _leagueScrolled = false;
+  final PlayGamesManager _games = PlayGamesManager.instance;
+  bool _signingIn = false;
 
   @override
   void initState() {
     super.initState();
     _selectedTab = widget.initialTab;
+    _games.addListener(_onGamesChanged);
   }
 
   @override
   void dispose() {
+    _games.removeListener(_onGamesChanged);
     _leagueScrollController.dispose();
     super.dispose();
+  }
+
+  void _onGamesChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _handlePlayGamesSignIn() async {
+    setState(() {
+      _signingIn = true;
+    });
+    await _games.signIn();
+    if (!mounted) return;
+    setState(() {
+      _signingIn = false;
+    });
   }
 
   static String _fmtRemaining(Duration d) {
@@ -389,12 +410,8 @@ class _TournamentDialogState extends State<TournamentDialog> {
                   ],
                 ),
               ),
-              KaunosPressGlow(
-                isCircle: true,
-                child: IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white70),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
+              KaunosCloseButton(
+                onTap: () => Navigator.of(context).pop(),
               ),
             ],
           ),
@@ -787,6 +804,10 @@ class _TournamentDialogState extends State<TournamentDialog> {
                   fontSize: isCompact ? 10 : 10.5,
                 ),
               ),
+
+              SizedBox(height: isCompact ? 5 : 8),
+
+              _buildPlayGamesBanner(context, isCompact),
 
               SizedBox(height: isCompact ? 5 : 8),
 
@@ -1195,6 +1216,112 @@ class _TournamentDialogState extends State<TournamentDialog> {
     );
   }
 
+  Widget _buildPlayGamesBanner(BuildContext context, bool isCompact) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20),
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 10 : 12,
+        vertical: isCompact ? 7 : 9,
+      ),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF131D2E), Color(0xFF090E18)],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFF00E676).withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.sports_esports_rounded,
+            color: Color(0xFF00E676),
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _games.signedIn
+                  ? 'Google Play Games Global Sıralama'
+                  : 'Global Liderlik Tablosu için bağlan',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: isCompact ? 10.5 : 11.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          if (_games.signedIn) ...[
+            InkWell(
+              onTap: () => _games.showLeaderboard(mode: GameMode.classic),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0x2600E676),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF00E676)),
+                ),
+                child: const Text(
+                  'KLASİK',
+                  style: TextStyle(
+                    color: Color(0xFF00E676),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            InkWell(
+              onTap: () => _games.showLeaderboard(mode: GameMode.chaos),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0x26FF9100),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFF9100)),
+                ),
+                child: const Text(
+                  'KAOS',
+                  style: TextStyle(
+                    color: Color(0xFFFF9100),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ] else
+            InkWell(
+              onTap: _signingIn ? null : _handlePlayGamesSignIn,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00E676),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _signingIn ? '...' : 'GİRİŞ YAP',
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQuestsContent(BuildContext context, bool isCompact) {
     return Column(
       children: [
@@ -1248,12 +1375,8 @@ class _TournamentDialogState extends State<TournamentDialog> {
                   ],
                 ),
               ),
-              KaunosPressGlow(
-                isCircle: true,
-                child: IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white70),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
+              KaunosCloseButton(
+                onTap: () => Navigator.of(context).pop(),
               ),
             ],
           ),

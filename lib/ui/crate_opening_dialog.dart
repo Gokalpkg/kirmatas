@@ -156,10 +156,10 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
             style: const TextStyle(color: Color(0xFFEA80FC), fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.0),
           ),
           const SizedBox(height: 5),
-          const Text(
-            'Ahtapot hazinesini sıkı sıkı tutuyor. Kasayı açmak için inci ister.',
+          Text(
+            I18n.tr('octopus_vault_hint'),
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w600),
+            style: const TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 9),
           ElevatedButton.icon(
@@ -173,7 +173,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                 : null,
             icon: const Icon(Icons.lock_open_rounded, size: 16),
             label: Text(
-              canPay ? '$cost İNCİYLE KİLİDİ AÇ' : 'İNCİ YETERSİZ (Sende: ${save.pearls}/$cost)',
+              canPay
+                  ? I18n.tr('unlock_with_pearls').replaceAll('{cost}', '$cost')
+                  : I18n.tr('insufficient_pearls').replaceAll('{pearls}', '${save.pearls}').replaceAll('{cost}', '$cost'),
               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
             ),
             style: ElevatedButton.styleFrom(
@@ -225,24 +227,13 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     }
   }
 
-  String get _currentRarityLabel {
-    switch (_currentRarity) {
-      case Rarity.common:
-        return 'SIRADAN';
-      case Rarity.rare:
-        return 'ENDER';
-      case Rarity.epic:
-        return 'DESTANSI';
-      case Rarity.legendary:
-        return 'EFSANEVİ';
-    }
-  }
+  String get _currentRarityLabel => _currentRarity.label.toUpperCase();
 
   String get _tapPromptText {
-    if (_vaultLocked) return 'Kasa Kilitli';
-    if (_tapCount == 0) return 'Sandığa Dokun (1/3)';
-    if (_tapCount == 1) return 'Tekrar Dokun (2/3)';
-    if (_tapCount == 2) return 'Açmak İçin Dokun! (3/3)';
+    if (_vaultLocked) return I18n.tr('vault_locked');
+    if (_tapCount == 0) return I18n.tr('tap_chest_1');
+    if (_tapCount == 1) return I18n.tr('tap_chest_2');
+    if (_tapCount == 2) return I18n.tr('tap_chest_3');
     return '';
   }
 
@@ -570,6 +561,43 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     }
   }
 
+  int get _reopenGoldCost {
+    if (widget.isGuaranteedRedemption || _isVault || widget.pendingCrate != null) {
+      return 0;
+    }
+    if (widget.categoryCrate != null) {
+      return widget.categoryCrate!.cost;
+    }
+    if (widget.crate != null) {
+      return widget.crate!.cost;
+    }
+    return 0;
+  }
+
+  Future<void> _skipToReveal() async {
+    if (_opened || _vaultLocked) return;
+    _autoOpenTimer?.cancel();
+    _autoOpenTimer = null;
+    _tapCount = 3;
+    _isShaking = false;
+    _isOpening = false;
+    _currentRarity = _rewardRarity;
+
+    _shakeController.stop();
+    _openController.value = 1.0;
+    _cardFlipController.value = 1.0;
+    _revealController.value = 1.0;
+    _starsPopController.value = 1.0;
+
+    await SaveManager.instance.claimPendingCrate();
+    if (!mounted) return;
+    AudioManager.instance.playSfx(GameSfx.victory);
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _opened = true;
+    });
+  }
+
   Future<void> _openChestSequence() async {
     if (_opened || _isOpening) return;
     _autoOpenTimer?.cancel();
@@ -739,12 +767,14 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         _isDuplicate = true;
         _isShardReward = true;
         _isFoodBonus = false;
-        _rewardSubtitle = 'Bu balıktan 2 adede sahipsin! +$shardYield Balık Eklentisi eklendi (${save.fishShards + shardYield}/8).';
+        _rewardSubtitle = I18n.tr('fish_duplicate_shards')
+            .replaceAll('{yield}', '$shardYield')
+            .replaceAll('{total}', '${save.fishShards + shardYield}');
       } else if (owned == 1) {
         _isDuplicate = true;
         _isShardReward = false;
         _isFoodBonus = true;
-        _rewardSubtitle = 'Akvaryumuna 2. ${fish.name} katıldı! (+3 Yem Hediye)';
+        _rewardSubtitle = I18n.tr('fish_second_copy').replaceAll('{name}', fish.name);
       } else {
         _isDuplicate = false;
         _isShardReward = false;
@@ -800,13 +830,15 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       _isShardReward = true;
       _isFoodBonus = false;
       final newTotalShards = save.fishShards + shardYield;
-      _rewardSubtitle = 'Bu balıktan 2 adede sahipsin! +$shardYield Balık Eklentisi eklendi ($newTotalShards/8).';
+      _rewardSubtitle = I18n.tr('fish_duplicate_shards')
+          .replaceAll('{yield}', '$shardYield')
+          .replaceAll('{total}', '$newTotalShards');
     } else if (currentOwnedCount == 1) {
       // 2nd copy: Joins aquarium
       _isDuplicate = true;
       _isShardReward = false;
       _isFoodBonus = true;
-      _rewardSubtitle = 'Akvaryumuna 2. ${fish.name} katıldı! (+3 Yem Hediye)';
+      _rewardSubtitle = I18n.tr('fish_second_copy').replaceAll('{name}', fish.name);
     } else {
       // 1st copy: Newly unlocked fish
       _isDuplicate = false;
@@ -873,7 +905,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         if (save.unlockedBalls.contains(skin.id)) {
           _isDuplicate = true;
           _isShardReward = true;
-          _rewardSubtitle = 'Bu topa zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category) + 1}/3).';
+          _rewardSubtitle = I18n.tr('duplicate_shard_reward').replaceAll('{count}', '${save.getShards(category) + 1}');
         } else {
           _isDuplicate = false;
           _isShardReward = false;
@@ -899,7 +931,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         if (save.unlockedPaddles.contains(skin.id)) {
           _isDuplicate = true;
           _isShardReward = true;
-          _rewardSubtitle = 'Bu rakete zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category) + 1}/3).';
+          _rewardSubtitle = I18n.tr('duplicate_shard_reward').replaceAll('{count}', '${save.getShards(category) + 1}');
         } else {
           _isDuplicate = false;
           _isShardReward = false;
@@ -925,7 +957,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         if (save.unlockedTrails.contains(skin.id)) {
           _isDuplicate = true;
           _isShardReward = true;
-          _rewardSubtitle = 'Bu ize zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category) + 1}/3).';
+          _rewardSubtitle = I18n.tr('duplicate_shard_reward').replaceAll('{count}', '${save.getShards(category) + 1}');
         } else {
           _isDuplicate = false;
           _isShardReward = false;
@@ -951,7 +983,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         if (save.unlockedBrickStyles.contains(style.id)) {
           _isDuplicate = true;
           _isShardReward = true;
-          _rewardSubtitle = 'Bu blok stiline zaten sahipsin! Yerine +1 Parça (Shard) eklendi (${save.getShards(category) + 1}/3).';
+          _rewardSubtitle = I18n.tr('duplicate_shard_reward').replaceAll('{count}', '${save.getShards(category) + 1}');
         } else {
           _isDuplicate = false;
           _isShardReward = false;
@@ -1068,7 +1100,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
           _reward = chosen;
           _rewardTitle = chosen.name;
           _rewardRarity = chosen.rarity;
-          _rewardSubtitle = 'Garantili Yeni Balık Açıldı!';
+          _rewardSubtitle = I18n.tr('guaranteed_fish_unlocked');
         } else {
           // If player has at least 1 of every fish, check if any have < 2 copies
           final canDuplicateFish = FishItem.allFish.where((f) => save.canAcquireFish(f.id)).toList();
@@ -1078,14 +1110,14 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
             _reward = chosen;
             _rewardTitle = chosen.name;
             _rewardRarity = chosen.rarity;
-            _rewardSubtitle = 'Akvaryumuna 2. ${chosen.name} katıldı!';
+            _rewardSubtitle = I18n.tr('fish_second_copy').replaceAll('{name}', chosen.name);
           } else {
             // All fish at 2/2 max!
             rewardType = 'gold';
             bonusGold = 1500;
             _rewardRarity = Rarity.legendary;
-            _rewardTitle = 'Tüm Balıklar Maksimumda!';
-            _rewardSubtitle = '+1500 Altın Ödülü';
+            _rewardTitle = I18n.tr('all_fish_maxed');
+            _rewardSubtitle = I18n.tr('bonus_gold_reward').replaceAll('{amount}', '1500');
           }
         }
         break;
@@ -1169,36 +1201,75 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Title / Rarity Badge
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 320),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            activeColor.withValues(alpha: 0.28),
-                            activeColor.withValues(alpha: 0.10),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: activeColor, width: 1.6),
-                        boxShadow: [
-                          BoxShadow(
-                            color: activeColor.withValues(alpha: 0.38),
-                            blurRadius: 14,
+                      // Title / Rarity Badge + Quick Skip Button
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Align(
+                            alignment: Alignment.center,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 320),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    activeColor.withValues(alpha: 0.28),
+                                    activeColor.withValues(alpha: 0.10),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: activeColor, width: 1.6),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: activeColor.withValues(alpha: 0.38),
+                                    blurRadius: 14,
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                _opened ? _rewardRarity.label.toUpperCase() : _currentRarityLabel,
+                                style: TextStyle(
+                                  color: activeColor,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 2.2,
+                                ),
+                              ),
+                            ),
                           ),
+                          if (!_opened && !_vaultLocked)
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: GestureDetector(
+                                onTap: _skipToReveal,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.10),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: Colors.white24),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'GEÇ',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.6,
+                                        ),
+                                      ),
+                                      SizedBox(width: 2),
+                                      Icon(Icons.fast_forward_rounded, color: Colors.white70, size: 13),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
                         ],
                       ),
-                      child: Text(
-                        _opened ? _rewardRarity.label.toUpperCase() : _currentRarityLabel,
-                        style: TextStyle(
-                          color: activeColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2.2,
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 18),
 
                     // UNOPENED CHEST SCENE
@@ -1698,16 +1769,16 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                         borderRadius: BorderRadius.circular(10),
                                         border: Border.all(color: const Color(0xFFFF9800), width: 1.2),
                                       ),
-                                      child: const FittedBox(
+                                      child: FittedBox(
                                         fit: BoxFit.scaleDown,
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(Icons.inventory_2_rounded, size: 14, color: Color(0xFFFFB74D)),
-                                            SizedBox(width: 5),
+                                            const Icon(Icons.inventory_2_rounded, size: 14, color: Color(0xFFFFB74D)),
+                                            const SizedBox(width: 5),
                                             Text(
-                                              'ZATEN SAHİPSİN (KOPYA)',
-                                              style: TextStyle(
+                                              I18n.tr('duplicate_badge'),
+                                              style: const TextStyle(
                                                 color: Color(0xFFFFB74D),
                                                 fontSize: 10.5,
                                                 fontWeight: FontWeight.w900,
@@ -1726,16 +1797,16 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                         borderRadius: BorderRadius.circular(10),
                                         border: Border.all(color: const Color(0xFF00E676), width: 1.2),
                                       ),
-                                      child: const FittedBox(
+                                      child: FittedBox(
                                         fit: BoxFit.scaleDown,
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(Icons.stars_rounded, size: 14, color: Color(0xFF69F0AE)),
-                                            SizedBox(width: 5),
+                                            const Icon(Icons.stars_rounded, size: 14, color: Color(0xFF69F0AE)),
+                                            const SizedBox(width: 5),
                                             Text(
-                                              'YENİ AÇILDI!',
-                                              style: TextStyle(
+                                              I18n.tr('new_badge'),
+                                              style: const TextStyle(
                                                 color: Color(0xFF69F0AE),
                                                 fontSize: 10.5,
                                                 fontWeight: FontWeight.w900,
@@ -1795,7 +1866,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                             const SizedBox(width: 8),
                                             Text(
                                               ((widget.category ?? widget.categoryCrate?.category) == 'fish' || _effectiveCrate != null)
-                                                  ? 'Balık Eklentisi: ${SaveManager.instance.fishShards} / 8'
+                                                  ? I18n.tr('fish_shards_badge').replaceAll('{count}', '${SaveManager.instance.fishShards}')
                                                   : I18n.tr('shard_added').replaceAll('{count}', '${SaveManager.instance.getShards(widget.category ?? widget.categoryCrate?.category ?? 'balls')}'),
                                               style: const TextStyle(
                                                 color: Color(0xFF00E5FF),
@@ -1818,16 +1889,16 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                         borderRadius: BorderRadius.circular(14),
                                         border: Border.all(color: const Color(0xFF66BB6A).withValues(alpha: 0.75)),
                                       ),
-                                      child: const FittedBox(
+                                      child: FittedBox(
                                         fit: BoxFit.scaleDown,
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(Icons.set_meal_rounded, color: Color(0xFF81C784), size: 18),
-                                            SizedBox(width: 8),
+                                            const Icon(Icons.set_meal_rounded, color: Color(0xFF81C784), size: 18),
+                                            const SizedBox(width: 8),
                                             Text(
-                                              '+3 Balık Yemi Hediye Edildi!',
-                                              style: TextStyle(
+                                              I18n.tr('fish_food_bonus_gift'),
+                                              style: const TextStyle(
                                                 color: Color(0xFF81C784),
                                                 fontSize: 12.5,
                                                 fontWeight: FontWeight.w900,
@@ -1886,6 +1957,56 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                       fontWeight: FontWeight.w900,
                                       fontSize: 12.5,
                                       letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_reopenGoldCost > 0 && SaveManager.instance.gold >= _reopenGoldCost)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0F1424),
+                              foregroundColor: const Color(0xFFFFD54F),
+                              side: const BorderSide(color: Color(0x5538BDF8), width: 1.2),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            onPressed: () async {
+                              final cost = _reopenGoldCost;
+                              await SaveManager.instance.claimPendingCrate();
+                              final ok = await SaveManager.instance.spendGold(cost);
+                              if (ok && context.mounted) {
+                                final nextCrate = widget.crate;
+                                final nextCatCrate = widget.categoryCrate;
+                                Navigator.of(context).pop();
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (_) => CrateOpeningDialog(
+                                    crate: nextCrate,
+                                    categoryCrate: nextCatCrate,
+                                  ),
+                                );
+                              }
+                            },
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.replay_rounded, size: 16, color: Color(0xFFFFD54F)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'TEKRAR AÇ ($_reopenGoldCost ALTIN)',
+                                    style: const TextStyle(
+                                      color: Color(0xFFFFD54F),
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12.5,
+                                      letterSpacing: 0.4,
                                     ),
                                   ),
                                 ],

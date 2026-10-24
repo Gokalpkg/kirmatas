@@ -43,15 +43,22 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
     super.dispose();
   }
 
-  void _claimNormalReward() async {
-    if (!_save.canClaimDailyLogin()) return;
-    final result = await _save.claimDailyLoginReward(doubleWithAd: false);
-    if (!mounted) return;
+  bool _isClaiming = false;
 
-    if (result['claimed'] == true) {
-      AudioManager.instance.playSfx(GameSfx.victory);
-      setState(() {});
-      _showClaimReveal(result, doubled: false);
+  void _claimNormalReward() async {
+    if (_isClaiming || !_save.canClaimDailyLogin()) return;
+    _isClaiming = true;
+    try {
+      final result = await _save.claimDailyLoginReward(doubleWithAd: false);
+      if (!mounted) return;
+
+      if (result['claimed'] == true) {
+        AudioManager.instance.playSfx(GameSfx.victory);
+        setState(() {});
+        _showClaimReveal(result, doubled: false);
+      }
+    } finally {
+      _isClaiming = false;
     }
   }
 
@@ -173,14 +180,8 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                         ),
                       ],
                     ),
-                    KaunosJuicyInteractive(
-                      isCircle: true,
-                      waveColor: const Color(0xFFFFD54F),
+                    KaunosCloseButton(
                       onTap: () => Navigator.of(context).pop(),
-                      child: const Padding(
-                        padding: EdgeInsets.all(6),
-                        child: Icon(Icons.close, color: Colors.white70, size: 20),
-                      ),
                     ),
                   ],
                 ),

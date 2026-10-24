@@ -29,6 +29,7 @@ class Ball {
   double squashAngle;
   double stuckTimer;
   double cornerBoostTimer;
+  double megaTimer = 0.0;
   int cornerHitCount = 0;
   bool isPurple = false;
   double anomalyCooldown = 0.0;
@@ -59,8 +60,11 @@ class Ball {
     this.squashAngle = 0.0,
     this.stuckTimer = 0.0,
     this.cornerBoostTimer = 0.0,
+    this.megaTimer = 0.0,
   }) : isStuck = isStuck ?? (vx == 0.0 && vy == 0.0),
        fireballPierceCount = fireballPierceCount ?? ((isFireball || isPierce) ? 12 : 0);
+
+  double get effectiveRadius => megaTimer > 0 ? (radius * 1.85).clamp(13.0, 16.0) : radius;
 
   double get speed => sqrt(vx * vx + vy * vy);
 
@@ -89,6 +93,10 @@ class Ball {
     if (cornerBoostTimer > 0) {
       cornerBoostTimer -= dt;
       if (cornerBoostTimer < 0) cornerBoostTimer = 0.0;
+    }
+    if (megaTimer > 0) {
+      megaTimer -= dt;
+      if (megaTimer < 0) megaTimer = 0.0;
     }
     if (anomalyCooldown > 0) {
       anomalyCooldown -= dt;

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kirmatas/engine/i18n.dart';
@@ -104,31 +103,13 @@ void main() {
       expect(find.byType(AlertDialog), findsNothing);
     });
 
-    testWidgets('SettingsDialog copy and paste progress code with feedback', (tester) async {
-      String? mockClipboard;
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        (MethodCall methodCall) async {
-          if (methodCall.method == 'Clipboard.setData') {
-            mockClipboard = (methodCall.arguments as Map)['text'] as String?;
-            return null;
-          } else if (methodCall.method == 'Clipboard.getData') {
-            return <String, dynamic>{'text': mockClipboard};
-          }
-          return null;
-        },
-      );
-      addTearDown(() {
-        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          SystemChannels.platform,
-          null,
-        );
-      });
-
+    testWidgets('SettingsDialog omits progress code UI and supports localized AÇIK/KAPALI toggles', (tester) async {
       final save = SaveManager.instance;
+      save.language = 'tr';
       save.metricHighestClassicLevel = 15;
       save.highestLevel = 15;
       save.gold = 5000;
+      await save.setSfxVolume(0);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -146,21 +127,11 @@ void main() {
       await tester.tap(find.text('OPEN'));
       await tester.pump(const Duration(milliseconds: 300));
 
-      // Scroll down inside SingleChildScrollView to reveal progress code buttons
-      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -350));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-
-      // Test copy progress code
-      await tester.tap(find.text(I18n.tr('progress_copy')));
-      await tester.pump();
-      expect(find.text('İlerleme kodu kopyalandı!'), findsOneWidget);
-      expect(mockClipboard, save.progressCode);
-
-      // Test paste progress code
-      await tester.tap(find.text(I18n.tr('progress_paste')));
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text(I18n.tr('progress_restored')), findsOneWidget);
+      // Progress code UI was removed from SettingsDialog per design
+      expect(find.text(I18n.tr('progress_copy')), findsNothing);
+      expect(find.text(I18n.tr('progress_paste')), findsNothing);
+      // Localized status label (Kapalı / Off) is shown
+      expect(find.textContaining(I18n.tr('off')), findsWidgets);
     });
   });
 

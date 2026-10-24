@@ -33,6 +33,7 @@ class AudioManager {
   final Map<String, String> _poolAssets = {};
   final Map<String, int> _poolIndices = {};
   final Map<AudioPlayer, int> _playToken = {};
+  final Map<AudioPlayer, double> _playerRate = {};
   final Map<GameSfx, int> _lastSfxAt = {};
   final AudioPlayer _bgmA = AudioPlayer();
   final AudioPlayer _bgmB = AudioPlayer();
@@ -379,6 +380,8 @@ class AudioManager {
     lastPlayedCombo = combo;
     double effectiveRate = playbackRate ?? 1.0;
     if (playbackRate == null && (sfx == GameSfx.hitBrick || sfx == GameSfx.breakBrick) && combo > 0) {
+      // Step 4: 8-bit chiptune ascending pitch arpeggio:
+      // Scales pitch progressively with combo hits (1.05x -> 1.50x)
       final step = combo.clamp(0, 10);
       effectiveRate = 1.0 + (step * 0.05);
     }
@@ -388,7 +391,8 @@ class AudioManager {
 
     final now = DateTime.now().millisecondsSinceEpoch;
     final lastSame = _lastSfxAt[sfx] ?? 0;
-    if (now - lastSame < 28) {
+    // Throttle identical SFX to 42ms to prevent Android AudioPlayer platform channel queue saturation
+    if (now - lastSame < 42) {
       _maybeVibrate(sfx, now);
       return;
     }
@@ -474,10 +478,11 @@ class AudioManager {
     } catch (_) {}
     if (_playToken[player] != token) return;
     try {
-      if ((playbackRate - 1.0).abs() > 0.02) {
-        await player.setPlaybackRate(playbackRate.clamp(0.5, 2.0));
-      } else {
-        await player.setPlaybackRate(1.0);
+      final targetRate = (playbackRate - 1.0).abs() > 0.02 ? playbackRate.clamp(0.5, 2.0) : 1.0;
+      final currentRate = _playerRate[player] ?? 1.0;
+      if (currentRate != targetRate) {
+        _playerRate[player] = targetRate;
+        await player.setPlaybackRate(targetRate);
       }
       await player.play(
         AssetSource(asset),

@@ -1366,18 +1366,82 @@ class LevelDesign {
       final colorIndex = (wave * 3 + row * 2 + c) % neonPalette.length;
       final color = neonPalette[colorIndex];
 
-      bricks.add(
-        Brick(
-          x: chaosMargin + c * (bw + chaosGap),
-          y: y,
-          width: bw,
-          height: chaosBrickH,
-          hp: hp,
-          maxHp: hp,
-          color: color,
-          points: 5,
-        ),
-      );
+      final specialRoll = rand.nextDouble();
+      if (specialRoll < 0.08) {
+        // Dynamite brick
+        bricks.add(
+          Brick(
+            x: chaosMargin + c * (bw + chaosGap),
+            y: y,
+            width: bw,
+            height: chaosBrickH,
+            hp: 1,
+            maxHp: 1,
+            isDynamite: true,
+            color: const Color(0xFFFF5722),
+            points: 15,
+          ),
+        );
+      } else if (specialRoll < 0.16) {
+        // Ice brick
+        bricks.add(
+          Brick(
+            x: chaosMargin + c * (bw + chaosGap),
+            y: y,
+            width: bw,
+            height: chaosBrickH,
+            hp: 1,
+            maxHp: 1,
+            isIce: true,
+            color: const Color(0xFF80D8FF),
+            points: 15,
+          ),
+        );
+      } else if (wave >= 4 && specialRoll < 0.22) {
+        // Reinforced breakable stone brick (Never unbreakable steel in Chaos mode)
+        final stoneHp = min(3, hp + 1);
+        bricks.add(
+          Brick(
+            x: chaosMargin + c * (bw + chaosGap),
+            y: y,
+            width: bw,
+            height: chaosBrickH,
+            hp: stoneHp,
+            maxHp: stoneHp,
+            color: const Color(0xFF78909C),
+            points: 20,
+          ),
+        );
+      } else if (specialRoll < 0.28) {
+        // Tuft / Glass brick
+        bricks.add(
+          Brick(
+            x: chaosMargin + c * (bw + chaosGap),
+            y: y,
+            width: bw,
+            height: chaosBrickH,
+            hp: 1,
+            maxHp: 1,
+            isTuft: true,
+            tuftColor: color,
+            color: Colors.white24,
+            points: 10,
+          ),
+        );
+      } else {
+        bricks.add(
+          Brick(
+            x: chaosMargin + c * (bw + chaosGap),
+            y: y,
+            width: bw,
+            height: chaosBrickH,
+            hp: hp,
+            maxHp: hp,
+            color: color,
+            points: 5,
+          ),
+        );
+      }
     }
     return bricks;
   }

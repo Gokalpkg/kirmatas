@@ -26,7 +26,7 @@ class PauseGameOverOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: controller,
+      listenable: controller.statusVersion,
       builder: (context, _) {
         if (controller.status == GameStatus.playing || controller.status == GameStatus.ready) {
           return const SizedBox.shrink();
@@ -39,7 +39,10 @@ class PauseGameOverOverlay extends StatelessWidget {
         final stats = controller.stats;
         final save = SaveManager.instance;
         final bestScore = save.getHighScore(controller.currentMode);
-        final isNewRecord = stats.score > bestScore;
+        final isNewRecord = (isGameOver || isVictory) &&
+            stats.score > 0 &&
+            (stats.score > controller.sessionStartingBestScore ||
+                (controller.sessionStartingBestScore == 0 && stats.score >= 50));
 
         return Container(
           color: const Color(0xCC05060A),
@@ -193,6 +196,9 @@ class PauseGameOverOverlay extends StatelessWidget {
                           ],
                         ),
                       ),
+                      if (isVictory && controller.currentMode == GameMode.classic) ...[
+                        _buildSectorChestProgress(controller.level),
+                      ],
                       if (isNewRecord) ...[
                         const SizedBox(height: 10),
                         TweenAnimationBuilder<double>(
@@ -225,6 +231,45 @@ class PauseGameOverOverlay extends StatelessWidget {
                           ),
                         ),
                       ],
+                      if (isVictory && controller.currentMode == GameMode.classic) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: const Color(0x3300E5FF),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.6)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.flag_rounded, color: Color(0xFF00E5FF), size: 15),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  stats.level < 3
+                                      ? 'HEDEF: Bölüm 3 • Atölye & Yükseltmeler'
+                                      : stats.level < 5
+                                          ? 'HEDEF: Bölüm 5 • Akvaryum & Ekosistem'
+                                          : stats.level < 10
+                                              ? 'HEDEF: Bölüm 10 • Kaos Modu'
+                                              : stats.level < 15
+                                                  ? 'HEDEF: Bölüm 15 • Haftalık Lig'
+                                                  : 'HEDEF: Bölüm ${((stats.level ~/ 10) + 1) * 10} • Boss Savaşı',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Color(0xFF00E5FF),
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 11,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                     ],
 
@@ -232,51 +277,83 @@ class PauseGameOverOverlay extends StatelessWidget {
                       ListenableBuilder(
                         listenable: save,
                         builder: (context, _) {
-                          return Column(
-                            children: [
-                              Text( '${I18n.tr('sfx')}: ${save.sfxVolume}',
-                                style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
-                              ),
-                              Slider(
-                                value: save.sfxVolume.toDouble(),
-                                min: 0,
-                                max: 8,
-                                divisions: 8,
-                                activeColor: const Color(0xFFFFD54F),
-                                onChanged: (v) {
-                                  save.setSfxVolume(v.toInt());
-                                  AudioManager.instance.playSfx(GameSfx.hitBrick);
-                                },
-                              ),
-                              Text( '${I18n.tr('music_bgm')}: ${save.bgmVolume == 0 ? I18n.tr('haptic_off') : save.bgmVolume}',
-                                style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
-                              ),
-                              Slider(
-                                value: save.bgmVolume.toDouble(),
-                                min: 0,
-                                max: 8,
-                                divisions: 8,
-                                activeColor: const Color(0xFFFFD54F),
-                                onChanged: (v) {
-                                  save.setBgmVolume(v.toInt());
-                                  AudioManager.instance.updateBgmVolume();
-                                },
-                              ),
-                              Text( '${I18n.tr('haptics')}: ${save.vibrationLevel == 0 ? I18n.tr('off') : save.vibrationLevel}',
-                                style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
-                              ),
-                              Slider(
-                                value: save.vibrationLevel.toDouble(),
-                                min: 0,
-                                max: 8,
-                                divisions: 8,
-                                activeColor: const Color(0xFFFFD54F),
-                                onChanged: (v) {
-                                  save.setVibrationLevel(v.toInt());
-                                  AudioManager.instance.playSfx(GameSfx.hitBrick);
-                                },
-                              ),
-                            ],
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0x33101424),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Colors.white12),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.volume_up_rounded, color: Color(0xFFFFD54F), size: 16),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '${I18n.tr('sfx')}: ${save.sfxVolume}',
+                                      style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                                Slider(
+                                  value: save.sfxVolume.toDouble(),
+                                  min: 0,
+                                  max: 8,
+                                  divisions: 8,
+                                  activeColor: const Color(0xFFFFD54F),
+                                  inactiveColor: Colors.white12,
+                                  onChanged: (v) {
+                                    save.setSfxVolume(v.toInt());
+                                    AudioManager.instance.playSfx(GameSfx.hitBrick);
+                                  },
+                                ),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.music_note_rounded, color: Color(0xFFFFD54F), size: 16),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '${I18n.tr('music_bgm')}: ${save.bgmVolume == 0 ? I18n.tr('haptic_off') : save.bgmVolume}',
+                                      style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                                Slider(
+                                  value: save.bgmVolume.toDouble(),
+                                  min: 0,
+                                  max: 8,
+                                  divisions: 8,
+                                  activeColor: const Color(0xFFFFD54F),
+                                  inactiveColor: Colors.white12,
+                                  onChanged: (v) {
+                                    save.setBgmVolume(v.toInt());
+                                    AudioManager.instance.updateBgmVolume();
+                                  },
+                                ),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.vibration_rounded, color: Color(0xFFFFD54F), size: 16),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '${I18n.tr('haptics')}: ${save.vibrationLevel == 0 ? I18n.tr('off') : save.vibrationLevel}',
+                                      style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                                Slider(
+                                  value: save.vibrationLevel.toDouble(),
+                                  min: 0,
+                                  max: 8,
+                                  divisions: 8,
+                                  activeColor: const Color(0xFFFFD54F),
+                                  inactiveColor: Colors.white12,
+                                  onChanged: (v) {
+                                    save.setVibrationLevel(v.toInt());
+                                    AudioManager.instance.playSfx(GameSfx.hitBrick);
+                                  },
+                                ),
+                              ],
+                            ),
                           );
                         },
                       ),
@@ -365,24 +442,27 @@ class PauseGameOverOverlay extends StatelessWidget {
     final adManager = AdManager.instance;
     final isLoading = adManager.isShowing;
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFF1744), Color(0xFFFF5252), Color(0xFFFF8A80)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFFF8A80), width: 1.5),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x66FF1744),
-            blurRadius: 18,
-            offset: Offset(0, 4),
+    return KaunosPressGlow(
+      borderRadius: 20,
+      waveColor: const Color(0xFFFF1744),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFF1744), Color(0xFFFF5252), Color(0xFFFF8A80)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Material(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFFF8A80), width: 1.5),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x66FF1744),
+              blurRadius: 18,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
@@ -541,6 +621,74 @@ class PauseGameOverOverlay extends StatelessWidget {
             ),
           ),
         ),
+      ),
+      ),
+    );
+  }
+
+  Widget _buildSectorChestProgress(int level) {
+    final sectorNum = ((level - 1) ~/ 10) + 1;
+    final progressInSector = ((level - 1) % 10) + 1;
+    final progressRatio = (progressInSector / 10.0).clamp(0.0, 1.0);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0x800F172A),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0x66FFD54F), width: 1.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.card_giftcard_rounded, color: Color(0xFFFFD54F), size: 14),
+                  const SizedBox(width: 5),
+                  Text(
+                    'Sektör $sectorNum Sandığı',
+                    style: const TextStyle(
+                      color: Color(0xFFFFD54F),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                '$progressInSector/10 Yıldız',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0.0, end: progressRatio),
+              duration: const Duration(milliseconds: 700),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) {
+                return LinearProgressIndicator(
+                  value: value,
+                  minHeight: 6,
+                  backgroundColor: Colors.white12,
+                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFFB300)),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

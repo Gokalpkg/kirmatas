@@ -11,6 +11,8 @@ import 'kaunos_ui.dart';
 class WheelReward {
   final String label;
   final String subtitle;
+  final String? labelKey;
+  final String? subtitleKey;
   final IconData icon;
   final Color primaryColor;
   final Color secondaryColor;
@@ -19,11 +21,16 @@ class WheelReward {
   const WheelReward({
     required this.label,
     required this.subtitle,
+    this.labelKey,
+    this.subtitleKey,
     required this.icon,
     required this.primaryColor,
     required this.secondaryColor,
     required this.onClaim,
   });
+
+  String get displayLabel => labelKey != null ? I18n.tr(labelKey!) : label;
+  String get displaySubtitle => subtitleKey != null ? I18n.tr(subtitleKey!) : subtitle;
 }
 
 class FortuneWheelDialog extends StatefulWidget {
@@ -85,15 +92,15 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
   String _getCategoryDisplayName(String cat) {
     switch (cat) {
       case 'balls':
-        return 'Top';
+        return I18n.tr('balls');
       case 'paddles':
-        return 'Raket';
+        return I18n.tr('paddles');
       case 'trails':
-        return 'İz';
+        return I18n.tr('trails');
       case 'bricks':
-        return 'Blok';
+        return I18n.tr('bricks');
       default:
-        return 'Eşya';
+        return I18n.tr('from_crate');
     }
   }
 
@@ -128,8 +135,9 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
 
   static final List<WheelReward> rewards = [
     WheelReward(
-      label: '500 ',
+      label: '500',
       subtitle: 'JACKPOT!',
+      subtitleKey: 'grand_prize',
       icon: Icons.diamond,
       primaryColor: const Color(0xFFFFD700),
       secondaryColor: const Color(0xFFFF8F00),
@@ -137,14 +145,14 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     ),
     WheelReward(
       label: 'KASA',
+      labelKey: 'vault_title',
       subtitle: 'Ahtapot Hazinesi',
+      subtitleKey: 'octopus_crate',
       icon: Icons.lock_rounded,
       primaryColor: const Color(0xFFAB47BC),
       secondaryColor: const Color(0xFF6A1B9A),
       onClaim: (context, save) async {
         final crateDef = CrateDef.octopusVault;
-        // Vault contents come from a single picker (see vaultRewardFish):
-        // for now the octopus itself, guaranteed.
         final fish = vaultRewardFish(save);
         final rolledRarity = fish.rarity;
         final currentOwnedCount = save.getFishCount(fish.id);
@@ -159,11 +167,13 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
           isDuplicate = true;
           isShardReward = true;
           final newTotal = save.fishShards + shardYield;
-          subtitle = 'Bu balıktan 2 adede sahipsin! +$shardYield Balık Eklentisi eklendi ($newTotal/8).';
+          subtitle = I18n.tr('fish_duplicate_shards')
+              .replaceAll('{yield}', '$shardYield')
+              .replaceAll('{total}', '$newTotal');
         } else if (currentOwnedCount == 1) {
           isDuplicate = true;
           isFoodBonus = true;
-          subtitle = 'Akvaryumuna 2. ${fish.name} katıldı! (+3 Yem Hediye)';
+          subtitle = I18n.tr('fish_second_copy').replaceAll('{name}', fish.name);
         } else {
           subtitle = I18n.tr('new_fish_unlocked');
         }
@@ -187,7 +197,9 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     ),
     WheelReward(
       label: 'PARÇA',
+      labelKey: 'shard_title',
       subtitle: '+1 Shard',
+      subtitleKey: 'shards',
       icon: Icons.hexagon,
       primaryColor: const Color(0xFF00E5FF),
       secondaryColor: const Color(0xFF00B0FF),
@@ -199,16 +211,18 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       },
     ),
     WheelReward(
-      label: '250 ',
+      label: '250',
       subtitle: 'Büyük Ödül',
+      subtitleKey: 'grand_prize',
       icon: Icons.monetization_on,
       primaryColor: const Color(0xFFFF9100),
       secondaryColor: const Color(0xFFFF6D00),
       onClaim: (context, save) => save.addGold(250),
     ),
     WheelReward(
-      label: '150 ',
+      label: '150',
       subtitle: 'Altın',
+      subtitleKey: 'gold',
       icon: Icons.stars,
       primaryColor: const Color(0xFFFFD54F),
       secondaryColor: const Color(0xFFFFB300),
@@ -216,23 +230,27 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     ),
     WheelReward(
       label: '+1 CAN',
+      labelKey: 'plus_one_life',
       subtitle: 'Can Boostu',
+      subtitleKey: 'life_boost_title',
       icon: Icons.favorite,
       primaryColor: const Color(0xFFFF1744),
       secondaryColor: const Color(0xFFD50000),
       onClaim: (context, save) => save.addBoostStock('life', 1),
     ),
     WheelReward(
-      label: '100 ',
+      label: '100',
       subtitle: 'Altın',
+      subtitleKey: 'gold',
       icon: Icons.toll,
       primaryColor: const Color(0xFF26A69A),
       secondaryColor: const Color(0xFF00897B),
       onClaim: (context, save) => save.addGold(100),
     ),
     WheelReward(
-      label: '75 ',
+      label: '75',
       subtitle: 'Altın',
+      subtitleKey: 'gold',
       icon: Icons.monetization_on,
       primaryColor: const Color(0xFFAB47BC),
       secondaryColor: const Color(0xFF8E24AA),
@@ -240,7 +258,9 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     ),
     WheelReward(
       label: '+1 İNCİ',
+      labelKey: 'plus_one_pearl',
       subtitle: 'İnci',
+      subtitleKey: 'pearls',
       icon: Icons.circle,
       primaryColor: const Color(0xFFF48FB1),
       secondaryColor: const Color(0xFFEC407A),
@@ -248,7 +268,9 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     ),
     WheelReward(
       label: '+4 YEM',
+      labelKey: 'plus_four_food',
       subtitle: 'Balık Yemi',
+      subtitleKey: 'fish_food',
       icon: Icons.set_meal_rounded,
       primaryColor: const Color(0xFFAED581),
       secondaryColor: const Color(0xFF7CB342),
@@ -416,8 +438,8 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
         final cat = _lastAwardedShardCategory ?? 'paddles';
         final catName = _getCategoryDisplayName(cat);
         final currentShards = SaveManager.instance.getShards(cat);
-        customTitle = '$catName Parçası';
-        customSubtitle = '+1 $catName Parçası Eklendi! (Toplam: $currentShards/3)';
+        customTitle = I18n.tr('shard_reward_title').replaceAll('{category}', catName);
+        customSubtitle = I18n.tr('shard_reward_subtitle').replaceAll('{category}', catName).replaceAll('{count}', '$currentShards');
         customIcon = _getCategoryIcon(cat);
       }
 
@@ -443,7 +465,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     if (!save.canSpinFortuneWheel) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Bugünkü çark haklarını kullandın! Yarın yeni haklar gelecek.'),
+          content: Text(I18n.tr('daily_spins_exhausted_sub').replaceAll('{max}', '${SaveManager.maxDailyWheelSpins}')),
           backgroundColor: const Color(0xFF1E2438),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -470,14 +492,14 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Row(
+            content: Row(
               children: [
-                Icon(Icons.info_outline, color: Color(0xFFFFD54F), size: 22),
-                SizedBox(width: 10),
+                const Icon(Icons.info_outline, color: Color(0xFFFFD54F), size: 22),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Şans çarkını çevirmek için reklamı tamamlamalısınız.',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    I18n.tr('watch_ad_to_spin_notice'),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -496,7 +518,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     if (!save.canSpinFortuneWheel) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Bugünkü çark haklarını kullandın! Yarın yeni haklar gelecek.'),
+          content: Text(I18n.tr('daily_spins_exhausted_sub').replaceAll('{max}', '${SaveManager.maxDailyWheelSpins}')),
           backgroundColor: const Color(0xFF1E2438),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -523,13 +545,14 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Row(
+            content: Row(
               children: [
-                Icon(Icons.info_outline, color: Color(0xFFFFD54F), size: 22),
-                SizedBox(width: 10),
+                const Icon(Icons.info_outline, color: Color(0xFFFFD54F), size: 22),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Text( 'Şans çarkını çevirmek için reklamı tamamlamalısınız.',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  child: Text(
+                    I18n.tr('watch_ad_to_spin_notice'),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -549,16 +572,17 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     String? customSubtitle,
     IconData? customIcon,
   }) {
-    final displayLabel = customLabel ?? reward.label;
-    final displaySubtitle = customSubtitle ?? reward.subtitle;
+    final displayLabel = customLabel ?? reward.displayLabel;
+    final displaySubtitle = customSubtitle ?? reward.displaySubtitle;
     final displayIcon = customIcon ?? reward.icon;
-    final isChest = reward.label == 'KASA';
+    final isChest = reward.label == 'KASA' || reward.labelKey == 'vault_title';
 
     // The big catches get a full spectacle; small ones stay casual.
     final spectacle = isChest ||
-        reward.label == '500 ' ||
-        reward.label == '250 ' ||
-        reward.label == '+1 İNCİ';
+        reward.label.startsWith('500') ||
+        reward.label.startsWith('250') ||
+        reward.label.contains('İNCİ') ||
+        reward.labelKey == 'plus_one_pearl';
 
     // Same chest visual the opening screen uses (rolled rarity tier).
     Rarity? chestTier;
@@ -589,7 +613,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     showKaunosRewardReveal(
       context: context,
       accent: reward.primaryColor,
-      headline: 'TEBRİKLER!',
+      headline: I18n.tr('congratulations'),
       title: displayLabel,
       subtitle: displaySubtitle,
       spectacle: spectacle,
@@ -617,9 +641,9 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
               child: Icon(displayIcon, color: Colors.white, size: 46),
             ),
       footnote: isChest
-          ? 'Ahtapot Hazinesi arkaya bırakıldı! Açmak için ${CrateDef.octopusVaultPearlCost} inci gerekir.'
-          : 'Ödül hesabınıza aktarıldı!',
-      buttonLabel: isChest ? 'KASAYI AÇ!' : 'HARİKA!',
+          ? I18n.tr('vault_queued_sub').replaceAll('{cost}', '${CrateDef.octopusVaultPearlCost}')
+          : I18n.tr('reward_transferred_sub'),
+      buttonLabel: isChest ? I18n.tr('open_vault_btn') : I18n.tr('awesome_btn'),
       onDone: () {
         if (isChest) {
           Navigator.of(context).pop();
@@ -669,15 +693,15 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                     Flexible(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.stars, color: Color(0xFFFFD54F), size: 22),
-                          SizedBox(width: 6),
+                        children: [
+                          const Icon(Icons.stars, color: Color(0xFFFFD54F), size: 22),
+                          const SizedBox(width: 6),
                           Flexible(
                             child: Text(
-                              'ŞANS ÇARKI',
+                              I18n.tr('fortune_wheel_title'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Color(0xFFFFD54F),
                                 fontWeight: FontWeight.w900,
                                 fontSize: 18,
@@ -688,13 +712,8 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                         ],
                       ),
                     ),
-                    KaunosPressGlow(
-                      isCircle: true,
-                      waveColor: const Color(0xFF00E5FF),
-                      child: IconButton(
-                        onPressed: _isSpinning ? null : () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close, color: Colors.white70),
-                      ),
+                    KaunosCloseButton(
+                      onTap: _isSpinning ? null : () => Navigator.of(context).pop(),
                     ),
                   ],
                 ),
@@ -732,9 +751,9 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                         child: Text(
                           canSpin
                               ? (save.isNextWheelSpinFree
-                                  ? 'Günün 1. Çevirmesi ÜCRETSİZ! (Kalan: $spinsLeft/${SaveManager.maxDailyWheelSpins})'
-                                  : 'Bugün Kalan Hak: $spinsLeft / ${SaveManager.maxDailyWheelSpins}')
-                              : 'Günlük Hak Bitti (0/${SaveManager.maxDailyWheelSpins})',
+                                  ? '${I18n.tr('spin_free_sub')} (${I18n.tr('spins_left_badge').replaceAll('{spins}', '$spinsLeft')})'
+                                  : I18n.tr('spins_left_badge').replaceAll('{spins}', '$spinsLeft'))
+                              : I18n.tr('daily_spins_exhausted_btn').replaceAll('{max}', '${SaveManager.maxDailyWheelSpins}'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -938,7 +957,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                               ),
                               const SizedBox(width: 10),
                               Text(
-                                _isSpinning ? 'Çark Dönüyor...' : 'Reklam Hazırlanıyor...',
+                                _isSpinning ? I18n.tr('wheel_spinning') : I18n.tr('ad_preparing'),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w900,
@@ -952,10 +971,10 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: const [
+                                  children: [
                                     Text(
-                                      'GÜNLÜK HAK BİTTİ (0 / ${SaveManager.maxDailyWheelSpins})',
-                                      style: TextStyle(
+                                      I18n.tr('daily_spins_exhausted_btn').replaceAll('{max}', '${SaveManager.maxDailyWheelSpins}'),
+                                      style: const TextStyle(
                                         color: Colors.white70,
                                         fontWeight: FontWeight.w900,
                                         fontSize: 13,
@@ -963,8 +982,8 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                       ),
                                     ),
                                     Text(
-                                      'Yarın yeni ${SaveManager.maxDailyWheelSpins} çevirme hakkı eklenecek!',
-                                      style: TextStyle(
+                                      I18n.tr('daily_spins_exhausted_sub').replaceAll('{max}', '${SaveManager.maxDailyWheelSpins}'),
+                                      style: const TextStyle(
                                         color: Colors.white38,
                                         fontWeight: FontWeight.w600,
                                         fontSize: 10,
@@ -993,12 +1012,12 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: const [
+                                  children: [
                                     Text(
-                                      ' ÜCRETSİZ ÇEVİR! (1 / ${SaveManager.maxDailyWheelSpins})',
+                                      ' ${I18n.tr('spin_free_btn').replaceAll('{max}', '${SaveManager.maxDailyWheelSpins}')}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: Color(0xFF003816),
                                         fontWeight: FontWeight.w900,
                                         fontSize: 13,
@@ -1006,10 +1025,10 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                       ),
                                     ),
                                     Text(
-                                      ' Günün İlk Çevirmesi Bedava! (Reklamsız)',
+                                      ' ${I18n.tr('spin_free_sub')}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: Color(0xFF004D20),
                                         fontWeight: FontWeight.w700,
                                         fontSize: 10,
@@ -1040,7 +1059,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      ' REKLAM İZLE & ÇEVİR! (${save.fortuneWheelSpinsToday + 1} / ${SaveManager.maxDailyWheelSpins})',
+                                      ' ${I18n.tr('spin_ad_btn').replaceAll('{current}', '${save.fortuneWheelSpinsToday + 1}').replaceAll('{max}', '${SaveManager.maxDailyWheelSpins}')}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
@@ -1050,11 +1069,11 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                         letterSpacing: 0.4,
                                       ),
                                     ),
-                                    const Text(
-                                      ' Geçilebilir Kısa Reklam İzle & Çevir',
+                                    Text(
+                                      ' ${I18n.tr('spin_ad_sub')}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: Color(0xFF4E342E),
                                         fontWeight: FontWeight.w700,
                                         fontSize: 10,
@@ -1157,14 +1176,20 @@ class _WheelPainter extends CustomPainter {
       canvas.translate(tx, ty);
       canvas.rotate(midAngle + pi / 2);
 
-      final tp = _textPainters.putIfAbsent(reward.label, () {
+      final labelText = reward.displayLabel;
+      final tp = _textPainters.putIfAbsent(labelText, () {
         final textSpan = TextSpan(
-          text: reward.label,
+          text: labelText,
           style: TextStyle(
+            fontFamily: 'Rajdhani',
             color: Colors.white,
             fontWeight: FontWeight.w900,
-            fontSize: rewards.length > 8 ? 10.5 : 12,
-            shadows: const [Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1))],
+            fontSize: rewards.length > 8 ? 11.0 : 12.5,
+            letterSpacing: 0.6,
+            shadows: const [
+              Shadow(color: Colors.black, blurRadius: 6, offset: Offset(0, 1.5)),
+              Shadow(color: Colors.black87, blurRadius: 2, offset: Offset(0, 0.5)),
+            ],
           ),
         );
         return TextPainter(

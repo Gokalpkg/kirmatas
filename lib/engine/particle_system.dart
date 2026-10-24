@@ -94,6 +94,8 @@ class BrickShard {
   Color color;
   double life;
   final double maxLife;
+  int bounceCount = 0;
+  final double floorY;
 
   BrickShard({
     required this.x,
@@ -106,17 +108,51 @@ class BrickShard {
     required this.height,
     required this.color,
     required this.maxLife,
-  }) : life = maxLife;
+    double? floorY,
+  })  : life = maxLife,
+        floorY = floorY ?? (y + 110.0);
 
   bool get isDead => life <= 0;
 
   void update(double dt) {
     x += vx * dt;
     y += vy * dt;
-    vy += 380.0 * dt; // Gravity
+    vy += 420.0 * dt; // Gravity
     vx *= 0.98; // Air resistance
     rotation += vRot * dt;
+    // Step 3: Zıplayarak dağılma (bounce off floor/air)
+    if (y >= floorY && bounceCount < 2) {
+      y = floorY;
+      vy = -vy.abs() * 0.55;
+      bounceCount++;
+    }
     life -= dt;
+  }
+}
+
+/// Step 2: Left-to-right sweeping retro square pixel wave
+class PixelShockwave {
+  final double x;
+  final double y;
+  final double width;
+  final double height;
+  final Color color;
+  final double duration;
+  double progress = 0.0;
+
+  PixelShockwave({
+    required this.x,
+    required this.y,
+    this.width = 65.0,
+    this.height = 24.0,
+    required this.color,
+    this.duration = 0.28,
+  });
+
+  bool get isDead => progress >= 1.0;
+
+  void update(double dt) {
+    progress += dt / duration;
   }
 }
 
@@ -207,6 +243,7 @@ class CoinOrb {
 class ParticleSystem {
   final List<Particle> particles = [];
   final List<Shockwave> shockwaves = [];
+  final List<PixelShockwave> pixelShockwaves = [];
   final List<FloatingText> floatingTexts = [];
   final List<BrickShard> shards = [];
   final List<CoinOrb> coinOrbs = [];
@@ -347,6 +384,22 @@ class ParticleSystem {
     );
   }
 
+  /// Step 2: Spawns a left-to-right sweeping retro square pixel wave
+  void spawnPixelWave(double bx, double by, double bw, double bh, Color color) {
+    if (pixelShockwaves.length >= 8) {
+      pixelShockwaves.removeAt(0);
+    }
+    pixelShockwaves.add(
+      PixelShockwave(
+        x: bx,
+        y: by,
+        width: bw,
+        height: bh,
+        color: color,
+      ),
+    );
+  }
+
   void spawnBrickShards(double bx, double by, double bw, double bh, Color color, {int count = 6}) {
     if (shards.length + count > maxShards) {
       final overflow = (shards.length + count) - maxShards;
@@ -361,12 +414,13 @@ class ParticleSystem {
           y: by + (_rand.nextDouble() * 0.8 + 0.1) * bh,
           vx: cos(angle) * speed,
           vy: sin(angle) * speed,
-          rotation: _rand.nextDouble() * 2 * pi,
-          vRot: (_rand.nextDouble() * 10.0 - 5.0),
-          width: 5.5 + _rand.nextDouble() * 6.5,
-          height: 3.5 + _rand.nextDouble() * 4.5,
+          rotation: (_rand.nextInt(4) * pi / 2), // Stepped 90-degree pixel art rotation
+          vRot: (_rand.nextDouble() * 6.0 - 3.0),
+          width: 4.5 + _rand.nextDouble() * 3.5, // Crisp square pixel chunk
+          height: 4.5 + _rand.nextDouble() * 3.5,
           color: color,
-          maxLife: 0.50 + _rand.nextDouble() * 0.30,
+          maxLife: 0.55 + _rand.nextDouble() * 0.30,
+          floorY: by + bh + 45.0 + _rand.nextDouble() * 55.0,
         ),
       );
     }
@@ -388,6 +442,11 @@ class ParticleSystem {
     }
     shockwaves.removeWhere((s) => s.isDead);
 
+    for (int i = 0; i < pixelShockwaves.length; i++) {
+      pixelShockwaves[i].update(dt);
+    }
+    pixelShockwaves.removeWhere((p) => p.isDead);
+
     for (int i = 0; i < floatingTexts.length; i++) {
       floatingTexts[i].update(dt);
     }
@@ -402,6 +461,7 @@ class ParticleSystem {
   void clear() {
     particles.clear();
     shockwaves.clear();
+    pixelShockwaves.clear();
     floatingTexts.clear();
     shards.clear();
     coinOrbs.clear();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../engine/play_games_manager.dart';
+import '../models/game_state.dart';
 import '../storage/save_manager.dart';
 import 'kaunos_ui.dart';
 
@@ -165,21 +166,16 @@ class _StatsDialogState extends State<StatsDialog> {
                     physics: const NeverScrollableScrollPhysics(),
                     mainAxisSpacing: 8,
                     crossAxisSpacing: 8,
-                    childAspectRatio: 2.35,
+                    childAspectRatio: 2.25,
                     children: [
-                      _statCard('🎮', 'Toplam Oyun', _fmt(save.statTotalRuns)),
-                      _statCard('🏁', 'Bölüm Zaferi', _fmt(save.statTotalClears)),
-                      _statCard('💀', 'Toplam Ölüm', _fmt(save.statTotalDeaths)),
-                      _statCard('🧱', 'Kırılan Tuğla',
-                          _fmt(save.statBricksBrokenTotal)),
-                      _statCard('🪙', 'Kazanılan Altın',
-                          _fmt(save.statGoldEarnedTotal)),
-                      _statCard('⏱️', 'Oyun Süresi',
-                          _fmtDuration(save.statPlaySeconds)),
-                      _statCard('🚩', 'En Yüksek Bölüm',
-                          _fmt(save.highestLevel)),
-                      _statCard('🌪️', 'En İyi Kaos Dalgası',
-                          _fmt(save.bestChaosWave)),
+                      _statCard(Icons.flag_rounded, 'En Yüksek Bölüm', _fmt(save.highestLevel), accentColor: const Color(0xFF00E5FF)),
+                      _statCard(Icons.cyclone_rounded, 'Kaos Zirvesi', 'Dalga ${_fmt(save.bestChaosWave)}', accentColor: const Color(0xFFE040FB)),
+                      _statCard(Icons.grid_view_rounded, 'Kırılan Tuğla', _fmt(save.statBricksBrokenTotal), accentColor: const Color(0xFFFFD54F)),
+                      _statCard(Icons.monetization_on_rounded, 'Kazanılan Altın', _fmt(save.statGoldEarnedTotal), accentColor: const Color(0xFFFFB300)),
+                      _statCard(Icons.emoji_events_rounded, 'Bölüm Zaferi', _fmt(save.statTotalClears), accentColor: const Color(0xFF69F0AE)),
+                      _statCard(Icons.heart_broken_rounded, 'Toplam Ölüm', _fmt(save.statTotalDeaths), accentColor: const Color(0xFFFF5252)),
+                      _statCard(Icons.sports_esports_rounded, 'Toplam Oyun', _fmt(save.statTotalRuns), accentColor: const Color(0xFF81D4FA)),
+                      _statCard(Icons.timer_rounded, 'Oyun Süresi', _fmtDuration(save.statPlaySeconds), accentColor: const Color(0xFFB388FF)),
                     ],
                   ),
                   if (topHard.isNotEmpty) ...[
@@ -272,7 +268,7 @@ class _StatsDialogState extends State<StatsDialog> {
         children: [
           Row(
             children: [
-              const Text('🏆', style: TextStyle(fontSize: 20)),
+              const Icon(Icons.military_tech_rounded, color: Color(0xFFFFD54F), size: 22),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -316,13 +312,25 @@ class _StatsDialogState extends State<StatsDialog> {
     );
   }
 
-  Widget _statCard(String emoji, String label, String value) {
+  Widget _statCard(IconData icon, String label, String value, {Color? accentColor}) {
+    final col = accentColor ?? const Color(0xFF00E5FF);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0x14FFFFFF),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white12),
+        gradient: LinearGradient(
+          colors: [col.withValues(alpha: 0.14), const Color(0x110F172A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: col.withValues(alpha: 0.35), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: col.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -330,19 +338,24 @@ class _StatsDialogState extends State<StatsDialog> {
         children: [
           Row(
             children: [
-              Text(emoji, style: const TextStyle(fontSize: 13)),
-              const SizedBox(width: 5),
+              Icon(icon, color: col, size: 15),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  label,
+                  label.toUpperCase(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white54, fontSize: 10.5),
+                  style: TextStyle(
+                    color: col.withValues(alpha: 0.9),
+                    fontSize: 10.0,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           Text(
             value,
             maxLines: 1,
@@ -351,7 +364,11 @@ class _StatsDialogState extends State<StatsDialog> {
               color: Colors.white,
               fontFamily: 'Rajdhani',
               fontWeight: FontWeight.w900,
-              fontSize: 18,
+              fontSize: 19,
+              letterSpacing: 0.5,
+              shadows: [
+                Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1)),
+              ],
             ),
           ),
         ],
@@ -457,10 +474,24 @@ class _StatsDialogState extends State<StatsDialog> {
               ],
             ),
           const SizedBox(height: 8),
-          _gamesButton(
-            label: '🏆 SIRALAMA',
-            icon: Icons.leaderboard_rounded,
-            onTap: _busy ? null : () => _run(() => _games.showLeaderboard()),
+          Row(
+            children: [
+              Expanded(
+                child: _gamesButton(
+                  label: '🏆 EN YÜKSEK SKOR',
+                  icon: Icons.leaderboard_rounded,
+                  onTap: _busy ? null : () => _run(() => _games.showLeaderboard(mode: GameMode.classic)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _gamesButton(
+                  label: '🌀 KAOS SKOR',
+                  icon: Icons.military_tech_rounded,
+                  onTap: _busy ? null : () => _run(() => _games.showLeaderboard(mode: GameMode.chaos)),
+                ),
+              ),
+            ],
           ),
         ],
       ),

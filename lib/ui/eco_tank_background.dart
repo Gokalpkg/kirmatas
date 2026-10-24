@@ -720,6 +720,19 @@ class _TankPainter extends CustomPainter {
     // on the drawn floor, whatever the screen size.
     canvas.scale(size.width / 410.0, size.height / 800.0);
 
+    // 1b. Soft underwater surface caustics filtering down from surface
+    final causticPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFF80D8FF).withValues(alpha: 0.05 + 0.02 * sin(time * 0.8)),
+          const Color(0x0080D8FF),
+        ],
+        stops: const [0.0, 0.45],
+      ).createShader(const Rect.fromLTWH(0, 0, 410, 360));
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 410, 360), causticPaint);
+
     // 2. Sand layer at the bottom of the world (surface ~y=745)
     _sandPath ??= Path()
       ..moveTo(0, 752)

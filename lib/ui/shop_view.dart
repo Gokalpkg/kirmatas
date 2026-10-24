@@ -29,7 +29,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
   final Set<int> _sparkedCoinIndices = {};
   int? _displayGold;
   bool _isPurchasing = false;
-  static const double _purchaseDurationSeconds = 0.95;
+  static const double _purchaseDurationSeconds = 0.42;
   String? _selectedPreviewTrailId;
 
   @override
@@ -42,7 +42,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
     )..repeat();
     _purchaseAnimController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 950),
+      duration: const Duration(milliseconds: 420),
     );
   }
 
@@ -262,7 +262,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
             ),
             actions: [
               IconButton(
-                tooltip: 'Tümünü Rastgele Kuşan',
+                tooltip: I18n.tr('random_equip_all'),
                 icon: const Icon(Icons.casino_rounded, color: Color(0xFFFFD54F), size: 24),
                 onPressed: () {
                   final allRandom = save.activeBall == 'random' &&
@@ -277,9 +277,9 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                     save.equipBrickStyle('brick_gloss');
                     save.selectBackground('bg_default');
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Varsayılan kozmetiklere dönüldü!'),
-                        duration: Duration(seconds: 2),
+                      SnackBar(
+                        content: Text(I18n.tr('reset_default_cosmetics')),
+                        duration: const Duration(seconds: 2),
                       ),
                     );
                   } else {
@@ -289,9 +289,9 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                     save.equipBrickStyle('random');
                     save.selectBackground('random');
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(' Tüm kategoriler için Rastgele modu aktif edildi!'),
-                        duration: Duration(seconds: 2),
+                      SnackBar(
+                        content: Text(I18n.tr('random_cosmetics_enabled')),
+                        duration: const Duration(seconds: 2),
                       ),
                     );
                   }
@@ -609,7 +609,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                       ],
                     ),
                     Text(
-                      shards >= 3 ? 'GARANTİLİ YENİ EŞYA HAZIR!' : '(3 olunca Garantili Yeni Eşya!)',
+                      shards >= 3 ? I18n.tr('guaranteed_item_ready') : I18n.tr('guaranteed_item_hint'),
                       style: TextStyle(
                         color: shards >= 3 ? const Color(0xFFFFD54F) : Colors.white70,
                         fontSize: 10.5,
@@ -642,7 +642,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                             save.addGold(1000);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('${I18n.tr('all_items_unlocked')} (+1000 Altın)')),
+                                SnackBar(content: Text('${I18n.tr('all_items_unlocked')} (+1000 ${I18n.tr('gold')})')),
                               );
                             }
                           }
@@ -890,8 +890,9 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                     children: [
                       Row(
                         children: [
-                          const Text( 'ŞANS ÇARKI',
-                            style: TextStyle(
+                          Text(
+                            I18n.tr('fortune_wheel_title'),
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 15,
                               fontWeight: FontWeight.w900,
@@ -910,7 +911,9 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  hasSpins ? '$spinsLeft/3 HAK' : 'YARIN GEL',
+                                  hasSpins
+                                      ? I18n.tr('spins_left_badge').replaceAll('{spins}', '$spinsLeft')
+                                      : I18n.tr('come_back_tomorrow'),
                                   style: TextStyle(
                                     color: hasSpins ? Colors.black : Colors.white70,
                                     fontSize: 9,
@@ -923,8 +926,9 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                         ],
                       ),
                       const SizedBox(height: 3),
-                      const Text( 'Reklam İzle & Sandık, Altın veya Parça Kazan!',
-                        style: TextStyle(
+                      Text(
+                        I18n.tr('fortune_wheel_banner_desc'),
+                        style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -1208,8 +1212,8 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                       const SizedBox(height: 6),
                       Text(
                         crate.id == CrateDef.octopusVault.id
-                            ? 'Ahtapot hazinesini koruyor: içinden Kozmik Ahtapot çıkar! Kilit ${CrateDef.octopusVaultPearlCost} inciyle açılır.'
-                            : 'Akvaryum için deniz canlıları ve nadir balıklar içerir.',
+                            ? I18n.tr('octopus_vault_shop_desc').replaceAll('{cost}', '${CrateDef.octopusVaultPearlCost}')
+                            : I18n.tr('aquarium_crate_shop_desc'),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.65),
                           fontSize: 12,
@@ -1231,14 +1235,14 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                 border: Border.all(color: Colors.white10),
               ),
               child: crate.id == CrateDef.octopusVault.id
-                  ? const Row(
+                  ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.lock_rounded, color: Color(0xFFEA80FC), size: 14),
-                        SizedBox(width: 6),
+                        const Icon(Icons.lock_rounded, color: Color(0xFFEA80FC), size: 14),
+                        const SizedBox(width: 6),
                         Text(
-                          '🐙 GARANTİ İÇERİK • 3 İNCİYLE AÇILIR',
-                          style: TextStyle(color: Color(0xFFEA80FC), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.6),
+                          I18n.tr('octopus_vault_guaranteed_chip'),
+                          style: const TextStyle(color: Color(0xFFEA80FC), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.6),
                         ),
                       ],
                     )

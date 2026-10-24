@@ -408,8 +408,19 @@ class FishItem {
   String get name => _name != null ? I18n.tr(id) : I18n.tr(id);
   String get assetPath => 'assets/images/fishes/$id.png';
 
-  /// Gold awarded by this fish 6 hours after being fed
   int get goldReward {
+    if (kind != FishKind.fish) {
+      switch (rarity) {
+        case Rarity.common:
+          return 15;
+        case Rarity.rare:
+          return 35;
+        case Rarity.epic:
+          return 75;
+        case Rarity.legendary:
+          return 160;
+      }
+    }
     if (id == 'tetra') return 20;
     switch (rarity) {
       case Rarity.common:
@@ -694,9 +705,6 @@ class CrateDef {
         Rarity.legendary: 3.0,
       },
     ),
-    // The Octopus Treasure sits above the Abyssal Crate in the shop:
-    // 380 gold to buy, pearls to open (see octopusVaultPearlCost).
-    octopusVault,
     CrateDef(
       id: 'abyss',
       cost: 2800,
@@ -709,28 +717,28 @@ class CrateDef {
         Rarity.legendary: 12.0,
       },
     ),
+    // The Divine Octopus Treasure sits at the pinnacle of chests:
+    // Opened exclusively with 3 pearls (see octopusVaultPearlCost).
+    octopusVault,
   ];
 
   /// Pearls needed to unlock an Octopus Treasure, whether it was won
   /// from the fortune wheel or bought in the shop.
   static const int octopusVaultPearlCost = 3;
 
-  /// The Octopus Treasure: a legendary chest guarded by the octopus.
-  /// Sold in the shop for gold and won from the fortune wheel; opens
-  /// only for [octopusVaultPearlCost] pearls. For now the octopus
-  /// itself comes out of it (see [octopusVaultRewardFish]); the
-  /// weights stay as the premium table for future vault loot.
+  /// The Octopus Treasure: a legendary divine chest guarded by the octopus.
+  /// Sits at the end of the shop catalog and opens exclusively for 3 pearls.
   static const CrateDef octopusVault = CrateDef(
     id: 'octopus',
-    nameKey: 'octopus_crate',
-    cost: 380,
+    nameKey: 'divine_octopus_vault',
+    cost: 0,
     tier: Rarity.legendary,
     primaryColor: Color(0xFFAB47BC),
     weights: {
-      Rarity.common: 10.0,
-      Rarity.rare: 35.0,
-      Rarity.epic: 40.0,
-      Rarity.legendary: 15.0,
+      Rarity.common: 0.0,
+      Rarity.rare: 20.0,
+      Rarity.epic: 50.0,
+      Rarity.legendary: 30.0,
     },
   );
 }

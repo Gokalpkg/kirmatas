@@ -34,6 +34,11 @@ class PlayGamesManager extends ChangeNotifier {
   DateTime? _lastSync;
 
   bool get signedIn => _signedIn;
+  @visibleForTesting
+  set mockSignedIn(bool value) {
+    _signedIn = value;
+    notifyListeners();
+  }
   String? get playerName => _playerName;
   String get statusText => _statusText;
   DateTime? get lastSync => _lastSync;
@@ -109,12 +114,19 @@ class PlayGamesManager extends ChangeNotifier {
     } catch (_) {}
   }
 
-  /// Opens the native Play Games leaderboard screen for the classic board.
-  Future<String> showLeaderboard() async {
+  /// Opens the native Play Games leaderboard screen.
+  /// If [mode] is specified, opens that board directly; otherwise opens all leaderboards.
+  Future<String> showLeaderboard({GameMode? mode}) async {
     if (!_signedIn) return 'Önce giriş yap';
-    if (classicLeaderboardId.isEmpty) return 'Sıralama yakında açılıyor';
+    final targetId = mode == GameMode.chaos
+        ? chaosLeaderboardId
+        : (mode == GameMode.classic ? classicLeaderboardId : null);
     try {
-      await Leaderboards.showLeaderboards(androidLeaderboardID: classicLeaderboardId);
+      if (targetId != null && targetId.isNotEmpty) {
+        await Leaderboards.showLeaderboards(androidLeaderboardID: targetId);
+      } else {
+        await Leaderboards.showLeaderboards();
+      }
       return 'Sıralama açıldı';
     } catch (_) {
       return 'Sıralama açılamadı';

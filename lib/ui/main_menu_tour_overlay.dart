@@ -281,7 +281,7 @@ class _MainMenuTourOverlayState extends State<MainMenuTourOverlay>
         stepBadge = 'ADIM 2 / 4';
         title = 'Atölye & Yükseltmeler';
         desc =
-            'Kırdığın tuğlalardan altın kazanırsın. Bu altınlarla palet genişliğini, top hızını ve vuruş gücünü kalıcı olarak artırabilirsin!';
+            'Bölüm 3 seviyesinde açılır! Kırdığın tuğlalardan kazandığın altınlarla palet genişliğini, top hızını ve vuruş gücünü kalıcı olarak artırabilirsin.';
         icon = Icons.auto_awesome_rounded;
         accentColor = const Color(0xFFFF9100);
         break;

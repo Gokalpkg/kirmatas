@@ -65,6 +65,46 @@ abstract final class KaunosPalette {
   static const Color amberGlow = Color(0x40F59E0B);
 
   // ===========================================================================
+  // CONSTITUTIONAL 60-30-10 & SEMANTIC TOKENS
+  // ===========================================================================
+
+  /// Soft warm silk cream replacing harsh raw white (#FFFFFF).
+  static const Color silkCream = Color(0xFFF8FAFC);
+
+  /// Deep warm dark void replacing harsh raw black (#000000).
+  static const Color nightVoid = Color(0xFF030508);
+
+  /// Mana / Tech Cyan highlight.
+  static const Color cyanHighlight = Color(0xFF84FFFF);
+
+  /// Mana / Tech Cyan primary tone (#00E5FF).
+  static const Color cyanPrimary = Color(0xFF00E5FF);
+
+  /// Mana / Tech Cyan deep tone.
+  static const Color cyanDeep = Color(0xFF00B0FF);
+
+  /// Mana / Tech Cyan 3D bottom lip (#0E7490).
+  static const Color cyanBevelBottom = Color(0xFF0E7490);
+
+  /// Mana / Tech Cyan border.
+  static const Color cyanBorder = Color(0xFF67E8F9);
+
+  /// Hazard / Destruction Crimson highlight.
+  static const Color crimsonHighlight = Color(0xFFFFA2B4);
+
+  /// Hazard / Destruction Crimson primary tone (#FF2A55).
+  static const Color crimsonPrimary = Color(0xFFFF2A55);
+
+  /// Hazard / Destruction Crimson deep tone.
+  static const Color crimsonDeep = Color(0xFFDC2626);
+
+  /// Hazard / Destruction Crimson 3D bottom lip (#881337).
+  static const Color crimsonBevelBottom = Color(0xFF881337);
+
+  /// Hazard / Destruction Crimson border.
+  static const Color crimsonBorder = Color(0xFFFCA5A5);
+
+  // ===========================================================================
   // MODE IDENTITY & SEMANTIC ACCENT TOKENS
   // ===========================================================================
 
@@ -191,6 +231,21 @@ class KaunosPanelPainter extends CustomPainter {
   final double bottomBevelDepth;
   final Color bevelColor;
 
+  static final Paint _bevelPaint = Paint();
+  static final Paint _bgPaint = Paint();
+  static final Paint _borderPaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.0;
+  static final Paint _rimPaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.2;
+  static final Paint _bracketPaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.4;
+
+  static final Map<int, Shader> _panelBgShaders = {};
+  static final Map<int, Shader> _panelRimShaders = {};
+
   const KaunosPanelPainter({
     required this.borderRadius,
     required this.backgroundColor,
@@ -213,12 +268,15 @@ class KaunosPanelPainter extends CustomPainter {
     if (bottomBevelDepth > 0) {
       final bevelRect = Rect.fromLTWH(0, bottomBevelDepth, size.width, size.height);
       final bevelRRect = RRect.fromRectAndRadius(bevelRect, r);
-      canvas.drawRRect(bevelRRect, Paint()..color = bevelColor);
+      _bevelPaint.color = bevelColor;
+      canvas.drawRRect(bevelRRect, _bevelPaint);
     }
 
-    // 2. Translucent Obsidian Crystal Glass Surface
-    final bgPaint = Paint()
-      ..shader = LinearGradient(
+    // 2. Translucent Obsidian Crystal Glass Surface (Cached Shader)
+    final bgKey = Object.hash(backgroundColor.toARGB32(), size.width.round(), size.height.round());
+    _bgPaint.shader = _panelBgShaders.putIfAbsent(bgKey, () {
+      if (_panelBgShaders.length > 64) _panelBgShaders.remove(_panelBgShaders.keys.first);
+      return LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
@@ -228,20 +286,20 @@ class KaunosPanelPainter extends CustomPainter {
         ],
         stops: const [0.0, 0.6, 1.0],
       ).createShader(rect);
-    canvas.drawRRect(rrect, bgPaint);
+    });
+    canvas.drawRRect(rrect, _bgPaint);
 
     // 3. Delicate Crystal Border (1.0px)
-    final borderPaint = Paint()
-      ..color = borderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawRRect(rrect, borderPaint);
+    _borderPaint.color = borderColor;
+    canvas.drawRRect(rrect, _borderPaint);
 
     // 4. Specular Top Rim (Micro-refraction Glint)
     if (showSpecularRim && size.width > (borderRadius * 2 + 12)) {
       final rimWidth = size.width - (borderRadius * 2);
-      final rimPaint = Paint()
-        ..shader = LinearGradient(
+      final rimKey = Object.hash(borderRadius.round(), rimWidth.round());
+      _rimPaint.shader = _panelRimShaders.putIfAbsent(rimKey, () {
+        if (_panelRimShaders.length > 64) _panelRimShaders.remove(_panelRimShaders.keys.first);
+        return LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
           colors: const [
@@ -251,23 +309,19 @@ class KaunosPanelPainter extends CustomPainter {
             Colors.transparent,
           ],
           stops: const [0.05, 0.35, 0.65, 0.95],
-        ).createShader(Rect.fromLTWH(borderRadius, 0, rimWidth, 1.5))
-        ..strokeWidth = 1.2
-        ..style = PaintingStyle.stroke;
+        ).createShader(Rect.fromLTWH(borderRadius, 0, rimWidth, 1.5));
+      });
 
       canvas.drawLine(
         Offset(borderRadius + 4, 1.0),
         Offset(size.width - borderRadius - 4, 1.0),
-        rimPaint,
+        _rimPaint,
       );
     }
 
     // 5. Observatory Geometric Corner Brackets
     if (showCornerBrackets && size.width >= 48 && size.height >= 48) {
-      final bracketPaint = Paint()
-        ..color = borderColor.withValues(alpha: 0.75)
-        ..strokeWidth = 1.4
-        ..style = PaintingStyle.stroke;
+      _bracketPaint.color = borderColor.withValues(alpha: 0.75);
       const bLen = 6.0;
       const bInset = 4.0;
 
@@ -275,48 +329,48 @@ class KaunosPanelPainter extends CustomPainter {
       canvas.drawLine(
         const Offset(bInset, bInset + bLen),
         const Offset(bInset, bInset),
-        bracketPaint,
+        _bracketPaint,
       );
       canvas.drawLine(
         const Offset(bInset, bInset),
         const Offset(bInset + bLen, bInset),
-        bracketPaint,
+        _bracketPaint,
       );
 
       // Top-Right bracket
       canvas.drawLine(
         Offset(size.width - bInset, bInset + bLen),
         Offset(size.width - bInset, bInset),
-        bracketPaint,
+        _bracketPaint,
       );
       canvas.drawLine(
         Offset(size.width - bInset, bInset),
         Offset(size.width - bInset - bLen, bInset),
-        bracketPaint,
+        _bracketPaint,
       );
 
       // Bottom-Left bracket
       canvas.drawLine(
         Offset(bInset, size.height - bInset - bLen),
         Offset(bInset, size.height - bInset),
-        bracketPaint,
+        _bracketPaint,
       );
       canvas.drawLine(
         Offset(bInset, size.height - bInset),
         Offset(bInset + bLen, size.height - bInset),
-        bracketPaint,
+        _bracketPaint,
       );
 
       // Bottom-Right bracket
       canvas.drawLine(
         Offset(size.width - bInset, size.height - bInset - bLen),
         Offset(size.width - bInset, size.height - bInset),
-        bracketPaint,
+        _bracketPaint,
       );
       canvas.drawLine(
         Offset(size.width - bInset, size.height - bInset),
         Offset(size.width - bInset - bLen, size.height - bInset),
-        bracketPaint,
+        _bracketPaint,
       );
     }
   }
@@ -1184,6 +1238,80 @@ class KaunosTactileButton extends StatefulWidget {
       enabled: enabled,
       isHighStakes: isHighStakes,
       waveColor: KaunosPalette.crystalBorderStarlight,
+      child: child,
+    );
+  }
+
+  /// Factory for Mana / Tech Cyan tactile button.
+  factory KaunosTactileButton.cyan({
+    Key? key,
+    required Widget child,
+    VoidCallback? onTap,
+    VoidCallback? onLongPress,
+    double height = 46,
+    double? width,
+    double bevelDepth = 5.0,
+    double borderRadius = 14,
+    EdgeInsetsGeometry padding = const EdgeInsets.symmetric(horizontal: 14),
+    bool enabled = true,
+    bool isHighStakes = false,
+  }) {
+    return KaunosTactileButton(
+      key: key,
+      onTap: onTap,
+      onLongPress: onLongPress,
+      height: height,
+      width: width,
+      gradientColors: const [
+        KaunosPalette.cyanHighlight,
+        KaunosPalette.cyanPrimary,
+        KaunosPalette.cyanDeep,
+      ],
+      bevelColor: KaunosPalette.cyanBevelBottom,
+      borderColor: KaunosPalette.cyanBorder,
+      bevelDepth: bevelDepth,
+      borderRadius: borderRadius,
+      padding: padding,
+      enabled: enabled,
+      isHighStakes: isHighStakes,
+      waveColor: KaunosPalette.cyanHighlight,
+      child: child,
+    );
+  }
+
+  /// Factory for Hazard / Action Crimson tactile button.
+  factory KaunosTactileButton.crimson({
+    Key? key,
+    required Widget child,
+    VoidCallback? onTap,
+    VoidCallback? onLongPress,
+    double height = 46,
+    double? width,
+    double bevelDepth = 5.0,
+    double borderRadius = 14,
+    EdgeInsetsGeometry padding = const EdgeInsets.symmetric(horizontal: 14),
+    bool enabled = true,
+    bool isHighStakes = false,
+  }) {
+    return KaunosTactileButton(
+      key: key,
+      onTap: onTap,
+      onLongPress: onLongPress,
+      height: height,
+      width: width,
+      gradientColors: const [
+        KaunosPalette.crimsonHighlight,
+        KaunosPalette.crimsonPrimary,
+        KaunosPalette.crimsonDeep,
+      ],
+      bevelColor: KaunosPalette.crimsonBevelBottom,
+      borderColor: KaunosPalette.crimsonBorder,
+      bevelDepth: bevelDepth,
+      borderRadius: borderRadius,
+      padding: padding,
+      enabled: enabled,
+      isHighStakes: isHighStakes,
+      waveColor: KaunosPalette.crimsonHighlight,
       child: child,
     );
   }
@@ -2879,4 +3007,64 @@ class _RewardRaysPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RewardRaysPainter oldDelegate) => oldDelegate.color != color;
+}
+
+/// Juicy tactile circular close button with squash & stretch, bevel, and haptic feedback.
+class KaunosCloseButton extends StatefulWidget {
+  final VoidCallback? onTap;
+  final double size;
+
+  const KaunosCloseButton({super.key, this.onTap, this.size = 36});
+
+  @override
+  State<KaunosCloseButton> createState() => _KaunosCloseButtonState();
+}
+
+class _KaunosCloseButtonState extends State<KaunosCloseButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        AudioManager.instance.playSfx(GameSfx.hitBrick, playbackRate: 1.4);
+        widget.onTap?.call();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.88 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOutBack,
+        child: Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFF1E2538),
+            border: Border.all(
+              color: _pressed ? const Color(0xFFFFD54F) : const Color(0x44FFFFFF),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.close_rounded,
+              color: Color(0xFFFFF8E1),
+              size: 20,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

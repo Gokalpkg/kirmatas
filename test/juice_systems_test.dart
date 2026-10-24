@@ -49,6 +49,10 @@ void main() {
 
       ctrl.particles.spawnCoinOrbs(180, 200, count: 3);
       for (var i = 0; i < 60 && ctrl.coinArrivalCount < 3; i++) {
+        for (final b in ctrl.balls) {
+          b.isStuck = true;
+          b.stuckTimer = 0.0;
+        }
         ctrl.update(0.05);
       }
       expect(ctrl.coinArrivalCount, 3);
@@ -76,10 +80,18 @@ void main() {
       // Mirror the real flow: gold is banked instantly, orbs carry it home.
       ctrl.save.addGold(7);
       ctrl.particles.spawnCoinOrbs(180, 200, count: 3, totalValue: 7);
+      for (final b in ctrl.balls) {
+        b.isStuck = true;
+        b.stuckTimer = 0.0;
+      }
       ctrl.update(0.05);
       expect(ctrl.hudGoldShown, shownAtStart, reason: 'counter must not rise before orbs land');
 
       for (var i = 0; i < 80 && ctrl.particles.coinOrbs.isNotEmpty; i++) {
+        for (final b in ctrl.balls) {
+          b.isStuck = true;
+          b.stuckTimer = 0.0;
+        }
         ctrl.update(0.05);
       }
       expect(ctrl.hudGoldShown, shownAtStart + 7);

@@ -103,12 +103,8 @@ class RewardsHubDialog extends StatelessWidget {
                 ],
               ),
               const Spacer(),
-              KaunosPressGlow(
-                isCircle: true,
-                child: IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white60),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
+              KaunosCloseButton(
+                onTap: () => Navigator.of(context).pop(),
               ),
             ],
           ),

@@ -13,6 +13,7 @@ import '../models/powerup.dart';
 import 'pixel_art.dart';
 import '../models/cosmetics.dart';
 import '../models/sector_data.dart';
+import '../models/sector_blessing.dart';
 import '../models/portal.dart';
 import '../models/easter_egg.dart';
 
@@ -25,7 +26,7 @@ class GameCanvas extends StatefulWidget {
   State<GameCanvas> createState() => _GameCanvasState();
 }
 
-class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateMixin {
+class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final Ticker _ticker;
   Duration _lastElapsed = Duration.zero;
   double _pointerStartX = 0;
@@ -38,13 +39,14 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _ticker = createTicker((elapsed) {
       if (_lastElapsed == Duration.zero) {
         _lastElapsed = elapsed;
         return;
       }
       if (!AudioManager.instance.appInForeground || AdManager.instance.isShowing) {
-        if (widget.controller.status == GameStatus.playing) {
+        if (widget.controller.status == GameStatus.playing || widget.controller.status == GameStatus.ready) {
           widget.controller.pause();
         }
         _lastElapsed = Duration.zero;
@@ -59,8 +61,20 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      if (widget.controller.status == GameStatus.playing || widget.controller.status == GameStatus.ready) {
+        widget.controller.pause();
+      }
+    }
   }
 
   @override
@@ -89,17 +103,10 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
 
             if (c.currentMode == GameMode.chaos) {
               if (c.status == GameStatus.playing) {
-                // Left button: 2X Speed (Unlocks after 8s)
-                // Right button: Direct Recall
-                const btnW = 98.0;
-                const btnH = 36.0;
-                final leftBtnRect = Rect.fromLTWH(14.0, c.screenHeight - btnH - 12.0, btnW, btnH);
+                // Direct Recall button
+                const btnW = 110.0;
+                const btnH = 38.0;
                 final rightBtnRect = Rect.fromLTWH(c.screenWidth - btnW - 14.0, c.screenHeight - btnH - 12.0, btnW, btnH);
-
-                if (leftBtnRect.contains(event.localPosition)) {
-                  c.toggleChaosTurbo();
-                  return;
-                }
                 if (rightBtnRect.contains(event.localPosition)) {
                   c.recallChaosBalls();
                   return;
@@ -185,9 +192,11 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
           },
           child: Stack(
             children: [
-              CustomPaint(
-                size: Size(constraints.maxWidth, constraints.maxHeight),
-                painter: _GameWorldPainter(widget.controller),
+              RepaintBoundary(
+                child: CustomPaint(
+                  size: Size(constraints.maxWidth, constraints.maxHeight),
+                  painter: _GameWorldPainter(widget.controller),
+                ),
               ),
               Positioned.fill(
                 child: IgnorePointer(
@@ -203,11 +212,55 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
                 listenable: widget.controller,
                 builder: (context, _) {
                   final c = widget.controller;
-                  if (c.currentMode != GameMode.chaos) {
+                  if (c.currentMode != GameMode.chaos &&
+                      c.activeSectorBlessing == null &&
+                      c.offeredSectorBlessings.isEmpty) {
                     return const SizedBox.shrink();
                   }
                   return Stack(
                     children: [
+                      if (c.activeSectorBlessing != null)
+                        Positioned(
+                          top: 8,
+                          right: 12,
+                          child: IgnorePointer(
+                            child: Container(
+                              key: const Key('active_sector_blessing_hud'),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xCC101424),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: c.activeSectorBlessing!.primaryColor.withValues(alpha: 0.8),
+                                  width: 1.4,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: c.activeSectorBlessing!.primaryColor.withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(c.activeSectorBlessing!.icon, color: c.activeSectorBlessing!.primaryColor, size: 14),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    c.activeSectorBlessing!.title,
+                                    style: TextStyle(
+                                      color: c.activeSectorBlessing!.primaryColor,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       if (c.activeChaosPerks.isNotEmpty)
                         Positioned(
                           top: 8,
@@ -349,6 +402,127 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
                             ),
                           ),
                         ),
+                      if (c.offeredSectorBlessings.isNotEmpty)
+                        Positioned.fill(
+                          child: Container(
+                            key: const Key('sector_blessing_selection_overlay'),
+                            color: Colors.black.withValues(alpha: 0.82),
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    I18n.tr('sector_blessing_title'),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Color(0xFFFFD54F),
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    I18n.tr('sector_blessing_subtitle'),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  ...c.offeredSectorBlessings.map((blessing) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 10),
+                                      child: InkWell(
+                                        key: Key('sector_blessing_card_${blessing.id}'),
+                                        onTap: () => c.selectSectorBlessing(blessing),
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                Color(0xFF1E2337),
+                                                Color(0xFF14192B),
+                                              ],
+                                            ),
+                                            borderRadius: BorderRadius.circular(16),
+                                            border: Border.all(
+                                              color: blessing.primaryColor.withValues(alpha: 0.85),
+                                              width: 1.8,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: blessing.primaryColor.withValues(alpha: 0.22),
+                                                blurRadius: 10,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 44,
+                                                height: 44,
+                                                decoration: BoxDecoration(
+                                                  color: blessing.primaryColor.withValues(alpha: 0.18),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: blessing.primaryColor.withValues(alpha: 0.5),
+                                                    width: 1.2,
+                                                  ),
+                                                ),
+                                                child: Icon(blessing.icon, color: blessing.primaryColor, size: 24),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      blessing.title,
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: TextStyle(
+                                                        color: blessing.primaryColor,
+                                                        fontWeight: FontWeight.w900,
+                                                        fontSize: 14,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 3),
+                                                    Text(
+                                                      blessing.description,
+                                                      maxLines: 2,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Icon(Icons.chevron_right_rounded, color: blessing.primaryColor, size: 22),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   );
                 },
@@ -431,6 +605,7 @@ class _GameWorldPainter extends CustomPainter {
   static final Map<int, Color> _alphaColors = {};
   static final Map<int, Shader> _skinShaders = {};
   static final Map<int, Shader> _brickShaders = {};
+  static final Map<int, Shader> _bgShaders = {};
   static final Map<int, Color> _hslDerivedColors = {};
 
   static Color _ca(Color color, double alpha) {
@@ -489,10 +664,12 @@ class _GameWorldPainter extends CustomPainter {
     _drawPortals(canvas);
     _drawBricks(canvas);
     _drawTargetLock(canvas);
+    _drawPixelShockwaves(canvas);
     _drawShards(canvas);
     _drawNet(canvas, size);
     _drawPaddle(canvas);
     _drawChaosAim(canvas);
+    _drawChronoLaser(canvas);
     _drawCapsules(canvas);
     _drawProjectiles(canvas);
     _drawBalls(canvas);
@@ -549,20 +726,22 @@ class _GameWorldPainter extends CustomPainter {
         break;
     }
 
-    // Sektör Ambiyans Aurası (Klasik Modda her sektörün kendine has atmosferik ışığı)
+    // Sektör Ambiyans Aurası (Klasik Modda her sektörün kendine has atmosferik ışığı - önbelleklenmiş shader)
     if (c.currentMode == GameMode.classic) {
       final sector = SectorData.getSectorForLevel(c.stats.level);
-      final sectorAura = RadialGradient(
-        center: const Alignment(0, -0.65),
-        radius: 1.15,
-        colors: [
-          sector.primaryColor.withValues(alpha: 0.12),
-          sector.accentColor.withValues(alpha: 0.04),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.45, 1.0],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-      _fill.shader = sectorAura;
+      final key = Object.hash('sector_aura', sector.primaryColor.toARGB32(), size.width.round(), size.height.round());
+      _fill.shader = _bgShaders.putIfAbsent(key, () {
+        return RadialGradient(
+          center: const Alignment(0, -0.65),
+          radius: 1.15,
+          colors: [
+            sector.primaryColor.withValues(alpha: 0.12),
+            sector.accentColor.withValues(alpha: 0.04),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.45, 1.0],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+      });
       canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _fill);
       _fill.shader = null;
     }
@@ -584,17 +763,19 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawModeAura(Canvas canvas, Size size, Color primary, Color accent) {
-    final aura = RadialGradient(
-      center: const Alignment(0, -0.65),
-      radius: 1.15,
-      colors: [
-        primary.withValues(alpha: 0.14),
-        accent.withValues(alpha: 0.05),
-        Colors.transparent,
-      ],
-      stops: const [0.0, 0.45, 1.0],
-    ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-    _fill.shader = aura;
+    final key = Object.hash('mode_aura', primary.toARGB32(), size.width.round(), size.height.round());
+    _fill.shader = _bgShaders.putIfAbsent(key, () {
+      return RadialGradient(
+        center: const Alignment(0, -0.65),
+        radius: 1.15,
+        colors: [
+          primary.withValues(alpha: 0.14),
+          accent.withValues(alpha: 0.05),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    });
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _fill);
     _fill.shader = null;
   }
@@ -1032,7 +1213,7 @@ class _GameWorldPainter extends CustomPainter {
 
       canvas.save();
       final cx = b.x + b.width / 2;
-      final cy = b.y + b.height / 2;
+      final cy = b.y + b.height / 2 + b.bounceOffsetY;
       canvas.translate(cx, cy);
 
       // Jelly wobble
@@ -1045,6 +1226,22 @@ class _GameWorldPainter extends CustomPainter {
       final halfH = b.height / 2;
       final rect = Rect.fromCenter(center: Offset.zero, width: b.width, height: b.height);
       final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(6.0));
+
+      // Step 1: 1-frame pure white flash on hit / destruction
+      if (b.flashTimer > 0) {
+        _fill
+          ..shader = null
+          ..maskFilter = null
+          ..color = Colors.white;
+        canvas.drawRect(rect, _fill);
+        _stroke
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..color = const Color(0xFF0B1021);
+        canvas.drawRect(rect, _stroke);
+        canvas.restore();
+        continue;
+      }
 
       if (c.currentMode == GameMode.chaos && b.isBallPickup) {
         // Collectible +1 Ball Orb
@@ -2330,126 +2527,61 @@ class _GameWorldPainter extends CustomPainter {
     canvas.save();
     canvas.clipRRect(rrect);
 
-    // 3. Deep Space Void background (cached shader)
+    // 3. Deep Space Void background with integrated Cosmic Nebula (cached shader)
     final wKey = rect.width.round();
     final hKey = rect.height.round();
     final colKey = base.toARGB32();
+
     _fill.shader = _brickShaders.putIfAbsent(
-      Object.hash('cosmic_void', wKey, hKey),
-      () => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [deepVoid, abyss, deepVoid],
-        stops: [0.0, 0.55, 1.0],
+      Object.hash('cosmic_core_nebula', colKey, wKey, hKey),
+      () => RadialGradient(
+        center: const Alignment(-0.2, -0.2),
+        radius: 1.25,
+        colors: [
+          magenta.withValues(alpha: 0.68),
+          violet.withValues(alpha: 0.45),
+          cyan.withValues(alpha: 0.35),
+          abyss,
+          deepVoid,
+        ],
+        stops: const [0.0, 0.28, 0.55, 0.82, 1.0],
       ).createShader(rect),
     );
     canvas.drawRect(rect, _fill);
 
-    // 4. Volumetric Space Nebula Clouds (cached per brick color & size)
-    final haloRect = Rect.fromCenter(center: Offset(-halfW * 0.08, 0), width: halfW * 2.3, height: halfH * 2.5);
-    _fill.shader = _brickShaders.putIfAbsent(
-      Object.hash('cosmic_halo', colKey, wKey, hKey),
-      () => RadialGradient(
-        colors: [
-          base.withValues(alpha: 0.65),
-          violet.withValues(alpha: 0.26),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.55, 1.0],
-      ).createShader(haloRect),
-    );
-    canvas.drawOval(haloRect, _fill);
-
-    // Cloud B: Glowing Magenta / Cosmic Rose Filament
-    final magRect = Rect.fromCenter(center: Offset(-halfW * 0.38, -halfH * 0.25), width: halfW * 1.5, height: halfH * 1.6);
-    _fill.shader = _brickShaders.putIfAbsent(
-      Object.hash('cosmic_mag', wKey, hKey),
-      () => RadialGradient(
-        colors: [
-          magenta.withValues(alpha: 0.62),
-          magenta.withValues(alpha: 0.20),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.48, 1.0],
-      ).createShader(magRect),
-    );
-    canvas.drawOval(magRect, _fill);
-
-    // Cloud C: Celestial Cyan Interstellar Gas Veil
-    final cyanRect = Rect.fromCenter(center: Offset(halfW * 0.35, halfH * 0.22), width: halfW * 1.6, height: halfH * 1.7);
-    _fill.shader = _brickShaders.putIfAbsent(
-      Object.hash('cosmic_cyan', wKey, hKey),
-      () => RadialGradient(
-        colors: [
-          cyan.withValues(alpha: 0.58),
-          cyan.withValues(alpha: 0.17),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.50, 1.0],
-      ).createShader(cyanRect),
-    );
-    canvas.drawOval(cyanRect, _fill);
-
-    // 5. Milky Way Galactic Stardust Band
+    // 4. Milky Way Stardust Core Band (cached per dimension)
     _fill.shader = _brickShaders.putIfAbsent(
       Object.hash('cosmic_band', wKey, hKey),
-      () => LinearGradient(
-        begin: const Alignment(-0.85, -0.9),
-        end: const Alignment(0.85, 0.9),
+      () => const LinearGradient(
+        begin: Alignment(-0.85, -0.9),
+        end: Alignment(0.85, 0.9),
         colors: [
           Colors.transparent,
-          violet.withValues(alpha: 0.28),
-          Colors.white.withValues(alpha: 0.40),
-          cyan.withValues(alpha: 0.28),
+          Color(0x35E040FB),
+          Color(0x75FFFFFF),
+          Color(0x3500E5FF),
           Colors.transparent,
         ],
-        stops: const [0.0, 0.30, 0.50, 0.70, 1.0],
+        stops: [0.0, 0.32, 0.50, 0.68, 1.0],
       ).createShader(rect),
     );
     canvas.drawRect(rect, _fill);
     _fill.shader = null;
 
-    // 6. Twinkling Micro-Star Clusters
-    const starOffsets = [
-      Offset(-0.72, -0.42),
-      Offset(-0.54, 0.50),
-      Offset(-0.35, -0.65),
-      Offset(-0.22, 0.25),
-      Offset(-0.06, -0.28),
-      Offset(0.12, 0.58),
-      Offset(0.28, -0.48),
-      Offset(0.45, 0.15),
-      Offset(0.62, -0.35),
-      Offset(0.74, 0.42),
-      Offset(0.04, -0.10),
-    ];
-
-    for (int i = 0; i < starOffsets.length; i++) {
-      final off = Offset(halfW * starOffsets[i].dx, halfH * starOffsets[i].dy);
-      final phase = i * 0.85;
-      final twinkle = 0.45 + 0.55 * sin(time * 5.0 + phase);
-      final r = (i == 4 || i == 10) ? 1.4 : (i.isEven ? 1.0 : 0.75);
-      final starCol = i % 3 == 0
-          ? Colors.white
-          : (i % 3 == 1 ? const Color(0xFFE1BEE7) : const Color(0xFFB2EBF2));
-      _fill.color = starCol.withValues(alpha: twinkle.clamp(0.2, 1.0));
-      canvas.drawCircle(off, r, _fill);
-    }
-
-    // 7. Brilliant 4-Point JWST Diamond Star Flare
+    // 5. Brilliant JWST Diamond Star Flare & Micro-Stars (optimized 3 focal points)
     final majorStarPos = Offset(-halfW * 0.20, -halfH * 0.18);
     final majorTwinkle = 0.78 + 0.22 * sin(time * 3.5);
     _fill.color = Colors.white.withValues(alpha: majorTwinkle);
-    canvas.drawCircle(majorStarPos, 1.9, _fill);
+    canvas.drawCircle(majorStarPos, 1.8, _fill);
+    canvas.drawCircle(Offset(halfW * 0.35, halfH * 0.25), 1.1, _fill);
+    canvas.drawCircle(Offset(-halfW * 0.55, halfH * 0.35), 0.9, _fill);
 
     _stroke
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0
-      ..color = Colors.white.withValues(alpha: 0.90 * majorTwinkle);
-    const spikeH = 6.0;
-    const spikeV = 4.5;
-    canvas.drawLine(Offset(majorStarPos.dx - spikeH, majorStarPos.dy), Offset(majorStarPos.dx + spikeH, majorStarPos.dy), _stroke);
-    canvas.drawLine(Offset(majorStarPos.dx, majorStarPos.dy - spikeV), Offset(majorStarPos.dx, majorStarPos.dy + spikeV), _stroke);
+      ..color = Colors.white.withValues(alpha: 0.85 * majorTwinkle);
+    canvas.drawLine(Offset(majorStarPos.dx - 5.0, majorStarPos.dy), Offset(majorStarPos.dx + 5.0, majorStarPos.dy), _stroke);
+    canvas.drawLine(Offset(majorStarPos.dx, majorStarPos.dy - 4.0), Offset(majorStarPos.dx, majorStarPos.dy + 4.0), _stroke);
 
     // 8. Crystal Prism Facet Sheen
     final sheenRect = Rect.fromLTWH(-halfW, -halfH, rect.width, halfH * 0.85);
@@ -2471,10 +2603,28 @@ class _GameWorldPainter extends CustomPainter {
 
     canvas.restore(); // end clip
 
-    // 9. Prismatic Iridescent Crystal Rim + Inner Facet Frame
+    // 9. 3D Cut-Gemstone Facet Geometry (Elmas Kesim Kristal Köşe ve Prizma Yansımaları)
+    final innerW = halfW * 1.25;
+    final innerH = halfH * 1.15;
+    _tempPath.reset();
+    // Inner gem table polygon
+    _tempPath.addRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: innerW, height: innerH), const Radius.circular(3.0)));
     _stroke
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.7
+      ..strokeWidth = 1.0
+      ..color = Colors.white.withValues(alpha: 0.65);
+    canvas.drawPath(_tempPath, _stroke);
+
+    // Facet diagonal edge lines from outer corners to inner gem table
+    canvas.drawLine(Offset(-halfW, -halfH), Offset(-innerW / 2, -innerH / 2), _stroke);
+    canvas.drawLine(Offset(halfW, -halfH), Offset(innerW / 2, -innerH / 2), _stroke);
+    canvas.drawLine(Offset(halfW, halfH), Offset(innerW / 2, innerH / 2), _stroke);
+    canvas.drawLine(Offset(-halfW, halfH), Offset(-innerW / 2, innerH / 2), _stroke);
+
+    // 10. Prismatic Iridescent Crystal Rim + Inner Facet Frame
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
       ..shader = _brickShaders.putIfAbsent(
         Object.hash('cosmic_rim', colKey, wKey, hKey),
         () => LinearGradient(
@@ -2482,7 +2632,7 @@ class _GameWorldPainter extends CustomPainter {
           end: Alignment.bottomRight,
           colors: [
             cyan.withValues(alpha: 0.98),
-            Colors.white.withValues(alpha: 0.85),
+            Colors.white.withValues(alpha: 0.90),
             magenta.withValues(alpha: 0.95),
             base.withValues(alpha: 0.95),
           ],
@@ -2667,31 +2817,43 @@ class _GameWorldPainter extends CustomPainter {
     final h = size.height;
     const ceilingY = 36.0;
 
-    // 1. Edge Vignette Gradients: Left, Right, and Top subtle shadow fades
+    // 1. Edge Vignette Gradients: Left, Right, and Top subtle shadow fades (cached shaders)
+    final hKey = h.round();
+    final wKey = w.round();
+
     // Left edge shadow (8px)
     _fill
-      ..shader = const LinearGradient(
-        colors: [Color(0x99000000), Colors.transparent],
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-      ).createShader(Rect.fromLTWH(0, 0, 10, h))
+      ..shader = _bgShaders.putIfAbsent(
+        Object.hash('border_left', hKey),
+        () => const LinearGradient(
+          colors: [Color(0x99000000), Colors.transparent],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ).createShader(Rect.fromLTWH(0, 0, 10, h)),
+      )
       ..color = Colors.black;
     canvas.drawRect(Rect.fromLTWH(0, 0, 10, h), _fill);
 
     // Right edge shadow (8px)
-    _fill.shader = const LinearGradient(
-      colors: [Colors.transparent, Color(0x99000000)],
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-    ).createShader(Rect.fromLTWH(w - 10, 0, 10, h));
+    _fill.shader = _bgShaders.putIfAbsent(
+      Object.hash('border_right', wKey, hKey),
+      () => const LinearGradient(
+        colors: [Colors.transparent, Color(0x99000000)],
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+      ).createShader(Rect.fromLTWH(w - 10, 0, 10, h)),
+    );
     canvas.drawRect(Rect.fromLTWH(w - 10, 0, 10, h), _fill);
 
     // Top ceiling shadow (12px)
-    _fill.shader = const LinearGradient(
-      colors: [Color(0xBB000000), Colors.transparent],
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-    ).createShader(Rect.fromLTWH(0, 0, w, ceilingY + 12));
+    _fill.shader = _bgShaders.putIfAbsent(
+      Object.hash('border_top', wKey),
+      () => const LinearGradient(
+        colors: [Color(0xBB000000), Colors.transparent],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(0, 0, w, ceilingY + 12)),
+    );
     canvas.drawRect(Rect.fromLTWH(0, 0, w, ceilingY + 12), _fill);
     _fill.shader = null;
 
@@ -2729,16 +2891,18 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawNet(Canvas canvas, Size size) {
-    if (!c.paddle.hasNet) return;
+    final hasClutch = c.activeSectorBlessing?.type == SectorBlessingType.emergencyClutch && !c.emergencyClutchUsedThisStage;
+    if (!c.paddle.hasNet && !hasClutch) return;
     final y = size.height - 22.0;
+    final netColor = hasClutch ? const Color(0xFF76FF03) : const Color(0xFF8BC34A);
     _stroke
-      ..color = _ca(const Color(0xFF8BC34A), 0.75)
-      ..strokeWidth = 3.0;
+      ..color = _ca(netColor, 0.85)
+      ..strokeWidth = 3.2;
     canvas.drawLine(Offset(0, y), Offset(size.width, y), _stroke);
 
     _stroke
-      ..color = const Color(0x338BC34A)
-      ..strokeWidth = 6.0;
+      ..color = _ca(netColor, 0.28)
+      ..strokeWidth = 7.0;
     canvas.drawLine(Offset(0, y), Offset(size.width, y), _stroke);
   }
 
@@ -2802,63 +2966,22 @@ class _GameWorldPainter extends CustomPainter {
     _tp.layout();
     _tp.paint(canvas, Offset(ox - _tp.width / 2, oy + 8.0));
 
-    // 4. Grounded 2X Speed (Left, 8s lock) & Direct Recall (Right) Buttons
+    // 4. Grounded Direct Recall Button in Chaos Mode
     if (c.status == GameStatus.playing) {
-      const btnW = 98.0;
-      const btnH = 36.0;
+      const btnW = 120.0;
+      const btnH = 38.0;
       final pulse = 0.82 + 0.18 * sin(time * 6.0);
 
-      // --- LEFT BUTTON: 2X SPEED (Locks for 8s on every shot) ---
-      final leftBtnX = 14.0;
-      final leftBtnY = c.screenHeight - btnH - 12.0;
-      final leftRRect = RRect.fromRectAndRadius(Rect.fromLTWH(leftBtnX, leftBtnY, btnW, btnH), const Radius.circular(18.0));
-      final isTurboLocked = c.chaosTurnTime < 8.0;
-      final isTurboActive = c.chaosSpeedMultiplier > 1.05;
-
-      _fill
-        ..style = PaintingStyle.fill
-        ..shader = null
-        ..color = isTurboLocked
-            ? const Color(0x991E2430)
-            : (isTurboActive ? const Color(0xEEFF6D00) : const Color(0xCC0D47A1));
-      canvas.drawRRect(leftRRect, _fill);
-
-      _stroke
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..color = isTurboLocked
-            ? const Color(0x44FFFFFF)
-            : (isTurboActive ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF)).withValues(alpha: pulse);
-      canvas.drawRRect(leftRRect, _stroke);
-
-      final leftLabel = isTurboLocked
-          ? '🔒 2X (${(8.0 - c.chaosTurnTime).ceil()}s)'
-          : (isTurboActive ? '⚡ 2X AKTİF' : '⚡ 2X HIZ');
-
-      _tp.text = TextSpan(
-        text: leftLabel,
-        style: TextStyle(
-          fontFamily: 'Rajdhani',
-          fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
-          color: isTurboLocked ? Colors.white60 : Colors.white,
-          fontSize: 10.5,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.5,
-        ),
-      );
-      _tp.layout();
-      _tp.paint(canvas, Offset(leftBtnX + (btnW - _tp.width) / 2, leftBtnY + (btnH - _tp.height) / 2));
-
-      // --- RIGHT BUTTON: DIRECT RECALL ---
+      // --- DIRECT RECALL BUTTON ---
       final rightBtnX = c.screenWidth - btnW - 14.0;
       final rightBtnY = c.screenHeight - btnH - 12.0;
-      final rightRRect = RRect.fromRectAndRadius(Rect.fromLTWH(rightBtnX, rightBtnY, btnW, btnH), const Radius.circular(18.0));
+      final rightRRect = RRect.fromRectAndRadius(Rect.fromLTWH(rightBtnX, rightBtnY, btnW, btnH), const Radius.circular(19.0));
       final isRecall = c.chaosRecallActive;
 
       _fill
         ..style = PaintingStyle.fill
         ..shader = null
-        ..color = isRecall ? const Color(0xEE00B0FF) : const Color(0xCC311B92);
+        ..color = isRecall ? const Color(0xEE00B0FF) : const Color(0xEE311B92);
       canvas.drawRRect(rightRRect, _fill);
 
       _stroke
@@ -3032,6 +3155,29 @@ class _GameWorldPainter extends CustomPainter {
       _fill.color = _ca(const Color(0xFFFFD54F), alpha);
       canvas.drawCircle(Offset(hitX + bounceDirX * t, hitY + bounceDirY * t), 1.7 * (1.0 - p * 0.4), _fill);
     }
+  }
+
+  void _drawChronoLaser(Canvas canvas) {
+    if (c.chronoBulletTimeTimer <= 0 || c.balls.isEmpty) return;
+    final ball = c.balls.first;
+    if (ball.isStuck) return;
+    final spd = ball.speed;
+    if (spd < 1.0) return;
+    final dx = ball.vx / spd;
+    final dy = ball.vy / spd;
+    final start = Offset(ball.x, ball.y);
+    final end = Offset(ball.x + dx * 280.0, ball.y + dy * 280.0);
+
+    _stroke
+      ..color = const Color(0xFFFFD54F).withValues(alpha: 0.70)
+      ..strokeWidth = 2.4
+      ..style = PaintingStyle.stroke;
+    _drawDashedLine(canvas, start, end, _stroke, dashWidth: 7.0, dashSpace: 5.0);
+
+    _fill
+      ..color = const Color(0xFFFFD54F)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(end, 3.8, _fill);
   }
 
   void _drawPaddle(Canvas canvas) {
@@ -4883,26 +5029,32 @@ class _GameWorldPainter extends CustomPainter {
           _fill.color = Colors.white;
           canvas.drawCircle(Offset.zero, ball.radius * 0.30, _fill);
         } else if (ball.isFrost) {
-          // Ice core with a rotating six-spoke snowflake and frost aura
-          _fill.color = const Color(0xFF80D8FF).withValues(alpha: 0.30 + 0.10 * sin(time * 10.0));
-          canvas.drawCircle(Offset.zero, ball.radius * 1.45, _fill);
+          // Multi-layer Sub-zero Crystal Aura with radiant frost star
+          _fill.color = const Color(0xFF00E5FF).withValues(alpha: 0.35 + 0.12 * sin(time * 8.0));
+          canvas.drawCircle(Offset.zero, ball.radius * 1.65, _fill);
+          _fill.color = const Color(0xFF80D8FF).withValues(alpha: 0.50);
+          canvas.drawCircle(Offset.zero, ball.radius * 1.25, _fill);
           _fill.color = const Color(0xFFE0F7FA);
-          canvas.drawCircle(Offset.zero, ball.radius * 0.60, _fill);
+          canvas.drawCircle(Offset.zero, ball.radius * 0.70, _fill);
           _stroke
-            ..color = Colors.white
-            ..strokeWidth = 1.4
+            ..color = const Color(0xFFB3E5FC)
+            ..strokeWidth = 1.5
             ..style = PaintingStyle.stroke;
-          final flakeSpin = time * 2.6;
+          final flakeSpin = time * 2.8;
           for (int spoke = 0; spoke < 6; spoke++) {
             final a = flakeSpin + spoke * pi / 3;
-            canvas.drawLine(
-              Offset.zero,
-              Offset(cos(a) * ball.radius * 0.52, sin(a) * ball.radius * 0.52),
-              _stroke,
-            );
+            final tipX = cos(a) * ball.radius * 0.65;
+            final tipY = sin(a) * ball.radius * 0.65;
+            canvas.drawLine(Offset.zero, Offset(tipX, tipY), _stroke);
+            final branchA1 = a + pi / 4;
+            final branchA2 = a - pi / 4;
+            final midX = cos(a) * ball.radius * 0.40;
+            final midY = sin(a) * ball.radius * 0.40;
+            canvas.drawLine(Offset(midX, midY), Offset(midX + cos(branchA1) * 3.5, midY + sin(branchA1) * 3.5), _stroke);
+            canvas.drawLine(Offset(midX, midY), Offset(midX + cos(branchA2) * 3.5, midY + sin(branchA2) * 3.5), _stroke);
           }
           _fill.color = Colors.white;
-          canvas.drawCircle(Offset.zero, ball.radius * 0.20, _fill);
+          canvas.drawCircle(Offset.zero, ball.radius * 0.28, _fill);
         } else if (ball.isShrapnel) {
           // Metallic steel core
           _fill.color = const Color(0xFFECEFF1);
@@ -4912,10 +5064,11 @@ class _GameWorldPainter extends CustomPainter {
         }
 
         // Specular shine
-        _fill.color = _ca(Colors.white, (isFireball || isCornerBoost) ? 0.90 : 0.55);
-        canvas.drawCircle(Offset(-ball.radius * 0.28, -ball.radius * 0.28), ball.radius * 0.38, _fill);
+        final rEff = ball.effectiveRadius;
+        _fill.color = _ca(Colors.white, (isFireball || isCornerBoost || ball.megaTimer > 0) ? 0.90 : 0.55);
+        canvas.drawCircle(Offset(-rEff * 0.28, -rEff * 0.28), rEff * 0.38, _fill);
         _fill.color = _ca(Colors.white, 0.95);
-        canvas.drawCircle(Offset(-ball.radius * 0.38, -ball.radius * 0.38), ball.radius * 0.16, _fill);
+        canvas.drawCircle(Offset(-rEff * 0.38, -rEff * 0.38), rEff * 0.16, _fill);
       }
 
       if (ball.isDayBlessed) {
@@ -4932,7 +5085,21 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawBallSkinDetails(Canvas canvas, Ball ball, BallSkin skin, double time) {
-    final r = ball.radius;
+    final r = ball.effectiveRadius;
+
+    // Mega Ball solar flare corona
+    if (ball.megaTimer > 0) {
+      final pulse = 0.82 + 0.18 * sin(time * 16.0);
+      _fill
+        ..style = PaintingStyle.fill
+        ..color = const Color(0xFFFFD700).withValues(alpha: 0.35 * pulse);
+      canvas.drawCircle(Offset.zero, r * 1.55, _fill);
+      _stroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4
+        ..color = const Color(0xFFFF9100).withValues(alpha: 0.90 * pulse);
+      canvas.drawCircle(Offset.zero, r * 1.25, _stroke);
+    }
 
     // Outer glow halo (rich & prominent)
     _fill
@@ -5448,13 +5615,34 @@ class _GameWorldPainter extends CustomPainter {
       final bob = sin(cap.animTimer * 6.0) * 2.5;
       canvas.translate(0, bob);
 
+      // Glowing aura around falling capsule matching powerup color (or crimson hazard halo for debuffs)
+      final pulse = sin(cap.animTimer * 7.0);
+      final isDebuff = cap.type.kind == PowerUpKind.debuff;
+      if (isDebuff) {
+        final dangerPulse = 0.75 + 0.25 * sin(cap.animTimer * 12.0);
+        _fill.color = const Color(0xFFFF1744).withValues(alpha: 0.28 * dangerPulse);
+        canvas.drawCircle(Offset.zero, 22.0 + pulse * 2.5, _fill);
+        _fill.color = const Color(0xFFD50000).withValues(alpha: 0.14);
+        canvas.drawCircle(Offset.zero, 27.0, _fill);
+
+        _stroke
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.0
+          ..color = const Color(0xFFFF5252).withValues(alpha: 0.85 * dangerPulse);
+        canvas.drawCircle(Offset.zero, 20.5 + pulse * 1.5, _stroke);
+      } else {
+        _fill.color = cap.type.color.withValues(alpha: 0.24 + 0.08 * pulse);
+        canvas.drawCircle(Offset.zero, 19.0 + pulse * 2.0, _fill);
+        _fill.color = cap.type.color.withValues(alpha: 0.12);
+        canvas.drawCircle(Offset.zero, 25.0, _fill);
+      }
+
       if (cap.type == PowerUpType.life) {
-        final pulse = 1.0 + sin(cap.animTimer * 7.0) * 0.12;
-        PixelArt.drawPixelHeart(canvas, Offset.zero, 34.0, pulse: pulse);
+        final heartPulse = 1.0 + sin(cap.animTimer * 7.0) * 0.12;
+        PixelArt.drawPixelHeart(canvas, Offset.zero, 34.0, pulse: heartPulse);
       } else {
         final img = AssetCache.instance.getSkillImage(cap.type);
         if (img != null) {
-          // Draw skill pixel art enlarged directly, NO circular backgrounds
           final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
           final dst = Rect.fromCenter(center: Offset.zero, width: 34.0, height: 34.0);
           canvas.drawImageRect(img, src, dst, _imgPaint);
@@ -5521,51 +5709,90 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawFeverEdges(Canvas canvas, Size size) {
-    // Mythic gold lighting: pulsing edge runes while fever burns.
-    final pulse = 0.55 + sin(time * 9.0) * 0.25;
-    // Warm vignette closes the world in around the action (kept very light:
-    // a soft amber breath at the very edges, no red wash over the screen).
-    final vignette = Paint()
+    // Cinematic organic fever warmth: natural breathing vignette without hard borders or abrupt cutoffs
+    final pulse = 0.75 + sin(time * 5.5) * 0.25;
+    final w = size.width;
+    final h = size.height;
+    final rect = Offset.zero & size;
+
+    // 1. Smooth omnidirectional radial crimson vignette
+    _fill
+      ..style = PaintingStyle.fill
       ..shader = RadialGradient(
+        center: Alignment.center,
+        radius: 1.05,
         colors: [
           Colors.transparent,
-          const Color(0xFFFF8F00).withValues(alpha: 0.04 + pulse * 0.03),
-          const Color(0xFFFF6D00).withValues(alpha: 0.06 + pulse * 0.03),
+          const Color(0x05FF3D00),
+          Color.lerp(const Color(0x18FF1744), const Color(0x28FF3D00), pulse)!,
+          Color.lerp(const Color(0x32D50000), const Color(0x48FF1744), pulse)!,
+          Color.lerp(const Color(0x50880E4F), const Color(0x65B71C1C), pulse)!,
         ],
-        stops: const [0.62, 0.86, 1.0],
-      ).createShader(Offset.zero & size);
-    canvas.drawRect(Offset.zero & size, vignette);
-    _stroke
-      ..color = const Color(0xFFFFB300).withValues(alpha: pulse * 0.8)
-      ..strokeWidth = 3.0
-      ..style = PaintingStyle.stroke;
-    canvas.drawRect(Rect.fromLTWH(3, 3, size.width - 6, size.height - 6), _stroke);
-    _fill.color = const Color(0xFFFFD54F).withValues(alpha: pulse);
-    const step = 46.0;
-    for (double x = step / 2; x < size.width; x += step) {
-      canvas.save();
-      canvas.translate(x, 10);
-      canvas.rotate(pi / 4);
-      canvas.drawRect(const Rect.fromLTWH(-3.5, -3.5, 7, 7), _fill);
-      canvas.restore();
-      canvas.save();
-      canvas.translate(x, size.height - 10);
-      canvas.rotate(pi / 4);
-      canvas.drawRect(const Rect.fromLTWH(-3.5, -3.5, 7, 7), _fill);
-      canvas.restore();
-    }
+        stops: const [0.28, 0.52, 0.74, 0.90, 1.0],
+      ).createShader(rect);
+    canvas.drawRect(rect, _fill);
+
+    // 2. Soft atmospheric top & bottom perimeter glows (blends seamlessly on tall phone screens)
+    final topH = h * 0.16;
+    _fill.shader = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        Color.lerp(const Color(0x40D50000), const Color(0x55FF1744), pulse)!,
+        Colors.transparent,
+      ],
+      stops: const [0.0, 1.0],
+    ).createShader(Rect.fromLTWH(0, 0, w, topH));
+    canvas.drawRect(Rect.fromLTWH(0, 0, w, topH), _fill);
+
+    final botH = h * 0.16;
+    _fill.shader = LinearGradient(
+      begin: Alignment.bottomCenter,
+      end: Alignment.topCenter,
+      colors: [
+        Color.lerp(const Color(0x45D50000), const Color(0x60FF1744), pulse)!,
+        Colors.transparent,
+      ],
+      stops: const [0.0, 1.0],
+    ).createShader(Rect.fromLTWH(0, h - botH, w, botH));
+    canvas.drawRect(Rect.fromLTWH(0, h - botH, w, botH), _fill);
+
+    // 3. Soft lateral side vignettes (left & right)
+    final sideW = w * 0.12;
+    _fill.shader = LinearGradient(
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+      colors: [
+        Color.lerp(const Color(0x35D50000), const Color(0x45FF3D00), pulse)!,
+        Colors.transparent,
+      ],
+    ).createShader(Rect.fromLTWH(0, 0, sideW, h));
+    canvas.drawRect(Rect.fromLTWH(0, 0, sideW, h), _fill);
+
+    _fill.shader = LinearGradient(
+      begin: Alignment.centerRight,
+      end: Alignment.centerLeft,
+      colors: [
+        Color.lerp(const Color(0x35D50000), const Color(0x45FF3D00), pulse)!,
+        Colors.transparent,
+      ],
+    ).createShader(Rect.fromLTWH(w - sideW, 0, sideW, h));
+    canvas.drawRect(Rect.fromLTWH(w - sideW, 0, sideW, h), _fill);
+    _fill.shader = null;
   }
 
   void _drawReviveFlash(Canvas canvas, Size size) {
+    if (c.reviveFlashTimer <= 0.01) return;
     // Grayscale shatters outward into full color on revive.
     final t = c.reviveFlashTimer.clamp(0.0, 1.0);
+    if (t <= 0.01) return;
     final radius = (1.0 - t) * size.width * 0.75 + 40.0;
     _stroke
-      ..color = const Color(0xFFFFD54F).withValues(alpha: t * 0.9)
+      ..color = const Color(0xFFFFD54F).withValues(alpha: (t * 0.9).clamp(0.0, 1.0))
       ..strokeWidth = 4.0 + t * 5.0
       ..style = PaintingStyle.stroke;
     canvas.drawCircle(Offset(size.width / 2, size.height * 0.72), radius, _stroke);
-    _fill.color = Colors.white.withValues(alpha: t * 0.16);
+    _fill.color = Colors.white.withValues(alpha: (t * 0.16).clamp(0.0, 1.0));
     canvas.drawRect(Offset.zero & size, _fill);
   }
 
@@ -5753,26 +5980,76 @@ class _GameWorldPainter extends CustomPainter {
       canvas.translate(s.x, s.y);
       canvas.rotate(s.rotation);
 
-      // Shard faceted crystal geometry
+      // Step 3: Bloklar etrafa küçük, sert keskin piksel parçacıkları (pixel chunks) halinde zıplayarak dağılır
       final hw = s.width / 2;
       final hh = s.height / 2;
-      _tempPath
-        ..reset()
-        ..moveTo(-hw, 0)
-        ..lineTo(0, -hh)
-        ..lineTo(hw, 0)
-        ..lineTo(0, hh)
-        ..close();
+      final chunkRect = Rect.fromLTRB(-hw, -hh, hw, hh);
 
-      _fill.color = _ca(s.color, alpha * 0.85);
-      canvas.drawPath(_tempPath, _fill);
+      // Main pixel chunk fill
+      _fill
+        ..shader = null
+        ..maskFilter = null
+        ..color = _ca(s.color, alpha);
+      canvas.drawRect(chunkRect, _fill);
 
+      // Top-left 1.2px crisp pixel highlight
+      _fill.color = _ca(Colors.white, alpha * 0.9);
+      canvas.drawRect(Rect.fromLTWH(-hw, -hh, hw, 1.2), _fill);
+      canvas.drawRect(Rect.fromLTWH(-hw, -hh, 1.2, hh), _fill);
+
+      // 1px Dark solid retro outline
       _stroke
+        ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0
-        ..color = _ca(Colors.white, alpha * 0.9);
-      canvas.drawPath(_tempPath, _stroke);
+        ..color = _ca(const Color(0xFF0B1021), alpha * 0.95);
+      canvas.drawRect(chunkRect, _stroke);
 
       canvas.restore();
+    }
+  }
+
+  /// Step 2: Soldan sağa doğru kare piksellerden oluşan bir dalga yayılır
+  void _drawPixelShockwaves(Canvas canvas) {
+    if (c.particles.pixelShockwaves.isEmpty) return;
+    for (final pw in c.particles.pixelShockwaves) {
+      final p = pw.progress.clamp(0.0, 1.0);
+      final alpha = (1.0 - p).clamp(0.0, 1.0);
+      if (alpha <= 0) continue;
+
+      const totalCols = 7;
+      final stepW = pw.width / totalCols;
+      const pxSize = 4.0;
+
+      for (int col = 0; col < totalCols; col++) {
+        // Staggered column progress from left to right (soldan sağa dalga)
+        final colDelay = (col / totalCols) * 0.35;
+        final colP = ((p - colDelay) / (1.0 - colDelay)).clamp(0.0, 1.0);
+        if (colP <= 0 || colP >= 1.0) continue;
+
+        final colAlpha = (1.0 - colP) * alpha;
+        final colX = pw.x + col * stepW;
+        final spreadY = pw.height * (0.5 + colP * 0.85);
+
+        for (double dy = -spreadY; dy <= spreadY; dy += 6.0) {
+          final chunkRect = Rect.fromCenter(
+            center: Offset(colX + stepW / 2, pw.y + pw.height / 2 + dy),
+            width: pxSize,
+            height: pxSize,
+          );
+
+          _fill
+            ..shader = null
+            ..maskFilter = null
+            ..color = _ca(pw.color, colAlpha);
+          canvas.drawRect(chunkRect, _fill);
+
+          _stroke
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.0
+            ..color = _ca(const Color(0xFF0B1021), colAlpha * 0.85);
+          canvas.drawRect(chunkRect, _stroke);
+        }
+      }
     }
   }
 

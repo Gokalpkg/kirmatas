@@ -31,16 +31,16 @@ void main() {
     });
 
     test('creature economy follows their rarity', () {
-      expect(FishItem.getById('snail').goldReward, 10);
-      expect(FishItem.getById('shrimp').goldReward, 20);
-      expect(FishItem.getById('crab').goldReward, 40);
-      expect(FishItem.getById('octopus').goldReward, 80);
+      expect(FishItem.getById('snail').goldReward, 15);
+      expect(FishItem.getById('shrimp').goldReward, 35);
+      expect(FishItem.getById('crab').goldReward, 75);
+      expect(FishItem.getById('octopus').goldReward, 160);
 
       expect(FishItem.getById('snail').pearlCost, 0);
       expect(FishItem.getById('shrimp').pearlCost, 15);
       expect(FishItem.getById('crab').pearlCost, 35);
       expect(FishItem.getById('octopus').pearlCost, 75);
-      expect(FishItem.getById('jellyfish').goldReward, 40);
+      expect(FishItem.getById('jellyfish').goldReward, 75);
       expect(FishItem.getById('jellyfish').pearlCost, 35);
     });
 

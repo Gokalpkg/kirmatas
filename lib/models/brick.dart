@@ -38,6 +38,9 @@ class Brick {
   Color tuftColor;
   bool isBallPickup;
   double jelly; // wobble deformation amount (0.0 to 1.0)
+  double flashTimer = 0.0; // 1-frame pure white flash on hit / destruction
+  double bounceOffsetY = 0.0; // Elastic overshoot settling displacement
+  double bounceVy = 0.0; // Elastic overshoot settling velocity
   Color color;
   Color? originalColor;
   int points;
@@ -115,6 +118,24 @@ class Brick {
       if (jelly < 0) jelly = 0;
     }
 
+    // Step 1: 1-frame pure white flash countdown
+    if (flashTimer > 0) {
+      flashTimer -= dt;
+      if (flashTimer < 0) flashTimer = 0.0;
+    }
+
+    // Step 5: Elastic overshoot settling spring physics
+    if (bounceOffsetY != 0.0 || bounceVy != 0.0) {
+      final springForce = -240.0 * bounceOffsetY;
+      final damping = -18.0 * bounceVy;
+      bounceVy += (springForce + damping) * dt;
+      bounceOffsetY += bounceVy * dt;
+      if (bounceOffsetY.abs() < 0.05 && bounceVy.abs() < 0.5) {
+        bounceOffsetY = 0.0;
+        bounceVy = 0.0;
+      }
+    }
+
     // Moving brick horizontal oscillation
     if (isMover) {
       x += moverVx * dt;
@@ -140,6 +161,17 @@ class Brick {
       }
       shootTimer -= dt;
     }
+  }
+
+  /// Step 1: Trigger 1-frame pure white flash (35ms duration)
+  void triggerWhiteFlash([double duration = 0.035]) {
+    flashTimer = duration;
+  }
+
+  /// Step 5: Trigger elastic overshoot settling bounce
+  void triggerElasticSettle({double impulse = 5.0}) {
+    bounceVy = impulse;
+    jelly = 0.6;
   }
 }
 

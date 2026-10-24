@@ -15,7 +15,7 @@ import 'hud_overlay.dart';
 import 'pause_game_over.dart';
 import 'fortune_wheel_dialog.dart';
 import 'daily_login_dialog.dart';
-import 'offline_earnings_dialog.dart';
+import 'daily_quests_dialog.dart';
 import 'shop_view.dart';
 import 'upgrades_view.dart';
 import 'sector_map_view.dart';
@@ -42,7 +42,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   Timer? _autoWheelTimer;
 
   static bool _hasAutoShownWheelThisSession = false;
-  static bool _hasAutoShownOfflineEarningsThisSession = false;
   final GlobalKey _wheelButtonKey = GlobalKey();
   final GlobalKey _playButtonKey = GlobalKey();
   final GlobalKey _upgradesNavKey = GlobalKey();
@@ -76,20 +75,12 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         });
         return;
       }
-      if (!_hasAutoShownOfflineEarningsThisSession &&
-          _save.isAquariumUnlocked &&
-          _save.currentAvailableFishGold >= 20 &&
-          mounted &&
-          _activeGame == null) {
-        _hasAutoShownOfflineEarningsThisSession = true;
-        OfflineEarningsDialog.show(context, save: _save);
-        return;
-      }
-      if (!_hasAutoShownWheelThisSession && mounted && _save.isShopUnlocked) {
+
+      if (!_hasAutoShownWheelThisSession && mounted && _save.isShopUnlocked && _save.isNextWheelSpinFree) {
         _hasAutoShownWheelThisSession = true;
         _autoWheelTimer = Timer(const Duration(milliseconds: 600), () {
           if (mounted && _activeGame == null) {
-            _openFortuneWheelWithHero();
+            setState(() => _highlightWheelButton = true);
           }
         });
       }
@@ -101,7 +92,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     _autoWheelTimer?.cancel();
     _pageController.dispose();
     _cooldownRefreshTimer?.cancel();
-    _activeGame?.removeListener(_onActiveGameTick);
+    _activeGame?.statusVersion.removeListener(_onActiveGameTick);
     super.dispose();
   }
 
@@ -519,20 +510,17 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   }
 
   void _startOrPromptResume(GameMode mode) {
-    if ((mode == GameMode.classic || mode == GameMode.chaos) && _save.hasSavedGame(mode)) {
-      _showContinueDialog(mode);
-    } else {
-      _launchGame(mode, isResume: false);
-    }
+    final hasSave = (mode == GameMode.classic || mode == GameMode.chaos) && _save.hasSavedGame(mode);
+    _launchGame(mode, isResume: hasSave);
   }
 
   void _launchGame(GameMode mode, {bool isResume = false, int? explicitStartLevel}) {
     AudioManager.instance.isBgmAllowed = false;
     AudioManager.instance.pauseBgm();
     setState(() {
-      _activeGame?.removeListener(_onActiveGameTick);
+      _activeGame?.statusVersion.removeListener(_onActiveGameTick);
       _activeGame = GameController()..startNewGame(mode, isResume: isResume, explicitStartLevel: explicitStartLevel);
-      _activeGame!.addListener(_onActiveGameTick);
+      _activeGame!.statusVersion.addListener(_onActiveGameTick);
     });
   }
 
@@ -540,9 +528,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     AudioManager.instance.isBgmAllowed = false;
     AudioManager.instance.pauseBgm();
     setState(() {
-      _activeGame?.removeListener(_onActiveGameTick);
+      _activeGame?.statusVersion.removeListener(_onActiveGameTick);
       _activeGame = GameController()..startDailyBlitz();
-      _activeGame!.addListener(_onActiveGameTick);
+      _activeGame!.statusVersion.addListener(_onActiveGameTick);
     });
   }
 
@@ -781,7 +769,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       }
     }
 
-    _activeGame?.removeListener(_onActiveGameTick);
+    _activeGame?.statusVersion.removeListener(_onActiveGameTick);
     AudioManager.instance.isBgmAllowed = true;
     AudioManager.instance.playDuck = 1.0;
     AudioManager.instance.updateBgmVolume();
@@ -805,7 +793,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             Positioned.fill(
               child: RepaintBoundary(
                 child: ListenableBuilder(
-                  listenable: _activeGame!,
+                  listenable: _activeGame!.statusVersion,
                   builder: (context, _) {
                     final isGameOver = _activeGame!.status == GameStatus.gameOver;
                     return ColorFiltered(
@@ -1502,7 +1490,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         ? '🔒 Bölüm 5'
                         : (_save.isUnlockNew('aquarium', _save.isAquariumUnlocked)
                             ? 'YENİ!'
-                            : (_save.currentAvailableFishGold > 0 ? '' : null)),
+                            : (_save.currentAvailableFishGold > 0 || _save.hasClaimableQuests ? '●' : null)),
                     onTap: () => _goToPage(2),
                   ),
                 ),
@@ -1641,68 +1629,33 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             ),
             const SizedBox(width: 6),
 
-            // 3. ÜCRETSİZ HEDİYE (Compact Pill)
+            // 3. GÖREVLER & ÖDÜLLER (Quests & Rewards Center)
             Expanded(
               child: ListenableBuilder(
-                listenable: AdManager.instance,
+                listenable: _save,
                 builder: (context, _) {
-                  final cooldown = AdManager.instance.remainingCooldownSeconds;
-                  final onCooldown = cooldown > 0;
-                  final isLoading = AdManager.instance.isLoading || AdManager.instance.isShowing;
-                  final isReady = !onCooldown && !isLoading;
-
-                  String sub;
-                  if (isLoading) {
-                    sub = '...';
-                  } else if (onCooldown) {
-                    final m = cooldown ~/ 60;
-                    final s = cooldown % 60;
-                    sub = '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-                  } else {
-                    sub = '+100';
-                  }
+                  final readyCount = _save.claimableQuestsCount;
+                  final hasReady = readyCount > 0;
 
                   return _buildFancyRewardButton(
-                    gradientColors: [const Color(0xFF082B1C), const Color(0xFF061A1D)],
-                    borderColor: isReady ? const Color(0xFF00E676) : Colors.white12,
-                    glowColor: const Color(0xFF00E676),
-                    isGlowing: isReady,
-                    iconGradient: const [Color(0xFF69F0AE), Color(0xFF00B0FF)],
-                emblem: const KaunosEmblem.coin(size: 16),
-                    icon: Icons.card_giftcard_rounded,
-                    iconColor: const Color(0xFF00331A),
-                    title: 'HEDİYE',
-                    titleColor: const Color(0xFFA7FFEB),
-                    subtitle: sub,
-                    subColor: const Color(0xFF69F0AE),
-                    badgeText: isReady ? '+100' : null,
-                    badgeGradient: isReady
-                        ? const [Color(0xFF00E676), Color(0xFF00C853)]
+                    gradientColors: [const Color(0xFF082B24), const Color(0xFF04191A)],
+                    borderColor: hasReady ? const Color(0xFF00E5FF) : const Color(0x3300E5FF),
+                    glowColor: const Color(0xFF00E5FF),
+                    isGlowing: hasReady,
+                    iconGradient: const [Color(0xFF00E5FF), Color(0xFF7C4DFF)],
+                    emblem: const KaunosEmblem.crest(size: 16, crestColor: Color(0xFF00E5FF)),
+                    icon: Icons.assignment_turned_in_rounded,
+                    iconColor: const Color(0xFF00E5FF),
+                    title: I18n.tr('quests_and_rewards'),
+                    titleColor: const Color(0xFFB2EBF2),
+                    subtitle: hasReady ? '$readyCount ÖDÜL' : 'GÖREVLER',
+                    subColor: hasReady ? const Color(0xFF00E5FF) : Colors.white54,
+                    badgeText: hasReady ? '+$readyCount' : null,
+                    badgeGradient: hasReady
+                        ? const [Color(0xFF00E5FF), Color(0xFF00B0FF)]
                         : null,
                     onTap: () {
-                      if (isReady) {
-                        AdManager.instance.watchAdForGold(
-                          context,
-                          onSuccess: (reward) {
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                            content: Text(' +$reward Altın Hesabınıza Eklendi!'),
-                                backgroundColor: const Color(0xFF161A29),
-                              ),
-                            );
-                          },
-                          onDismissedEarly: () {},
-                        );
-                      } else if (onCooldown) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Yeni hediye için kalan süre: $sub'),
-                            backgroundColor: const Color(0xFF161A29),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
+                      DailyQuestsDialog.show(context);
                     },
                   );
                 },
@@ -1980,20 +1933,23 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             ),
                           ),
                           if (_save.hasSavedGame(GameMode.classic))
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xDD00E5FF),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                'BÖLÜM ${_save.classicSavedLevel} ',
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.5,
-                                  fontFamily: 'Rajdhani',
+                            GestureDetector(
+                              onTap: () => _showContinueDialog(GameMode.classic),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xDD00E5FF),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  'DEVAM: BÖLÜM ${_save.classicSavedLevel} ↺',
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5,
+                                    fontFamily: 'Rajdhani',
+                                  ),
                                 ),
                               ),
                             ),
@@ -2248,23 +2204,26 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             ),
                           ),
                           if (_save.hasSavedGame(GameMode.chaos))
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xDDFFD54F),
-                                borderRadius: BorderRadius.circular(10),
+                            GestureDetector(
+                              onTap: () => _showContinueDialog(GameMode.chaos),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xDDFFD54F),
+                                  borderRadius: BorderRadius.circular(10),
                                   boxShadow: const [
                                     BoxShadow(color: Color(0x44FFD54F), blurRadius: 4, offset: Offset(0, 1)),
                                   ],
-                              ),
-                              child: Text(
-                                  'BÖLÜM ${_save.chaosSavedLevel} ',
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 10,
+                                ),
+                                child: Text(
+                                  'DEVAM: BÖLÜM ${_save.chaosSavedLevel} ↺',
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 10,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 0.5,
                                     fontFamily: 'Rajdhani',
+                                  ),
                                 ),
                               ),
                             ),

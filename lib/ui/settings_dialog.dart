@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
 import '../storage/save_manager.dart';
@@ -79,13 +78,8 @@ class SettingsDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              KaunosPressGlow(
-                isCircle: true,
-                child: IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white70),
-                  onPressed: () => Navigator.of(context).pop(),
-                  visualDensity: VisualDensity.compact,
-                ),
+              KaunosCloseButton(
+                onTap: () => Navigator.of(context).pop(),
               ),
             ],
           ),
@@ -270,7 +264,7 @@ class SettingsDialog extends StatelessWidget {
 
                   // SFX Volume
                   Text(
-                    '${I18n.tr('sfx')}: ${save.sfxVolume}',
+                    '${I18n.tr('sfx')}: ${save.sfxVolume == 0 ? I18n.tr('off') : save.sfxVolume}',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 13,
@@ -293,7 +287,7 @@ class SettingsDialog extends StatelessWidget {
 
                   // Music / BGM Volume
                   Text(
-                    '${I18n.tr('music_bgm')}: ${save.bgmVolume == 0 ? I18n.tr('haptic_off') : save.bgmVolume}',
+                    '${I18n.tr('music_bgm')}: ${save.bgmVolume == 0 ? I18n.tr('off') : save.bgmVolume}',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 13,
@@ -333,157 +327,6 @@ class SettingsDialog extends StatelessWidget {
                       save.setVibrationLevel(val.toInt());
                       AudioManager.instance.playSfx(GameSfx.hitBrick);
                     },
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Metrics info
-                  Text(
-                    I18n.tr('metrics_title'),
-                    style: const TextStyle(
-                      color: Color(0xFFFFD54F),
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${I18n.tr('metric_sessions')}: ${save.metricSessions}\n'
-                    '${I18n.tr('metric_day2')}: ${save.metricDay2 ? I18n.tr('metric_yes') : I18n.tr('metric_no')}\n'
-                    '${I18n.tr('metric_leave')}: ${save.metricLevel1Leaves}\n'
-                    '${I18n.tr('metric_ad')}: ${save.metricAdCloses}\n'
-                    '${I18n.tr('metric_best')}: ${save.metricHighestClassicLevel}\n'
-                    '${I18n.tr('metric_last')}: ${save.playEvents.isEmpty ? '-' : save.playEvents.last}',
-                    style: const TextStyle(color: Colors.white60, fontSize: 12, height: 1.45),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // Progress Backup & Export/Import Section
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0x22FFFFFF),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: KaunosPalette.crystalBorderStarlight),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.cloud_sync_rounded, color: KaunosPalette.goldHighlight, size: 16),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                I18n.tr('progress_code').toUpperCase(),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: KaunosPalette.goldHighlight,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '${I18n.tr('progress_code')}: ${save.progressCode}',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 8),
-                        Builder(
-                          builder: (context) {
-                            final isCompact = MediaQuery.sizeOf(context).width < 360;
-                            final copyButton = ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1E2842),
-                                foregroundColor: const Color(0xFFFFD54F),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                              ),
-                              onPressed: () {
-                                Clipboard.setData(ClipboardData(text: save.progressCode));
-                                final messenger = ScaffoldMessenger.of(context);
-                                messenger.hideCurrentSnackBar();
-                                messenger.showSnackBar(
-                                  const SnackBar(
-                                    content: Text('İlerleme kodu kopyalandı!'),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.copy_rounded, size: 16),
-                              label: Text(
-                                I18n.tr('progress_copy'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                              ),
-                            );
-
-                            final pasteButton = ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1E2842),
-                                foregroundColor: const Color(0xFFFFD54F),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                              ),
-                              onPressed: () async {
-                                final data = await Clipboard.getData(Clipboard.kTextPlain);
-                                final applied = await save.applyProgressCode(data?.text ?? '');
-                                if (!context.mounted) return;
-                                final messenger = ScaffoldMessenger.of(context);
-                                messenger.hideCurrentSnackBar();
-                                messenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(applied
-                                        ? I18n.tr('progress_restored')
-                                        : I18n.tr('progress_invalid')),
-                                    duration: const Duration(seconds: 2),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.paste_rounded, size: 16),
-                              label: Text(
-                                I18n.tr('progress_paste'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                              ),
-                            );
-
-                            if (isCompact) {
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  copyButton,
-                                  const SizedBox(height: 8),
-                                  pasteButton,
-                                ],
-                              );
-                            }
-
-                            return Row(
-                              children: [
-                                Expanded(child: copyButton),
-                                const SizedBox(width: 8),
-                                Expanded(child: pasteButton),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
-                    ),
                   ),
                 ],
               ),

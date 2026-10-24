@@ -2569,10 +2569,11 @@ void main() {
       for (final b in gc.balls) {
         b.vx = 0;
         b.vy = 0;
-        b.y = 100;
+        b.y = 500;
       }
       gc.capsules.clear();
       gc.projectiles.clear();
+      gc.bricks = [Brick(x: 0, y: 0, width: 10, height: 10, hp: 999, color: Colors.blue)];
       var spawned = 0;
       var previous = 0;
       for (var i = 0; i < 90; i++) {
