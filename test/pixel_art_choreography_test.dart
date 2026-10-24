@@ -164,5 +164,81 @@ void main() {
       expect(brickA.bounceOffsetY, closeTo(0.0, 0.05));
       expect(brickA.bounceVy, closeTo(0.0, 0.5));
     });
+
+    test('Phase 2.1: Paddle Hit Reaction Triggers 1-Frame Flash & Elastic Squash/Bounce', () {
+      final paddle = controller.paddle;
+      expect(paddle.flashTimer, 0.0);
+      expect(paddle.bounceOffsetY, 0.0);
+      expect(paddle.squashScaleX, 1.0);
+      expect(paddle.squashScaleY, 1.0);
+
+      paddle.triggerHitReaction(isCorner: true);
+      expect(paddle.flashTimer, closeTo(0.035, 0.001));
+      expect(paddle.bounceVy, 75.0);
+      expect(paddle.squashScaleX, closeTo(1.14, 0.01));
+      expect(paddle.squashScaleY, closeTo(0.78, 0.01));
+
+      // First step moves paddle downward and begins recovery
+      paddle.update(0.016);
+      expect(paddle.bounceOffsetY, greaterThan(0.0));
+      expect(paddle.flashTimer, closeTo(0.019, 0.001));
+
+      // Settles back to rest over time
+      for (int i = 0; i < 45; i++) {
+        paddle.update(0.016);
+      }
+      expect(paddle.flashTimer, 0.0);
+      expect(paddle.bounceOffsetY, closeTo(0.0, 0.05));
+      expect(paddle.squashScaleX, closeTo(1.0, 0.01));
+      expect(paddle.squashScaleY, closeTo(1.0, 0.01));
+    });
+
+    test('Phase 2.2: TNT Explosion Spawns Pixel Cross Blast & Settling Impulse on Outer Neighbors', () {
+      controller.particles.clear();
+      controller.bricks.clear();
+
+      final outerNeighbor = Brick(
+        x: 175,
+        y: 100,
+        width: 40,
+        height: 20,
+        hp: 3,
+        color: const Color(0xFF00E5FF),
+      );
+      controller.bricks.add(outerNeighbor);
+
+      // Explode at (100, 110) with radius 60 -> outerNeighbor center is at (195, 110), dist = 95 (within 60 + 48 = 108)
+      controller.explodeArea(100, 110, radius: 60.0);
+
+      expect(controller.particles.pixelShockwaves, isNotEmpty);
+      expect(controller.particles.shards.length, greaterThanOrEqualTo(10));
+      expect(outerNeighbor.isAlive, isTrue);
+      expect(outerNeighbor.bounceVy, greaterThan(0.0));
+    });
+
+    test('Phase 2.3: Boss Hit Triggers 1-Frame White Flash, Pixel Wave, Shards & Elastic Recoil', () {
+      controller.particles.clear();
+      final boss = Brick(
+        x: 120,
+        y: 80,
+        width: 100,
+        height: 36,
+        hp: 20,
+        maxHp: 20,
+        type: BrickType.boss,
+        color: const Color(0xFFFF1744),
+      );
+      controller.bricks
+        ..clear()
+        ..add(boss);
+
+      controller.hitBrickForTest(boss);
+
+      expect(boss.isAlive, isTrue);
+      expect(boss.flashTimer, closeTo(0.035, 0.001));
+      expect(boss.bounceVy, closeTo(6.5, 0.01));
+      expect(controller.particles.pixelShockwaves.length, 1);
+      expect(controller.particles.shards.length, 4);
+    });
   });
 }

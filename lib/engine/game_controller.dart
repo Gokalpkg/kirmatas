@@ -2862,6 +2862,15 @@ class GameController extends ChangeNotifier {
 
       ball.y = pr.top - ball.radius - 1.0;
       ball.triggerSquash(-pi / 2);
+      paddle.triggerHitReaction(isCorner: isCornerHit);
+      particles.spawnBrickShards(
+        ball.x - 8.0,
+        pr.top - 4.0,
+        16.0,
+        6.0,
+        activePaddleSkin.glowColor,
+        count: isCornerHit ? 5 : 3,
+      );
 
       if (isCornerHit) {
         ball.cornerHitCount++;
@@ -3366,9 +3375,12 @@ class GameController extends ChangeNotifier {
       _destroyBrick(b);
     } else {
       // Step 1: Hit white flash
-      b.triggerWhiteFlash(0.025);
+      b.triggerWhiteFlash(b.isBoss ? 0.035 : 0.025);
       particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, b.color, count: 6);
       if (b.isBoss) {
+        b.triggerElasticSettle(impulse: 6.5);
+        particles.spawnPixelWave(b.x, b.y, b.width, b.height, const Color(0xFFFF1744));
+        particles.spawnBrickShards(b.x, b.y, b.width, b.height, const Color(0xFFFF5252), count: 4);
         audio.playSfx(GameSfx.bossHit);
         particles.triggerShake(4.0, 0.16);
         _bossHitsCounter++;
@@ -3407,6 +3419,9 @@ class GameController extends ChangeNotifier {
 
   @visibleForTesting
   void destroyBrickForTest(Brick b) => _destroyBrick(b);
+
+  @visibleForTesting
+  void hitBrickForTest(Brick b, [Ball? ball]) => _hitBrick(b, ball);
 
   void _destroyBrick(Brick b) {
     b.isAlive = false;
@@ -3716,6 +3731,7 @@ class GameController extends ChangeNotifier {
     final effectiveRadius = radius * (1.0 + activeCosmeticSynergy.explosionRadiusBonus);
     particles.spawnBurst(cx, cy, const Color(0xFFFF5722), count: 28, speed: 240.0);
     particles.spawnShockwave(cx, cy, const Color(0xFFFF9800), maxRadius: effectiveRadius);
+    particles.spawnPixelCrossBlast(cx, cy, effectiveRadius, const Color(0xFFFF5722));
     particles.triggerShake(5.0, 0.22);
     audio.playSfx(GameSfx.explosion);
 
@@ -3728,12 +3744,17 @@ class GameController extends ChangeNotifier {
         if (b.isFrozen) {
           // TNT explosions shatter only the ice of frozen bricks! The brick itself survives!
           b.isFrozen = false;
+          b.triggerWhiteFlash(0.035);
+          b.triggerElasticSettle(impulse: 5.5);
           particles.spawnBurst(bx, by, const Color(0xFF80D8FF), count: 18, speed: 190.0);
           particles.spawnShockwave(bx, by, const Color(0xFF00E5FF), maxRadius: 30.0);
           audio.playSfx(GameSfx.breakBrick, combo: stats.combo);
         } else {
           _destroyBrick(b);
         }
+      } else if (dist <= effectiveRadius + 48.0) {
+        final impulse = max(1.8, 5.8 - ((dist - effectiveRadius) / 12.0));
+        b.triggerElasticSettle(impulse: impulse);
       }
     }
   }

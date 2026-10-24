@@ -3186,6 +3186,27 @@ class _GameWorldPainter extends CustomPainter {
     final rect = p.rect;
 
     canvas.save();
+    final pcx = rect.center.dx;
+    final pcy = rect.center.dy + p.bounceOffsetY;
+    canvas.translate(pcx, pcy);
+    canvas.scale(p.squashScaleX, p.squashScaleY);
+    canvas.translate(-rect.center.dx, -rect.center.dy);
+
+    if (p.flashTimer > 0) {
+      _fill
+        ..style = PaintingStyle.fill
+        ..shader = null
+        ..maskFilter = null
+        ..color = Colors.white;
+      canvas.drawRect(rect, _fill);
+      _stroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = const Color(0xFF0B1021);
+      canvas.drawRect(rect, _stroke);
+      canvas.restore();
+      return;
+    }
 
     if (p.isGhost) {
       final wingW = rect.width * 0.25;

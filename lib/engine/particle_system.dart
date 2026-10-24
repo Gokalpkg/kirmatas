@@ -426,6 +426,20 @@ class ParticleSystem {
     }
   }
 
+  /// Spawns an 8-bit square pixel blast wave and bouncing dark-outlined pixel chunks for TNT explosions
+  void spawnPixelCrossBlast(double cx, double cy, double radius, Color color) {
+    final waveW = radius * 1.35;
+    spawnPixelWave(cx - waveW / 2, cy - 8.0, waveW, 16.0, color);
+    spawnBrickShards(
+      cx - 18.0,
+      cy - 8.0,
+      36.0,
+      16.0,
+      const Color(0xFFFF3D00),
+      count: 10,
+    );
+  }
+
   void update(double dt) {
     if (shakeTimeLeft > 0) {
       shakeTimeLeft -= dt;

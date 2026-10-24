@@ -26,6 +26,13 @@ class Paddle {
   double prevX;
   double velocityX;
 
+  /// Pixel Art Phase 2: 1-frame white/cyan impact flash & elastic squash-and-bounce
+  double flashTimer = 0.0;
+  double bounceOffsetY = 0.0;
+  double bounceVy = 0.0;
+  double squashScaleX = 1.0;
+  double squashScaleY = 1.0;
+
   Paddle({
     required this.x,
     required this.y,
@@ -66,6 +73,42 @@ class Paddle {
     if (hasVortex) {
       vortexAngle += dt * 7.5;
     }
+
+    if (flashTimer > 0) {
+      flashTimer = (flashTimer - dt).clamp(0.0, 1.0);
+    }
+
+    // Damped spring oscillator for vertical impact recoil (bounceOffsetY)
+    if (bounceOffsetY.abs() > 0.01 || bounceVy.abs() > 0.01) {
+      final springForce = -260.0 * bounceOffsetY;
+      final damping = -18.0 * bounceVy;
+      bounceVy += (springForce + damping) * dt;
+      bounceOffsetY += bounceVy * dt;
+      if (bounceOffsetY.abs() < 0.05 && bounceVy.abs() < 0.5) {
+        bounceOffsetY = 0.0;
+        bounceVy = 0.0;
+      }
+    }
+
+    // Elastic recovery of squash & stretch scales back to 1.0
+    if ((squashScaleX - 1.0).abs() > 0.002) {
+      squashScaleX += (1.0 - squashScaleX) * (dt * 16.0).clamp(0.0, 1.0);
+    } else {
+      squashScaleX = 1.0;
+    }
+    if ((squashScaleY - 1.0).abs() > 0.002) {
+      squashScaleY += (1.0 - squashScaleY) * (dt * 16.0).clamp(0.0, 1.0);
+    } else {
+      squashScaleY = 1.0;
+    }
+  }
+
+  /// Triggers a 1-frame pixel flash and downward elastic squash-and-stretch impulse
+  void triggerHitReaction({bool isCorner = false}) {
+    flashTimer = 0.035;
+    bounceVy = isCorner ? 75.0 : 52.0;
+    squashScaleX = isCorner ? 1.14 : 1.08;
+    squashScaleY = isCorner ? 0.78 : 0.84;
   }
 
   void resetWidth() {
