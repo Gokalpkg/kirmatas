@@ -424,10 +424,16 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
         customSubtitle = I18n.tr('shard_reward_subtitle').replaceAll('{category}', catName).replaceAll('{count}', '$currentShards');
         customIcon = _getCategoryIcon(cat);
       } else if (selectedReward.label == 'KASA' || selectedReward.labelKey == 'vault_title') {
-        final cName = _awardedCrateDef?.name ?? _awardedCategoryCrate?.name ?? 'Gizemli Sandık';
-        customTitle = '🎁 $cName';
-        customSubtitle = 'Hemen ücretsiz açmaya hazır!';
-        customIcon = Icons.inventory_2_rounded;
+        final cDef = _awardedCrateDef;
+        final catDef = _awardedCategoryCrate;
+        AudioManager.instance.playSfx(GameSfx.powerupBuff);
+        Navigator.of(context).pop(); // Çarkı anında kapatıp sandık açma sahnesine geç
+        if (cDef != null) {
+          CrateOpeningDialog.show(context, crate: cDef);
+        } else if (catDef != null) {
+          CrateOpeningDialog.show(context, categoryCrate: catDef);
+        }
+        return;
       }
 
       _showPrizeDialog(

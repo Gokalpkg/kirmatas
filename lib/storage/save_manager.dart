@@ -1702,6 +1702,16 @@ class SaveManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool get hasSeenAquariumCatalogTutorial => _prefs?.getBool('hasSeenAquariumCatalogTutorial') ?? false;
+  set hasSeenAquariumCatalogTutorial(bool val) {
+    _prefs?.setBool('hasSeenAquariumCatalogTutorial', val);
+    notifyListeners();
+  }
+
+  void completeAquariumCatalogTutorial() {
+    hasSeenAquariumCatalogTutorial = true;
+  }
+
   /// Directly saves fishFood to persistent storage and notifies listeners
   void saveFishFoodDirectly() {
     _prefs?.setInt('fishFood', fishFood);

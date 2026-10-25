@@ -28,6 +28,43 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
   double _animTime = 0.0;
   final _TankFrame _frame = _TankFrame();
 
+  bool _isFingerMode = false;
+  bool get isFingerMode => _isFingerMode;
+  Offset? _fingerWorldPos;
+  Offset? get fingerWorldPos => _fingerWorldPos;
+
+  void setFingerMode(bool enabled) {
+    setState(() {
+      _isFingerMode = enabled;
+      if (!enabled) _fingerWorldPos = null;
+    });
+  }
+
+  Offset _toWorldPos(Offset rawPos) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || box.size.isEmpty) return rawPos;
+    final scaleX = 410.0 / box.size.width;
+    final scaleY = 800.0 / box.size.height;
+    return Offset(
+      (rawPos.dx * scaleX).clamp(15.0, 395.0),
+      (rawPos.dy * scaleY).clamp(70.0, 740.0),
+    );
+  }
+
+  void _onFingerDown(Offset rawPos) {
+    if (!widget.interactive) return;
+    _fingerWorldPos = _toWorldPos(rawPos);
+  }
+
+  void _onFingerMove(Offset rawPos) {
+    if (!widget.interactive || !_isFingerMode) return;
+    _fingerWorldPos = _toWorldPos(rawPos);
+  }
+
+  void _onFingerUp() {
+    _fingerWorldPos = null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -296,6 +333,20 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       return;
     }
 
+    if (_fingerWorldPos != null) {
+      final dx = _fingerWorldPos!.dx - f.x;
+      f.facingRight = dx >= 0;
+      final dist = dx.abs();
+      f.isMoving = dist > 14.0;
+      if (f.isMoving) {
+        final speed = isSnail ? 22.0 : (isOctopus ? 38.0 : 48.0);
+        final step = speed * dt;
+        f.x += dx > 0 ? min(step, dx) : max(-step, dx);
+        if (isOctopus) f.stepPhase += dt * 6.5;
+      }
+      return;
+    }
+
     if (pellet != null && !f.isSatiated) {
       final dx = pellet.x - f.x;
       f.facingRight = dx >= 0;
@@ -452,6 +503,31 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
         continue;
       }
 
+      if (_fingerWorldPos != null) {
+        // Finger attraction: swim eagerly toward the player's touch!
+        final dx = _fingerWorldPos!.dx - f.x;
+        final dy = _fingerWorldPos!.dy - f.y;
+        final dist = max(0.001, sqrt(dx * dx + dy * dy));
+
+        if (dist > 30.0) {
+          final swimSpeed = (dist > 120 ? 145.0 : 100.0) * (1.0 + f.item.size * 0.1);
+          f.x += (dx / dist) * swimSpeed * dt;
+          f.y += (dy / dist) * swimSpeed * dt;
+          f.facingRight = dx >= 0;
+          f.pitchAngle = (dy / dist * 0.45).clamp(-0.5, 0.5);
+        } else {
+          // Playful schooling/orbiting around finger!
+          final orbitAngle = _animTime * 3.6 + f.tailPhase;
+          f.x += cos(orbitAngle) * 36.0 * dt;
+          f.y += sin(orbitAngle) * 22.0 * dt;
+          f.facingRight = cos(orbitAngle) >= 0;
+          f.pitchAngle = (sin(orbitAngle) * 0.25).clamp(-0.35, 0.35);
+        }
+        f.x = f.x.clamp(35.0, 375.0);
+        f.y = f.y.clamp(90.0, 710.0);
+        continue;
+      }
+
       if (targetPellet != null && !f.isSatiated) {
         // Eagerly swim towards assigned food pellet
         final dx = targetPellet.x - f.x;
@@ -563,7 +639,31 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: (details) => _onTankTap(details.localPosition),
+      onTapDown: (details) {
+        if (_isFingerMode) {
+          _onFingerDown(details.localPosition);
+        } else {
+          _onTankTap(details.localPosition);
+        }
+      },
+      onTapUp: (_) {
+        if (_isFingerMode) _onFingerUp();
+      },
+      onTapCancel: () {
+        if (_isFingerMode) _onFingerUp();
+      },
+      onPanStart: (details) {
+        if (_isFingerMode) _onFingerDown(details.localPosition);
+      },
+      onPanUpdate: (details) {
+        if (_isFingerMode) _onFingerMove(details.localPosition);
+      },
+      onPanEnd: (_) {
+        if (_isFingerMode) _onFingerUp();
+      },
+      onPanCancel: () {
+        if (_isFingerMode) _onFingerUp();
+      },
       child: Stack(
         children: [
           Positioned.fill(
@@ -688,6 +788,20 @@ class _TankPainter extends CustomPainter {
   final Paint _tailPaint = Paint();
   final Paint _eyeWhite = Paint()..color = const Color(0xFFFFFFFF);
   final Paint _eyeBlack = Paint()..color = const Color(0xFF000000);
+  final Paint _fingerRipplePaint1 = Paint()
+    ..color = const Color(0x6600E5FF)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2.0;
+  final Paint _fingerRipplePaint2 = Paint()
+    ..color = const Color(0x334FC3F7)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.4;
+  final Paint _fingerGlowPaint = Paint()
+    ..color = const Color(0x9900E5FF)
+    ..style = PaintingStyle.fill;
+  final Paint _fingerCorePaint = Paint()
+    ..color = Colors.white
+    ..style = PaintingStyle.fill;
   final Path _tailPath = Path();
   final Path _plantPath = Path();
   Path? _sandPath;
@@ -810,6 +924,17 @@ class _TankPainter extends CustomPainter {
       }
     }
 
+    // Finger Attraction Touch Wave & Ripple
+    if (host.fingerWorldPos != null) {
+      final fp = host.fingerWorldPos!;
+      final r1 = 14.0 + sin(time * 8.0) * 4.0;
+      final r2 = 26.0 + sin(time * 8.0 + 1.2) * 6.0;
+      canvas.drawCircle(fp, r1, _fingerRipplePaint1);
+      canvas.drawCircle(fp, r2, _fingerRipplePaint2);
+      canvas.drawCircle(fp, 5.0, _fingerGlowPaint);
+      canvas.drawCircle(fp, 2.2, _fingerCorePaint);
+    }
+
     // 7. Fish drawing (Scaled down to realistic proportion)
     for (final f in simFish) {
       canvas.save();
@@ -871,6 +996,10 @@ class _TankPainter extends CustomPainter {
           break;
       }
 
+      if (f.item.kind == FishKind.octopus) {
+        _drawOctopusTentacles(canvas, f, time, isForeground: false);
+      }
+
       final img = AssetCache.instance.getFishImage(f.item.id);
       if (img != null) {
         // Scaled down: ~45-60px width
@@ -884,6 +1013,7 @@ class _TankPainter extends CustomPainter {
           height: img.height.toDouble(),
         );
         canvas.drawImageRect(img, src, dst, _imgPaint);
+        canvas.scale(1.0 / fishScale, 1.0 / fishScale);
       } else {
         // Fallback procedural fish
         final fishScale = f.item.size * 0.7;
@@ -905,6 +1035,11 @@ class _TankPainter extends CustomPainter {
 
         canvas.drawCircle(const Offset(7, -2), 2.0, _eyeWhite);
         canvas.drawCircle(const Offset(8, -2), 0.9, _eyeBlack);
+        canvas.scale(1.0 / fishScale, 1.0 / fishScale);
+      }
+
+      if (f.item.kind == FishKind.octopus) {
+        _drawOctopusTentacles(canvas, f, time, isForeground: true);
       }
 
       // 8. Status marker above fed fish: a bouncing gold coin once the
@@ -981,6 +1116,106 @@ class _TankPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
     canvas.drawLine(const Offset(0.5, 0), Offset(0.5, size.height), borderPaint);
     canvas.drawLine(Offset(size.width - 0.5, 0), Offset(size.width - 0.5, size.height), borderPaint);
+  }
+
+  void _drawOctopusTentacles(
+    Canvas canvas,
+    _SimFish f,
+    double time, {
+    required bool isForeground,
+  }) {
+    final tentacleIndices = isForeground ? const [0, 2, 4] : const [1, 3, 5];
+    final bodyPaint = Paint()
+      ..color = isForeground ? const Color(0xFF9C27B0) : const Color(0xFF6A1B9A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = isForeground ? 3.8 : 3.0
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final suctionPaint = Paint()
+      ..color = isForeground ? const Color(0xFFEDE7F6) : const Color(0xFFD1C4E9)
+      ..style = PaintingStyle.fill;
+
+    final highlightPaint = Paint()
+      ..color = isForeground ? const Color(0xFFE040FB) : const Color(0xFFBA68C8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round;
+
+    final isReachingUp = host.fingerWorldPos != null && host.fingerWorldPos!.dy < 640;
+
+    for (final i in tentacleIndices) {
+      final baseOffsetX = -13.0 + i * 5.2;
+      const baseOffsetY = 8.0;
+
+      final phaseOffset = i * (pi / 3.0);
+      final stepCycle = f.stepPhase + phaseOffset;
+
+      double tipX;
+      double tipY;
+      double ctrl1X;
+      double ctrl1Y;
+      double ctrl2X;
+      double ctrl2Y;
+
+      if (isReachingUp && i <= 2) {
+        // Reaching front tentacles up towards finger!
+        final reachWave = sin(time * 5.0 + phaseOffset) * 4.5;
+        tipX = baseOffsetX + (f.facingRight ? 12.0 : -12.0) + reachWave;
+        tipY = -12.0 - (i * 5.0) + cos(time * 4.0 + phaseOffset) * 3.0;
+        ctrl1X = baseOffsetX + 3.0;
+        ctrl1Y = -2.0;
+        ctrl2X = tipX - 3.0;
+        ctrl2Y = tipY + 6.0;
+      } else if (f.isMoving) {
+        // Active walking crawl gait: foot plants, grips floor, pulls back, then lifts and reaches forward.
+        final strideSin = sin(stepCycle);
+        final strideCos = cos(stepCycle);
+        final isGrounded = strideSin > -0.25;
+        final groundProgress = (strideCos + 1.0) / 2.0; // 0..1
+
+        if (isGrounded) {
+          // Foot on sand pushing/pulling
+          tipX = baseOffsetX + (groundProgress - 0.5) * 24.0;
+          tipY = 17.5 + sin(groundProgress * pi) * 1.5;
+          ctrl1X = baseOffsetX + (tipX - baseOffsetX) * 0.4;
+          ctrl1Y = 12.0 - strideSin * 3.0;
+          ctrl2X = tipX - (f.facingRight ? 2.5 : -2.5);
+          ctrl2Y = 16.0;
+        } else {
+          // Foot lifted forward to take next step
+          tipX = baseOffsetX + (f.facingRight ? 12.0 : -12.0);
+          tipY = 10.0 + strideSin * 4.0;
+          ctrl1X = baseOffsetX + 4.0;
+          ctrl1Y = 7.0;
+          ctrl2X = tipX + 1.5;
+          ctrl2Y = tipY + 3.0;
+        }
+      } else {
+        // Settled on sand: gentle breathing and caustics ripple
+        final wave = sin(time * 2.2 + phaseOffset) * 1.8;
+        tipX = baseOffsetX + (i - 2.5) * 4.5 + wave;
+        tipY = 16.5 + cos(time * 2.0 + phaseOffset) * 1.2;
+        ctrl1X = baseOffsetX + (i - 2.5) * 1.5;
+        ctrl1Y = 12.5;
+        ctrl2X = tipX - (i - 2.5) * 1.2;
+        ctrl2Y = 15.0;
+      }
+
+      final legPath = Path()
+        ..moveTo(baseOffsetX, baseOffsetY)
+        ..cubicTo(ctrl1X, ctrl1Y, ctrl2X, ctrl2Y, tipX, tipY);
+
+      canvas.drawPath(legPath, bodyPaint);
+      canvas.drawPath(legPath, highlightPaint);
+
+      if (isForeground) {
+        final midX = (ctrl2X + tipX) * 0.5;
+        final midY = (ctrl2Y + tipY) * 0.5;
+        canvas.drawCircle(Offset(midX, midY + 0.8), 0.8, suctionPaint);
+        canvas.drawCircle(Offset(tipX, tipY + 0.7), 0.7, suctionPaint);
+      }
+    }
   }
 
   @override

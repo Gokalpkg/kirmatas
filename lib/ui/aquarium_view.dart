@@ -793,6 +793,151 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                       ),
                     ),
                   ),
+
+                  // Finger Mode Active Pill (Quick toggle back to food mode)
+                  if (_tankKey.currentState?.isFingerMode == true)
+                    Positioned(
+                      top: 50,
+                      left: 12,
+                      child: GestureDetector(
+                        onTap: () {
+                          _tankKey.currentState?.setFingerMode(false);
+                          setState(() {});
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xEE004D40),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: const Color(0xFF00E5FF), width: 1.4),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF00E5FF).withValues(alpha: 0.4),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Text('👆', style: TextStyle(fontSize: 14)),
+                              SizedBox(width: 5),
+                              Text(
+                                'PARMAK MODU (DÖN 🍤)',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 11,
+                                  letterSpacing: 0.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Forced Catalog Tutorial Overlay for first-time visitors
+                  if (!_save.hasSeenAquariumCatalogTutorial)
+                    Positioned.fill(
+                      child: Container(
+                        color: const Color(0xCF050B14),
+                        child: Stack(
+                          children: [
+                            Positioned(
+                              top: 6,
+                              right: 12,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Container(
+                                    margin: const EdgeInsets.only(bottom: 6),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xF20E2235),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(color: const Color(0xFF00E5FF), width: 1.5),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF00E5FF).withValues(alpha: 0.45),
+                                          blurRadius: 14,
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          'AKVARYUM KATALOĞU',
+                                          style: TextStyle(
+                                            color: Color(0xFF00E5FF),
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 12,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                        SizedBox(height: 2),
+                                        Text(
+                                          'Balıklarını ve araçları\nkeşfetmek için dokun!',
+                                          textAlign: TextAlign.right,
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 11,
+                                            height: 1.25,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.only(right: 26, bottom: 6),
+                                    child: _AquariumBouncingArrow(),
+                                  ),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF00E5FF).withValues(alpha: 0.85),
+                                          blurRadius: 16,
+                                          spreadRadius: 3,
+                                        ),
+                                      ],
+                                    ),
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        _save.completeAquariumCatalogTutorial();
+                                        _showEcosystemDrawer(context);
+                                      },
+                                      icon: const Icon(Icons.collections_bookmark_rounded, color: Color(0xFF00E5FF), size: 16),
+                                      label: const Text(
+                                        'Katalog',
+                                        style: TextStyle(
+                                          fontFamily: 'Rajdhani',
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 12,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF01579B),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(18),
+                                          side: const BorderSide(color: Color(0xFF80D8FF), width: 2),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -962,6 +1107,33 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                   ),
                   const SizedBox(height: 10),
 
+                  // Finger Tool Mode Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 42,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        _tankKey.currentState?.setFingerMode(true);
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.touch_app_rounded, color: Color(0xFF00E5FF), size: 18),
+                      label: const Text(
+                        'PARMAĞI SEÇ 👆 (DOKUNUNCA BALIKLAR GELSİN)',
+                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5, letterSpacing: 0.3),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF006064),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: const BorderSide(color: Color(0xFF00E5FF), width: 1.2),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
                   // Open Fish Catalogue button
                   SizedBox(
                     width: double.infinity,
@@ -1058,6 +1230,58 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                   style: const TextStyle(color: Color(0xFF4FC3F7), fontWeight: FontWeight.bold),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF006064), Color(0xFF00363A)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF00E5FF), width: 1.2),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: const Color(0x3300E5FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.touch_app_rounded, color: Color(0xFF00E5FF), size: 22),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'PARMAKLA BALIK ÇAĞIR',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
+                        ),
+                        Text(
+                          'Ekrana dokunduğunda balıklar parmağına gelsin!',
+                          style: TextStyle(color: Color(0xFFB2EBF2), fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ),
+                  KaunosTactileButton.cyan(
+                    height: 34,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _tankKey.currentState?.setFingerMode(true);
+                      setState(() {});
+                    },
+                    child: const Text(
+                      'SEÇ 👆',
+                      style: TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.w900, fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
             // Koleksiyon tamamlanma çubuğu
@@ -1176,6 +1400,66 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AquariumBouncingArrow extends StatefulWidget {
+  const _AquariumBouncingArrow();
+
+  @override
+  State<_AquariumBouncingArrow> createState() => _AquariumBouncingArrowState();
+}
+
+class _AquariumBouncingArrowState extends State<_AquariumBouncingArrow>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.0, end: 12.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) => Transform.translate(
+        offset: Offset(0, _anim.value),
+        child: Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: const Color(0xFF00E5FF),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.8),
+                blurRadius: 14,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.arrow_downward_rounded,
+            color: Color(0xFF05111B),
+            size: 24,
+          ),
         ),
       ),
     );
