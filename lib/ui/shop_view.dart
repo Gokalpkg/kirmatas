@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
@@ -195,6 +196,22 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
     BuildContext btnContext,
   ) async {
     if (_isPurchasing) return;
+    if (crate.id == CrateDef.octopusVault.id) {
+      // Strictly 3 pearls only! Decoupled from gold completely.
+      if (SaveManager.instance.pearls < CrateDef.octopusVaultPearlCost) return;
+      if (SaveManager.instance.spendPearls(CrateDef.octopusVaultPearlCost)) {
+        AudioManager.instance.playSfx(GameSfx.powerupBuff);
+        if (mounted) {
+          CrateOpeningDialog.show(
+            context,
+            crate: crate,
+            preUnlockedVault: true,
+          );
+        }
+      }
+      return;
+    }
+
     await _startPurchaseAnimation(
       targetContext: btnContext,
       cost: crate.cost,
@@ -1128,7 +1145,10 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
   }
 
   Widget _buildCrateCard(BuildContext context, SaveManager save, CrateDef crate) {
-    final canAfford = save.gold >= crate.cost;
+    final isVault = crate.id == CrateDef.octopusVault.id;
+    final canAfford = isVault
+        ? save.pearls >= CrateDef.octopusVaultPearlCost
+        : save.gold >= crate.cost;
     final color = crate.primaryColor;
 
     return Container(
@@ -1278,13 +1298,23 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.monetization_on_rounded, size: 18),
-                      const SizedBox(width: 6),
-                      Text(I18n.tr('crate_open').replaceAll('{cost}', '${crate.cost}'),
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.8),
-                      ),
-                    ],
+                    children: isVault
+                        ? [
+                            const KaunosEmblem.pearl(size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${CrateDef.octopusVaultPearlCost} ${I18n.tr('pearls').toUpperCase()} İLE AÇ',
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.8),
+                            ),
+                          ]
+                        : [
+                            const Icon(Icons.monetization_on_rounded, size: 18),
+                            const SizedBox(width: 6),
+                            Text(
+                              I18n.tr('crate_open').replaceAll('{cost}', '${crate.cost}'),
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.8),
+                            ),
+                          ],
                   ),
                 ),
               ),
@@ -2202,6 +2232,9 @@ class _BrickPreviewPainter extends CustomPainter {
       case 'brick_neu':
         _paintNeu(canvas, rect, rrect);
         break;
+      case 'brick_jelly':
+        _paintJelly(canvas, rect, rrect);
+        break;
       case 'brick_cyber':
         _paintCyber(canvas, rect, rrect);
         break;
@@ -2433,6 +2466,32 @@ class _BrickPreviewPainter extends CustomPainter {
         ..strokeWidth = 1.1
         ..color = const Color(0x8CFFFFFF),
     );
+  }
+
+  void _paintJelly(Canvas canvas, Rect rect, RRect rrect) {
+    // "Kozmik Jöle": Retro Pixel Art Gelatinous Bouncy Block Preview
+    final p = Paint()..isAntiAlias = false;
+
+    // Drop shadow
+    p.color = const Color(0xFF0B1021);
+    canvas.drawRect(rect.translate(1.5, 2.0), p);
+
+    // Dark contour
+    p.color = const Color(0xFF004D40);
+    canvas.drawRect(rect, p);
+
+    // Body
+    p.color = const Color(0xFF00E676);
+    canvas.drawRect(rect.deflate(1.2), p);
+
+    // Inner core
+    p.color = const Color(0xFF69F0AE);
+    canvas.drawRect(Rect.fromLTRB(rect.left + 3.0, rect.top + 3.0, rect.right - 3.0, rect.bottom - 3.5), p);
+
+    // Highlight glints
+    p.color = Colors.white;
+    canvas.drawRect(Rect.fromLTWH(rect.left + 4.0, rect.top + 3.0, 5.0, 2.0), p);
+    canvas.drawRect(Rect.fromLTWH(rect.right - 8.0, rect.top + 3.0, 3.0, 1.8), p);
   }
 
   void _paintCyber(Canvas canvas, Rect rect, RRect rrect) {

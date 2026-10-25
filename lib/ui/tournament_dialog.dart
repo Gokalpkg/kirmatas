@@ -2,8 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
-import '../engine/play_games_manager.dart';
-import '../models/game_state.dart';
 import '../storage/save_manager.dart';
 import 'kaunos_ui.dart';
 
@@ -48,36 +46,17 @@ class _TournamentDialogState extends State<TournamentDialog> {
   late int _selectedTab;
   final ScrollController _leagueScrollController = ScrollController();
   bool _leagueScrolled = false;
-  final PlayGamesManager _games = PlayGamesManager.instance;
-  bool _signingIn = false;
 
   @override
   void initState() {
     super.initState();
     _selectedTab = widget.initialTab;
-    _games.addListener(_onGamesChanged);
   }
 
   @override
   void dispose() {
-    _games.removeListener(_onGamesChanged);
     _leagueScrollController.dispose();
     super.dispose();
-  }
-
-  void _onGamesChanged() {
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _handlePlayGamesSignIn() async {
-    setState(() {
-      _signingIn = true;
-    });
-    await _games.signIn();
-    if (!mounted) return;
-    setState(() {
-      _signingIn = false;
-    });
   }
 
   static String _fmtRemaining(Duration d) {
@@ -424,6 +403,9 @@ class _TournamentDialogState extends State<TournamentDialog> {
             controller: _leagueScrollController,
             padding: const EdgeInsets.only(bottom: 8),
             children: [
+              _buildTierBannerCard(save, tierColor, isCompact),
+              SizedBox(height: isCompact ? 6 : 10),
+
               // Last week's settled result (reward already paid at rollover)
               if (save.hasUnseenLeagueResult) ...[
                 Container(
@@ -753,63 +735,10 @@ class _TournamentDialogState extends State<TournamentDialog> {
 
               SizedBox(height: isCompact ? 6 : 10),
 
-              // Rewards strip for this tier
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20),
-                child: Row(
-                  children: [
-                    _rewardChip(
-                      '🥇',
-                      '${save.leagueRewardGoldForRank(1)}G'
-                          '${SaveManager.leaguePearlsForRank(1) > 0 ? ' +${SaveManager.leaguePearlsForRank(1)}İ' : ''}',
-                      isCompact,
-                    ),
-                    const SizedBox(width: 6),
-                    _rewardChip(
-                      '🥈',
-                      '${save.leagueRewardGoldForRank(2)}G'
-                          '${SaveManager.leaguePearlsForRank(2) > 0 ? ' +${SaveManager.leaguePearlsForRank(2)}İ' : ''}',
-                      isCompact,
-                    ),
-                    const SizedBox(width: 6),
-                    _rewardChip(
-                      '🥉',
-                      '${save.leagueRewardGoldForRank(3)}G'
-                          '${SaveManager.leaguePearlsForRank(3) > 0 ? ' +${SaveManager.leaguePearlsForRank(3)}İ' : ''}',
-                      isCompact,
-                    ),
-                    const SizedBox(width: 6),
-                    _rewardChip(
-                      '4-10',
-                      '${save.leagueRewardGoldForRank(5)}G',
-                      isCompact,
-                    ),
-                    const SizedBox(width: 6),
-                    _rewardChip(
-                      'Çarpan',
-                      'x${save.leagueTier + 1}',
-                      isCompact,
-                      accent: true,
-                    ),
-                  ],
-                ),
-              ),
+              // Crystal Clear Weekly League Rewards Card
+              _buildLeagueRewardsCard(save, tierColor, isCompact),
 
-              SizedBox(height: isCompact ? 5 : 8),
-
-              Text(
-                'Puan kazan: Bölüm zaferi +100  •  Kaos dalgası +25',
-                style: TextStyle(
-                  color: Colors.white38,
-                  fontSize: isCompact ? 10 : 10.5,
-                ),
-              ),
-
-              SizedBox(height: isCompact ? 5 : 8),
-
-              _buildPlayGamesBanner(context, isCompact),
-
-              SizedBox(height: isCompact ? 5 : 8),
+              SizedBox(height: isCompact ? 8 : 12),
 
               // Division Leaderboard Header
               Padding(
@@ -862,6 +791,15 @@ class _TournamentDialogState extends State<TournamentDialog> {
               ),
             ],
           ),
+        ),
+
+        // Pinned Player Ranking Bar (Always visible while scrolling)
+        _buildPinnedPlayerRankBar(
+          playerRival,
+          tierColor,
+          isCompact,
+          leaderScore,
+          rivals,
         ),
 
         // Footer Action Button
@@ -1168,156 +1106,407 @@ class _TournamentDialogState extends State<TournamentDialog> {
     );
   }
 
-  Widget _rewardChip(
-    String head,
-    String body,
-    bool isCompact, {
-    bool accent = false,
-  }) {
+  void _scrollToPlayer(List<LeagueRival> rivals, int playerRank) {
+    if (!_leagueScrollController.hasClients) return;
+    final idx = rivals.indexWhere((r) => r.isPlayer);
+    if (idx < 0) return;
+    var offset = 380.0 + idx * 56.0;
+    if (playerRank >= 4) offset += 24;
+    if (playerRank >= 11) offset += 24;
+    final max = _leagueScrollController.position.maxScrollExtent;
+    _leagueScrollController.animateTo(
+      (offset - 130).clamp(0.0, max),
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Widget _buildTierBannerCard(SaveManager save, Color tierColor, bool isCompact) {
+    final tierNames = ['BRONZ LİGİ', 'GÜMÜŞ LİGİ', 'ALTIN LİGİ', 'PLATİN LİGİ', 'KAUNOS EFSANESİ'];
+    final tierIdx = save.leagueTier.clamp(0, tierNames.length - 1);
+    final tierTitle = tierNames[tierIdx];
+    final tierIcons = ['🥉', '🥈', '🥇', '💎', '👑'];
+    final tierIcon = tierIcons[tierIdx];
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20),
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: isCompact ? 10 : 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            tierColor.withValues(alpha: 0.28),
+            const Color(0xFF13182B),
+            const Color(0xFF0F121E),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: tierColor.withValues(alpha: 0.65), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: tierColor.withValues(alpha: 0.20),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Tier Emblem Icon
+          Container(
+            width: isCompact ? 44 : 50,
+            height: isCompact ? 44 : 50,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: tierColor.withValues(alpha: 0.20),
+              border: Border.all(color: tierColor, width: 2),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              tierIcon,
+              style: TextStyle(fontSize: isCompact ? 22 : 26),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        tierTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: tierColor,
+                          fontWeight: FontWeight.w900,
+                          fontSize: isCompact ? 13 : 15,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'KADEME ${save.leagueTier + 1}',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 9.5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '15 Kişilik Haftalık Grup Mücadelesi',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: isCompact ? 11 : 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeagueRewardsCard(SaveManager save, Color tierColor, bool isCompact) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20),
+      padding: EdgeInsets.all(isCompact ? 10 : 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121727),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.emoji_events_rounded, color: KaunosPalette.goldHighlight, size: 16),
+              const SizedBox(width: 6),
+              const Flexible(
+                child: Text(
+                  'HAFTALIK LİG ÖDÜLLERİ',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Kademe ${save.leagueTier + 1}',
+                style: TextStyle(
+                  color: tierColor,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildCleanRewardItem(
+                '🥇 1. Sıra',
+                '${save.leagueRewardGoldForRank(1)} Altın',
+                SaveManager.leaguePearlsForRank(1) > 0 ? '+${SaveManager.leaguePearlsForRank(1)} İnci' : null,
+                const Color(0xFFFFD700),
+                isCompact,
+              ),
+              const SizedBox(width: 6),
+              _buildCleanRewardItem(
+                '🥈 2. Sıra',
+                '${save.leagueRewardGoldForRank(2)} Altın',
+                SaveManager.leaguePearlsForRank(2) > 0 ? '+${SaveManager.leaguePearlsForRank(2)} İnci' : null,
+                const Color(0xFFC0C0C0),
+                isCompact,
+              ),
+              const SizedBox(width: 6),
+              _buildCleanRewardItem(
+                '🥉 3. Sıra',
+                '${save.leagueRewardGoldForRank(3)} Altın',
+                SaveManager.leaguePearlsForRank(3) > 0 ? '+${SaveManager.leaguePearlsForRank(3)} İnci' : null,
+                const Color(0xFFCD7F32),
+                isCompact,
+              ),
+              const SizedBox(width: 6),
+              _buildCleanRewardItem(
+                '🏅 4-10. Sıra',
+                '${save.leagueRewardGoldForRank(5)} Altın',
+                null,
+                Colors.white70,
+                isCompact,
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          const Text(
+            '⬆️ İlk 3 oyuncu üst lige terfi eder  •  ⬇️ Son 5 oyuncu alt lige düşer',
+            style: TextStyle(
+              color: Colors.white38,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCleanRewardItem(
+    String rankTitle,
+    String goldText,
+    String? pearlText,
+    Color accentColor,
+    bool isCompact,
+  ) {
     return Expanded(
       child: Container(
-        padding: EdgeInsets.symmetric(
-          vertical: isCompact ? 5 : 7,
-          horizontal: 2,
-        ),
+        padding: EdgeInsets.symmetric(vertical: isCompact ? 5 : 7, horizontal: 2),
         decoration: BoxDecoration(
-          color: accent
-              ? KaunosPalette.goldHighlight.withValues(alpha: 0.14)
-              : const Color(0xFF131828),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: accent
-                ? KaunosPalette.goldHighlight.withValues(alpha: 0.6)
-                : Colors.white10,
-          ),
+          color: const Color(0xFF181F33),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: accentColor.withValues(alpha: 0.35)),
         ),
         child: Column(
           children: [
-            Text(
-              head,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: isCompact ? 11 : 13),
-            ),
-            const SizedBox(height: 1),
-            Text(
-              body,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: accent ? KaunosPalette.goldHighlight : Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: isCompact ? 9 : 10,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                rankTitle,
+                maxLines: 1,
+                style: TextStyle(
+                  color: accentColor,
+                  fontWeight: FontWeight.w900,
+                  fontSize: isCompact ? 9.5 : 10.5,
+                ),
               ),
             ),
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                goldText,
+                maxLines: 1,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: isCompact ? 9 : 10,
+                ),
+              ),
+            ),
+            if (pearlText != null) ...[
+              const SizedBox(height: 1),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  pearlText,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    color: Color(0xFFEA80FC),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 8.5,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPlayGamesBanner(BuildContext context, bool isCompact) {
+  Widget _buildPinnedPlayerRankBar(
+    LeagueRival playerRival,
+    Color tierColor,
+    bool isCompact,
+    int leaderScore,
+    List<LeagueRival> rivals,
+  ) {
+    final isPromotion = playerRival.rank <= SaveManager.leaguePromotionCutoff;
+    final isDemotion = playerRival.rank >= SaveManager.leagueDemotionStart;
+
+    final zoneColor = isPromotion
+        ? const Color(0xFF00E676)
+        : (isDemotion ? const Color(0xFFFF5252) : const Color(0xFF00E5FF));
+
+    final zoneBadgeText = isPromotion
+        ? 'TERFİ ⬆️'
+        : (isDemotion ? 'KÜME DÜŞME ⬇️' : 'GÜVENLİ HAT 🛡️');
+
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20),
-      padding: EdgeInsets.symmetric(
-        horizontal: isCompact ? 10 : 12,
-        vertical: isCompact ? 7 : 9,
-      ),
+      margin: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: isCompact ? 7 : 9),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF131D2E), Color(0xFF090E18)],
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFF00E676).withValues(alpha: 0.35),
-        ),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.sports_esports_rounded,
-            color: Color(0xFF00E676),
-            size: 18,
+        color: const Color(0xFF141A2D),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tierColor.withValues(alpha: 0.75), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _games.signedIn
-                  ? 'Google Play Games Global Sıralama'
-                  : 'Global Liderlik Tablosu için bağlan',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: isCompact ? 10.5 : 11.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          if (_games.signedIn) ...[
-            InkWell(
-              onTap: () => _games.showLeaderboard(mode: GameMode.classic),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0x2600E676),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF00E676)),
-                ),
-                child: const Text(
-                  'KLASİK',
-                  style: TextStyle(
-                    color: Color(0xFF00E676),
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            InkWell(
-              onTap: () => _games.showLeaderboard(mode: GameMode.chaos),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0x26FF9100),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFFF9100)),
-                ),
-                child: const Text(
-                  'KAOS',
-                  style: TextStyle(
-                    color: Color(0xFFFF9100),
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ),
-          ] else
-            InkWell(
-              onTap: _signingIn ? null : _handlePlayGamesSignIn,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00E676),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _signingIn ? '...' : 'GİRİŞ YAP',
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ),
         ],
+      ),
+      child: InkWell(
+        onTap: () => _scrollToPlayer(rivals, playerRival.rank),
+        borderRadius: BorderRadius.circular(16),
+        child: Row(
+          children: [
+            // Rank badge
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: zoneColor.withValues(alpha: 0.20),
+                border: Border.all(color: zoneColor, width: 1.8),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '#${playerRival.rank}',
+                style: TextStyle(
+                  color: zoneColor,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12.5,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Player details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'SENİN SIRALAMAN',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: isCompact ? 11 : 12,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: zoneColor.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: zoneColor.withValues(alpha: 0.6)),
+                        ),
+                        child: Text(
+                          zoneBadgeText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 8.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${playerRival.score} Puan  •  ${widget.save.seasonalTitle}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Quick scroll pill button
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                color: tierColor.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: tierColor.withValues(alpha: 0.6)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.gps_fixed_rounded, color: tierColor, size: 13),
+                  const SizedBox(width: 4),
+                  Text(
+                    'GÖSTER',
+                    style: TextStyle(
+                      color: tierColor,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

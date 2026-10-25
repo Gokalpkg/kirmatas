@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,6 +6,7 @@ import 'package:kirmatas/config/balance_config.dart';
 import 'package:kirmatas/engine/audio_manager.dart';
 import 'package:kirmatas/engine/game_controller.dart';
 import 'package:kirmatas/models/brick.dart';
+import 'package:kirmatas/models/cosmetics.dart';
 import 'package:kirmatas/models/game_state.dart';
 import 'package:kirmatas/storage/save_manager.dart';
 
@@ -257,6 +259,49 @@ void main() {
       expect(audio.resolveSoundKey(GameSfx.bubble), 'bubble');
       expect(audio.resolveSoundKey(GameSfx.powerupBuff), 'powerup_buff');
       expect(audio.resolveSoundKey(GameSfx.powerupDebuff), 'powerup_debuff');
+    });
+
+    test('Phase 4: Neighbor brick shake only triggers for jelly and jelibon styles', () async {
+      final save = SaveManager.instance;
+      final controller = GameController();
+
+      // Setup 2 bricks side by side
+      final b1 = Brick(x: 100, y: 100, width: 40, height: 20, hp: 1, color: Colors.blue);
+      final b2 = Brick(x: 145, y: 100, width: 40, height: 20, hp: 1, color: Colors.green);
+      controller.bricks
+        ..clear()
+        ..addAll([b1, b2]);
+
+      // 1. With standard brick style (e.g. 'brick_pixel'): neighbor should NOT settle
+      await save.equipBrickStyle('brick_pixel');
+      controller.rollSessionCosmetics();
+      expect(controller.isJellyOrJelibonStyle, isFalse);
+
+      controller.hitBrickForTest(b1);
+      expect(b1.isAlive, isFalse);
+      expect(b2.bounceVy, 0.0); // No shake!
+
+      // 2. With jelly brick style ('brick_jelly'): neighbor SHOULD settle
+      await save.equipBrickStyle('brick_jelly');
+      controller.rollSessionCosmetics();
+      expect(controller.isJellyOrJelibonStyle, isTrue);
+
+      final b3 = Brick(x: 100, y: 100, width: 40, height: 20, hp: 1, color: Colors.blue);
+      final b4 = Brick(x: 145, y: 100, width: 40, height: 20, hp: 1, color: Colors.green);
+      controller.bricks
+        ..clear()
+        ..addAll([b3, b4]);
+
+      controller.hitBrickForTest(b3);
+      expect(b3.isAlive, isFalse);
+      expect(b4.bounceVy, greaterThan(0.0)); // Neighbor settled!
+    });
+
+    test('Phase 5: Octopus Vault is locked to 3 pearls and brick_jelly exists', () {
+      final jelly = BrickStyle.getById('brick_jelly');
+      expect(jelly.id, 'brick_jelly');
+      expect(CrateDef.octopusVaultPearlCost, 3);
+      expect(CrateDef.octopusVault.id, 'octopus');
     });
   });
 }

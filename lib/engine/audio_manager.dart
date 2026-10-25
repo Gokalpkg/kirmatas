@@ -143,6 +143,7 @@ class AudioManager {
     await _loadPool('brick_pixel', 'assets/audio/chip1.mp3', 2);
     await _loadPool('brick_gloss', 'assets/audio/y2k_digital1.mp3', 2);
     await _loadPool('brick_neu', 'assets/audio/pop2.mp3', 2);
+    await _loadPool('brick_jelly', 'assets/audio/pop2.mp3', 2);
     await _loadPool('brick_cyber', 'assets/audio/glass_shatter.mp3', 2);
     await _loadPool('brick_cosmic', 'assets/audio/glass_glow.mp3', 2);
     await _loadPool('steel', 'assets/audio/crystal_block.mp3', 2);

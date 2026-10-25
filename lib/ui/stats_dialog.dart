@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../engine/play_games_manager.dart';
-import '../models/game_state.dart';
 import '../storage/save_manager.dart';
 import 'kaunos_ui.dart';
 
@@ -473,26 +472,6 @@ class _StatsDialogState extends State<StatsDialog> {
                 ),
               ],
             ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _gamesButton(
-                  label: '🏆 EN YÜKSEK SKOR',
-                  icon: Icons.leaderboard_rounded,
-                  onTap: _busy ? null : () => _run(() => _games.showLeaderboard(mode: GameMode.classic)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _gamesButton(
-                  label: '🌀 KAOS SKOR',
-                  icon: Icons.military_tech_rounded,
-                  onTap: _busy ? null : () => _run(() => _games.showLeaderboard(mode: GameMode.chaos)),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );

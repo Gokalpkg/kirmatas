@@ -6,6 +6,7 @@ import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
 import 'chest_widget.dart';
+import 'crate_opening_dialog.dart';
 import 'kaunos_ui.dart';
 
 class WheelReward {
@@ -88,6 +89,27 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
   DateTime _lastTouchTime = DateTime.now();
   int _lastDragTickSector = -1;
   static String? _lastAwardedShardCategory;
+  static CrateDef? _awardedCrateDef;
+  static CategoryCrateInfo? _awardedCategoryCrate;
+
+  static void _rollRandomFreeCrate() {
+    _awardedCrateDef = null;
+    _awardedCategoryCrate = null;
+    final rnd = Random();
+    // 5 crates: wood, balls, paddles, trails, bricks (excludes coral, abyss, octopus)
+    final pick = rnd.nextInt(5);
+    if (pick == 0) {
+      _awardedCrateDef = CrateDef.allCrates.firstWhere((c) => c.id == 'wood');
+    } else if (pick == 1) {
+      _awardedCategoryCrate = CategoryCrateInfo.categoryCrates['balls'];
+    } else if (pick == 2) {
+      _awardedCategoryCrate = CategoryCrateInfo.categoryCrates['paddles'];
+    } else if (pick == 3) {
+      _awardedCategoryCrate = CategoryCrateInfo.categoryCrates['trails'];
+    } else {
+      _awardedCategoryCrate = CategoryCrateInfo.categoryCrates['bricks'];
+    }
+  }
 
   String _getCategoryDisplayName(String cat) {
     switch (cat) {
@@ -146,53 +168,13 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     WheelReward(
       label: 'KASA',
       labelKey: 'vault_title',
-      subtitle: 'Ahtapot Hazinesi',
-      subtitleKey: 'octopus_crate',
-      icon: Icons.lock_rounded,
-      primaryColor: const Color(0xFFAB47BC),
-      secondaryColor: const Color(0xFF6A1B9A),
+      subtitle: 'Gizemli Sandık',
+      subtitleKey: 'random_crate',
+      icon: Icons.inventory_2_rounded,
+      primaryColor: const Color(0xFFFFB300),
+      secondaryColor: const Color(0xFFFF6F00),
       onClaim: (context, save) async {
-        final crateDef = CrateDef.octopusVault;
-        final fish = vaultRewardFish(save);
-        final rolledRarity = fish.rarity;
-        final currentOwnedCount = save.getFishCount(fish.id);
-        int shardYield = 0;
-        bool isDuplicate = false;
-        bool isShardReward = false;
-        bool isFoodBonus = false;
-        String subtitle;
-
-        if (currentOwnedCount >= 2) {
-          shardYield = fish.rarity == Rarity.common ? 1 : 2;
-          isDuplicate = true;
-          isShardReward = true;
-          final newTotal = save.fishShards + shardYield;
-          subtitle = I18n.tr('fish_duplicate_shards')
-              .replaceAll('{yield}', '$shardYield')
-              .replaceAll('{total}', '$newTotal');
-        } else if (currentOwnedCount == 1) {
-          isDuplicate = true;
-          isFoodBonus = true;
-          subtitle = I18n.tr('fish_second_copy').replaceAll('{name}', fish.name);
-        } else {
-          subtitle = I18n.tr('new_fish_unlocked');
-        }
-
-        await save.savePendingCrate(PendingCrate(
-          crateType: 'aquarium',
-          crateId: crateDef.id,
-          category: 'fish',
-          rewardType: 'fish',
-          rewardId: fish.id,
-          rewardTitle: fish.name,
-          rewardSubtitle: subtitle,
-          rarityIndex: rolledRarity.index,
-          isDuplicate: isDuplicate,
-          isShardReward: isShardReward,
-          shardCount: shardYield > 0 ? shardYield : 1,
-          isFoodBonus: isFoodBonus,
-          bonusFoodCount: isFoodBonus ? 3 : 0,
-        ));
+        _rollRandomFreeCrate();
       },
     ),
     WheelReward(
@@ -441,6 +423,11 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
         customTitle = I18n.tr('shard_reward_title').replaceAll('{category}', catName);
         customSubtitle = I18n.tr('shard_reward_subtitle').replaceAll('{category}', catName).replaceAll('{count}', '$currentShards');
         customIcon = _getCategoryIcon(cat);
+      } else if (selectedReward.label == 'KASA' || selectedReward.labelKey == 'vault_title') {
+        final cName = _awardedCrateDef?.name ?? _awardedCategoryCrate?.name ?? 'Gizemli Sandık';
+        customTitle = '🎁 $cName';
+        customSubtitle = 'Hemen ücretsiz açmaya hazır!';
+        customIcon = Icons.inventory_2_rounded;
       }
 
       _showPrizeDialog(
@@ -589,22 +576,18 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     Color? chestPrimary;
     Color? chestSecondary;
     if (isChest) {
-      final pending = SaveManager.instance.pendingCrate;
-      final idx = (pending?.rarityIndex ?? 0).clamp(0, Rarity.values.length - 1);
-      chestTier = Rarity.values[idx];
-      switch (chestTier) {
-        case Rarity.common:
-          chestPrimary = const Color(0xFF8D6E63);
-          chestSecondary = const Color(0xFF5D4037);
-        case Rarity.rare:
-          chestPrimary = const Color(0xFF00E5FF);
-          chestSecondary = const Color(0xFF006064);
-        case Rarity.epic:
-          chestPrimary = const Color(0xFFE040FB);
-          chestSecondary = const Color(0xFF4A148C);
-        case Rarity.legendary:
-          chestPrimary = const Color(0xFFFFD54F);
-          chestSecondary = const Color(0xFFE65100);
+      if (_awardedCrateDef != null) {
+        chestTier = _awardedCrateDef!.tier;
+        chestPrimary = _awardedCrateDef!.primaryColor;
+        chestSecondary = Color.lerp(chestPrimary, Colors.black, 0.45);
+      } else if (_awardedCategoryCrate != null) {
+        chestTier = Rarity.rare;
+        chestPrimary = _awardedCategoryCrate!.primaryColor;
+        chestSecondary = Color.lerp(chestPrimary, Colors.black, 0.45);
+      } else {
+        chestTier = Rarity.rare;
+        chestPrimary = const Color(0xFFFFB300);
+        chestSecondary = const Color(0xFFFF6F00);
       }
     }
 
@@ -641,12 +624,20 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
               child: Icon(displayIcon, color: Colors.white, size: 46),
             ),
       footnote: isChest
-          ? I18n.tr('vault_queued_sub').replaceAll('{cost}', '${CrateDef.octopusVaultPearlCost}')
+          ? 'Tebrikler! Sandığın hemen ücretsiz açılmaya hazır.'
           : I18n.tr('reward_transferred_sub'),
-      buttonLabel: isChest ? I18n.tr('open_vault_btn') : I18n.tr('awesome_btn'),
+      buttonLabel: isChest ? 'HEDİYEYİ AÇ (ÜCRETSİZ)' : I18n.tr('awesome_btn'),
       onDone: () {
         if (isChest) {
-          Navigator.of(context).pop();
+          final cDef = _awardedCrateDef;
+          final catDef = _awardedCategoryCrate;
+          Navigator.of(context).pop(); // close reveal dialog
+          Navigator.of(context).pop(); // close wheel dialog
+          if (cDef != null) {
+            CrateOpeningDialog.show(context, crate: cDef);
+          } else if (catDef != null) {
+            CrateOpeningDialog.show(context, categoryCrate: catDef);
+          }
         }
       },
     );

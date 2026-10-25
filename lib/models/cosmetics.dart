@@ -949,6 +949,7 @@ class BrickStyle {
     BrickStyle(id: 'brick_neon', cost: 1800, rarity: Rarity.rare, accent: Color(0xFF00E5FF)),
     BrickStyle(id: 'brick_pixel', cost: 1600, rarity: Rarity.rare, accent: Color(0xFFFFD54F)),
     BrickStyle(id: 'brick_neu', cost: 3200, rarity: Rarity.epic, accent: Color(0xFF90A4AE)),
+    BrickStyle(id: 'brick_jelly', cost: 3600, rarity: Rarity.epic, accent: Color(0xFF00E676)),
     BrickStyle(id: 'brick_cyber', cost: 4500, rarity: Rarity.epic, accent: Color(0xFF00E5FF)),
     BrickStyle(id: 'brick_cosmic', cost: 9500, rarity: Rarity.legendary, accent: Color(0xFFE040FB)),
   ];

@@ -473,6 +473,12 @@ class GameController extends ChangeNotifier {
   PaddleSkin get activePaddleSkin => PaddleSkin.getById(activePaddleId);
   TrailSkin get activeTrailSkin => TrailSkin.getById(activeTrailId);
 
+  /// Only Jelly ('brick_jelly') and Jelibon ('brick_neu' / 'brick_gloss') styles trigger neighbor brick shake/elastic settle
+  bool get isJellyOrJelibonStyle {
+    final s = activeBrickStyle;
+    return s == 'brick_jelly' || s == 'jelly' || s == 'brick_neu' || s == 'neu' || s == 'brick_gloss' || s == 'gloss';
+  }
+
   GameController() {
     paddle = Paddle(x: 140, y: 560);
     rollSessionCosmetics();
@@ -3450,14 +3456,17 @@ class GameController extends ChangeNotifier {
     particles.spawnBrickShards(b.x, b.y, b.width, b.height, b.color, count: b.isBoss ? 16 : 6);
 
     // Step 5: Kalan komşu ve aynı satırdaki bloklar yerine zıplayarak (elastic overshoot) oturur
-    for (final other in bricks) {
-      if (!other.isAlive || other == b) continue;
-      final dy = (other.y - b.y).abs();
-      final dx = (other.x - b.x).abs();
-      if (dy < 26.0 || (dx < 75.0 && dy < 75.0)) {
-        final dist = sqrt(dx * dx + dy * dy);
-        final impulse = max(1.5, 5.2 - (dist / 24.0));
-        other.triggerElasticSettle(impulse: impulse);
+    // ONLY enabled for jelly & jelibon block styles
+    if (isJellyOrJelibonStyle) {
+      for (final other in bricks) {
+        if (!other.isAlive || other == b) continue;
+        final dy = (other.y - b.y).abs();
+        final dx = (other.x - b.x).abs();
+        if (dy < 26.0 || (dx < 75.0 && dy < 75.0)) {
+          final dist = sqrt(dx * dx + dy * dy);
+          final impulse = max(1.5, 5.2 - (dist / 24.0));
+          other.triggerElasticSettle(impulse: impulse);
+        }
       }
     }
 
@@ -3753,8 +3762,10 @@ class GameController extends ChangeNotifier {
           _destroyBrick(b);
         }
       } else if (dist <= effectiveRadius + 48.0) {
-        final impulse = max(1.8, 5.8 - ((dist - effectiveRadius) / 12.0));
-        b.triggerElasticSettle(impulse: impulse);
+        if (isJellyOrJelibonStyle) {
+          final impulse = max(1.8, 5.8 - ((dist - effectiveRadius) / 12.0));
+          b.triggerElasticSettle(impulse: impulse);
+        }
       }
     }
   }

@@ -1324,6 +1324,9 @@ class _GameWorldPainter extends CustomPainter {
             case 'brick_neu':
               _drawNeuBrick(canvas, b, rrect);
               break;
+            case 'brick_jelly':
+              _drawJellyBrick(canvas, b, rect, rrect, halfW, halfH);
+              break;
             case 'brick_pixel':
               _drawPixelBrick(canvas, b, rect, halfW, halfH);
               break;
@@ -2067,6 +2070,52 @@ class _GameWorldPainter extends CustomPainter {
     _fill.color = Colors.white;
     canvas.drawRect(Rect.fromLTWH(-halfW + 4.5, -halfH + 3.5, 5.0, 2.0), _fill);
     canvas.drawRect(Rect.fromLTWH(halfW - 7.5, -halfH + 3.5, 2.2, 2.0), _fill);
+
+    _fill.isAntiAlias = true;
+    _stroke.isAntiAlias = true;
+  }
+
+  void _drawJellyBrick(Canvas canvas, Brick b, Rect rect, RRect rrect, double halfW, double halfH) {
+    // === "KOZMİK JÖLE": Retro Pixel Art Gelatinous Bouncy Block ===
+    _fill.isAntiAlias = false;
+    _stroke.isAntiAlias = false;
+    final base = b.color;
+    final light = Color.lerp(base, Colors.white, 0.65)!;
+    final dark = Color.lerp(base, const Color(0xFF0B1021), 0.50)!;
+
+    // 1. Stepped pixel drop shadow
+    _fill
+      ..style = PaintingStyle.fill
+      ..shader = null
+      ..color = const Color(0xFF0B1021);
+    canvas.drawRect(rect.translate(2.0, 2.5), _fill);
+
+    // 2. Translucent Gelatinous Body
+    _fill.color = dark;
+    canvas.drawRect(rect, _fill);
+
+    _fill.color = base.withValues(alpha: 0.92);
+    canvas.drawRect(rect.deflate(1.5), _fill);
+
+    // 3. Inner Gelatin Core (rich translucent center)
+    _fill.color = Color.lerp(base, Colors.white, 0.22)!.withValues(alpha: 0.85);
+    canvas.drawRect(Rect.fromLTRB(-halfW + 3.0, -halfH + 3.0, halfW - 3.5, halfH - 4.0), _fill);
+
+    // 4. Gelatin Refraction Bottom Rim
+    _fill.color = dark.withValues(alpha: 0.70);
+    canvas.drawRect(Rect.fromLTWH(-halfW + 2.5, halfH - 4.5, rect.width - 5.0, 2.0), _fill);
+
+    // 5. Crisp Glistening Jelly Specular Glints (Stepped Pixel Art Highlights)
+    _fill.color = light;
+    canvas.drawRect(Rect.fromLTWH(-halfW + 3.0, -halfH + 2.5, 6.0, 2.5), _fill);
+    _fill.color = Colors.white;
+    canvas.drawRect(Rect.fromLTWH(-halfW + 3.5, -halfH + 3.0, 3.5, 1.8), _fill);
+
+    // Second smaller jelly glint on the top right
+    _fill.color = light;
+    canvas.drawRect(Rect.fromLTWH(halfW - 8.0, -halfH + 2.5, 4.0, 2.0), _fill);
+    _fill.color = Colors.white;
+    canvas.drawRect(Rect.fromLTWH(halfW - 7.0, -halfH + 2.8, 2.0, 1.5), _fill);
 
     _fill.isAntiAlias = true;
     _stroke.isAntiAlias = true;
@@ -5255,28 +5304,7 @@ class _GameWorldPainter extends CustomPainter {
       final bob = sin(cap.animTimer * 6.0) * 2.5;
       canvas.translate(0, bob);
 
-      // Glowing aura around falling capsule matching powerup color (or crimson hazard halo for debuffs)
-      final pulse = sin(cap.animTimer * 7.0);
-      final isDebuff = cap.type.kind == PowerUpKind.debuff;
-      if (isDebuff) {
-        final dangerPulse = 0.75 + 0.25 * sin(cap.animTimer * 12.0);
-        _fill.color = const Color(0xFFFF1744).withValues(alpha: 0.28 * dangerPulse);
-        canvas.drawCircle(Offset.zero, 22.0 + pulse * 2.5, _fill);
-        _fill.color = const Color(0xFFD50000).withValues(alpha: 0.14);
-        canvas.drawCircle(Offset.zero, 27.0, _fill);
-
-        _stroke
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.0
-          ..color = const Color(0xFFFF5252).withValues(alpha: 0.85 * dangerPulse);
-        canvas.drawCircle(Offset.zero, 20.5 + pulse * 1.5, _stroke);
-      } else {
-        _fill.color = cap.type.color.withValues(alpha: 0.24 + 0.08 * pulse);
-        canvas.drawCircle(Offset.zero, 19.0 + pulse * 2.0, _fill);
-        _fill.color = cap.type.color.withValues(alpha: 0.12);
-        canvas.drawCircle(Offset.zero, 25.0, _fill);
-      }
-
+      // Clean falling skill icon without outer glowing circle aura (pure pixel art icon)
       if (cap.type == PowerUpType.life) {
         final heartPulse = 1.0 + sin(cap.animTimer * 7.0) * 0.12;
         PixelArt.drawPixelHeart(canvas, Offset.zero, 34.0, pulse: heartPulse);

@@ -13,6 +13,7 @@ class CrateOpeningDialog extends StatefulWidget {
   final CrateDef? crate;
   final CategoryCrateInfo? categoryCrate;
   final bool isGuaranteedRedemption;
+  final bool preUnlockedVault;
   final String? category;
   final PendingCrate? pendingCrate;
 
@@ -21,6 +22,7 @@ class CrateOpeningDialog extends StatefulWidget {
     this.crate,
     this.categoryCrate,
     this.isGuaranteedRedemption = false,
+    this.preUnlockedVault = false,
     this.category,
     this.pendingCrate,
   }) : assert(crate != null || categoryCrate != null || isGuaranteedRedemption || pendingCrate != null);
@@ -32,6 +34,7 @@ class CrateOpeningDialog extends StatefulWidget {
     CrateDef? crate,
     CategoryCrateInfo? categoryCrate,
     bool isGuaranteedRedemption = false,
+    bool preUnlockedVault = false,
     String? category,
     PendingCrate? pendingCrate,
   }) async {
@@ -45,6 +48,7 @@ class CrateOpeningDialog extends StatefulWidget {
           crate: crate,
           categoryCrate: categoryCrate,
           isGuaranteedRedemption: isGuaranteedRedemption,
+          preUnlockedVault: preUnlockedVault,
           category: category,
           pendingCrate: pendingCrate,
         ),
@@ -240,6 +244,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   @override
   void initState() {
     super.initState();
+    if (widget.preUnlockedVault) {
+      _vaultUnlocked = true;
+    }
 
     _dropController = AnimationController(
       vsync: this,

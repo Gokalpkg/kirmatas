@@ -243,7 +243,7 @@ class SettingsDialog extends StatelessWidget {
                           SizedBox(width: 8),
                           Flexible(
                             child: Text(
-                              'İSTATİSTİKLERİM & PLAY GAMES',
+                              'OYUN İSTATİSTİKLERİ',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
