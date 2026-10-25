@@ -22,6 +22,45 @@ class LeagueRival {
   });
 }
 
+/// A real player friend added via Friend Tag / Kaunos ID (#KRM-XXXX).
+class RealFriend {
+  final String tag;
+  String name;
+  int weeklyScore;
+  int highScore;
+  int leagueTier;
+  DateTime lastSeen;
+
+  RealFriend({
+    required this.tag,
+    required this.name,
+    this.weeklyScore = 0,
+    this.highScore = 0,
+    this.leagueTier = 0,
+    DateTime? lastSeen,
+  }) : lastSeen = lastSeen ?? DateTime.now();
+
+  Map<String, dynamic> toJson() => {
+        'tag': tag,
+        'name': name,
+        'weeklyScore': weeklyScore,
+        'highScore': highScore,
+        'leagueTier': leagueTier,
+        'lastSeen': lastSeen.millisecondsSinceEpoch,
+      };
+
+  factory RealFriend.fromJson(Map<String, dynamic> json) => RealFriend(
+        tag: (json['tag'] as String?) ?? '',
+        name: (json['name'] as String?) ?? 'Arkadaş',
+        weeklyScore: (json['weeklyScore'] as num?)?.toInt() ?? 0,
+        highScore: (json['highScore'] as num?)?.toInt() ?? 0,
+        leagueTier: (json['leagueTier'] as num?)?.toInt() ?? 0,
+        lastSeen: json['lastSeen'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(json['lastSeen'] as int)
+            : DateTime.now(),
+      );
+}
+
 /// One weekly-league bot: drifts from [startScore] on Monday to
 /// [endScore] by week end so the table stays alive all week.
 class _LeagueBot {
@@ -150,6 +189,31 @@ class SaveManager extends ChangeNotifier {
     }
     playerName = name.isEmpty ? defaultPlayerName : name;
     await _prefs?.setString('playerName', playerName);
+    notifyListeners();
+  }
+
+  /// Unique Supercell-style Friend Tag / Kaunos ID (e.g. #KRM-7842).
+  String playerTag = '';
+
+  /// Locally cached real friends added by Friend Tag.
+  List<RealFriend> realFriends = [];
+
+  Future<void> addRealFriend(RealFriend friend) async {
+    realFriends.removeWhere((f) => f.tag.toUpperCase() == friend.tag.toUpperCase());
+    realFriends.add(friend);
+    await persistRealFriends();
+  }
+
+  Future<void> removeRealFriend(String tag) async {
+    realFriends.removeWhere((f) => f.tag.toUpperCase() == tag.toUpperCase());
+    await persistRealFriends();
+  }
+
+  Future<void> persistRealFriends() async {
+    await _prefs?.setString(
+      'realFriendsJson',
+      jsonEncode(realFriends.map((f) => f.toJson()).toList()),
+    );
     notifyListeners();
   }
 
@@ -474,8 +538,10 @@ class SaveManager extends ChangeNotifier {
 
   String get seasonalTitle => seasonalTitles[leagueTier.clamp(0, seasonalTitles.length - 1)];
 
-  Color get leagueTierColor {
-    switch (leagueTier) {
+  Color get leagueTierColor => leagueColorForTier(leagueTier);
+
+  static Color leagueColorForTier(int tier) {
+    switch (tier) {
       case 1:
         return const Color(0xFF00E5FF);
       case 2:
@@ -487,6 +553,11 @@ class SaveManager extends ChangeNotifier {
       default:
         return const Color(0xFFCD7F32);
     }
+  }
+
+  static String leagueTitleForTier(int tier) {
+    if (tier < 0 || tier >= seasonalTitles.length) return seasonalTitles[0];
+    return seasonalTitles[tier];
   }
 
   // --- WEEKLY LEAGUE CYCLE ---
@@ -622,7 +693,11 @@ class SaveManager extends ChangeNotifier {
   void _settleLeagueWeek() {
     final playerScore = _weeklyTournamentScore;
     var rank = 1;
-    for (final bot in _leagueBots) {
+    final botSlots = (leagueGroupSize - 1 - realFriends.length).clamp(0, leagueGroupSize - 1);
+    for (final friend in realFriends) {
+      if (friend.weeklyScore > playerScore) rank++;
+    }
+    for (final bot in _leagueBots.take(botSlots)) {
       if (bot.endScore > playerScore) rank++;
     }
     final playedTier =
@@ -681,8 +756,11 @@ class SaveManager extends ChangeNotifier {
   List<LeagueRival> getLeagueRivals({DateTime? now}) {
     ensureLeagueWeek(now: now);
     final progress = leagueWeekProgress(now: now);
+    final botSlots = (leagueGroupSize - 1 - realFriends.length).clamp(0, leagueGroupSize - 1);
     final List<LeagueRival> list = [
-      for (final b in _leagueBots)
+      for (final f in realFriends)
+        LeagueRival(name: '${f.name} (${f.tag})', score: f.weeklyScore, isPlayer: false),
+      for (final b in _leagueBots.take(botSlots))
         LeagueRival(name: b.name, score: b.scoreAt(progress), isPlayer: false),
       LeagueRival(name: playerName, score: weeklyTournamentScore, isPlayer: true),
     ];
@@ -717,6 +795,23 @@ class SaveManager extends ChangeNotifier {
 
     gold = _prefs?.getInt('gold') ?? 300;
     playerName = _prefs?.getString('playerName') ?? defaultPlayerName;
+    playerTag = _prefs?.getString('playerTag') ?? '';
+    if (playerTag.isEmpty) {
+      final rng = math.Random();
+      final hexCode = (rng.nextInt(0xEFFF) + 0x1000).toRadixString(16).toUpperCase();
+      playerTag = '#KRM-$hexCode';
+      _prefs?.setString('playerTag', playerTag);
+    }
+
+    final rfJson = _prefs?.getString('realFriendsJson');
+    if (rfJson != null) {
+      try {
+        final List decoded = jsonDecode(rfJson);
+        realFriends = decoded
+            .map((e) => RealFriend.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } catch (_) {}
+    }
     sfxVolume = _prefs?.getInt('sfxVolume') ?? 8;
     bgmVolume = _prefs?.getInt('bgmVolume') ?? 3;
     vibrationLevel = _prefs?.getInt('vibrationLevel') ?? 8;

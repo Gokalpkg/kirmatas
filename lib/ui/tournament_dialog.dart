@@ -1,7 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../engine/audio_manager.dart';
+import '../engine/cloud_social_manager.dart';
+import '../engine/play_games_manager.dart';
 import '../engine/i18n.dart';
+import '../models/game_state.dart';
 import '../storage/save_manager.dart';
 import 'kaunos_ui.dart';
 
@@ -51,6 +55,10 @@ class _TournamentDialogState extends State<TournamentDialog> {
   void initState() {
     super.initState();
     _selectedTab = widget.initialTab;
+    CloudSocialManager.instance.syncProfileToCloud();
+    CloudSocialManager.instance.refreshFriendsFromCloud().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -146,10 +154,10 @@ class _TournamentDialogState extends State<TournamentDialog> {
             ),
             SizedBox(height: isCompact ? 6 : 10),
 
-            // Dual Tab Selector Bar
+            // Triple Tab Selector Bar: [LİG, ARKADAŞLAR, GÖREVLER]
             Container(
-              margin: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20),
-              padding: const EdgeInsets.all(4),
+              margin: EdgeInsets.symmetric(horizontal: isCompact ? 14 : 18),
+              padding: const EdgeInsets.all(3.5),
               decoration: BoxDecoration(
                 color: const Color(0xFF131828),
                 borderRadius: BorderRadius.circular(16),
@@ -158,104 +166,32 @@ class _TournamentDialogState extends State<TournamentDialog> {
               child: Row(
                 children: [
                   Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selectedTab = 0),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          vertical: isCompact ? 6 : 8,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: _selectedTab == 0
-                              ? LinearGradient(
-                                  colors: [
-                                    tierColor.withValues(alpha: 0.9),
-                                    tierColor.withValues(alpha: 0.6),
-                                  ],
-                                )
-                              : null,
-                          color: _selectedTab == 0 ? null : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.military_tech_rounded,
-                              size: isCompact ? 16 : 18,
-                              color: _selectedTab == 0
-                                  ? Colors.black
-                                  : Colors.white70,
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                'HAFTALIK LİG',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: _selectedTab == 0
-                                      ? Colors.black
-                                      : Colors.white70,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: isCompact ? 11 : 12.5,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    child: _buildTabButton(
+                      index: 0,
+                      icon: Icons.military_tech_rounded,
+                      label: 'LİG',
+                      activeColor: tierColor,
+                      isCompact: isCompact,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selectedTab = 1),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          vertical: isCompact ? 6 : 8,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: _selectedTab == 1
-                              ? const LinearGradient(
-                                  colors: [
-                                    Color(0xFF00E5FF),
-                                    Color(0xFF00B0FF),
-                                  ],
-                                )
-                              : null,
-                          color: _selectedTab == 1 ? null : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.assignment_turned_in_rounded,
-                              size: isCompact ? 16 : 18,
-                              color: _selectedTab == 1
-                                  ? Colors.black
-                                  : Colors.white70,
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                'GÜNLÜK GÖREVLER',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: _selectedTab == 1
-                                      ? Colors.black
-                                      : Colors.white70,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: isCompact ? 11 : 12.5,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    child: _buildTabButton(
+                      index: 1,
+                      icon: Icons.people_alt_rounded,
+                      label: 'ARKADAŞLAR',
+                      activeColor: const Color(0xFF00E5FF),
+                      isCompact: isCompact,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: _buildTabButton(
+                      index: 2,
+                      icon: Icons.assignment_turned_in_rounded,
+                      label: 'GÖREVLER',
+                      activeColor: const Color(0xFFFFD54F),
+                      isCompact: isCompact,
                     ),
                   ),
                 ],
@@ -274,7 +210,9 @@ class _TournamentDialogState extends State<TournamentDialog> {
                       tierColor,
                       isCompact,
                     )
-                  : _buildQuestsContent(context, isCompact),
+                  : (_selectedTab == 1
+                      ? _buildFriendsContent(context, isCompact)
+                      : _buildQuestsContent(context, isCompact)),
             ),
           ],
         ),
@@ -1877,6 +1815,712 @@ class _TournamentDialogState extends State<TournamentDialog> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTabButton({
+    required int index,
+    required IconData icon,
+    required String label,
+    required Color activeColor,
+    required bool isCompact,
+  }) {
+    final isSelected = _selectedTab == index;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _selectedTab = index);
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: isCompact ? 6 : 8),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? LinearGradient(
+                  colors: [
+                    activeColor.withValues(alpha: 0.9),
+                    activeColor.withValues(alpha: 0.6),
+                  ],
+                )
+              : null,
+          color: isSelected ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: isCompact ? 14 : 16,
+              color: isSelected ? Colors.black : Colors.white70,
+            ),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isSelected ? Colors.black : Colors.white70,
+                  fontWeight: FontWeight.w900,
+                  fontSize: isCompact ? 10.5 : 11.5,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFriendsContent(BuildContext context, bool isCompact) {
+    final save = widget.save;
+    final friends = List<RealFriend>.from(save.realFriends);
+    final playerAsFriend = RealFriend(
+      tag: save.playerTag,
+      name: '${save.playerName} (Sen)',
+      weeklyScore: save.weeklyTournamentScore,
+      highScore: save.getHighScore(GameMode.classic),
+      leagueTier: save.leagueTier,
+      lastSeen: DateTime.now(),
+    );
+    final allLeaderboard = [playerAsFriend, ...friends]
+      ..sort((a, b) {
+        final cmp = b.weeklyScore.compareTo(a.weeklyScore);
+        if (cmp != 0) return cmp;
+        return b.highScore.compareTo(a.highScore);
+      });
+
+    return Column(
+      children: [
+        // Friends Header Row
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(isCompact ? 6 : 8),
+                decoration: BoxDecoration(
+                  color: const Color(0x3300E5FF),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF00E5FF)),
+                ),
+                child: Icon(
+                  Icons.people_alt_rounded,
+                  color: const Color(0xFF00E5FF),
+                  size: isCompact ? 20 : 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ARKADAŞLAR & CANLI LİG',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isCompact ? 14 : 16,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${friends.length} Gerçek Arkadaş Ekli • Canlı Senkronizasyon',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF00E5FF),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.sync_rounded, color: Color(0xFF00E5FF)),
+                tooltip: 'Puanları Yenile',
+                onPressed: () async {
+                  HapticFeedback.lightImpact();
+                  await CloudSocialManager.instance.refreshFriendsFromCloud();
+                  if (mounted) setState(() {});
+                },
+              ),
+              KaunosCloseButton(
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        ),
+
+        SizedBox(height: isCompact ? 6 : 10),
+
+        Expanded(
+          child: ListView(
+            padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20, vertical: 6),
+            children: [
+              // Supercell-Style Kaunos ID Hero Card
+              _buildPlayerTagHeroCard(save, isCompact),
+              const SizedBox(height: 10),
+
+              // Google Play Games Friends Banner
+              _buildPlayGamesLeaderboardBanner(context, isCompact),
+              const SizedBox(height: 12),
+
+              // Section Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '🏆 ARKADAŞLAR LİDER TABLOSU',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  Text(
+                    'Haftalık Puan Sıralaması',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Friends list or empty state
+              if (friends.isEmpty)
+                _buildNoFriendsCard(context, isCompact)
+              else
+                ...List.generate(allLeaderboard.length, (idx) {
+                  final entry = allLeaderboard[idx];
+                  final isMe = entry.tag == save.playerTag;
+                  return _buildFriendLeaderboardRow(entry, idx + 1, isMe, isCompact);
+                }),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlayerTagHeroCard(SaveManager save, bool isCompact) {
+    return Container(
+      padding: EdgeInsets.all(isCompact ? 12 : 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1A233A),
+            Color(0xFF0F1524),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.4), width: 1.3),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00E5FF).withValues(alpha: 0.12),
+            blurRadius: 12,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF00E5FF), Color(0xFF007799)],
+                  ),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: const Center(
+                  child: Icon(Icons.person_pin_rounded, color: Colors.white, size: 26),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          save.playerName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00E5FF).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'SEN',
+                            style: TextStyle(
+                              color: Color(0xFF00E5FF),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        const Text(
+                          'Oyuncu Kodun (ID): ',
+                          style: TextStyle(color: Colors.white60, fontSize: 11),
+                        ),
+                        SelectableText(
+                          save.playerTag,
+                          style: const TextStyle(
+                            color: Color(0xFF00E5FF),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                            fontFamily: 'Rajdhani',
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: KaunosTactileButton.cyan(
+                  height: 38,
+                  onTap: () async {
+                    final ok = await CloudSocialManager.instance.copyPlayerTagToClipboard();
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          ok ? 'Oyuncu Kodun (${save.playerTag}) Kopyalandı! Arkadaşına Gönder.' : 'Kopyalanamadı',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        backgroundColor: const Color(0xFF006064),
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.copy_rounded, color: Color(0xFF00E5FF), size: 15),
+                      SizedBox(width: 6),
+                      Text(
+                        'KODU KOPYALA',
+                        style: TextStyle(
+                          color: Color(0xFF00E5FF),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: KaunosTactileButton.gold(
+                  height: 38,
+                  onTap: () => _showAddFriendDialog(context),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.person_add_alt_1_rounded, color: Colors.black, size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        'ARKADAŞ EKLE',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayGamesLeaderboardBanner(BuildContext context, bool isCompact) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 10 : 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0x66131828),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0x3300E676)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: const Color(0x3300E676),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.sports_esports_rounded, color: Color(0xFF69F0AE), size: 20),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Google Play Games Sıralaması',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+                Text(
+                  'Google hesabındaki arkadaşlarının rekorları',
+                  style: TextStyle(color: Colors.white54, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final msg = await PlayGamesManager.instance.showLeaderboard(mode: GameMode.classic);
+              if (!mounted) return;
+              if (msg.contains('giriş')) {
+                await PlayGamesManager.instance.signIn();
+                await PlayGamesManager.instance.showLeaderboard(mode: GameMode.classic);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1B5E20),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text(
+              'AÇ 🎮',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoFriendsCard(BuildContext context, bool isCompact) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131828),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.group_add_rounded, color: Color(0xFF00E5FF), size: 44),
+          const SizedBox(height: 10),
+          const Text(
+            'Henüz Arkadaş Eklemedin!',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Yukarıdaki Oyuncu Kodunu arkadaşlarına gönder veya onların #KRM kodunu "Arkadaş Ekle" butonundan gir!\nEklediğin arkadaşlar hem bu listede hem de Haftalık Lig şampiyonasında gerçek puanlarıyla karşına çıkacaktır.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 11.5, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFriendLeaderboardRow(RealFriend entry, int rank, bool isMe, bool isCompact) {
+    final rankColor = rank == 1
+        ? const Color(0xFFFFD54F)
+        : (rank == 2
+            ? const Color(0xFFB0BEC5)
+            : (rank == 3 ? const Color(0xFFFF8A65) : Colors.white60));
+
+    final tierName = SaveManager.leagueTitleForTier(entry.leagueTier);
+    final tierColor = SaveManager.leagueColorForTier(entry.leagueTier);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 10 : 12, vertical: isCompact ? 8 : 10),
+      decoration: BoxDecoration(
+        color: isMe
+            ? const Color(0xFF003846).withValues(alpha: 0.6)
+            : const Color(0xFF131828),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isMe
+              ? const Color(0xFF00E5FF).withValues(alpha: 0.8)
+              : Colors.white10,
+          width: isMe ? 1.5 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Rank Badge
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: rankColor.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+              border: Border.all(color: rankColor, width: 1.2),
+            ),
+            child: Center(
+              child: Text(
+                rank <= 3 ? (rank == 1 ? '🥇' : (rank == 2 ? '🥈' : '🥉')) : '$rank',
+                style: TextStyle(
+                  color: rankColor,
+                  fontWeight: FontWeight.w900,
+                  fontSize: rank <= 3 ? 13 : 11,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+
+          // Friend Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        entry.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isMe ? const Color(0xFF00E5FF) : Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: tierColor.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: tierColor.withValues(alpha: 0.5), width: 0.6),
+                      ),
+                      child: Text(
+                        tierName,
+                        style: TextStyle(color: tierColor, fontSize: 8.5, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  entry.tag,
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 10,
+                    fontFamily: 'Rajdhani',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Score Badge
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${_fmtNum(entry.weeklyScore)} Puan',
+                style: const TextStyle(
+                  color: Color(0xFFFFD54F),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                ),
+              ),
+              Text(
+                'Rekor: ${_fmtNum(entry.highScore)}',
+                style: const TextStyle(color: Colors.white38, fontSize: 9.5),
+              ),
+            ],
+          ),
+
+          // Delete Friend Option (if not me)
+          if (!isMe) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(Icons.close_rounded, size: 16, color: Colors.white24),
+              splashRadius: 16,
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: const Color(0xFF161A29),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    title: const Text('Arkadaşı Sil', style: TextStyle(color: Colors.white)),
+                    content: Text('${entry.name} (${entry.tag}) arkadaş listenden kaldırılsın mı?',
+                        style: const TextStyle(color: Colors.white70)),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('İptal')),
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                        child: const Text('Kaldır', style: TextStyle(color: Colors.redAccent)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await widget.save.removeRealFriend(entry.tag);
+                  if (mounted) setState(() {});
+                }
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showAddFriendDialog(BuildContext context) {
+    final textController = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (dlgCtx) => StatefulBuilder(
+        builder: (context, setDlgState) => AlertDialog(
+          backgroundColor: const Color(0xFF131828),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: const BorderSide(color: Color(0xFF00E5FF), width: 1.5),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.person_add_alt_1_rounded, color: Color(0xFF00E5FF)),
+              SizedBox(width: 8),
+              Text(
+                'ARKADAŞ EKLE',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Arkadaşının #KRM ile başlayan Oyuncu Kodunu gir:',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: textController,
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
+                style: const TextStyle(
+                  color: Color(0xFF00E5FF),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  fontFamily: 'Rajdhani',
+                  letterSpacing: 1.2,
+                ),
+                decoration: InputDecoration(
+                  hintText: '#KRM-XXXX',
+                  hintStyle: const TextStyle(color: Colors.white24),
+                  filled: true,
+                  fillColor: const Color(0xFF0E1322),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Colors.white24),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFF00E5FF), width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dlgCtx).pop(),
+              child: const Text('Vazgeç', style: TextStyle(color: Colors.white54)),
+            ),
+            ElevatedButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final input = textController.text.trim();
+                      if (input.isEmpty) return;
+                      setDlgState(() => isSubmitting = true);
+                      final result = await CloudSocialManager.instance.addFriendByTag(input);
+                      if (!context.mounted) return;
+                      Navigator.of(dlgCtx).pop();
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            result.message,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          backgroundColor: result.success ? const Color(0xFF006064) : const Color(0xFFB71C1C),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+
+                      if (mounted) setState(() {});
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00E5FF),
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                    )
+                  : const Text('EKLE', style: TextStyle(fontWeight: FontWeight.w900)),
+            ),
+          ],
+        ),
       ),
     );
   }
