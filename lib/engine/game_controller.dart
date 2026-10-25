@@ -32,20 +32,7 @@ enum ChaosPerkType {
   magnetPull,
   sniperSight;
 
-  String get titleTr {
-    switch (this) {
-      case ChaosPerkType.emberCore:
-        return '🔥 Kor Çekirdek';
-      case ChaosPerkType.chainShock:
-        return '⚡ Zincirleme Şok';
-      case ChaosPerkType.microBlast:
-        return '💣 Mikro Patlama';
-      case ChaosPerkType.magnetPull:
-        return '🧲 Manyetik Çekim';
-      case ChaosPerkType.sniperSight:
-        return '🎯 Keskin Nişancı';
-    }
-  }
+  String get titleTr => cleanTitleTr;
 
   String get cleanTitleTr {
     switch (this) {
@@ -1646,45 +1633,74 @@ class GameController extends ChangeNotifier {
 
       final nx = dx / dist;
       final ny = dy / dist;
-      final minSafeDist = bh.radius + 20.0;
       final proximity = 1.0 - (dist / reach);
       final falloff = pow(proximity, 0.65).toDouble();
-      final drift = (bh.isVortexTrap ? 115.0 : (bh.isSupercharged ? 95.0 : 75.0)) * falloff;
       final spin = bee.isFacingRight ? 1.0 : -1.0;
 
-      if (dist > minSafeDist) {
-        // Outer gravitational curve: gently pull toward the well while curling tangentially
-        final inwardRatio = ((dist - minSafeDist) / (reach - minSafeDist)).clamp(0.0, 1.0);
-        bee.x += nx * drift * inwardRatio * 0.45 * dt;
-        bee.baseY += ny * drift * inwardRatio * 0.45 * dt;
+      // Siphon Vortex Interaction: Black holes of sufficient size (>= 16.0 or vortex/supercharged)
+      // actively suck the bee inward like a whirlpool siphon, consuming it and growing 1 tier larger!
+      final isSiphonSize = bh.radius >= 16.0 || bh.isVortexTrap || bh.isSupercharged;
 
-        // Tangential orbital velocity (slingshot arc)
-        bee.x += -ny * spin * drift * 0.85 * dt;
-        bee.baseY += nx * spin * drift * 0.85 * dt;
+      if (isSiphonSize) {
+        // Strong spiral vortex pull accelerating toward black hole core
+        final siphonPull = (bh.isVortexTrap ? 175.0 : 140.0) * (0.45 + 0.55 * falloff);
+        bee.x += nx * siphonPull * dt;
+        bee.baseY += ny * siphonPull * dt;
+        // Vortex spin swirl
+        bee.x += -ny * spin * (siphonPull * 0.75) * dt;
+        bee.baseY += nx * spin * (siphonPull * 0.75) * dt;
+
+        // Consumed into the event horizon!
+        if (dist <= bh.radius * 0.85 || dist < 18.0) {
+          activeBee = null;
+          // Black hole feeds on the bee and grows 1 tier larger!
+          bh.radius = (bh.radius * 1.25).clamp(bh.radius, 48.0);
+          bh.mass *= 1.25;
+          bh.timeLeft = max(bh.timeLeft, 3.5);
+
+          stats.score += 250;
+          particles.spawnBurst(bh.x, bh.y, const Color(0xFF7C4DFF), count: 26, speed: 190.0);
+          particles.spawnBurst(bh.x, bh.y, const Color(0xFFFFD54F), count: 18, speed: 130.0);
+          particles.spawnShockwave(bh.x, bh.y, const Color(0xFFE040FB), maxRadius: bh.radius * 2.2);
+          particles.spawnFloatingText(
+            bh.x,
+            bh.y - 20.0,
+            'KARADELİK SİFONU! +250',
+            const Color(0xFFB388FF),
+            isLarge: true,
+          );
+          audio.playSfx(GameSfx.explosion);
+          return;
+        }
       } else {
-        // Horizon boundary zone: ZERO inward pull; strong centrifugal deflection + orbital acceleration
-        final horizonProximity = ((minSafeDist - dist) / minSafeDist).clamp(0.0, 1.0);
-        final repulsion = (bh.radius + 120.0) * horizonProximity;
+        // Smaller black holes: gravitational slingshot deflection
+        final minSafeDist = bh.radius + 20.0;
+        final drift = 75.0 * falloff;
+        if (dist > minSafeDist) {
+          final inwardRatio = ((dist - minSafeDist) / (reach - minSafeDist)).clamp(0.0, 1.0);
+          bee.x += nx * drift * inwardRatio * 0.45 * dt;
+          bee.baseY += ny * drift * inwardRatio * 0.45 * dt;
+          bee.x += -ny * spin * drift * 0.85 * dt;
+          bee.baseY += nx * spin * drift * 0.85 * dt;
+        } else {
+          final horizonProximity = ((minSafeDist - dist) / minSafeDist).clamp(0.0, 1.0);
+          final repulsion = (bh.radius + 120.0) * horizonProximity;
+          bee.x -= nx * repulsion * dt;
+          bee.baseY -= ny * repulsion * dt;
+          bee.x += -ny * spin * (drift * 1.35 + 40.0) * dt;
+          bee.baseY += nx * spin * (drift * 1.35 + 40.0) * dt;
+        }
 
-        // Push outwards away from black hole core
-        bee.x -= nx * repulsion * dt;
-        bee.baseY -= ny * repulsion * dt;
-
-        // Accelerate around the perimeter (gravity assist slingshot)
-        bee.x += -ny * spin * (drift * 1.35 + 40.0) * dt;
-        bee.baseY += nx * spin * (drift * 1.35 + 40.0) * dt;
-      }
-
-      // Hard cosmic firewall: strict collision barrier ensures the bee never penetrates event horizon
-      final currentDx = bee.x - bh.x;
-      final currentDy = bee.baseY - bh.y;
-      final currentDist = sqrt(currentDx * currentDx + currentDy * currentDy);
-      final absoluteMinDist = bh.radius + 15.0;
-      if (currentDist < absoluteMinDist && currentDist > 0.001) {
-        final cnx = currentDx / currentDist;
-        final cny = currentDy / currentDist;
-        bee.x = bh.x + cnx * absoluteMinDist;
-        bee.baseY = bh.y + cny * absoluteMinDist;
+        final currentDx = bee.x - bh.x;
+        final currentDy = bee.baseY - bh.y;
+        final currentDist = sqrt(currentDx * currentDx + currentDy * currentDy);
+        final absoluteMinDist = bh.radius + 15.0;
+        if (currentDist < absoluteMinDist && currentDist > 0.001) {
+          final cnx = currentDx / currentDist;
+          final cny = currentDy / currentDist;
+          bee.x = bh.x + cnx * absoluteMinDist;
+          bee.baseY = bh.y + cny * absoluteMinDist;
+        }
       }
     }
     bee.baseY = bee.baseY.clamp(110.0, paddle.y - 55.0);
@@ -1757,6 +1773,7 @@ class GameController extends ChangeNotifier {
           }
         } else {
           _bendBeePastBlackHoles(bee, dt);
+          if (activeBee == null) return;
           bee.update(dt);
           if (bee.isOffScreen(screenWidth)) {
             activeBee = null;
@@ -2891,7 +2908,7 @@ class GameController extends ChangeNotifier {
           particles.spawnFloatingText(
             screenWidth / 2,
             screenHeight * 0.38,
-            '⚡ SÜPER KÖŞE VURUŞU!',
+            'SÜPER KÖŞE VURUŞU!',
             const Color(0xFFFFD700),
             isLarge: true,
           );

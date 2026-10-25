@@ -49,7 +49,7 @@ void main() {
         // Scroll to bottom to ensure Cosmic Mastery is rendered and layout checked
         final scrollable = find.byType(Scrollable);
         if (scrollable.evaluate().isNotEmpty) {
-          await tester.scrollUntilVisible(find.text('🌌 KOZMİK USTALIK (SONSUZ SEVİYE)'), 300);
+          await tester.scrollUntilVisible(find.text('KOZMİK USTALIK (SONSUZ SEVİYE)'), 300);
           await tester.pump();
         }
 

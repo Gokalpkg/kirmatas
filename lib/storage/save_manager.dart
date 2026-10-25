@@ -220,6 +220,9 @@ class SaveManager extends ChangeNotifier {
   int sfxVolume = 8;
   int bgmVolume = 3;
   int vibrationLevel = 8;
+  int paddleVolume = 8;
+  int ballVolume = 8;
+  int brickVolume = 8;
   Map<String, int> highScores = {
     'classic': 0,
     'zen': 0,
@@ -815,6 +818,9 @@ class SaveManager extends ChangeNotifier {
     sfxVolume = _prefs?.getInt('sfxVolume') ?? 8;
     bgmVolume = _prefs?.getInt('bgmVolume') ?? 3;
     vibrationLevel = _prefs?.getInt('vibrationLevel') ?? 8;
+    paddleVolume = _prefs?.getInt('paddleVolume') ?? 8;
+    ballVolume = _prefs?.getInt('ballVolume') ?? 8;
+    brickVolume = _prefs?.getInt('brickVolume') ?? 8;
 
     final hsStr = _prefs?.getString('highScores');
     if (hsStr != null) {
@@ -1317,6 +1323,39 @@ class SaveManager extends ChangeNotifier {
     upgrades[id] = cur + 1;
     await _prefs?.setString('upgrades', jsonEncode(upgrades));
     notifyListeners();
+  }
+
+  /// Calculates the exact total amount of gold spent on all attribute upgrades.
+  int calculateTotalSpentOnUpgrades() {
+    int total = 0;
+    for (final stat in StatUpgrade.all) {
+      final lvl = getUpgradeLevel(stat.id);
+      for (int i = 0; i < lvl && i < stat.costs.length; i++) {
+        total += stat.costs[i];
+      }
+    }
+    return total;
+  }
+
+  /// Resets all attribute upgrades and refunds 100% of gold spent to the player.
+  Future<int> resetAllUpgrades() async {
+    final refund = calculateTotalSpentOnUpgrades();
+    if (refund > 0) {
+      await addGold(refund);
+    }
+    for (final stat in StatUpgrade.all) {
+      upgrades[stat.id] = 0;
+      if (stat.id == 'crit_damage') upgrades['u_crit'] = 0;
+      if (stat.id == 'luck') upgrades['u_luck'] = 0;
+    }
+    upgrades['u_gold'] = 0;
+    upgrades['gold_multiplier'] = 0;
+    upgrades['paddle_width'] = 0;
+    upgrades['magnet'] = 0;
+    upgrades['battery'] = 0;
+    await _prefs?.setString('upgrades', jsonEncode(upgrades));
+    notifyListeners();
+    return refund;
   }
 
   Future<void> addBoostStock(String id, int count) async {
@@ -2226,6 +2265,24 @@ class SaveManager extends ChangeNotifier {
   Future<void> setVibrationLevel(int level) async {
     vibrationLevel = level.clamp(0, 8);
     await _prefs?.setInt('vibrationLevel', vibrationLevel);
+    notifyListeners();
+  }
+
+  Future<void> setPaddleVolume(int level) async {
+    paddleVolume = level.clamp(0, 8);
+    await _prefs?.setInt('paddleVolume', paddleVolume);
+    notifyListeners();
+  }
+
+  Future<void> setBallVolume(int level) async {
+    ballVolume = level.clamp(0, 8);
+    await _prefs?.setInt('ballVolume', ballVolume);
+    notifyListeners();
+  }
+
+  Future<void> setBrickVolume(int level) async {
+    brickVolume = level.clamp(0, 8);
+    await _prefs?.setInt('brickVolume', brickVolume);
     notifyListeners();
   }
 

@@ -283,6 +283,86 @@ class SettingsDialog extends StatelessWidget {
                     },
                   ),
 
+                  // Sub-mixer for Paddle, Ball, and Bricks
+                  if (save.sfxVolume > 0)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12, top: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.sports_tennis_rounded, size: 14, color: Color(0xFF80D8FF)),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Raket Vuruş Sesi: ${save.paddleVolume == 0 ? I18n.tr('off') : save.paddleVolume}',
+                                style: const TextStyle(color: Color(0xFF80D8FF), fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          Slider(
+                            value: save.paddleVolume.toDouble(),
+                            min: 0,
+                            max: 8,
+                            divisions: 8,
+                            activeColor: const Color(0xFF00E5FF),
+                            onChanged: (val) {
+                              save.setPaddleVolume(val.toInt());
+                              AudioManager.instance.playSfx(GameSfx.hitPaddle);
+                            },
+                          ),
+                          Row(
+                            children: [
+                              const Icon(Icons.circle_outlined, size: 14, color: Color(0xFFFFD54F)),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Top Sekme Sesi: ${save.ballVolume == 0 ? I18n.tr('off') : save.ballVolume}',
+                                style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          Slider(
+                            value: save.ballVolume.toDouble(),
+                            min: 0,
+                            max: 8,
+                            divisions: 8,
+                            activeColor: const Color(0xFFFFD54F),
+                            onChanged: (val) {
+                              save.setBallVolume(val.toInt());
+                              AudioManager.instance.playSfx(GameSfx.hitWall);
+                            },
+                          ),
+                          Row(
+                            children: [
+                              const Icon(Icons.grid_view_rounded, size: 14, color: Color(0xFFFF8A80)),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Blok Kırma Sesi: ${save.brickVolume == 0 ? I18n.tr('off') : save.brickVolume}',
+                                style: const TextStyle(color: Color(0xFFFF8A80), fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          Slider(
+                            value: save.brickVolume.toDouble(),
+                            min: 0,
+                            max: 8,
+                            divisions: 8,
+                            activeColor: const Color(0xFFFF5252),
+                            onChanged: (val) {
+                              save.setBrickVolume(val.toInt());
+                              AudioManager.instance.playSfx(GameSfx.breakBrick);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
                   const SizedBox(height: 8),
 
                   // Music / BGM Volume

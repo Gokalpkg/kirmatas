@@ -1101,11 +1101,11 @@ enum CosmeticSynergy {
   String get nameTr {
     switch (this) {
       case CosmeticSynergy.fireSunset:
-        return '🔥 Ateş / Günbatımı Sinerjisi';
+        return 'Ateş / Günbatımı Sinerjisi';
       case CosmeticSynergy.iceCrystal:
-        return '❄️ Buz / Kristal Sinerjisi';
+        return 'Buz / Kristal Sinerjisi';
       case CosmeticSynergy.cosmicLegendary:
-        return '👑 Kozmik Efsanevi Set';
+        return 'Kozmik Efsanevi Set';
       case CosmeticSynergy.none:
         return 'Sinerji Yok';
     }

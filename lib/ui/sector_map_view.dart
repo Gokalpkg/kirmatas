@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -20,9 +21,10 @@ class SectorMapView extends StatefulWidget {
   State<SectorMapView> createState() => _SectorMapViewState();
 }
 
-class _SectorMapViewState extends State<SectorMapView> with SingleTickerProviderStateMixin {
+class _SectorMapViewState extends State<SectorMapView> with TickerProviderStateMixin {
   late final ScrollController _scrollController;
   late final AnimationController _pulseController;
+  late final AnimationController _nebulaController;
 
   @override
   void initState() {
@@ -32,6 +34,10 @@ class _SectorMapViewState extends State<SectorMapView> with SingleTickerProvider
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
+    _nebulaController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 14),
+    )..repeat();
 
     // Açıldığında oyuncunun bulunduğu sektöre otomatik kaydır
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -62,6 +68,7 @@ class _SectorMapViewState extends State<SectorMapView> with SingleTickerProvider
   void dispose() {
     _scrollController.dispose();
     _pulseController.dispose();
+    _nebulaController.dispose();
     super.dispose();
   }
 
@@ -297,19 +304,30 @@ class _SectorMapViewState extends State<SectorMapView> with SingleTickerProvider
     final percent = (progress * 100).toInt();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0D18),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Üst Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(
-                color: Color(0xFF101424),
-                border: Border(bottom: BorderSide(color: Colors.white12)),
+      backgroundColor: const Color(0xFF070913),
+      body: Stack(
+        children: [
+          // Dynamic animated colorful nebula background
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _nebulaController,
+              builder: (context, _) => CustomPaint(
+                painter: _CosmicSectorNebulaPainter(progress: _nebulaController.value),
               ),
-              child: Row(
-                children: [
+            ),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                // Üst Header
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: const BoxDecoration(
+                    color: Color(0xD9101424),
+                    border: Border(bottom: BorderSide(color: Colors.white12)),
+                  ),
+                  child: Row(
+                    children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
                     onPressed: () => Navigator.of(context).pop(),
@@ -434,7 +452,9 @@ class _SectorMapViewState extends State<SectorMapView> with SingleTickerProvider
           ],
         ),
       ),
-    );
+    ],
+  ),
+);
   }
 
   Widget _buildSectorCard({
@@ -722,4 +742,91 @@ class _SectorMapViewState extends State<SectorMapView> with SingleTickerProvider
       ),
     );
   }
+}
+
+/// Dynamic swirling colorful cosmic nebula & starry background
+class _CosmicSectorNebulaPainter extends CustomPainter {
+  final double progress; // 0.0 to 1.0
+
+  const _CosmicSectorNebulaPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final t = progress * 2 * math.pi;
+
+    // Deep cosmic space gradient base
+    const baseGradient = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        Color(0xFF090D1C),
+        Color(0xFF060812),
+        Color(0xFF080714),
+      ],
+    );
+    canvas.drawRect(Offset.zero & size, Paint()..shader = baseGradient.createShader(Offset.zero & size));
+
+    // Dynamic swirling colorful nebula clouds (Violet / Magenta, Cyan / Teal, Golden Amber)
+    // 1. Violet-Purple Nebula Bloom (top-left drifting)
+    final cx1 = w * (0.30 + 0.15 * math.sin(t));
+    final cy1 = h * (0.22 + 0.08 * math.cos(t));
+    final r1 = w * (0.75 + 0.10 * math.sin(t * 1.5));
+    final paint1 = Paint()
+      ..shader = RadialGradient(
+        colors: const [
+          Color(0x667C4DFF),
+          Color(0x33B388FF),
+          Color(0x00000000),
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset(cx1, cy1), radius: r1));
+    canvas.drawCircle(Offset(cx1, cy1), r1, paint1);
+
+    // 2. Neon Cyan-Teal Aurora Bloom (mid-right drifting)
+    final cx2 = w * (0.75 - 0.18 * math.cos(t * 0.8));
+    final cy2 = h * (0.55 + 0.12 * math.sin(t * 0.8));
+    final r2 = w * (0.70 + 0.12 * math.cos(t));
+    final paint2 = Paint()
+      ..shader = RadialGradient(
+        colors: const [
+          Color(0x5500E5FF),
+          Color(0x2218FFFF),
+          Color(0x00000000),
+        ],
+        stops: const [0.0, 0.40, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset(cx2, cy2), radius: r2));
+    canvas.drawCircle(Offset(cx2, cy2), r2, paint2);
+
+    // 3. Cosmic Amber & Rose Aurora Bloom (bottom drifting)
+    final cx3 = w * (0.45 + 0.20 * math.sin(t * 1.2));
+    final cy3 = h * (0.82 - 0.08 * math.cos(t * 1.2));
+    final r3 = w * (0.80 + 0.10 * math.sin(t * 0.9));
+    final paint3 = Paint()
+      ..shader = RadialGradient(
+        colors: const [
+          Color(0x44FF6D00),
+          Color(0x22FF1744),
+          Color(0x00000000),
+        ],
+        stops: const [0.0, 0.35, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset(cx3, cy3), radius: r3));
+    canvas.drawCircle(Offset(cx3, cy3), r3, paint3);
+
+    // Twinkling stars
+    final starPaint = Paint()..color = Colors.white;
+    for (int i = 0; i < 36; i++) {
+      final sx = ((i * 137.508) % w);
+      final sy = ((i * 293.123) % h);
+      final twinkle = 0.3 + 0.7 * (math.sin(t * 2.0 + i * 1.7)).abs();
+      final radius = (i % 5 == 0) ? 1.5 : ((i % 3 == 0) ? 1.1 : 0.7);
+      starPaint.color = Colors.white.withValues(alpha: (0.15 + 0.55 * twinkle).clamp(0.0, 0.85));
+      canvas.drawCircle(Offset(sx, sy), radius, starPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CosmicSectorNebulaPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }

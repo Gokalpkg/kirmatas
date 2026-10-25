@@ -613,8 +613,10 @@ class HudOverlay extends StatelessWidget {
                   ),
                 ),
 
-              // Ready Launch Banner (Doesn't block gestures)
-              if (controller.status == GameStatus.ready)
+              // Ready Launch Banner (Doesn't block gestures, hidden during perk/blessing selection)
+              if (controller.status == GameStatus.ready &&
+                  !controller.awaitingChaosPerkSelection &&
+                  !controller.awaitingSectorBlessingSelection)
                 IgnorePointer(
                   child: Center(
                     child: Container(

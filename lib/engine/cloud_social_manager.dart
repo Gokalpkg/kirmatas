@@ -101,7 +101,7 @@ class CloudSocialManager {
           lastSeen: DateTime.now(),
         );
         await save.addRealFriend(friend);
-        return (success: true, message: '${friend.name} arkadaş listene eklendi! 🎉', friend: friend);
+        return (success: true, message: '${friend.name} arkadaş listene eklendi!', friend: friend);
       }
     } catch (_) {
       // Cloud query failed or offline

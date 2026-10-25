@@ -471,12 +471,37 @@ class AudioManager {
       // Scales pitch progressively with combo hits (1.05x -> 1.50x)
       final step = combo.clamp(0, 10);
       effectiveRate = 1.0 + (step * 0.05);
+    } else if (playbackRate == null && sfx == GameSfx.hitPaddle) {
+      // Thematic Paddle Timbre: vary acoustic pitch & resonance by equipped paddle skin
+      final paddleSkin = SaveManager.instance.activePaddle.toLowerCase();
+      if (paddleSkin.contains('fire') || paddleSkin.contains('inferno') || paddleSkin.contains('flame')) {
+        effectiveRate = 0.88; // Deep crackling impact tone
+      } else if (paddleSkin.contains('ice') || paddleSkin.contains('frost') || paddleSkin.contains('crystal')) {
+        effectiveRate = 1.26; // High crystalline resonant chime
+      } else if (paddleSkin.contains('cyber') || paddleSkin.contains('neon') || paddleSkin.contains('laser')) {
+        effectiveRate = 1.15; // Crisp synth bite
+      } else if (paddleSkin.contains('cosmic') || paddleSkin.contains('gold') || paddleSkin.contains('void')) {
+        effectiveRate = 1.06; // Mellow harmonic resonance
+      } else {
+        effectiveRate = 1.0;
+      }
     }
     lastPlaybackRate = effectiveRate;
     final resolvedKey = resolveSoundKey(sfx);
     lastResolvedSoundKey = resolvedKey;
     if (!appInForeground) return;
     if (!SaveManager.instance.sfxEnabled) return;
+
+    // Independent Audio Mixer channels for Paddle, Ball, and Bricks
+    double categoryMultiplier = 1.0;
+    if (sfx == GameSfx.hitPaddle) {
+      categoryMultiplier = SaveManager.instance.paddleVolume / 8.0;
+    } else if (sfx == GameSfx.hitWall) {
+      categoryMultiplier = SaveManager.instance.ballVolume / 8.0;
+    } else if (sfx == GameSfx.hitBrick || sfx == GameSfx.breakBrick || sfx == GameSfx.steel) {
+      categoryMultiplier = SaveManager.instance.brickVolume / 8.0;
+    }
+    if (categoryMultiplier <= 0) return;
 
     final now = DateTime.now().millisecondsSinceEpoch;
     final lastSame = _lastSfxAt[sfx] ?? 0;
@@ -497,7 +522,7 @@ class AudioManager {
       final pool = _pools[soundKey];
       final asset = _poolAssets[soundKey] ?? 'audio/custom_bounce.wav';
       if (pool != null && pool.isNotEmpty) {
-        final volume = (volLevel / 8.0) * gain;
+        final volume = (volLevel / 8.0) * categoryMultiplier * gain;
         int idx = _poolIndices[soundKey] ?? 0;
         final p = pool[idx];
         _poolIndices[soundKey] = (idx + 1) % pool.length;

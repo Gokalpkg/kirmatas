@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
@@ -202,22 +203,52 @@ class _UpgradesViewState extends State<UpgradesView> {
 
               // --- SECTION 1: ATTRIBUTE MASTERY (Yetenek Ağacı) ---
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Icon(Icons.bolt_rounded, color: Color(0xFF00E5FF), size: 18),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      I18n.tr('stat_tree'),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                      style: const TextStyle(
-                        color: Color(0xFF00E5FF),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 13,
-                        letterSpacing: 1.2,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.bolt_rounded, color: Color(0xFF00E5FF), size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        I18n.tr('stat_tree'),
+                        style: const TextStyle(
+                          color: Color(0xFF00E5FF),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (save.calculateTotalSpentOnUpgrades() > 0)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () => _confirmResetUpgrades(context, save),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0x33FF5252),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFFF5252)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.restart_alt_rounded, color: Color(0xFFFF5252), size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              'SIFIRLA (+${save.calculateTotalSpentOnUpgrades()})',
+                              style: const TextStyle(
+                                color: Color(0xFFFF8A80),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -733,7 +764,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                   SizedBox(width: 6),
                   Flexible(
                     child: Text(
-                      '🌌 KOZMİK USTALIK (SONSUZ SEVİYE)',
+                      'KOZMİK USTALIK (SONSUZ SEVİYE)',
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                       style: TextStyle(
@@ -1056,6 +1087,109 @@ class _UpgradesViewState extends State<UpgradesView> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmResetUpgrades(BuildContext context, SaveManager save) {
+    final refund = save.calculateTotalSpentOnUpgrades();
+    if (refund <= 0) return;
+    HapticFeedback.mediumImpact();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF161A28),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Color(0xFFFF5252), width: 1.5),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.restart_alt_rounded, color: Color(0xFFFF5252), size: 24),
+            SizedBox(width: 8),
+            Text(
+              'YETENEKLERİ SIFIRLA',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tüm yetenek ağacı seviyelerin sıfırlanacak ve harcadığın altınların %100\'ü eksiksiz cüzdanına iade edilecek.',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0x22FFD54F),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFFD54F)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.monetization_on_rounded, color: Color(0xFFFFD54F), size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('İade Edilecek Altın', style: TextStyle(color: Colors.white60, fontSize: 11)),
+                        Text(
+                          '+$refund Altın',
+                          style: const TextStyle(
+                            color: Color(0xFFFFD54F),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('İPTAL', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF5252),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              final refunded = await save.resetAllUpgrades();
+              AudioManager.instance.playSfx(GameSfx.powerupBuff);
+              HapticFeedback.heavyImpact();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: const Color(0xFF1E2838),
+                    content: Text(
+                      'Yetenekler sıfırlandı! +$refunded Altın iade edildi.',
+                      style: const TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                );
+              }
+            },
+            child: const Text('SIFIRLA VE İADE AL', style: TextStyle(fontWeight: FontWeight.w900)),
+          ),
+        ],
       ),
     );
   }
