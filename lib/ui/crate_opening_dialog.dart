@@ -2113,9 +2113,40 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
   Widget _buildRewardIcon() {
     if (_reward is FishItem) {
-      return ProceduralFishPreview(
-        fishId: (_reward as FishItem).id,
-        size: 76,
+      final fish = _reward as FishItem;
+      return AnimatedBuilder(
+        animation: _auraController,
+        builder: (context, _) {
+          return SizedBox(
+            width: 104,
+            height: 104,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        fish.color.withValues(alpha: 0.35),
+                        const Color(0x1800E5FF),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.65, 1.0],
+                    ),
+                  ),
+                ),
+                ProceduralFishPreview(
+                  fishId: fish.id,
+                  size: 94,
+                  time: _auraController.value * 2 * pi,
+                ),
+              ],
+            ),
+          );
+        },
       );
     }
     if (_reward is BallSkin) {

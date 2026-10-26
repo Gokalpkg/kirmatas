@@ -1233,8 +1233,7 @@ class _TankPainter extends CustomPainter {
         canvas.scale(1.2, 1.2);
         OctopusPainter.paint(canvas, f.rig!, time, f.item.color);
         canvas.scale(1 / 1.2, 1 / 1.2);
-      } else if (f.fishRig != null &&
-          (f.item.kind == FishKind.crab || f.item.kind == FishKind.jellyfish)) {
+      } else if (f.fishRig != null) {
         final fr = f.fishRig!;
         final signedPitch = f.facingRight ? f.pitchAngle : -f.pitchAngle;
         canvas.rotate(signedPitch + rollAngle);

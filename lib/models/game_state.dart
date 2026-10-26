@@ -33,8 +33,8 @@ enum SpeedSetting {
 
 class MatchStats {
   int score = 0;
-  int lives = 3;
-  int maxLives = 3;
+  int lives = 2;
+  int maxLives = 2;
   int level = 1;
   int combo = 0;
   int maxCombo = 0;
@@ -48,7 +48,7 @@ class MatchStats {
   double bulletTimeLeft = 0.0;
   double ultiActiveLeft = 0.0;
 
-  void reset({int initialLives = 3, int startLevel = 1}) {
+  void reset({int initialLives = 2, int startLevel = 1}) {
     score = 0;
     lives = initialLives;
     maxLives = initialLives;

@@ -361,7 +361,7 @@ class GameController extends ChangeNotifier {
   Ball? targetLockingBall;
   double targetLockTimer = 0.0;
 
-  int _lastKnownLives = 3;
+  int _lastKnownLives = 2;
   double lowLifeAlertTimer = 0.0;
   static const double lowLifeAlertDuration = 2.8;
 
@@ -670,7 +670,7 @@ class GameController extends ChangeNotifier {
       chronoBulletTimeTimer = 0.0;
     }
 
-    int startLives = mode == GameMode.zen ? 999 : 3;
+    int startLives = mode == GameMode.zen ? 999 : 2;
     int startLevel = explicitStartLevel ?? 1;
     int startScore = 0;
 
@@ -678,7 +678,7 @@ class GameController extends ChangeNotifier {
       if (mode == GameMode.classic) {
         startLevel = save.classicSavedLevel ?? 1;
         startScore = save.classicSavedScore ?? 0;
-        startLives = save.classicSavedLives ?? 3;
+        startLives = save.classicSavedLives ?? 2;
       } else if (mode == GameMode.chaos) {
         startLevel = save.chaosSavedLevel ?? 1;
         startScore = save.chaosSavedScore ?? 0;
@@ -3688,36 +3688,42 @@ class GameController extends ChangeNotifier {
       particles.spawnChestLid(cx, b.y + b.height * 0.25, b.width, b.height);
 
       // Gold & sparkle scatter particles
-      particles.spawnBurst(cx, cy, const Color(0xFFFFD700), count: 24, speed: 200.0);
-      particles.spawnBurst(cx, cy, const Color(0xFFFFF9C4), count: 16, speed: 130.0);
-      particles.spawnCoinOrbs(cx, cy, count: 4, color: const Color(0xFFFFD54F));
+      particles.spawnBurst(cx, cy, const Color(0xFFFFD700), count: 32, speed: 220.0);
+      particles.spawnBurst(cx, cy, const Color(0xFFFFF9C4), count: 20, speed: 150.0);
+      particles.spawnCoinOrbs(cx, cy, count: 8, color: const Color(0xFFFFD54F));
 
-      final bool isPearl = forceNextChestPearl ?? (_rand.nextDouble() < 0.01);
+      final bool isPearl = forceNextChestPearl ?? (_rand.nextDouble() < 0.05);
       forceNextChestPearl = null;
 
       if (isPearl) {
         save.addPearls(1);
         particles.spawnFloatingText(
           cx,
-          b.y - 16,
-          '💎 1 İNCİ BULDUN!',
+          b.y - 18,
+          '1 İNCİ BULDUN!',
           const Color(0xFF00E5FF),
           isLarge: true,
         );
-        particles.spawnShockwave(cx, cy, const Color(0xFF00E5FF), maxRadius: 85.0);
+        particles.spawnShockwave(cx, cy, const Color(0xFF00E5FF), maxRadius: 100.0);
         particles.spawnPearlCelebration(cx, cy);
-        audio.playSfx(GameSfx.powerupBuff);
+        audio.playSfx(GameSfx.victory);
       } else {
-        save.addGold(40);
+        final goldWon = 75 + _rand.nextInt(51);
+        save.addGold(goldWon);
+        stats.goldCollected += goldWon;
+
+        // Juicy vacuum stream: gold coins flying straight into the HUD tally
+        GameEventBus().fire(GoldCollectedEvent(amount: goldWon, sourcePosition: Offset(cx, cy)));
+
         particles.spawnFloatingText(
           cx,
-          b.y - 14,
-          '+40 🪙 HAZİNE!',
+          b.y - 16,
+          'HAZİNE SANDIĞI! +$goldWon ALTIN',
           const Color(0xFFFFD700),
           isLarge: true,
         );
-        particles.spawnShockwave(cx, cy, const Color(0xFFFFD700), maxRadius: 55.0);
-        audio.playSfx(GameSfx.powerupBuff);
+        particles.spawnShockwave(cx, cy, const Color(0xFFFFD700), maxRadius: 75.0);
+        audio.playSfx(GameSfx.victory);
       }
     }
     final double hitStopDur;

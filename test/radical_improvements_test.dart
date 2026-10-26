@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kirmatas/config/balance_config.dart';
-import 'package:kirmatas/models/cosmetics.dart';
 import 'package:kirmatas/models/fish_synergy.dart';
 import 'package:kirmatas/storage/save_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';

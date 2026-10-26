@@ -108,7 +108,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                     ),
                     if (isVictory) ...[
                       const SizedBox(height: 10),
-                      _VictoryStars(stars: stats.lives >= 3 ? 3 : (stats.lives == 2 ? 2 : 1)),
+                      _VictoryStars(stars: stats.lives >= 2 ? 3 : (stats.lives == 1 ? 2 : 1)),
                     ],
                     const SizedBox(height: 16),
 
