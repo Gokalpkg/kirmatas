@@ -170,42 +170,31 @@ void main() {
       ctrl.setDimensions(360, 640);
     });
 
-    test('Classic mode speed multiplier applies strictly to levels 1 through 5', () {
-      const pace = 1.48;
-      const base = 350.0 * pace;
+    test('Classic mode speed scales smoothly from 420 px/s at level 1 to level 10', () {
+      const base = 420.0;
 
       for (int lvl = 1; lvl <= 15; lvl++) {
         ctrl.startNewGame(GameMode.classic, explicitStartLevel: lvl);
         final actualSpeed = ctrl.getBaseBallSpeed();
-        final levelSpeed = base + math.min(lvl * 10.0, 90.0);
+        final expectedSpeed = base + math.min((lvl - 1) * 10.0, 90.0);
 
-        if (lvl <= 5) {
-          final expectedSpeed = levelSpeed * 1.15;
-          expect(
-            actualSpeed,
-            closeTo(expectedSpeed, 1e-6),
-            reason: 'Level $lvl in Classic mode should receive exactly 1.15x speed boost',
-          );
-          expect(actualSpeed, greaterThan(levelSpeed));
-        } else {
-          expect(
-            actualSpeed,
-            closeTo(levelSpeed, 1e-6),
-            reason: 'Level $lvl in Classic mode should NOT receive 1.15x speed boost',
-          );
-        }
+        expect(
+          actualSpeed,
+          closeTo(expectedSpeed, 1e-6),
+          reason: 'Level $lvl in Classic mode should scale smoothly from base 420 px/s',
+        );
       }
     });
 
-    test('Level 6 does NOT have speed multiplier (boundary check)', () {
-      ctrl.startNewGame(GameMode.classic, explicitStartLevel: 6);
-      final speed6 = ctrl.getBaseBallSpeed();
-      const pace = 1.48;
-      const unboostedSpeed6 = 350.0 * pace + 60.0;
-      final boostedSpeed6 = unboostedSpeed6 * 1.15;
+    test('Level 1 speed is exactly 420 px/s and level 10 caps at 510 px/s', () {
+      ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
+      expect(ctrl.getBaseBallSpeed(), closeTo(420.0, 1e-6));
 
-      expect(speed6, closeTo(unboostedSpeed6, 1e-6));
-      expect(speed6, isNot(closeTo(boostedSpeed6, 0.1)));
+      ctrl.startNewGame(GameMode.classic, explicitStartLevel: 10);
+      expect(ctrl.getBaseBallSpeed(), closeTo(510.0, 1e-6));
+
+      ctrl.startNewGame(GameMode.classic, explicitStartLevel: 15);
+      expect(ctrl.getBaseBallSpeed(), closeTo(510.0, 1e-6));
     });
 
     test('Chaos mode ignores level speed multiplier across all levels', () {
@@ -224,17 +213,16 @@ void main() {
     });
 
     test('Zen mode ignores level speed multiplier across all levels', () {
-      const pace = 1.48;
-      const base = 350.0 * pace;
+      const base = 420.0;
 
       for (int lvl = 1; lvl <= 6; lvl++) {
         ctrl.startNewGame(GameMode.zen, explicitStartLevel: lvl);
         final speed = ctrl.getBaseBallSpeed();
-        final unboostedLevelSpeed = base + math.min(lvl * 10.0, 90.0);
+        final expectedSpeed = base + math.min((lvl - 1) * 10.0, 90.0);
         expect(
           speed,
-          closeTo(unboostedLevelSpeed, 1e-6),
-          reason: 'Zen mode at level $lvl must not receive FTUE speed boost',
+          closeTo(expectedSpeed, 1e-6),
+          reason: 'Zen mode at level $lvl scales smoothly from base 420 px/s without FTUE speed boost',
         );
       }
     });

@@ -44,36 +44,57 @@ void main() {
     test('Guppy & Tetra species grant paddle width bonus', () async {
       final save = SaveManager.instance;
       save.unlockedFish = ['guppy', 'guppy_blue', 'tetra'];
+      final now = DateTime.now().millisecondsSinceEpoch;
+      save.fishFedTimestamps.clear();
+      expect(FishSynergyBuffs.calculate(save).extraPaddleWidth, 5.0); // 50% when hungry
 
+      save.fishFedTimestamps['guppy'] = now;
+      save.fishFedTimestamps['guppy_blue'] = now;
+      save.fishFedTimestamps['tetra'] = now;
       final buffs = FishSynergyBuffs.calculate(save);
-      expect(buffs.extraPaddleWidth, 10.0); // 4 + 3 + 3
+      expect(buffs.extraPaddleWidth, 10.0); // 100% when satiated (4 + 3 + 3)
       expect(buffs.activeBuffDescriptions.any((d) => d.contains('Raket Boyutu')), isTrue);
     });
 
     test('Angelfish species grant critical strike bonus', () async {
       final save = SaveManager.instance;
       save.unlockedFish = ['angel', 'angel_ruby'];
+      final now = DateTime.now().millisecondsSinceEpoch;
+      save.fishFedTimestamps.clear();
+      expect(FishSynergyBuffs.calculate(save).critChanceBonus, closeTo(0.04, 0.001)); // 50% when hungry
 
+      save.fishFedTimestamps['angel'] = now;
+      save.fishFedTimestamps['angel_ruby'] = now;
       final buffs = FishSynergyBuffs.calculate(save);
-      expect(buffs.critChanceBonus, closeTo(0.08, 0.001)); // 0.03 + 0.05
+      expect(buffs.critChanceBonus, closeTo(0.08, 0.001)); // 100% when satiated (0.03 + 0.05)
       expect(buffs.activeBuffDescriptions.any((d) => d.contains('Kritik Vuruş Şansı')), isTrue);
     });
 
     test('Betta & Discus grant laser ammo bonus', () async {
       final save = SaveManager.instance;
       save.unlockedFish = ['betta', 'discus'];
+      final now = DateTime.now().millisecondsSinceEpoch;
+      save.fishFedTimestamps.clear();
+      expect(FishSynergyBuffs.calculate(save).startingLaserAmmoBonus, 1); // 50% when hungry
 
+      save.fishFedTimestamps['betta'] = now;
+      save.fishFedTimestamps['discus'] = now;
       final buffs = FishSynergyBuffs.calculate(save);
-      expect(buffs.startingLaserAmmoBonus, 2); // 1 from betta + 1 from discus
+      expect(buffs.startingLaserAmmoBonus, 2); // 100% when satiated (1 from betta + 1 from discus)
       expect(buffs.activeBuffDescriptions.any((d) => d.contains('Lazer Cephanesi')), isTrue);
     });
 
     test('Arowana species grant gold multiplier', () async {
       final save = SaveManager.instance;
       save.unlockedFish = ['arowana', 'arowana_red'];
+      final now = DateTime.now().millisecondsSinceEpoch;
+      save.fishFedTimestamps.clear();
+      expect(FishSynergyBuffs.calculate(save).goldMultiplier, closeTo(1.125, 0.001)); // 50% when hungry
 
+      save.fishFedTimestamps['arowana'] = now;
+      save.fishFedTimestamps['arowana_red'] = now;
       final buffs = FishSynergyBuffs.calculate(save);
-      expect(buffs.goldMultiplier, closeTo(1.25, 0.001)); // 1.0 + 0.10 + 0.15
+      expect(buffs.goldMultiplier, closeTo(1.25, 0.001)); // 100% when satiated (1.0 + 0.10 + 0.15)
       expect(buffs.activeBuffDescriptions.any((d) => d.contains('Seviye Altını')), isTrue);
     });
   });

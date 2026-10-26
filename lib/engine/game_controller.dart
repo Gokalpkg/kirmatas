@@ -670,7 +670,7 @@ class GameController extends ChangeNotifier {
       chronoBulletTimeTimer = 0.0;
     }
 
-    int startLives = mode == GameMode.zen ? 999 : 2;
+    int startLives = mode == GameMode.zen ? 999 : 3;
     int startLevel = explicitStartLevel ?? 1;
     int startScore = 0;
 
@@ -678,7 +678,7 @@ class GameController extends ChangeNotifier {
       if (mode == GameMode.classic) {
         startLevel = save.classicSavedLevel ?? 1;
         startScore = save.classicSavedScore ?? 0;
-        startLives = save.classicSavedLives ?? 2;
+        startLives = save.classicSavedLives ?? 3;
       } else if (mode == GameMode.chaos) {
         startLevel = save.chaosSavedLevel ?? 1;
         startScore = save.chaosSavedScore ?? 0;
@@ -1281,13 +1281,11 @@ class GameController extends ChangeNotifier {
     if (currentMode == GameMode.chaos) {
       return 420.0 * pace;
     }
-    final base = 350.0 * pace;
-    double levelSpeed = base + min(stats.level * 10.0, 90.0);
+    // Balanced base speed starting at 420.0 px/s at Level 1, gradually scaling up to Level 10
+    const base = 420.0;
+    double levelSpeed = base + min(max(stats.level - 1, 0) * 10.0, 90.0);
     if (save.hasPermanentRelic && save.activeRelicStyle == 'overdrive') {
       levelSpeed *= 1.06;
-    }
-    if (stats.level <= 5 && !isChaosMode && !isZenMode) {
-      return levelSpeed * 1.15;
     }
     return levelSpeed;
   }
@@ -2856,8 +2854,8 @@ class GameController extends ChangeNotifier {
           }
           if (ball.sideWallBounceCount >= 8) {
             ball.isWallSpeedBoosted = true;
-            final boostedSpeed = max(ball.speed, getBaseBallSpeed() * 1.55);
-            ball.setSpeed(boostedSpeed.clamp(100.0, 1050.0));
+            final boostedSpeed = max(ball.speed, getBaseBallSpeed() * 1.15);
+            ball.setSpeed(boostedSpeed.clamp(100.0, 620.0));
             particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD700), count: 6, speed: 120.0);
             audio.playSfx(GameSfx.wallBounce8);
           }
@@ -2875,8 +2873,8 @@ class GameController extends ChangeNotifier {
           }
           if (ball.sideWallBounceCount >= 8) {
             ball.isWallSpeedBoosted = true;
-            final boostedSpeed = max(ball.speed, getBaseBallSpeed() * 1.55);
-            ball.setSpeed(boostedSpeed.clamp(100.0, 1050.0));
+            final boostedSpeed = max(ball.speed, getBaseBallSpeed() * 1.15);
+            ball.setSpeed(boostedSpeed.clamp(100.0, 620.0));
             particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD700), count: 6, speed: 120.0);
             audio.playSfx(GameSfx.wallBounce8);
           }
@@ -3181,71 +3179,82 @@ class GameController extends ChangeNotifier {
     final by = ball.y;
 
     // 1. Dikey İstif Dikiş Bariyeri (Vertical Seam Barrier):
-    // Kaos modunda (ve tüm modlarda) alt alta dizili iki bloğun arasındaki mesafe topun çapından küçükse (örn: 8px < 15px),
-    // bu iki blok sol ve sağ yüzeylerinde birleşik, kesintisiz dikey bir duvar oluşturur.
-    // Top bu boşluğa yatay olarak giremez/içinden geçemez; dış sınırdan pürüzsüzce geri yansır.
+    // Sadece topun mevcut (bx, by) koordinatına komşu tuğlalar arasında dikey blok dikiş kontrolü:
+    final seamMarginY = 3.0 * r + 4.0;
+    final seamMarginX = r + 12.0;
+    final nearbyBricks = <Brick>[];
     for (int i = 0; i < bricks.length; i++) {
-      final b1 = bricks[i];
-      if (!b1.isAlive || b1.isBallPickup || b1.isTuft) continue;
+      final b = bricks[i];
+      if (!b.isAlive || b.isBallPickup || b.isTuft) continue;
+      if (b.y + b.height >= by - seamMarginY &&
+          b.y <= by + seamMarginY &&
+          b.x + b.width >= bx - seamMarginX &&
+          b.x <= bx + seamMarginX) {
+        nearbyBricks.add(b);
+      }
+    }
 
-      for (int j = i + 1; j < bricks.length; j++) {
-        final b2 = bricks[j];
-        if (!b2.isAlive || b2.isBallPickup || b2.isTuft) continue;
+    if (nearbyBricks.length >= 2) {
+      for (int i = 0; i < nearbyBricks.length; i++) {
+        final b1 = nearbyBricks[i];
+        for (int j = i + 1; j < nearbyBricks.length; j++) {
+          final b2 = nearbyBricks[j];
 
-        final topBrick = b1.y < b2.y ? b1 : b2;
-        final botBrick = b1.y < b2.y ? b2 : b1;
+          final topBrick = b1.y < b2.y ? b1 : b2;
+          final botBrick = b1.y < b2.y ? b2 : b1;
 
-        final vGap = botBrick.y - (topBrick.y + topBrick.height);
-        if (vGap < -2.0 || vGap >= 2.0 * r) continue;
+          final vGap = botBrick.y - (topBrick.y + topBrick.height);
+          if (vGap < -2.0 || vGap >= 2.0 * r) continue;
 
-        final overlapLeft = max(topBrick.x, botBrick.x);
-        final overlapRight = min(topBrick.x + topBrick.width, botBrick.x + botBrick.width);
-        if (overlapRight - overlapLeft < 4.0) continue;
+          final overlapLeft = max(topBrick.x, botBrick.x);
+          final overlapRight = min(topBrick.x + topBrick.width, botBrick.x + botBrick.width);
+          if (overlapRight - overlapLeft < 4.0) continue;
 
-        final seamTop = topBrick.y + topBrick.height;
-        final seamBottom = botBrick.y;
+          final seamTop = topBrick.y + topBrick.height;
+          final seamBottom = botBrick.y;
 
-        // Top bu dikey aralık dikişine temas ediyor mu?
-        if (by + r >= seamTop && by - r <= seamBottom) {
-          final targetBrick = (by - (topBrick.y + topBrick.height / 2)).abs() <
-                  (by - (botBrick.y + botBrick.height / 2)).abs()
-              ? topBrick
-              : botBrick;
+          // Top bu dikey aralık dikişine temas ediyor mu?
+          if (by + r >= seamTop && by - r <= seamBottom) {
+            final targetBrick = (by - (topBrick.y + topBrick.height / 2)).abs() <
+                    (by - (botBrick.y + botBrick.height / 2)).abs()
+                ? topBrick
+                : botBrick;
 
-          // Soldan dikişe giriş engelleme:
-          if (bx + r >= overlapLeft && bx - r <= overlapLeft + 8.0 && ball.vx > 0) {
-            _hitBrick(targetBrick, ball);
-            if (!ball.isFireball && !ball.isPierce) {
-              ball.vx = -ball.vx.abs();
-              ball.x = overlapLeft - r - 0.1;
-              ball.triggerSquash(pi);
-            }
-            return;
-          }
-          // Sağdan dikişe giriş engelleme:
-          if (bx - r <= overlapRight && bx + r >= overlapRight - 8.0 && ball.vx < 0) {
-            _hitBrick(targetBrick, ball);
-            if (!ball.isFireball && !ball.isPierce) {
-              ball.vx = ball.vx.abs();
-              ball.x = overlapRight + r + 0.1;
-              ball.triggerSquash(0);
-            }
-            return;
-          }
-          // Aşırı hız vb. nedeniyle dikişin içine sızmış topu güvenli dış tarafa tahliye etme:
-          if (bx >= overlapLeft && bx <= overlapRight) {
-            _hitBrick(targetBrick, ball);
-            if (!ball.isFireball && !ball.isPierce) {
-              if (ball.vx >= 0) {
+            // Soldan dikişe giriş engelleme:
+            if (bx + r >= overlapLeft && bx - r <= overlapLeft + 8.0 && ball.vx > 0) {
+              _hitBrick(targetBrick, ball);
+              if (!ball.isFireball && !ball.isPierce) {
                 ball.vx = -ball.vx.abs();
                 ball.x = overlapLeft - r - 0.1;
-              } else {
+                ball.triggerSquash(pi);
+              }
+              return;
+            }
+            // Sağdan dikişe giriş engelleme:
+            if (bx - r <= overlapRight && bx + r >= overlapRight - 8.0 && ball.vx < 0) {
+              _hitBrick(targetBrick, ball);
+              if (!ball.isFireball && !ball.isPierce) {
                 ball.vx = ball.vx.abs();
                 ball.x = overlapRight + r + 0.1;
+                ball.triggerSquash(0);
               }
-              ball.triggerSquash(ball.vx < 0 ? pi : 0);
+              return;
             }
-            return;
+            // Aşırı hız vb. nedeniyle dikişin içine sızmış topu güvenli dış tarafa tahliye etme:
+            if (bx >= overlapLeft && bx <= overlapRight) {
+              _hitBrick(targetBrick, ball);
+              if (!ball.isFireball && !ball.isPierce) {
+                if (ball.vx >= 0) {
+                  ball.vx = -ball.vx.abs();
+                  ball.x = overlapLeft - r - 0.1;
+                } else {
+                  ball.vx = ball.vx.abs();
+                  ball.x = overlapRight + r + 0.1;
+                }
+                ball.triggerSquash(ball.vx < 0 ? pi : 0);
+              }
+              return;
+            }
           }
         }
       }
@@ -3708,7 +3717,7 @@ class GameController extends ChangeNotifier {
         particles.spawnPearlCelebration(cx, cy);
         audio.playSfx(GameSfx.victory);
       } else {
-        final goldWon = 75 + _rand.nextInt(51);
+        const goldWon = 40;
         save.addGold(goldWon);
         stats.goldCollected += goldWon;
 
@@ -4659,6 +4668,7 @@ class GameController extends ChangeNotifier {
     if (currentMode == GameMode.chaos) return;
     if (!isUltiReady || isDiceRolling || diceSalvoRemaining > 0) return;
     stats.ultiCharge = 0.0;
+    stats.ultiActiveLeft = 5.0;
 
     isDiceRolling = true;
     diceRollTimer = 0.88;

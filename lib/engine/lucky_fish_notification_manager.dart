@@ -24,6 +24,18 @@ class LuckyFishNotificationManager {
         save.lastLuckyFishReminderDate != todayDateKey;
   }
 
+  /// Whether aquarium feeding reminder is due (fish waiting to be fed).
+  bool get shouldRemindAquariumFeeding {
+    final save = SaveManager.instance;
+    return save.isAquariumUnlocked && save.hasWaitingFish;
+  }
+
+  /// Whether the daily free fortune wheel spin reminder is due.
+  bool get shouldRemindFortuneWheel {
+    final save = SaveManager.instance;
+    return save.isNextWheelSpinFree;
+  }
+
   /// Generates the payload / string content for daily notification (local notification or push)
   Map<String, String>? getDailyNotificationPayload() {
     final save = SaveManager.instance;
@@ -31,10 +43,49 @@ class LuckyFishNotificationManager {
     if (fishId == null) return null;
     final fish = FishItem.getById(fishId);
     return {
+      'id': 'lucky_fish',
       'title': I18n.tr('lucky_fish_reminder_title'),
       'body': I18n.tr('lucky_fish_reminder_msg').replaceAll('{fish}', fish.name),
       'fishId': fishId,
+      'type': 'lucky_fish',
     };
+  }
+
+  /// Generates notification payload for aquarium feeding reminder.
+  Map<String, String>? getAquariumFeedingNotificationPayload() {
+    if (!shouldRemindAquariumFeeding) return null;
+    return {
+      'id': 'aquarium_feed',
+      'title': 'Akvaryum Yem Saati! 🐟',
+      'body': 'Balıkların acıktı! Onları besleyerek %100 sinerji güçlerini aktif tut.',
+      'type': 'aquarium_feed',
+    };
+  }
+
+  /// Generates notification payload for daily free fortune wheel spin.
+  Map<String, String>? getFortuneWheelNotificationPayload() {
+    if (!shouldRemindFortuneWheel) return null;
+    return {
+      'id': 'fortune_wheel',
+      'title': 'Ücretsiz Şans Çarkı! 🎡',
+      'body': 'Bugünkü bedava çarkıfelek hakkın seni bekliyor, hemen çevir!',
+      'type': 'fortune_wheel',
+    };
+  }
+
+  /// Aggregates all currently active daily notification / reminder payloads.
+  List<Map<String, String>> getAllPendingDailyNotificationPayloads() {
+    final list = <Map<String, String>>[];
+    final lucky = getDailyNotificationPayload();
+    if (lucky != null && shouldRemindToday) list.add(lucky);
+
+    final feeding = getAquariumFeedingNotificationPayload();
+    if (feeding != null) list.add(feeding);
+
+    final wheel = getFortuneWheelNotificationPayload();
+    if (wheel != null) list.add(wheel);
+
+    return list;
   }
 
   /// Checks and presents the lucky fish daily reminder if not yet seen today.
@@ -132,5 +183,12 @@ class LuckyFishNotificationManager {
         ),
       ),
     );
+  }
+
+  /// Checks and presents all pending daily retention loops (lucky fish, feeding, wheel).
+  Future<void> checkAndShowAllDailyReminders(BuildContext context) async {
+    if (shouldRemindToday) {
+      await checkAndShowDailyReminder(context);
+    }
   }
 }

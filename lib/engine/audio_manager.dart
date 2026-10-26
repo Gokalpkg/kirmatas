@@ -49,7 +49,7 @@ class AudioManager {
   bool _hasAmp = false;
   int _lastVibTime = 0;
   static const List<double> majorPentatonicScale = [1.000, 1.125, 1.250, 1.500, 1.667, 2.000, 2.250, 2.500];
-  static bool usePentatonicScale = false;
+  static bool usePentatonicScale = true;
 
   static double getPentatonicPitch(int combo) =>
       majorPentatonicScale[(combo <= 0 ? 0 : combo - 1) % majorPentatonicScale.length];
@@ -483,11 +483,10 @@ class AudioManager {
   void playSfx(GameSfx sfx, {int combo = 0, double? playbackRate}) {
     lastPlayedCombo = combo;
     double effectiveRate = playbackRate ?? 1.0;
-    if (playbackRate == null && (sfx == GameSfx.hitBrick || sfx == GameSfx.breakBrick) && combo > 0) {
+    if (playbackRate == null && (sfx == GameSfx.hitBrick || sfx == GameSfx.breakBrick)) {
       if (usePentatonicScale) {
         effectiveRate = getPentatonicPitch(combo);
       } else {
-        // Step 4: 8-bit chiptune ascending pitch arpeggio fallback
         final step = combo.clamp(0, 10);
         effectiveRate = 1.0 + (step * 0.05);
       }

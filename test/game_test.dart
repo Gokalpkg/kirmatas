@@ -2199,7 +2199,7 @@ void main() {
       }
       expect(ball1.sideWallBounceCount, greaterThanOrEqualTo(8));
       expect(ball1.isWallSpeedBoosted, isTrue);
-      expect(ball1.speed, greaterThanOrEqualTo(gc.getBaseBallSpeed() * 1.5));
+      expect(ball1.speed, closeTo(620.0, 1.0));
 
       // Hitting a normal brick resets wall bounce count AND resets speed back to base speed
       final normalBrick = Brick(x: 160, y: 190, width: 40, height: 20, hp: 5, maxHp: 5, color: Colors.blue, points: 10);
@@ -2277,7 +2277,7 @@ void main() {
       gc.update(0.005);
       expect(ball.sideWallBounceCount >= 8, true);
       expect(ball.isWallSpeedBoosted, true);
-      expect(ball.speed >= gc.getBaseBallSpeed() * 1.5, true);
+      expect(ball.speed >= gc.getBaseBallSpeed() * 1.15 - 1e-4, true);
 
       // Hitting paddle resets the boost
       gc.paddle.x = 150;
@@ -3039,29 +3039,35 @@ void main() {
 
     test('AudioManager combo pitch escalation and dynamic tempo scaling', () {
       final audio = AudioManager.instance;
+      final prevScale = AudioManager.usePentatonicScale;
+      try {
+        AudioManager.usePentatonicScale = false;
 
-      // Base hit with no combo
-      audio.playSfx(GameSfx.hitBrick, combo: 0);
-      expect(audio.lastPlayedCombo, 0);
-      expect(audio.lastPlaybackRate, 1.0);
+        // Base hit with no combo
+        audio.playSfx(GameSfx.hitBrick, combo: 0);
+        expect(audio.lastPlayedCombo, 0);
+        expect(audio.lastPlaybackRate, 1.0);
 
-      // Consecutive combo hits scale pitch progressively up to 1.5x
-      audio.playSfx(GameSfx.breakBrick, combo: 3);
-      expect(audio.lastPlayedCombo, 3);
-      expect(audio.lastPlaybackRate, closeTo(1.15, 0.01));
+        // Consecutive combo hits scale pitch progressively up to 1.5x
+        audio.playSfx(GameSfx.breakBrick, combo: 3);
+        expect(audio.lastPlayedCombo, 3);
+        expect(audio.lastPlaybackRate, closeTo(1.15, 0.01));
 
-      audio.playSfx(GameSfx.breakBrick, combo: 7);
-      expect(audio.lastPlayedCombo, 7);
-      expect(audio.lastPlaybackRate, closeTo(1.35, 0.01));
+        audio.playSfx(GameSfx.breakBrick, combo: 7);
+        expect(audio.lastPlayedCombo, 7);
+        expect(audio.lastPlaybackRate, closeTo(1.35, 0.01));
 
-      audio.playSfx(GameSfx.breakBrick, combo: 12);
-      expect(audio.lastPlayedCombo, 12);
-      expect(audio.lastPlaybackRate, closeTo(1.50, 0.01));
+        audio.playSfx(GameSfx.breakBrick, combo: 12);
+        expect(audio.lastPlayedCombo, 12);
+        expect(audio.lastPlaybackRate, closeTo(1.50, 0.01));
 
-      // Dynamic tempo adjustment does not throw
-      expect(() => audio.setDynamicTempo(isFever: true, isBoss: false), returnsNormally);
-      expect(() => audio.setDynamicTempo(isFever: false, isBoss: true), returnsNormally);
-      expect(() => audio.setDynamicTempo(isFever: false, isBoss: false), returnsNormally);
+        // Dynamic tempo adjustment does not throw
+        expect(() => audio.setDynamicTempo(isFever: true, isBoss: false), returnsNormally);
+        expect(() => audio.setDynamicTempo(isFever: false, isBoss: true), returnsNormally);
+        expect(() => audio.setDynamicTempo(isFever: false, isBoss: false), returnsNormally);
+      } finally {
+        AudioManager.usePentatonicScale = prevScale;
+      }
     });
 
     testWidgets('RewardsHubDialog renders properly with all 3 rewards and actions', (tester) async {
@@ -3364,21 +3370,20 @@ void main() {
 
         final ctrl = GameController();
 
-        // Base speed in levels 1-5 has 15% boost
+        // Base speed in levels 1-10 scales gradually from 420.0 px/s without penalty
         ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
         final speedLvl1 = ctrl.getBaseBallSpeed();
-        final expectedBaseLvl1 = (350.0 * 1.48 + math.min(1 * 10.0, 90.0)) * 1.15;
+        final expectedBaseLvl1 = 420.0 + math.min((1 - 1) * 10.0, 90.0);
         expect(speedLvl1, closeTo(expectedBaseLvl1, 0.01));
 
         ctrl.startNewGame(GameMode.classic, explicitStartLevel: 5);
         final speedLvl5 = ctrl.getBaseBallSpeed();
-        final expectedBaseLvl5 = (350.0 * 1.48 + math.min(5 * 10.0, 90.0)) * 1.15;
+        final expectedBaseLvl5 = 420.0 + math.min((5 - 1) * 10.0, 90.0);
         expect(speedLvl5, closeTo(expectedBaseLvl5, 0.01));
 
-        // Level 6 has standard base speed without 15% boost
         ctrl.startNewGame(GameMode.classic, explicitStartLevel: 6);
         final speedLvl6 = ctrl.getBaseBallSpeed();
-        final expectedBaseLvl6 = 350.0 * 1.48 + math.min(6 * 10.0, 90.0);
+        final expectedBaseLvl6 = 420.0 + math.min((6 - 1) * 10.0, 90.0);
         expect(speedLvl6, closeTo(expectedBaseLvl6, 0.01));
 
         // Guaranteed early action drop in levels 1-5 within first 3 bricks

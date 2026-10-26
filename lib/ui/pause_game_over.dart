@@ -483,7 +483,16 @@ class PauseGameOverOverlay extends StatelessWidget {
                       ),
                     if (isPaused) const SizedBox(height: 16),
                     // Actions
-                    if (isPaused)
+                    // Actions: Top CTA for Game Over (Revive / Streak Protect)
+                    if (isGameOver && controller.canRevive) ...[
+                      _buildReviveButton(context),
+                      const SizedBox(height: 10),
+                    ] else if (isGameOver && controller.streakBeforeGameOver >= 2) ...[
+                      _buildStreakProtectCard(context),
+                      const SizedBox(height: 10),
+                    ],
+
+                    if (isPaused) ...[
                       KaunosPressGlow(
                         borderRadius: 16,
                         waveColor: const Color(0xFF00E5FF),
@@ -499,7 +508,10 @@ class PauseGameOverOverlay extends StatelessWidget {
                           ),
                         ),
                       ),
-                    const SizedBox(height: 8),
+                      const SizedBox(height: 8),
+                    ],
+
+                    // Secondary action: Restart
                     KaunosPressGlow(
                       borderRadius: 16,
                       waveColor: const Color(0xFFFFD54F),
@@ -520,11 +532,9 @@ class PauseGameOverOverlay extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    if (isGameOver && controller.canRevive) ...[
-                      _buildReviveButton(context),
-                      const SizedBox(height: 10),
-                    ],
-                    if (isGameOver && controller.streakBeforeGameOver >= 2) ...[
+
+                    // Additional streak protect option if revive was also available
+                    if (isGameOver && controller.canRevive && controller.streakBeforeGameOver >= 2) ...[
                       _buildStreakProtectCard(context),
                       const SizedBox(height: 10),
                     ],
@@ -715,13 +725,43 @@ class PauseGameOverOverlay extends StatelessWidget {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
-                              '❤️ ${I18n.tr('save_record_title')}',
+                              '❤️ CANLAN / ${I18n.tr('save_record_title')}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w900,
                                 fontSize: 13,
                                 letterSpacing: 0.5,
                               ),
+                            ),
+                            const SizedBox(width: 6),
+                            TweenAnimationBuilder<double>(
+                              tween: Tween<double>(begin: 5.0, end: 0.0),
+                              duration: const Duration(seconds: 5),
+                              builder: (context, val, _) {
+                                final secs = val.ceil().clamp(1, 5);
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFD54F),
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x99FFD54F),
+                                        blurRadius: 8,
+                                        spreadRadius: 1,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    '${secs}s',
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 10.5,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                             const SizedBox(width: 6),
                             Text(

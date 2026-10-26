@@ -182,12 +182,16 @@ class _UpgradesViewState extends State<UpgradesView> {
                                 children: [
                                   Icon(Icons.check_circle_rounded, color: Color(0xFF69F0AE), size: 12),
                                   const SizedBox(width: 5),
-                                  Text(
-                                    desc,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 11,
+                                  Flexible(
+                                    child: Text(
+                                      desc,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 11,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -1074,27 +1078,33 @@ class _UpgradesViewState extends State<UpgradesView> {
           children: [
             Icon(icon, size: 14, color: isSelected ? color : Colors.white70),
             const SizedBox(width: 6),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: isSelected ? color : Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 11,
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isSelected ? color : Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11,
+                    ),
                   ),
-                ),
-                Text(
-                  desc,
-                  style: const TextStyle(
-                    color: Colors.white60,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 9.5,
+                  Text(
+                    desc,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 9.5,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),

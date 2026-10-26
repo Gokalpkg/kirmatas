@@ -29,12 +29,12 @@ class GameCanvas extends StatefulWidget {
 class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final Ticker _ticker;
   Duration _lastElapsed = Duration.zero;
-  double _pointerStartX = 0;
   bool _pointerMoved = false;
   Offset? _chaosPointerDownPos;
   int? _touchStartLevel;
   bool _canLaunchOnUp = false;
   int _lastPointerDownMs = 0;
+  Offset? _lastPointerDownPos;
 
   @override
   void initState() {
@@ -88,10 +88,14 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
           onPointerDown: (event) {
             final c = widget.controller;
             final nowMs = DateTime.now().millisecondsSinceEpoch;
-            if (nowMs - _lastPointerDownMs < 350 && c.isUltiReady) {
+            if (_lastPointerDownPos != null &&
+                nowMs - _lastPointerDownMs < 350 &&
+                (event.localPosition - _lastPointerDownPos!).distance < 25.0 &&
+                c.isUltiReady) {
               c.triggerUlti();
             }
             _lastPointerDownMs = nowMs;
+            _lastPointerDownPos = event.localPosition;
 
             if (c.levelTransitionTimer > 0) {
               _canLaunchOnUp = false;
@@ -123,7 +127,6 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
               }
               return;
             }
-            _pointerStartX = event.localPosition.dx;
             _pointerMoved = false;
           },
           onPointerMove: (event) {
@@ -157,9 +160,6 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
               _pointerMoved = true;
             }
             final dx = event.delta.dx;
-            if (!_pointerMoved && (event.localPosition.dx - _pointerStartX).abs() < 8) {
-              return;
-            }
             _pointerMoved = true;
             c.movePaddleBy(dx);
           },

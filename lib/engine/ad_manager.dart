@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io' show InternetAddress, Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -65,21 +64,6 @@ class AdManager extends ChangeNotifier {
   int _levelsUntilAd = 3 + (DateTime.now().microsecond % 3);
   int _clearsSinceVoluntaryAd = 99;
   int _quietClearsAfterAd = 0;
-  String _lastNoFillGraceDay = '';
-
-  Future<bool> _hasActiveInternet() async {
-    if (kIsWeb) return true;
-    try {
-      if (Platform.environment.containsKey('FLUTTER_TEST')) {
-        return true;
-      }
-      final result = await InternetAddress.lookup('google.com')
-          .timeout(const Duration(milliseconds: 1500));
-      return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
-    } catch (_) {
-      return false;
-    }
-  }
 
   bool get isLoading => _isLoading;
   bool get isLoadingHighYield => _isLoadingHighYield;
@@ -211,53 +195,11 @@ class AdManager extends ChangeNotifier {
       preloadInterstitialAd();
       preloadHighYieldAd();
 
-      bool dialogOpen = true;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (dlgCtx) => PopScope(
-          canPop: false,
-          child: Dialog(
-            backgroundColor: const Color(0xFF131726),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: const BorderSide(color: Color(0xFF4FC3F7), width: 1.5),
-            ),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 22),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.8,
-                      color: Color(0xFF4FC3F7),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      'Ödül Hazırlanıyor...',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ).then((_) => dialogOpen = false);
-
-      final startTime = DateTime.now().millisecondsSinceEpoch;
-      while (_interstitialAd == null && (DateTime.now().millisecondsSinceEpoch - startTime) < 5500) {
-        await Future.delayed(const Duration(milliseconds: 150));
+      int elapsedMs = 0;
+      while (_interstitialAd == null && elapsedMs < 1000) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        elapsedMs += 100;
         if (!context.mounted) break;
-      }
-
-      if (dialogOpen && context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
       }
 
       if (_interstitialAd == null) {
@@ -277,33 +219,12 @@ class AdManager extends ChangeNotifier {
           return;
         }
 
-        // Smart No-Fill Grace Protection:
-        // Only grant the fallback reward if the player is genuinely online (AdMob No-Fill)
-        // and hasn't already claimed the once-per-day No-Fill grace reward.
-        // Offline / Airplane mode players get a connection warning instead of free gold.
-        final online = await _hasActiveInternet();
-        final nowDt = DateTime.now();
-        final todayKey = '${nowDt.year}-${nowDt.month}-${nowDt.day}';
-        if (online && _lastNoFillGraceDay != todayKey) {
-          _lastNoFillGraceDay = todayKey;
-          SaveManager.instance.addGold(goldRewardAmount);
-          SaveManager.instance.setLastAdWatchTime(nowDt.millisecondsSinceEpoch);
-          SaveManager.instance.recordAdOrWinQuest();
-          AudioManager.instance.playSfx(GameSfx.powerupBuff);
-          onSuccess(goldRewardAmount);
-          return;
-        }
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Reklam yüklenemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.'),
-              backgroundColor: Color(0xFF1E2438),
-              behavior: SnackBarBehavior.floating,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
+        // Direct callback / smooth continuation for Google Play compliance
+        SaveManager.instance.addGold(goldRewardAmount);
+        SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
+        SaveManager.instance.recordAdOrWinQuest();
+        AudioManager.instance.playSfx(GameSfx.powerupBuff);
+        onSuccess(goldRewardAmount);
         return;
       }
     }
@@ -360,70 +281,18 @@ class AdManager extends ChangeNotifier {
     if (_isShowing) return;
 
     if (_interstitialAd == null) {
-      // Reklam hafızada yoksa kullanıcıyı bekletip göndermek yerine,
-      // 3.5 saniye hızlı yükleme diyaloğu açıp yüklenir yüklenmez anında ekrana veriyoruz!
       preloadInterstitialAd();
 
-      bool dialogOpen = true;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (dlgCtx) => PopScope(
-          canPop: false,
-          child: Dialog(
-            backgroundColor: const Color(0xFF131726),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: const BorderSide(color: Color(0xFF4FC3F7), width: 1.5),
-            ),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 22),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.8,
-                      color: Color(0xFF4FC3F7),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      'Reklam Hazırlanıyor...',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ).then((_) => dialogOpen = false);
-
-      final startTime = DateTime.now().millisecondsSinceEpoch;
-      while (_interstitialAd == null && (DateTime.now().millisecondsSinceEpoch - startTime) < 3500) {
-        await Future.delayed(const Duration(milliseconds: 150));
+      int elapsedMs = 0;
+      while (_interstitialAd == null && elapsedMs < 1000) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        elapsedMs += 100;
         if (!context.mounted) break;
       }
 
-      if (dialogOpen && context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
-
       if (_interstitialAd == null) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Reklam yüklenemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.'),
-              backgroundColor: Color(0xFF1E2438),
-              behavior: SnackBarBehavior.floating,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
+        // Direct callback to continue smoothly without trapping player
+        onSuccess();
         return;
       }
     }
@@ -487,68 +356,17 @@ class AdManager extends ChangeNotifier {
       preloadHighYieldAd();
       preloadRewardedAd();
 
-      bool dialogOpen = true;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (dlgCtx) => PopScope(
-          canPop: false,
-          child: Dialog(
-            backgroundColor: const Color(0xFF131726),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: const BorderSide(color: Color(0xFFFF5252), width: 1.5),
-            ),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 22),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.8,
-                      color: Color(0xFFFF5252),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      'Reklam Hazırlanıyor...',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ).then((_) => dialogOpen = false);
-
-      final startTime = DateTime.now().millisecondsSinceEpoch;
-      while ((_highYieldAd == null && _rewardedAd == null) &&
-          (DateTime.now().millisecondsSinceEpoch - startTime) < 3500) {
-        await Future.delayed(const Duration(milliseconds: 150));
+      int elapsedMs = 0;
+      while ((_highYieldAd == null && _rewardedAd == null) && elapsedMs < 1000) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        elapsedMs += 100;
         if (!context.mounted) break;
-      }
-
-      if (dialogOpen && context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
       }
 
       adToUse = _highYieldAd ?? _rewardedAd;
       if (adToUse == null) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Reklam yüklenemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.'),
-              backgroundColor: Color(0xFF1E2438),
-              behavior: SnackBarBehavior.floating,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
+        // Google Play Uyumluluk: Reklam 1 saniyede yüklenemezse oyuncuyu bekletmeden doğrudan devam ettir
+        onReviveSuccess();
         return;
       }
     }
@@ -626,79 +444,18 @@ class AdManager extends ChangeNotifier {
       preloadHighYieldAd();
       preloadRewardedAd();
 
-      bool dialogOpen = true;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (dlgCtx) => PopScope(
-          canPop: false,
-          child: Dialog(
-            backgroundColor: const Color(0xFF131726),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: const BorderSide(color: Color(0xFFFF9100), width: 1.5),
-            ),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 22),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.8,
-                      color: Color(0xFFFF9100),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      'Seri Koruma Reklamı Hazırlanıyor...',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-
-      final startWait = DateTime.now();
-      while (DateTime.now().difference(startWait).inMilliseconds < 3500) {
-        await Future.delayed(const Duration(milliseconds: 200));
+      int elapsedMs = 0;
+      while (elapsedMs < 1000) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        elapsedMs += 100;
         adToUse = _highYieldAd ?? _rewardedAd;
         if (adToUse != null) break;
       }
 
-      if (context.mounted && dialogOpen && Navigator.of(context, rootNavigator: true).canPop()) {
-        Navigator.of(context, rootNavigator: true).pop();
-        dialogOpen = false;
-      }
-
       if (adToUse == null) {
-        if (kDebugMode || Platform.environment.containsKey('FLUTTER_TEST')) {
-          SaveManager.instance.recordAdOrWinQuest();
-          _noteVoluntaryAd();
-          onSuccess();
-          return;
-        }
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  'Reklam yüklenemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.'),
-              backgroundColor: Color(0xFF1E2438),
-              behavior: SnackBarBehavior.floating,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-        onDismissedEarly();
+        SaveManager.instance.recordAdOrWinQuest();
+        _noteVoluntaryAd();
+        onSuccess();
         return;
       }
     }

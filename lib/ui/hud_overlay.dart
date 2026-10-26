@@ -43,8 +43,8 @@ class HudOverlay extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(24),
                   child: Container(
-                    height: 48,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    height: 60,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Color(0xCC161B30), Color(0xCC0D101E)],
@@ -284,20 +284,21 @@ class HudOverlay extends StatelessWidget {
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(24),
                             onTap: () {
                               AudioManager.instance.triggerHaptic(() async => AudioManager.instance.playSfx(GameSfx.click));
                               onPause();
                             },
                             child: Container(
-                              width: 36,
-                              height: 36,
+                              width: 48,
+                              height: 48,
+                              alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: const Color(0x44FFFFFF),
                                 shape: BoxShape.circle,
                                 border: Border.all(color: Colors.white24),
                               ),
-                              child: const Icon(Icons.pause, color: Colors.white, size: 18),
+                              child: const Icon(Icons.pause, color: Colors.white, size: 22),
                             ),
                           ),
                         ),
@@ -311,7 +312,7 @@ class HudOverlay extends StatelessWidget {
               // (combo count + the score multiplier it currently grants).
               if (stats.combo >= 2 && controller.status == GameStatus.playing)
                 Positioned(
-                  top: 64,
+                  top: 72,
                   left: 12,
                   child: IgnorePointer(
                     child: Builder(

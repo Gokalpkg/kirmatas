@@ -118,18 +118,35 @@ void main() {
       expect(audio.lastPlayedCombo, 0);
       expect(audio.lastPlaybackRate, 1.0);
 
-      // Ascending combo hits progressively raise pitch
+      // Pentatonic pitch scale active by default (Peggle major pentatonic)
+      expect(AudioManager.usePentatonicScale, isTrue);
       audio.playSfx(GameSfx.breakBrick, combo: 1);
-      expect(audio.lastPlaybackRate, closeTo(1.05, 0.01));
+      expect(audio.lastPlaybackRate, closeTo(1.00, 0.01)); // C
 
       audio.playSfx(GameSfx.breakBrick, combo: 3);
-      expect(audio.lastPlaybackRate, closeTo(1.15, 0.01));
+      expect(audio.lastPlaybackRate, closeTo(1.25, 0.01)); // E
 
       audio.playSfx(GameSfx.breakBrick, combo: 6);
-      expect(audio.lastPlaybackRate, closeTo(1.30, 0.01));
+      expect(audio.lastPlaybackRate, closeTo(2.00, 0.01)); // C Octave
 
-      audio.playSfx(GameSfx.breakBrick, combo: 10);
-      expect(audio.lastPlaybackRate, closeTo(1.50, 0.01));
+      // Linear fallback if pentatonic is disabled
+      final prevScale = AudioManager.usePentatonicScale;
+      try {
+        AudioManager.usePentatonicScale = false;
+        audio.playSfx(GameSfx.breakBrick, combo: 1);
+        expect(audio.lastPlaybackRate, closeTo(1.05, 0.01));
+
+        audio.playSfx(GameSfx.breakBrick, combo: 3);
+        expect(audio.lastPlaybackRate, closeTo(1.15, 0.01));
+
+        audio.playSfx(GameSfx.breakBrick, combo: 6);
+        expect(audio.lastPlaybackRate, closeTo(1.30, 0.01));
+
+        audio.playSfx(GameSfx.breakBrick, combo: 10);
+        expect(audio.lastPlaybackRate, closeTo(1.50, 0.01));
+      } finally {
+        AudioManager.usePentatonicScale = prevScale;
+      }
     });
 
     test('Step 5: Remaining Bricks Settle with Elastic Overshoot', () {
