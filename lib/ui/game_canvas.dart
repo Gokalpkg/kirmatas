@@ -559,7 +559,9 @@ class _ScreenVignettePainter extends CustomPainter {
       redAlpha = (0.05 + 0.10 * beat.clamp(0.0, 1.0)) * fade;
     }
     final flash = (c.nearMissFlashTimer / 0.55).clamp(0.0, 1.0);
-    if (redAlpha <= 0.0 && flash <= 0.0) return;
+    final hasStreakBorder = c.save.winStreak >= 5 &&
+        (c.status == GameStatus.playing || c.status == GameStatus.ready);
+    if (redAlpha <= 0.0 && flash <= 0.0 && !hasStreakBorder) return;
 
     final rect = Offset.zero & size;
     void edge(Color color, double alpha) {
@@ -576,12 +578,42 @@ class _ScreenVignettePainter extends CustomPainter {
       canvas.drawRect(rect, paint);
     }
 
+    if (hasStreakBorder) {
+      // Breathing, pulsating translucent orange / golden fire vignette & border (Win Streak x5)
+      final pulse = 0.5 + 0.5 * sin(c.gameTime * 3.5);
+      final flameAlpha = 0.20 + 0.12 * pulse;
+      final flameShader = RadialGradient(
+        radius: 0.96,
+        colors: [
+          const Color(0xFFFF6D00).withValues(alpha: 0.0),
+          const Color(0xFFFF9100).withValues(alpha: flameAlpha * 0.45),
+          const Color(0xFFFF3D00).withValues(alpha: flameAlpha),
+        ],
+        stops: const [0.0, 0.72, 1.0],
+      ).createShader(rect);
+      canvas.drawRect(rect, Paint()..shader = flameShader);
+
+      final borderStroke = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5 + 1.5 * pulse
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.lerp(const Color(0xFFFF6D00), const Color(0xFFFFD600), pulse)!.withValues(alpha: 0.40 + 0.25 * pulse),
+            Color.lerp(const Color(0xFFFF3D00), const Color(0xFFFF9100), 1.0 - pulse)!.withValues(alpha: 0.30 + 0.20 * pulse),
+            Color.lerp(const Color(0xFFFFAB00), const Color(0xFFFF3D00), pulse)!.withValues(alpha: 0.40 + 0.25 * pulse),
+          ],
+        ).createShader(rect);
+      canvas.drawRect(rect.deflate(1.5), borderStroke);
+    }
+
     if (redAlpha > 0.0) edge(const Color(0xFFFF1744), redAlpha);
     if (flash > 0.0) edge(const Color(0xFF00E5FF), 0.55 * flash);
   }
 
   @override
-  bool shouldRepaint(covariant _ScreenVignettePainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ScreenVignettePainter oldDelegate) => true;
 }
 
 class _GameWorldPainter extends CustomPainter {
@@ -660,12 +692,14 @@ class _GameWorldPainter extends CustomPainter {
 
     _drawBackground(canvas, size);
     _drawAmbientPointLight(canvas, size);
+    _drawAquariumFishSilhouettes(canvas, size);
     _drawBlackHoles(canvas);
     _drawPortals(canvas);
     _drawBricks(canvas);
     _drawTargetLock(canvas);
     _drawPixelShockwaves(canvas);
     _drawShards(canvas);
+    _drawChestLids(canvas);
     _drawNet(canvas, size);
     _drawPaddle(canvas);
     _drawChaosAim(canvas);
@@ -903,6 +937,35 @@ class _GameWorldPainter extends CustomPainter {
       _fill.shader = glowShader;
       canvas.drawCircle(Offset(ball.x, ball.y), glowRadius, _fill);
       _fill.shader = null;
+    }
+  }
+
+  void _drawAquariumFishSilhouettes(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+    for (int i = 0; i < 2; i++) {
+      final speed = i == 0 ? 22.0 : 16.0;
+      final fishLen = i == 0 ? 32.0 : 24.0;
+      final fishH = i == 0 ? 12.0 : 9.0;
+      final cycleW = size.width + fishLen * 2 + 60.0;
+      final fx = ((time * speed + i * 210.0) % cycleW) - fishLen;
+      final fy = size.height * (0.62 + i * 0.18) + sin(time * 1.5 + i * 2.0) * 8.0;
+
+      final path = Path();
+      path.moveTo(fx + fishLen * 0.5, fy);
+      path.quadraticBezierTo(fx, fy - fishH * 0.5, fx - fishLen * 0.35, fy);
+      path.lineTo(fx - fishLen * 0.55, fy - fishH * 0.45);
+      path.lineTo(fx - fishLen * 0.42, fy);
+      path.lineTo(fx - fishLen * 0.55, fy + fishH * 0.45);
+      path.lineTo(fx - fishLen * 0.35, fy);
+      path.quadraticBezierTo(fx, fy + fishH * 0.5, fx + fishLen * 0.5, fy);
+      path.close();
+
+      _fill
+        ..style = PaintingStyle.fill
+        ..shader = null
+        ..maskFilter = null
+        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.05);
+      canvas.drawPath(path, _fill);
     }
   }
 
@@ -1312,7 +1375,9 @@ class _GameWorldPainter extends CustomPainter {
       } else if (b.isBoss) {
         _drawBoss(canvas, b, time, halfW, halfH);
       } else {
-        if (b.isDynamite) {
+        if (b.isChest) {
+          _drawChestBrick(canvas, b, rect, rrect, halfW, halfH);
+        } else if (b.isDynamite) {
           _drawDynamiteBrick(canvas, b, rect, halfW, halfH);
         } else if (b.isIce) {
           _drawIceBrick(canvas, rect, rrect, halfW, halfH, c.activeIceVariant);
@@ -1622,6 +1687,48 @@ class _GameWorldPainter extends CustomPainter {
     canvas.drawPath(_tempPath, _fill);
   }
 
+  void _drawChestBrick(Canvas canvas, Brick b, Rect rect, RRect rrect, double halfW, double halfH) {
+    // 1. Golden ambient treasure aura
+    final shimmer = 0.85 + sin(time * 8.0) * 0.15;
+    _fill.color = _ca(const Color(0xFFFFD54F), 0.25 * shimmer);
+    canvas.drawRRect(rrect.inflate(3.0), _fill);
+
+    // 2. Chest base body (Gleaming Gold)
+    _fill.color = const Color(0xFFFFB300);
+    canvas.drawRRect(rrect, _fill);
+
+    // Top lid highlight
+    _fill.color = const Color(0xFFFFE082);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(-halfW + 1.5, -halfH + 1.5, b.width - 3.0, halfH - 1.5),
+        const Radius.circular(3.0),
+      ),
+      _fill,
+    );
+
+    // 3. Dark iron trim / lock strap
+    _fill.color = const Color(0xFF5D4037);
+    canvas.drawRect(Rect.fromLTWH(-3.0, -halfH, 6.0, b.height), _fill);
+    _stroke
+      ..color = const Color(0xFF5D4037)
+      ..strokeWidth = 1.4;
+    canvas.drawLine(Offset(-halfW, 0), Offset(halfW, 0), _stroke);
+
+    // 4. Golden keyhole / lock buckle
+    _fill.color = const Color(0xFFFFF9C4);
+    canvas.drawCircle(const Offset(0, 0), 3.0, _fill);
+    _fill.color = const Color(0xFF3E2723);
+    canvas.drawCircle(const Offset(0, -0.5), 1.2, _fill);
+    canvas.drawRect(const Rect.fromLTWH(-0.8, -0.5, 1.6, 2.2), _fill);
+
+    // 5. Crisp gleaming outer border
+    _stroke
+      ..color = const Color(0xFFFFF59D)
+      ..strokeWidth = 1.5;
+    canvas.drawRRect(rrect, _stroke);
+  }
+
   void _drawDynamiteBrick(Canvas canvas, Brick b, Rect rect, double halfW, double halfH) {
     if (b.isFrozen) {
       _drawFrozenDynamiteBrick(canvas, b, rect, halfW, halfH);
@@ -1631,6 +1738,16 @@ class _GameWorldPainter extends CustomPainter {
     final w = rect.width;
     final h = rect.height;
     final pulse = sin(time * 10.0) * 0.5 + 0.5;
+
+    // Imminent Cascading Detonation Overheat Aura
+    if (b.isPrimedDynamite) {
+      final primePulse = sin(time * 42.0) * 0.5 + 0.5;
+      _fill
+        ..style = PaintingStyle.fill
+        ..shader = null
+        ..color = Color.lerp(const Color(0xFFFF9100), Colors.white, primePulse)!.withValues(alpha: 0.70);
+      canvas.drawRRect(RRect.fromRectAndRadius(rect.inflate(3.5), const Radius.circular(8.0)), _fill);
+    }
 
     // 1. 3D Drop Shadow
     _fill
@@ -2250,87 +2367,244 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawCosmicBrick(Canvas canvas, Brick b, RRect rrect, double halfW, double halfH) {
-    // === 6. "KOZMİK KRİSTAL": Crisp Pixel Art Astral Nebula & Star Block ===
-    _fill.isAntiAlias = false;
-    _stroke.isAntiAlias = false;
-    final base = b.color;
+    // === 6. "KOZMİK KRİSTAL": Radiant Cosmic Gemstone & Living Nebula Crystal ===
     final rect = rrect.outerRect;
-    const deepVoid = Color(0xFF070114);
-    const abyss = Color(0xFF130429);
-    final magenta = Color.lerp(base, const Color(0xFFE040FB), 0.55)!;
-    final cyan = Color.lerp(base, const Color(0xFF00E5FF), 0.55)!;
-    final violet = Color.lerp(base, const Color(0xFF7C4DFF), 0.60)!;
+    final w = rect.width;
+    final h = rect.height;
 
-    // 1. Stepped astral void pixel drop shadow
+    // 1. Soft Pulsing Astral Aura (Cosmic violet & cyan bloom)
+    final auraPulse = 0.5 + 0.5 * sin(time * 3.0);
     _fill
       ..style = PaintingStyle.fill
       ..shader = null
-      ..color = const Color(0xFF0B1021);
-    canvas.drawRect(rect.translate(2.0, 2.5), _fill);
+      ..color = const Color(0xFFE040FB).withValues(alpha: 0.15 + 0.12 * auraPulse);
+    canvas.drawRRect(RRect.fromRectAndRadius(rect.inflate(2.5), const Radius.circular(7.0)), _fill);
 
-    // 2. Stepped Deep Space Pixel Bands (Zero Radial/Linear Gradients)
-    _fill.color = deepVoid;
-    canvas.drawRect(rect, _fill);
-    _fill.color = abyss;
-    canvas.drawRect(rect.deflate(2.0), _fill);
+    // 2. 3D Cosmic Shadow
+    _fill.color = const Color(0xFF060112);
+    canvas.drawRRect(RRect.fromRectAndRadius(rect.translate(0, 2.8), const Radius.circular(5.5)), _fill);
 
-    // Stepped diagonal pixel nebula clusters
-    _fill.color = violet;
-    canvas.drawRect(Rect.fromLTWH(-halfW + 3.0, -halfH + 3.0, rect.width * 0.55, rect.height * 0.50), _fill);
-    _fill.color = magenta;
-    canvas.drawRect(Rect.fromLTWH(-halfW + 5.0, -halfH + 4.0, rect.width * 0.35, rect.height * 0.35), _fill);
-    _fill.color = cyan;
-    canvas.drawRect(Rect.fromLTWH(0, 0, halfW - 3.0, halfH - 3.0), _fill);
+    // 3. Faceted Deep Galactic Nebula Core
+    final cosmicKey = Object.hash('cosmic_core', w.round(), h.round());
+    _fill.shader = _brickShaders.putIfAbsent(cosmicKey, () {
+      return const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFF2E0854), // Astral Royal Violet
+          Color(0xFF140226), // Deep Space Abyss
+          Color(0xFF090014), // Void Core
+          Color(0xFF1A0A3A), // Nebula Indigo
+        ],
+        stops: [0.0, 0.35, 0.70, 1.0],
+      ).createShader(rect);
+    });
+    final crystalRRect = RRect.fromRectAndRadius(rect, const Radius.circular(5.0));
+    canvas.drawRRect(crystalRRect, _fill);
+    _fill.shader = null;
 
-    // 3. Crisp Pixel Cross-Star & Micro-Pixel Stars
-    final majorTwinkle = 0.78 + 0.22 * sin(time * 3.5);
-    _fill.color = Colors.white.withValues(alpha: majorTwinkle);
-    final sx = (-halfW * 0.22).roundToDouble();
-    final sy = (-halfH * 0.18).roundToDouble();
-    canvas.drawRect(Rect.fromCenter(center: Offset(sx, sy), width: 6.0, height: 2.0), _fill);
-    canvas.drawRect(Rect.fromCenter(center: Offset(sx, sy), width: 2.0, height: 6.0), _fill);
-    canvas.drawRect(Rect.fromLTWH(halfW * 0.32, halfH * 0.20, 2.2, 2.2), _fill);
-    canvas.drawRect(Rect.fromLTWH(-halfW * 0.55, halfH * 0.28, 2.0, 2.0), _fill);
+    // 4. Gemstone Facet Cuts (Prismatic Light Refractions)
+    final insetX = w * 0.18;
+    final insetY = h * 0.22;
+    final tableRect = Rect.fromLTRB(-halfW + insetX, -halfH + insetY, halfW - insetX, halfH - insetY);
 
-    // 4. Inner Pixel Gem Table Frame & Stepped Top Highlight
-    final innerW = halfW * 1.25;
-    final innerH = halfH * 1.15;
+    // Top Crown Facet (Brilliant celestial starlight)
+    _tempPath
+      ..reset()
+      ..moveTo(-halfW + 4, -halfH)
+      ..lineTo(halfW - 4, -halfH)
+      ..lineTo(tableRect.right, tableRect.top)
+      ..lineTo(tableRect.left, tableRect.top)
+      ..close();
+    _fill.color = const Color(0xFFE040FB).withValues(alpha: 0.38 + 0.10 * auraPulse);
+    canvas.drawPath(_tempPath, _fill);
+
+    // Left Prism Facet (Cyan astral edge)
+    _tempPath
+      ..reset()
+      ..moveTo(-halfW, -halfH + 4)
+      ..lineTo(tableRect.left, tableRect.top)
+      ..lineTo(tableRect.left, tableRect.bottom)
+      ..lineTo(-halfW, halfH - 4)
+      ..close();
+    _fill.color = const Color(0xFF00E5FF).withValues(alpha: 0.28 + 0.08 * auraPulse);
+    canvas.drawPath(_tempPath, _fill);
+
+    // Right Prism Facet (Deep violet refractive edge)
+    _tempPath
+      ..reset()
+      ..moveTo(halfW, -halfH + 4)
+      ..lineTo(tableRect.right, tableRect.top)
+      ..lineTo(tableRect.right, tableRect.bottom)
+      ..lineTo(halfW, halfH - 4)
+      ..close();
+    _fill.color = const Color(0xFF7C4DFF).withValues(alpha: 0.22);
+    canvas.drawPath(_tempPath, _fill);
+
+    // Bottom Pavilion Facet (Shadow refraction)
+    _tempPath
+      ..reset()
+      ..moveTo(-halfW + 4, halfH)
+      ..lineTo(tableRect.left, tableRect.bottom)
+      ..lineTo(tableRect.right, tableRect.bottom)
+      ..lineTo(halfW - 4, halfH)
+      ..close();
+    _fill.color = const Color(0xFF0D0120).withValues(alpha: 0.60);
+    canvas.drawPath(_tempPath, _fill);
+
+    // 5. Central Raised Gem Table (Living Galactic Window)
+    final tableRRect = RRect.fromRectAndRadius(tableRect, const Radius.circular(2.5));
+    _fill.color = const Color(0xFF180533);
+    canvas.drawRRect(tableRRect, _fill);
+
+    // Inner nebula shimmer inside table
+    final swirlT = time * 1.8;
+    final nebulaCenter = Offset(sin(swirlT * 0.7) * (w * 0.10), cos(swirlT * 0.5) * (h * 0.08));
+    _fill.shader = RadialGradient(
+      center: Alignment(nebulaCenter.dx / halfW, nebulaCenter.dy / halfH),
+      radius: 0.85,
+      colors: [
+        const Color(0xFFE040FB).withValues(alpha: 0.45 + 0.15 * auraPulse),
+        const Color(0xFF00E5FF).withValues(alpha: 0.25),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.45, 1.0],
+    ).createShader(tableRect);
+    canvas.drawRRect(tableRRect, _fill);
+    _fill.shader = null;
+
+    // 6. Radiant Twinkling Diamond Star Core
+    final starTwinkle = 0.65 + 0.35 * sin(time * 4.0);
+    final starSize = 5.5 + 1.2 * starTwinkle;
+    _fill.color = Colors.white.withValues(alpha: starTwinkle);
+
+    final starCenter = Offset(-w * 0.08, -h * 0.06);
+    _tempPath
+      ..reset()
+      ..moveTo(starCenter.dx, starCenter.dy - starSize)
+      ..lineTo(starCenter.dx + starSize * 0.32, starCenter.dy)
+      ..lineTo(starCenter.dx, starCenter.dy + starSize)
+      ..lineTo(starCenter.dx - starSize * 0.32, starCenter.dy)
+      ..close();
+    canvas.drawPath(_tempPath, _fill);
+
+    _tempPath
+      ..reset()
+      ..moveTo(starCenter.dx - starSize, starCenter.dy)
+      ..lineTo(starCenter.dx, starCenter.dy + starSize * 0.32)
+      ..lineTo(starCenter.dx + starSize, starCenter.dy)
+      ..lineTo(starCenter.dx, starCenter.dy - starSize * 0.32)
+      ..close();
+    canvas.drawPath(_tempPath, _fill);
+
+    // Secondary micro-sparkles
+    final spark1 = 0.5 + 0.5 * sin(time * 5.5 + 1.2);
+    _fill.color = const Color(0xFF00E5FF).withValues(alpha: spark1);
+    canvas.drawCircle(Offset(halfW * 0.35, halfH * 0.22), 1.4, _fill);
+
+    final spark2 = 0.5 + 0.5 * cos(time * 4.8 + 2.5);
+    _fill.color = const Color(0xFFFF80AB).withValues(alpha: spark2);
+    canvas.drawCircle(Offset(-halfW * 0.50, halfH * 0.25), 1.2, _fill);
+
+    // 7. Prismatic Glass Reflection Sheen (Diagonal Glint)
+    _tempPath
+      ..reset()
+      ..moveTo(-halfW + 6, -halfH + 1.5)
+      ..lineTo(-halfW + 18, -halfH + 1.5)
+      ..lineTo(-halfW + 2, halfH - 1.5)
+      ..lineTo(-halfW - 4, halfH - 1.5)
+      ..close();
+    _fill.shader = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Colors.white.withValues(alpha: 0.40),
+        Colors.white.withValues(alpha: 0.0),
+      ],
+    ).createShader(rect);
+    canvas.drawPath(_tempPath, _fill);
+    _fill.shader = null;
+
+    // 8. Sharp Crystalline Ridge Lines & Outer Diamond Bevel
     _stroke
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..color = Colors.white.withValues(alpha: 0.70);
-    canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: innerW, height: innerH), _stroke);
+      ..strokeWidth = 1.0
+      ..color = Colors.white.withValues(alpha: 0.55 + 0.20 * auraPulse);
+    canvas.drawRRect(tableRRect, _stroke);
 
-    // Outer stepped cyan/magenta pixel rim inside the #0B1021 outline
     _stroke
-      ..strokeWidth = 1.5
-      ..color = cyan;
-    canvas.drawRect(rect.deflate(1.5), _stroke);
+      ..strokeWidth = 0.9
+      ..color = const Color(0xFFE040FB).withValues(alpha: 0.60);
+    canvas.drawLine(Offset(-halfW + 4, -halfH + 4), Offset(tableRect.left, tableRect.top), _stroke);
+    canvas.drawLine(Offset(halfW - 4, -halfH + 4), Offset(tableRect.right, tableRect.top), _stroke);
+    canvas.drawLine(Offset(-halfW + 4, halfH - 4), Offset(tableRect.left, tableRect.bottom), _stroke);
+    canvas.drawLine(Offset(halfW - 4, halfH - 4), Offset(tableRect.right, tableRect.bottom), _stroke);
 
-    _fill.isAntiAlias = true;
-    _stroke.isAntiAlias = true;
+    // Outer luminous crystal rim
+    _stroke
+      ..strokeWidth = 1.3
+      ..color = const Color(0xFFE040FB).withValues(alpha: 0.75);
+    canvas.drawRRect(crystalRRect, _stroke);
+
+    // Top-left brilliant white vertex highlight
+    _fill.color = Colors.white.withValues(alpha: 0.90);
+    canvas.drawCircle(Offset(-halfW + 4.5, -halfH + 4.5), 1.5, _fill);
   }
 
   void _drawBoss(Canvas canvas, Brick b, double time, double halfW, double halfH) {
     final hpPct = (b.hp / b.maxHp).clamp(0.0, 1.0);
 
-    // 1. Dual Thruster Glow / Exhaust
-    final thrustPulse = 3.5 + sin(time * 12.0) * 2.0;
-    _fill.color = _ca(const Color(0xFFFF5722), 0.85);
-    canvas.drawOval(Rect.fromCenter(center: Offset(-halfW * 0.65, -halfH - 2), width: 14, height: thrustPulse), _fill);
-    canvas.drawOval(Rect.fromCenter(center: Offset(halfW * 0.65, -halfH - 2), width: 14, height: thrustPulse), _fill);
+    // 1. Dual High-Energy Ion Plasma Thrusters (Roaring multi-layered jet exhaust)
+    final thrustFlicker = 8.0 + sin(time * 26.0) * 3.5;
+    for (final thX in [-halfW * 0.65, halfW * 0.65]) {
+      // Outer atmospheric plasma cone
+      _tempPath
+        ..reset()
+        ..moveTo(thX - 7.0, -halfH)
+        ..lineTo(thX, -halfH - thrustFlicker * 1.5)
+        ..lineTo(thX + 7.0, -halfH)
+        ..close();
+      _fill.color = _ca(const Color(0xFF00E5FF), 0.35);
+      canvas.drawPath(_tempPath, _fill);
 
-    // 2. Heavy Armored Hull Base (Dark Titanium Mecha)
+      // Mid intense cyan flame
+      _tempPath
+        ..reset()
+        ..moveTo(thX - 4.5, -halfH)
+        ..lineTo(thX, -halfH - thrustFlicker * 1.0)
+        ..lineTo(thX + 4.5, -halfH)
+        ..close();
+      _fill.color = _ca(const Color(0xFF18FFFF), 0.85);
+      canvas.drawPath(_tempPath, _fill);
+
+      // Inner white-hot thermal core
+      _tempPath
+        ..reset()
+        ..moveTo(thX - 2.0, -halfH)
+        ..lineTo(thX, -halfH - thrustFlicker * 0.6)
+        ..lineTo(thX + 2.0, -halfH)
+        ..close();
+      _fill.color = Colors.white;
+      canvas.drawPath(_tempPath, _fill);
+    }
+
+    // 2. Heavy Armored Hull Base (Dark Titanium Mecha with Beveled Trim)
     final hullRRect = RRect.fromRectAndRadius(
       Rect.fromCenter(center: Offset.zero, width: b.width, height: b.height),
       const Radius.circular(8.0),
     );
-    _fill.color = const Color(0xFF141724);
+    _fill.color = const Color(0xFF111420);
     canvas.drawRRect(hullRRect, _fill);
 
-    // 3. Wing Armor Plates & Hazard Stripes
-    final wingW = halfW * 0.35;
-    _fill.color = const Color(0xFF1F2538);
+    // Hull border rim
+    _stroke
+      ..color = const Color(0xFF37474F)
+      ..strokeWidth = 1.5;
+    canvas.drawRRect(hullRRect, _stroke);
+
+    // 3. Swept Wing Armor Plates & Cyber Hazard Chevrons
+    final wingW = halfW * 0.36;
+    _fill.color = const Color(0xFF1A1F30);
     // Left Wing
     final leftWingRect = Rect.fromLTWH(-halfW, -halfH, wingW, b.height);
     canvas.drawRRect(RRect.fromRectAndRadius(leftWingRect, const Radius.circular(6.0)), _fill);
@@ -2338,40 +2612,52 @@ class _GameWorldPainter extends CustomPainter {
     final rightWingRect = Rect.fromLTWH(halfW - wingW, -halfH, wingW, b.height);
     canvas.drawRRect(RRect.fromRectAndRadius(rightWingRect, const Radius.circular(6.0)), _fill);
 
-    // Hazard Stripes on wing panels (black and yellow arcade stripes)
+    // Metallic beveled wing highlights
     _stroke
-      ..color = const Color(0xFFFFC107)
+      ..color = const Color(0xFF455A64)
+      ..strokeWidth = 1.2;
+    canvas.drawLine(Offset(-halfW + 3, -halfH + 2), Offset(-halfW + wingW - 2, -halfH + 2), _stroke);
+    canvas.drawLine(Offset(halfW - wingW + 2, -halfH + 2), Offset(halfW - 3, -halfH + 2), _stroke);
+
+    // Glowing Neon Hazard Chevrons on wings
+    _stroke
+      ..color = _ca(b.isEnraged ? const Color(0xFFFF1744) : const Color(0xFFFFB300), 0.90)
       ..strokeWidth = 2.0;
-    for (int s = -1; s <= 1; s++) {
-      canvas.drawLine(Offset(-halfW + 10 + s * 6, -halfH + 4), Offset(-halfW + 16 + s * 6, halfH - 4), _stroke);
-      canvas.drawLine(Offset(halfW - wingW + 10 + s * 6, -halfH + 4), Offset(halfW - wingW + 16 + s * 6, halfH - 4), _stroke);
+    for (int s = 0; s < 2; s++) {
+      final offX = s * 7.0;
+      canvas.drawLine(Offset(-halfW + 7 + offX, -halfH + 6), Offset(-halfW + 12 + offX, 0), _stroke);
+      canvas.drawLine(Offset(-halfW + 12 + offX, 0), Offset(-halfW + 7 + offX, halfH - 6), _stroke);
+
+      canvas.drawLine(Offset(halfW - 7 - offX, -halfH + 6), Offset(halfW - 12 - offX, 0), _stroke);
+      canvas.drawLine(Offset(halfW - 12 - offX, 0), Offset(halfW - 7 - offX, halfH - 6), _stroke);
     }
 
-    // 4. Dual Plasma Cannons on Gun Mounts (with Pre-fire Telegraphing Flash)
+    // 4. Heavy Dual Plasma Cannons on Gun Mounts (with Pre-fire Telegraphing Flash)
     final isTelegraphing = b.shootTimer <= 0.6;
     final cannonMuzzleColor = isTelegraphing
-        ? (sin(time * 24.0) > 0 ? const Color(0xFFFFEB3B) : const Color(0xFFFF1744))
-        : const Color(0xFFFF1744);
-    final muzzleRadius = isTelegraphing ? 5.0 : 3.0;
+        ? (sin(time * 28.0) > 0 ? const Color(0xFFFFEB3B) : const Color(0xFFFF1744))
+        : (b.isEnraged ? const Color(0xFFE040FB) : const Color(0xFFFF1744));
+    final muzzleRadius = isTelegraphing ? 5.5 : 3.5;
 
-    _fill.color = const Color(0xFF37474F);
-    // Left Cannon
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(-halfW * 0.5, halfH + 4), width: 10, height: 12), const Radius.circular(2)), _fill);
-    _fill.color = _ca(cannonMuzzleColor, isTelegraphing ? 1.0 : (0.75 + sin(time * 8.0) * 0.25));
-    canvas.drawCircle(Offset(-halfW * 0.5, halfH + 9), muzzleRadius, _fill);
-    if (isTelegraphing) {
-      _fill.color = _ca(Colors.white, 0.85);
-      canvas.drawCircle(Offset(-halfW * 0.5, halfH + 9), 2.2, _fill);
-    }
+    for (final canX in [-halfW * 0.5, halfW * 0.5]) {
+      // Cannon housing
+      _fill.color = const Color(0xFF263238);
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(canX, halfH + 4), width: 12, height: 14), const Radius.circular(2)), _fill);
 
-    // Right Cannon
-    _fill.color = const Color(0xFF37474F);
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(halfW * 0.5, halfH + 4), width: 10, height: 12), const Radius.circular(2)), _fill);
-    _fill.color = _ca(cannonMuzzleColor, isTelegraphing ? 1.0 : (0.75 + sin(time * 8.0) * 0.25));
-    canvas.drawCircle(Offset(halfW * 0.5, halfH + 9), muzzleRadius, _fill);
-    if (isTelegraphing) {
-      _fill.color = _ca(Colors.white, 0.85);
-      canvas.drawCircle(Offset(halfW * 0.5, halfH + 9), 2.2, _fill);
+      // Cooling heat vents
+      _stroke
+        ..color = const Color(0xFF102027)
+        ..strokeWidth = 1.0;
+      canvas.drawLine(Offset(canX - 4, halfH + 2), Offset(canX + 4, halfH + 2), _stroke);
+      canvas.drawLine(Offset(canX - 4, halfH + 6), Offset(canX + 4, halfH + 6), _stroke);
+
+      // Muzzle aura
+      _fill.color = _ca(cannonMuzzleColor, isTelegraphing ? 0.95 : (0.75 + sin(time * 8.0) * 0.25));
+      canvas.drawCircle(Offset(canX, halfH + 10), muzzleRadius, _fill);
+      if (isTelegraphing) {
+        _fill.color = Colors.white;
+        canvas.drawCircle(Offset(canX, halfH + 10), 2.5, _fill);
+      }
     }
 
     // 5. Central Reactor Chassis
@@ -2405,6 +2691,15 @@ class _GameWorldPainter extends CustomPainter {
       ..strokeWidth = 1.2;
     canvas.drawLine(Offset(-eyeW, -halfH + 7), Offset(-centerW + 5, -halfH + 7), _stroke);
     canvas.drawLine(Offset(eyeW, -halfH + 7), Offset(centerW - 5, -halfH + 7), _stroke);
+
+    // Central glowing Hex Energy Core
+    final corePulse = 0.85 + sin(time * 10.0) * 0.15;
+    _fill.color = _ca(b.isEnraged ? const Color(0xFFFF1744) : const Color(0xFF00E5FF), 0.35 * corePulse);
+    canvas.drawCircle(const Offset(0, 7.5), 5.5, _fill);
+    _fill.color = b.isEnraged ? const Color(0xFFFF5252) : const Color(0xFF18FFFF);
+    canvas.drawCircle(const Offset(0, 7.5), 3.2, _fill);
+    _fill.color = Colors.white;
+    canvas.drawCircle(const Offset(0, 7.5), 1.5, _fill);
 
     // Rivets / Bolts
     _fill.color = const Color(0xFF90A4AE);
@@ -2857,6 +3152,9 @@ class _GameWorldPainter extends CustomPainter {
     final pcx = rect.center.dx;
     final pcy = rect.center.dy + p.bounceOffsetY;
     canvas.translate(pcx, pcy);
+    if (p.tiltAngle != 0.0) {
+      canvas.rotate(p.tiltAngle);
+    }
     canvas.scale(p.squashScaleX, p.squashScaleY);
     canvas.translate(-rect.center.dx, -rect.center.dy);
 
@@ -3971,9 +4269,11 @@ class _GameWorldPainter extends CustomPainter {
             final deepGlow = isFireball
                 ? const Color(0xFFFF6D00)
                 : (isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameDeep) : trailGlow);
+            final glowWidthMultiplier = c.stats.combo >= 5 ? 4.2 : 2.2;
+            final glowAlphaMultiplier = c.stats.combo >= 5 ? 0.38 : 0.18;
             _stroke
-              ..strokeWidth = (ball.radius * 4.2 * taper).clamp(2.0, ball.radius * 4.2)
-              ..color = _ca(deepGlow, 0.38 * taper);
+              ..strokeWidth = (ball.radius * glowWidthMultiplier * taper).clamp(1.5, ball.radius * glowWidthMultiplier)
+              ..color = _ca(deepGlow, glowAlphaMultiplier * taper);
             canvas.drawLine(ball.trail[i].position, ball.trail[i + 1].position, _stroke);
           }
 
@@ -4309,7 +4609,7 @@ class _GameWorldPainter extends CustomPainter {
       if (ball.squashTimer > 0) {
         canvas.rotate(ball.squashAngle);
         final factor = 1.0 + (ball.squashTimer / 0.22) * 0.4;
-        canvas.scale(factor, 1.0 / factor);
+        canvas.scale(1.0 / factor, factor);
         canvas.rotate(-ball.squashAngle);
       }
 
@@ -5326,8 +5626,43 @@ class _GameWorldPainter extends CustomPainter {
   void _drawProjectiles(Canvas canvas) {
     for (final p in c.projectiles) {
       if (p.isBossBullet) {
-        _fill.color = const Color(0xFFFF1744);
-        canvas.drawCircle(Offset(p.x, p.y), p.radius, _fill);
+        final coreColor = p.isHazard ? const Color(0xFFE040FB) : const Color(0xFFFF1744);
+        final glowColor = p.isHazard ? const Color(0xFF7B1FA2) : const Color(0xFFFF5252);
+        final center = Offset(p.x, p.y);
+
+        // 1. Directional Plasma Comet Tail (Tapered teardrop trailing upwards)
+        _tempPath
+          ..reset()
+          ..moveTo(p.x - p.radius * 0.85, p.y)
+          ..quadraticBezierTo(p.x - p.radius * 0.4, p.y - 12.0, p.x, p.y - 18.0)
+          ..quadraticBezierTo(p.x + p.radius * 0.4, p.y - 12.0, p.x + p.radius * 0.85, p.y)
+          ..close();
+        _fill.color = _ca(glowColor, 0.40);
+        canvas.drawPath(_tempPath, _fill);
+
+        // 2. Wide Radiant Plasma Halo (Ambient glow bloom)
+        _fill.color = _ca(coreColor, 0.22);
+        canvas.drawCircle(center, p.radius * 2.5, _fill);
+
+        // 3. Dense Outer Plasma Corona
+        _fill.color = _ca(coreColor, 0.75);
+        canvas.drawCircle(center, p.radius * 1.45, _fill);
+
+        // 4. Intense High-Energy Inner Sphere
+        _fill.color = coreColor;
+        canvas.drawCircle(center, p.radius, _fill);
+
+        // 5. Blazing White-Hot Thermonuclear Core
+        _fill.color = Colors.white;
+        canvas.drawCircle(center, p.radius * 0.52, _fill);
+
+        // 6. Hazard bullets: Pulsing electric diamond spark rings
+        if (p.isHazard) {
+          _stroke
+            ..color = _ca(const Color(0xFFEA80FC), 0.85)
+            ..strokeWidth = 1.2;
+          canvas.drawCircle(center, p.radius * 1.8, _stroke);
+        }
       } else if (p.isRocket) {
         _fill.color = const Color(0xFFFF5722);
         canvas.drawOval(Rect.fromCenter(center: Offset(p.x, p.y), width: 6, height: 14), _fill);
@@ -5671,6 +6006,59 @@ class _GameWorldPainter extends CustomPainter {
         ..strokeWidth = 1.0
         ..color = _ca(const Color(0xFF0B1021), alpha * 0.95);
       canvas.drawRect(chunkRect, _stroke);
+
+      canvas.restore();
+    }
+  }
+
+  void _drawChestLids(Canvas canvas) {
+    if (c.particles.chestLids.isEmpty) return;
+    for (final l in c.particles.chestLids) {
+      final alpha = (l.life / l.maxLife).clamp(0.0, 1.0);
+      if (alpha <= 0) continue;
+
+      canvas.save();
+      canvas.translate(l.x, l.y);
+      canvas.rotate(l.rotation);
+
+      final hw = l.width / 2;
+      final hh = l.height / 2;
+      final lidRect = Rect.fromLTRB(-hw, -hh, hw, hh);
+      final lidRRect = RRect.fromRectAndRadius(lidRect, const Radius.circular(3.5));
+
+      // 1. Golden shimmering ambient aura around flying lid
+      _fill
+        ..shader = null
+        ..maskFilter = null
+        ..color = _ca(const Color(0xFFFFD54F), 0.35 * alpha);
+      canvas.drawRRect(lidRRect.inflate(2.0), _fill);
+
+      // 2. Gleaming Gold Lid Body
+      _fill.color = _ca(const Color(0xFFFFB300), alpha);
+      canvas.drawRRect(lidRRect, _fill);
+
+      // 3. Specular upper curved sheen
+      _fill.color = _ca(const Color(0xFFFFF9C4), alpha * 0.7);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(-hw + 2.0, -hh + 1.2, l.width - 4.0, hh * 0.8),
+          const Radius.circular(2.0),
+        ),
+        _fill,
+      );
+
+      // 4. Center dark iron latch / lock strap
+      _fill.color = _ca(const Color(0xFF4E342E), alpha);
+      canvas.drawRect(Rect.fromLTWH(-2.8, -hh, 5.6, l.height), _fill);
+      _fill.color = _ca(const Color(0xFFFFD700), alpha);
+      canvas.drawCircle(Offset(0, hh * 0.2), 2.2, _fill);
+
+      // 5. Crisp dark outline
+      _stroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = _ca(const Color(0xFF3E2723), alpha * 0.95);
+      canvas.drawRRect(lidRRect, _stroke);
 
       canvas.restore();
     }

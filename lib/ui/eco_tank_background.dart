@@ -5,12 +5,21 @@ import '../engine/asset_cache.dart';
 import '../engine/audio_manager.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
+import 'fish_rig.dart';
+import 'octopus_rig.dart';
+import 'plant_system.dart';
 
 class EcoTankBackground extends StatefulWidget {
   final bool interactive;
   final Widget? child;
+  final void Function(Offset worldPos, int gold)? onBubblePopped;
 
-  const EcoTankBackground({super.key, this.interactive = false, this.child});
+  const EcoTankBackground({
+    super.key,
+    this.interactive = false,
+    this.child,
+    this.onBubblePopped,
+  });
 
   @override
   State<EcoTankBackground> createState() => EcoTankBackgroundState();
@@ -24,6 +33,9 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
   final List<_Bubble> _bubbles = [];
   final List<_FoodPellet> _foodPellets = [];
   final List<_EatParticle> _eatParticles = [];
+  final List<_InkCloud> _inkClouds = [];
+  final List<AquariumPlant> _plants = [];
+  final List<PlantOxygenBubble> _plantBubbles = [];
   final Random _rand = Random();
   double _animTime = 0.0;
   final _TankFrame _frame = _TankFrame();
@@ -69,6 +81,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
   void initState() {
     super.initState();
     _initFish();
+    _initPlants();
     _initBubbles();
 
     _ticker = createTicker((elapsed) {
@@ -105,17 +118,80 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
         ),
       );
       _simFish.last.dartTimer = 2.0 + _rand.nextDouble() * 4.0;
+      final rig = _simFish.last.rig;
+      if (rig != null) {
+        // The octopus starts at rest on the sand (its rig owns velocity).
+        _simFish.last.vx = 0.0;
+        _simFish.last.vy = 0.0;
+        rig.x = _simFish.last.x;
+        rig.y = _simFish.last.y;
+        rig.facingRight = _simFish.last.facingRight;
+      }
     }
   }
 
+  void _initPlants() {
+    _plants.addAll([
+      // Left background: tall flowing Vallisneria ribbon grass
+      AquariumPlant(
+        species: PlantSpecies.vallisneria,
+        baseX: 34.0,
+        baseY: 756.0,
+        scale: 1.15,
+        isForeground: false,
+      ),
+      // Left midground: vibrant Rotala stem cluster with coral/ruby tops
+      AquariumPlant(
+        species: PlantSpecies.rotala,
+        baseX: 95.0,
+        baseY: 752.0,
+        scale: 1.05,
+        isForeground: false,
+      ),
+      // Center-left foreground: broad waxy Anubias Nana
+      AquariumPlant(
+        species: PlantSpecies.anubias,
+        baseX: 165.0,
+        baseY: 748.0,
+        scale: 1.0,
+        isForeground: true,
+      ),
+      // Center-right foreground: broad lush Anubias Nana
+      AquariumPlant(
+        species: PlantSpecies.anubias,
+        baseX: 245.0,
+        baseY: 746.0,
+        scale: 1.1,
+        isForeground: true,
+      ),
+      // Right midground: lush Rotala stem cluster
+      AquariumPlant(
+        species: PlantSpecies.rotala,
+        baseX: 315.0,
+        baseY: 752.0,
+        scale: 1.1,
+        isForeground: false,
+      ),
+      // Right background: tall flowing Vallisneria ribbon grass
+      AquariumPlant(
+        species: PlantSpecies.vallisneria,
+        baseX: 382.0,
+        baseY: 758.0,
+        scale: 1.2,
+        isForeground: false,
+      ),
+    ]);
+  }
+
   void _initBubbles() {
-    for (int i = 0; i < 22; i++) {
+    // Subtle, calm ambient bubbles (kept minimal for clean aquarium aesthetic)
+    for (int i = 0; i < 5; i++) {
       _bubbles.add(
         _Bubble(
           x: _rand.nextDouble() * 380.0,
           y: _rand.nextDouble() * 720.0,
-          radius: 1.5 + _rand.nextDouble() * 2.8,
-          speed: 18.0 + _rand.nextDouble() * 24.0,
+          radius: 1.5 + _rand.nextDouble() * 2.2,
+          speed: 14.0 + _rand.nextDouble() * 16.0,
         ),
       );
     }
@@ -195,6 +271,54 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       rawPos.dy * 800.0 / box.size.height,
     );
 
+    // 0. Check if tap directly hits any rising plant oxygen bubble (reward with 1 gold)
+    PlantOxygenBubble? hitBubble;
+    double minBubbleDist = 28.0;
+    int hitBubbleIndex = -1;
+    for (int i = _plantBubbles.length - 1; i >= 0; i--) {
+      final b = _plantBubbles[i];
+      final d = sqrt((pos.dx - b.x) * (pos.dx - b.x) + (pos.dy - b.y) * (pos.dy - b.y));
+      if (d < minBubbleDist) {
+        minBubbleDist = d;
+        hitBubble = b;
+        hitBubbleIndex = i;
+      }
+    }
+
+    if (hitBubble != null && hitBubbleIndex >= 0) {
+      final popX = hitBubble.x;
+      final popY = hitBubble.y;
+      _plantBubbles.removeAt(hitBubbleIndex);
+
+      // Pop splash: 8 tiny sparkling droplets scattering outwards
+      for (int i = 0; i < 8; i++) {
+        final ang = _rand.nextDouble() * pi * 2;
+        _eatParticles.add(
+          _EatParticle(
+            x: popX + cos(ang) * 4.0,
+            y: popY + sin(ang) * 4.0,
+            maxLife: 0.45 + _rand.nextDouble() * 0.35,
+            color: i % 2 == 0 ? const Color(0xFF80D8FF) : Colors.white,
+          ),
+        );
+      }
+
+      // Sparkle reward particle
+      _eatParticles.add(
+        _EatParticle(
+          x: popX,
+          y: popY - 6.0,
+          maxLife: 0.85,
+          color: const Color(0xFFFFD54F),
+        ),
+      );
+
+      AudioManager.instance.playSfx(GameSfx.bubble);
+      SaveManager.instance.addGold(1);
+      widget.onBubblePopped?.call(Offset(popX, popY), 1);
+      return;
+    }
+
     // 1. Check if tap directly touches any fish
     _SimFish? hitFish;
     double minHitDist = 36.0;
@@ -208,12 +332,17 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
 
     if (hitFish != null) {
       // Tap on fish: barrel roll / flip, dart away playfully, spawn hearts!
-      hitFish.flipTimer = 0.65;
-      final dartDirX = hitFish.x >= pos.dx ? 1.0 : -1.0;
-      final dartDirY = hitFish.y >= pos.dy ? 0.6 : -0.6;
-      hitFish.vx = dartDirX * (85.0 + _rand.nextDouble() * 45.0);
-      hitFish.vy = dartDirY * (40.0 + _rand.nextDouble() * 30.0);
-      hitFish.facingRight = dartDirX > 0;
+      if (hitFish.rig != null) {
+        // The octopus startles: mantle pulse jet away (sometimes with ink).
+        _startleOctopus(hitFish, pos);
+      } else {
+        hitFish.flipTimer = 0.65;
+        final dartDirX = hitFish.x >= pos.dx ? 1.0 : -1.0;
+        final dartDirY = hitFish.y >= pos.dy ? 0.6 : -0.6;
+        hitFish.vx = dartDirX * (85.0 + _rand.nextDouble() * 45.0);
+        hitFish.vy = dartDirY * (40.0 + _rand.nextDouble() * 30.0);
+        hitFish.facingRight = dartDirX > 0;
+      }
 
       // Spawn 3 floating hearts & bubbles
       for (int i = 0; i < 3; i++) {
@@ -313,25 +442,22 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
     return true;
   }
 
-  /// Snails glide, crabs scuttle and the octopus crawls along the sand.
-  /// They move toward a sinking pellet and eat it once it reaches the
-  /// bottom — the octopus first tucks it under its body (see
-  /// [_startGrabbing]).
+  /// Snails glide and crabs scuttle along the sand. They move toward a
+  /// sinking pellet and eat it once it reaches the bottom. (The octopus
+  /// has its own locomotion: see [_updateOctopus].)
   /// [floorY] is the creature centre line in world coordinates; the
   /// sand surface sits at ~y=745, so bodies rest on the floor instead
   /// of hovering above it.
   void _updateBottomDweller(
       _SimFish f, _FoodPellet? pellet, double dt, SaveManager save) {
     const floorY = 726.0;
+    if (f.rig != null) {
+      _updateOctopus(f, pellet, dt, save);
+      return;
+    }
     f.y += (floorY - f.y) * min(1.0, dt * 3.0);
     f.pitchAngle = 0.0;
     final isSnail = f.item.kind == FishKind.snail;
-    final isOctopus = f.item.kind == FishKind.octopus;
-
-    // A tucked-under meal pauses everything until it is eaten.
-    if (isOctopus && _updateGrabbedMeal(f, dt, save)) {
-      return;
-    }
 
     if (_fingerWorldPos != null) {
       final dx = _fingerWorldPos!.dx - f.x;
@@ -339,11 +465,11 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       final dist = dx.abs();
       f.isMoving = dist > 14.0;
       if (f.isMoving) {
-        final speed = isSnail ? 22.0 : (isOctopus ? 38.0 : 48.0);
+        final speed = isSnail ? 22.0 : 48.0;
         final step = speed * dt;
         f.x += dx > 0 ? min(step, dx) : max(-step, dx);
-        if (isOctopus) f.stepPhase += dt * 6.5;
       }
+      _syncFishRig(f, dt, target: _fingerWorldPos, isFinger: true);
       return;
     }
 
@@ -351,40 +477,15 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       final dx = pellet.x - f.x;
       f.facingRight = dx >= 0;
       f.isMoving = true;
-      final speed = isSnail ? 20.0 : (isOctopus ? 34.0 : 46.0);
+      final speed = isSnail ? 20.0 : 46.0;
       final step = speed * dt;
       f.x += dx.abs() < step ? dx : (dx > 0 ? step : -step);
-      if (isOctopus) f.stepPhase += dt * 5.2;
       if (dx.abs() < 20.0 && pellet.y > 600.0) {
-        if (isOctopus) {
-          // Reached it: wrap the arms around it and tuck it underneath.
-          _startGrabbing(f, pellet);
-        } else {
-          _eatPellet(f, pellet, save);
-        }
+        _eatPellet(f, pellet, save);
       }
     } else if (isSnail) {
       f.isMoving = true;
       f.x += (f.facingRight ? 10.0 : -10.0) * dt;
-    } else if (isOctopus) {
-      // Arm-over-arm crawl: flowing pull bursts, then the octopus
-      // gathers its arms and sits still for a beat before moving on.
-      f.stepTimer -= dt;
-      if (f.stepTimer <= 0) {
-        f.isMoving = !f.isMoving;
-        f.stepTimer = f.isMoving
-            ? 0.9 + _rand.nextDouble() * 0.9
-            : 0.7 + _rand.nextDouble() * 1.6;
-        if (!f.isMoving && _rand.nextDouble() < 0.35) {
-          f.facingRight = !f.facingRight;
-        }
-      }
-      if (f.isMoving) {
-        // Speed swells mid-stride and eases at both ends of each pull.
-        f.stepPhase += dt * 5.0;
-        final stride = 0.55 + 0.45 * sin(f.stepPhase * 2.0).abs();
-        f.x += (f.facingRight ? 26.0 : -26.0) * stride * dt;
-      }
     } else {
       // Crab scuttle: short sideways bursts with pauses between.
       f.stepTimer -= dt;
@@ -407,10 +508,134 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       f.x = 375.0;
       f.facingRight = false;
     }
+
+    _syncFishRig(
+      f,
+      dt,
+      target: pellet == null ? null : Offset(pellet.x, pellet.y),
+      isFood: pellet != null && !f.isSatiated,
+    );
+  }
+
+  void _syncFishRig(
+    _SimFish f,
+    double dt, {
+    Offset? target,
+    bool isFood = false,
+    bool isFinger = false,
+  }) {
+    final fr = f.fishRig;
+    if (fr == null) return;
+    fr.x = f.x;
+    fr.y = f.y;
+    fr.vx = f.vx;
+    fr.vy = f.vy;
+    fr.faceToward(f.facingRight);
+    if (f.item.kind == FishKind.shrimp) {
+      fr.specialActive = f.dartTime > 0 ? 1.0 : 0.0;
+    }
+    fr.step(
+      dt,
+      _animTime,
+      target: target,
+      isFoodTarget: isFood,
+      isFingerTarget: isFinger,
+      satiated: f.isSatiated,
+      isMovingOverride: f.isMoving,
+    );
+  }
+
+  /// The octopus: crawls arm-over-arm on the sand, jets through the water
+  /// with mantle pulses, reaches for the player's finger and wraps food
+  /// under its body. Locomotion lives in [OctopusRig].
+  void _updateOctopus(_SimFish f, _FoodPellet? pellet, double dt, SaveManager save) {
+    const floorY = 726.0;
+    final rig = f.rig!;
+    final grabbing = f.grabbedPellet != null;
+    final hungry = pellet != null && !f.isSatiated;
+
+    rig.x = f.x;
+    rig.y = f.y;
+    rig.step(
+      dt,
+      _animTime,
+      floorY: floorY,
+      finger: _fingerWorldPos,
+      food: pellet == null ? null : Offset(pellet.x, pellet.y),
+      hungry: hungry,
+      grabbing: grabbing,
+    );
+    f.x = rig.x;
+    f.y = rig.y;
+    f.facingRight = rig.facingRight;
+    f.pitchAngle = rig.pitch;
+    f.isMoving = rig.state == OctState.crawl;
+    f.stepPhase = rig.stepPhase;
+
+    // A tucked-under meal pauses everything until it is eaten.
+    if (_updateGrabbedMeal(f, dt, save)) return;
+
+    if (hungry && !rig.isAirborne) {
+      final dx = pellet.x - f.x;
+      final dy = pellet.y - f.y;
+      if (dx * dx + dy * dy < 26.0 * 26.0) {
+        _startGrabbing(f, pellet);
+      }
+    }
+  }
+
+  /// Squirts a cloud of ink behind the octopus.
+  void _spawnInk(double x, double y) {
+    for (int i = 0; i < 7; i++) {
+      _inkClouds.add(
+        _InkCloud(
+          x: x + (_rand.nextDouble() * 22.0 - 11.0),
+          y: y + (_rand.nextDouble() * 18.0 - 9.0),
+          radius: 5.0 + _rand.nextDouble() * 5.0,
+          maxLife: 1.6 + _rand.nextDouble() * 0.9,
+        ),
+      );
+    }
+  }
+
+  /// Tap reaction: the octopus startles, jets away and sometimes inks.
+  void _startleOctopus(_SimFish f, Offset tapPos) {
+    final rig = f.rig!;
+    final dir = f.x >= tapPos.dx ? 1.0 : -1.0;
+    rig.x = f.x;
+    rig.y = f.y;
+    if (_rand.nextDouble() < 0.3) _spawnInk(f.x, f.y);
+    rig.startJet(f.x + dir * (70.0 + _rand.nextDouble() * 60.0), f.y - (90.0 + _rand.nextDouble() * 90.0), pulses: 2);
+    rig.jetCooldown = 1.5;
   }
 
   void _updateSimulation(double dt) {
     final save = SaveManager.instance;
+
+    // Update procedural plants & photosynthetic pearling bubbles (capped at strictly max 8 on screen)
+    for (final p in _plants) {
+      p.update(dt, _animTime, onEmitOxygen: (ox, oy, oradius) {
+        if (_plantBubbles.length < 8) {
+          _plantBubbles.add(
+            PlantOxygenBubble(
+              x: ox,
+              y: oy,
+              initialRadius: 0.6,
+              maxRadius: 2.8 + _rand.nextDouble() * 1.4,
+              speed: 18.0 + _rand.nextDouble() * 12.0,
+              wobblePhase: _rand.nextDouble() * pi * 2,
+              isForming: true,
+              growDuration: 2.6 + _rand.nextDouble() * 1.8,
+            ),
+          );
+        }
+      });
+    }
+    for (int i = _plantBubbles.length - 1; i >= 0; i--) {
+      if (_plantBubbles[i].update(dt)) {
+        _plantBubbles.removeAt(i);
+      }
+    }
 
     // 1. Update bubbles (gentle rising)
     for (final b in _bubbles) {
@@ -441,6 +666,13 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
     }
 
     // 4. Update fish tail animation, flip roll, and short bite cooldowns
+    for (int i = _inkClouds.length - 1; i >= 0; i--) {
+      final ink = _inkClouds[i];
+      ink.life += dt;
+      ink.y -= 6.0 * dt;
+      ink.x += sin(ink.life * 2.0 + i) * 5.0 * dt;
+      if (ink.life >= ink.maxLife) _inkClouds.removeAt(i);
+    }
     for (final f in _simFish) {
       f.tailPhase += dt * 4.5;
       if (f.eatCooldown > 0) {
@@ -525,6 +757,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
         }
         f.x = f.x.clamp(35.0, 375.0);
         f.y = f.y.clamp(90.0, 710.0);
+        _syncFishRig(f, dt, target: _fingerWorldPos, isFinger: true);
         continue;
       }
 
@@ -543,9 +776,12 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
           f.facingRight = dx >= 0;
           f.pitchAngle = (dy / dist * 0.4).clamp(-0.45, 0.45);
         }
+        _syncFishRig(f, dt, target: Offset(targetPellet.x, targetPellet.y), isFood: true);
       } else {
-        // Calm ambient swimming (satiated fish swim slower and happier)
-        final speedMult = f.isSatiated ? 0.8 : 1.0;
+        // Calm ambient swimming with burst & glide rhythm and species character
+        final fr = f.fishRig;
+        final burstMult = fr?.currentSwimSpeedMultiplier ?? 1.0;
+        final speedMult = (f.isSatiated ? 0.8 : 1.0) * burstMult;
         final speed = f.vx.abs() * speedMult;
         var vx = (f.facingRight ? speed : -speed);
         var bobAmp = 12.0;
@@ -576,6 +812,33 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
           }
           // Lives in the upper-mid water column.
           if (f.y < 130.0) f.y += 20.0 * dt;
+        } else if (fr?.style.species == FishSpecies.arowana) {
+          // Arowana patrols the upper water column with level poise
+          bobAmp = 4.5;
+          if (f.y > 250.0) {
+            f.y -= 18.0 * dt;
+          }
+        } else if (fr?.style.species == FishSpecies.tetra) {
+          // Tetra schooling cohesion: align direction and depth with nearby tetras
+          int neighbors = 0;
+          double avgY = 0.0;
+          int rightVotes = 0;
+          for (final other in _simFish) {
+            if (other == f || other.fishRig?.style.species != FishSpecies.tetra) continue;
+            final d = sqrt(pow(other.x - f.x, 2) + pow(other.y - f.y, 2));
+            if (d < 135.0) {
+              neighbors++;
+              avgY += other.y;
+              if (other.facingRight) rightVotes++;
+            }
+          }
+          if (neighbors > 0) {
+            avgY /= neighbors;
+            f.y += (avgY - f.y) * min(1.0, dt * 1.6);
+            if (_rand.nextDouble() < 0.02) {
+              f.facingRight = rightVotes * 2 >= neighbors;
+            }
+          }
         }
 
         f.x += vx * dt;
@@ -592,6 +855,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
           f.facingRight = false;
         }
         f.y = f.y.clamp(90.0, 710.0);
+        _syncFishRig(f, dt);
       }
     }
 
@@ -705,6 +969,10 @@ class _SimFish {
   // Octopus meal ritual: a pellet tucked under the body, eaten slowly.
   _FoodPellet? grabbedPellet;
   double grabTimer = 0.0;
+  // Octopus only: soft-body arms + jet/crawl state machine.
+  final OctopusRig? rig;
+  // All other procedural fish & creatures: spine, fins, face & gait rig.
+  final FishRig? fishRig;
 
   /// True while the fish is in its 3-hour post-feeding satiety window
   bool get isSatiated => SaveManager.instance.isFishInSatietyCooldown(item.id);
@@ -718,7 +986,28 @@ class _SimFish {
     required this.vy,
     required this.facingRight,
     required this.tailPhase,
-  });
+  })  : rig = item.kind == FishKind.octopus ? OctopusRig() : null,
+        fishRig = item.kind == FishKind.octopus
+            ? null
+            : FishRig(
+                fishId: item.id,
+                x: x,
+                y: y,
+                vx: vx,
+                vy: vy,
+                facingRight: facingRight,
+              );
+}
+
+/// A drifting puff of octopus ink (world coordinates).
+class _InkCloud {
+  double x;
+  double y;
+  final double radius;
+  final double maxLife;
+  double life = 0.0;
+
+  _InkCloud({required this.x, required this.y, required this.radius, required this.maxLife});
 }
 
 class _Bubble {
@@ -774,20 +1063,10 @@ class _TankPainter extends CustomPainter {
   Shader? _waterShader;
   final Paint _waterPaint = Paint();
   final Paint _sandPaint = Paint();
-  final Paint _plantPaint = Paint()
-    ..color = const Color(0x5543A047)
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 4.5
-    ..strokeCap = StrokeCap.round;
   final Paint _bubblePaint = Paint()..color = const Color(0x2881D4FA);
   final Paint _foodPaint = Paint()..color = const Color(0xFFFFD54F);
   final Paint _foodGlow = Paint()..color = const Color(0x44FFD54F);
   final Paint _sparkPaint = Paint();
-  final Paint _imgPaint = Paint()..filterQuality = FilterQuality.low;
-  final Paint _bodyPaint = Paint();
-  final Paint _tailPaint = Paint();
-  final Paint _eyeWhite = Paint()..color = const Color(0xFFFFFFFF);
-  final Paint _eyeBlack = Paint()..color = const Color(0xFF000000);
   final Paint _fingerRipplePaint1 = Paint()
     ..color = const Color(0x6600E5FF)
     ..style = PaintingStyle.stroke
@@ -802,8 +1081,12 @@ class _TankPainter extends CustomPainter {
   final Paint _fingerCorePaint = Paint()
     ..color = Colors.white
     ..style = PaintingStyle.fill;
+  final Paint _imgPaint = Paint()..filterQuality = FilterQuality.medium;
+  final Paint _bodyPaint = Paint()..style = PaintingStyle.fill;
+  final Paint _tailPaint = Paint()..style = PaintingStyle.fill;
+  final Paint _eyeWhite = Paint()..color = Colors.white;
+  final Paint _eyeBlack = Paint()..color = Colors.black;
   final Path _tailPath = Path();
-  final Path _plantPath = Path();
   Path? _sandPath;
 
   _TankPainter(this.host) : super(repaint: host._frame);
@@ -861,27 +1144,10 @@ class _TankPainter extends CustomPainter {
     ).createShader(const Rect.fromLTWH(0, 738, 410, 62));
     canvas.drawPath(_sandPath!, _sandPaint);
 
-    // 3. Plant clusters rooted in the sand: several blades per cluster
-    // in two greens, each swaying on its own phase.
-    const clusterX = [36.0, 128.0, 236.0, 330.0, 392.0];
-    for (int c = 0; c < clusterX.length; c++) {
-      final bx = clusterX[c];
-      for (int blade = 0; blade < 4; blade++) {
-        final lean = (blade - 1.5) * 7.0;
-        final height = 64.0 + ((c * 37 + blade * 29) % 55);
-        final sway = sin(time * 1.3 + c * 1.7 + blade * 0.9) * (6.0 + blade * 1.6);
-        _plantPaint.color = blade.isEven
-            ? const Color(0x6643A047)
-            : const Color(0x8866BB6A);
-        _plantPaint.strokeWidth = 4.5 + (blade % 2) * 1.4;
-        _plantPath
-          ..reset()
-          ..moveTo(bx + lean * 0.4, 762)
-          ..quadraticBezierTo(
-            bx + lean + sway * 0.4, 762 - height * 0.55,
-            bx + lean + sway, 762 - height,
-          );
-        canvas.drawPath(_plantPath, _plantPaint);
+    // 3. Background procedural plants (Vallisneria sazları & Rotala)
+    for (final p in host._plants) {
+      if (!p.isForeground) {
+        p.paint(canvas, time);
       }
     }
 
@@ -894,6 +1160,17 @@ class _TankPainter extends CustomPainter {
     for (final p in foodPellets) {
       canvas.drawCircle(Offset(p.x, p.y), 4.0, _foodGlow);
       canvas.drawCircle(Offset(p.x, p.y), 2.5, _foodPaint);
+    }
+    // 3b. Foreground procedural plants (Anubias Nana)
+    for (final p in host._plants) {
+      if (p.isForeground) {
+        p.paint(canvas, time);
+      }
+    }
+
+    // 4b. Rising photosynthetic oxygen bubbles (pearling)
+    for (final b in host._plantBubbles) {
+      PlantOxygenPainter.paintBubble(canvas, b);
     }
     // Pellets an octopus has tucked underneath itself: drawn before the
     // creatures, so the body sits on top of the meal while it eats.
@@ -935,111 +1212,102 @@ class _TankPainter extends CustomPainter {
       canvas.drawCircle(fp, 2.2, _fingerCorePaint);
     }
 
-    // 7. Fish drawing (Scaled down to realistic proportion)
+    // 7. Fish drawing (Procedural spine, fins, patterns, and soft-body rigs)
+    // Octopus ink drifts behind the creatures.
+    for (final ink in host._inkClouds) {
+      final t = (ink.life / ink.maxLife).clamp(0.0, 1.0);
+      _sparkPaint.color = const Color(0xFF2A0A3D).withValues(alpha: 0.55 * (1.0 - t));
+      canvas.drawCircle(Offset(ink.x, ink.y), ink.radius * (1.0 + t * 1.8), _sparkPaint);
+    }
     for (final f in simFish) {
       canvas.save();
       canvas.translate(f.x, f.y);
 
-      if (!f.facingRight) {
-        canvas.scale(-1, 1);
-      }
       final rollAngle = f.flipTimer > 0 ? (f.flipProgress * pi * 2.0) : 0.0;
-      canvas.rotate(f.pitchAngle + rollAngle);
+      if (f.rig != null && f.item.kind == FishKind.octopus) {
+        if (!f.facingRight) {
+          canvas.scale(-1, 1);
+        }
+        canvas.rotate(f.pitchAngle + rollAngle);
+        // Procedural octopus: body, face and eight soft-body arms.
+        canvas.scale(1.2, 1.2);
+        OctopusPainter.paint(canvas, f.rig!, time, f.item.color);
+        canvas.scale(1 / 1.2, 1 / 1.2);
+      } else if (f.fishRig != null &&
+          (f.item.kind == FishKind.crab || f.item.kind == FishKind.jellyfish)) {
+        final fr = f.fishRig!;
+        final signedPitch = f.facingRight ? f.pitchAngle : -f.pitchAngle;
+        canvas.rotate(signedPitch + rollAngle);
 
-      // Creature motion language on top of the shared swim transform
-      switch (f.item.kind) {
-        case FishKind.snail:
-          // Slow contented rocking as it glides
-          canvas.rotate(sin(time * 2.0 + f.tailPhase) * 0.03);
-          break;
-        case FishKind.crab:
-          // Little scuttle hops while it walks
+        if (f.item.kind == FishKind.crab) {
           if (f.isMoving) {
             canvas.translate(0, -sin(time * 16.0 + f.tailPhase).abs() * 2.2);
           }
           canvas.rotate(sin(time * 8.0 + f.tailPhase) * 0.045);
-          break;
-        case FishKind.shrimp:
-          // Constant gentle body curl sway
-          canvas.rotate(sin(time * 6.0 + f.tailPhase) * 0.07);
-          break;
-        case FishKind.octopus:
-          if (f.grabbedPellet != null) {
-            // Hunched over the meal tucked under its body: pressed down
-            // onto the sand, mantle pulsing with each bite at the beak.
-            final bite = sin(time * 10.0 + f.tailPhase);
-            canvas.scale(1.07, 0.90 + bite * 0.02);
-            canvas.translate(0, 3.0 + bite * 0.4);
-          } else if (f.isMoving) {
-            // Arm-over-arm crawl: the mantle rides up once per stride
-            // and leans into the pull, on top of its slow breathing.
-            final stride = sin(f.stepPhase * 2.0);
-            canvas.translate(0, -stride.abs() * 2.6);
-            canvas.rotate(stride * 0.05);
-            final pulse = 1.0 + sin(time * 2.4 + f.tailPhase) * 0.04;
-            canvas.scale(pulse, 2.0 - pulse);
-          } else {
-            // Settled on the sand: breathing squash-and-stretch.
-            final pulse = 1.0 + sin(time * 2.4 + f.tailPhase) * 0.05;
-            canvas.scale(pulse, 2.0 - pulse);
-            canvas.translate(0, sin(time * 1.8 + f.tailPhase) * 1.6);
-          }
-          break;
-        case FishKind.jellyfish:
-          // Bell pulse synced with the sim thrust: squeeze wide and
-          // short on contraction, stretch tall as it relaxes.
-          final bell = sin(time * 2.2 + f.tailPhase);
-          canvas.scale(1.0 - bell * 0.06, 1.0 + bell * 0.09);
+        } else if (f.item.kind == FishKind.jellyfish) {
           canvas.rotate(sin(time * 1.4 + f.tailPhase) * 0.06);
-          break;
-        case FishKind.fish:
-          break;
-      }
+        }
 
-      if (f.item.kind == FishKind.octopus) {
-        _drawOctopusTentacles(canvas, f, time, isForeground: false);
-      }
-
-      final img = AssetCache.instance.getFishImage(f.item.id);
-      if (img != null) {
-        // Scaled down: ~45-60px width
-        final fishScale = f.item.size * 0.14;
-        canvas.scale(fishScale, fishScale);
-
-        final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
-        final dst = Rect.fromCenter(
-          center: Offset.zero,
-          width: img.width.toDouble(),
-          height: img.height.toDouble(),
-        );
-        canvas.drawImageRect(img, src, dst, _imgPaint);
-        canvas.scale(1.0 / fishScale, 1.0 / fishScale);
+        final drawScale = 0.88 + f.item.size * 0.24;
+        canvas.scale(drawScale, drawScale);
+        FishPainter.paint(canvas, fr, time);
+        canvas.scale(1.0 / drawScale, 1.0 / drawScale);
       } else {
-        // Fallback procedural fish
-        final fishScale = f.item.size * 0.7;
-        canvas.scale(fishScale, fishScale);
-        final bodyRect = Rect.fromCenter(center: Offset.zero, width: 26, height: 13);
-        _bodyPaint.color = f.item.color;
-        canvas.drawOval(bodyRect, _bodyPaint);
+        // Authentic classic sprite rendering with natural swimming dynamics
+        if (!f.facingRight) {
+          canvas.scale(-1, 1);
+        }
+        canvas.rotate(f.pitchAngle + rollAngle);
 
-        final tailWag = sin(time * 5 + f.tailPhase) * 4.0;
-        _tailPath
-          ..reset()
-          ..moveTo(-11, 0)
-          ..lineTo(-22, -7 + tailWag)
-          ..lineTo(-18, 0)
-          ..lineTo(-22, 7 + tailWag)
-          ..close();
-        _tailPaint.color = f.item.secondaryColor;
-        canvas.drawPath(_tailPath, _tailPaint);
+        // Creature motion language
+        switch (f.item.kind) {
+          case FishKind.snail:
+            canvas.rotate(sin(time * 2.0 + f.tailPhase) * 0.03);
+            break;
+          case FishKind.shrimp:
+            canvas.rotate(sin(time * 6.0 + f.tailPhase) * 0.07);
+            break;
+          default:
+            final wag = sin(time * 3.5 + f.tailPhase) * 0.03;
+            canvas.rotate(wag);
+            break;
+        }
 
-        canvas.drawCircle(const Offset(7, -2), 2.0, _eyeWhite);
-        canvas.drawCircle(const Offset(8, -2), 0.9, _eyeBlack);
-        canvas.scale(1.0 / fishScale, 1.0 / fishScale);
-      }
+        final img = AssetCache.instance.getFishImage(f.item.id);
+        if (img != null) {
+          final fishScale = f.item.size * 0.14;
+          canvas.scale(fishScale, fishScale);
 
-      if (f.item.kind == FishKind.octopus) {
-        _drawOctopusTentacles(canvas, f, time, isForeground: true);
+          final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
+          final dst = Rect.fromCenter(
+            center: Offset.zero,
+            width: img.width.toDouble(),
+            height: img.height.toDouble(),
+          );
+          canvas.drawImageRect(img, src, dst, _imgPaint);
+          canvas.scale(1.0 / fishScale, 1.0 / fishScale);
+        } else {
+          final fishScale = f.item.size * 0.7;
+          canvas.scale(fishScale, fishScale);
+          final bodyRect = Rect.fromCenter(center: Offset.zero, width: 26, height: 13);
+          _bodyPaint.color = f.item.color;
+          canvas.drawOval(bodyRect, _bodyPaint);
+
+          final tailWag = sin(time * 5 + f.tailPhase) * 4.0;
+          _tailPath
+            ..reset()
+            ..moveTo(-11, 0)
+            ..lineTo(-22, -7 + tailWag)
+            ..lineTo(-18, 0)
+            ..lineTo(-22, 7 + tailWag)
+            ..close();
+          _tailPaint.color = f.item.secondaryColor;
+          canvas.drawPath(_tailPath, _tailPaint);
+
+          canvas.drawCircle(const Offset(7, -2), 2.0, _eyeWhite);
+          canvas.drawCircle(const Offset(8, -2), 0.9, _eyeBlack);
+          canvas.scale(1.0 / fishScale, 1.0 / fishScale);
+        }
       }
 
       // 8. Status marker above fed fish: a bouncing gold coin once the
@@ -1081,140 +1349,6 @@ class _TankPainter extends CustomPainter {
       }
 
       canvas.restore();
-    }
-
-    // 9. Premium Aquarium Tank Frame & Edge Vignette
-    // Left edge shadow (12px)
-    _sandPaint.shader = const LinearGradient(
-      colors: [Color(0xBB03080E), Colors.transparent],
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-    ).createShader(Rect.fromLTWH(0, 0, 14, size.height));
-    canvas.drawRect(Rect.fromLTWH(0, 0, 14, size.height), _sandPaint);
-
-    // Right edge shadow (12px)
-    _sandPaint.shader = const LinearGradient(
-      colors: [Colors.transparent, Color(0xBB03080E)],
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-    ).createShader(Rect.fromLTWH(size.width - 14, 0, 14, size.height));
-    canvas.drawRect(Rect.fromLTWH(size.width - 14, 0, 14, size.height), _sandPaint);
-
-    // Top edge shadow (16px)
-    _sandPaint.shader = const LinearGradient(
-      colors: [Color(0xAA03080E), Colors.transparent],
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-    ).createShader(Rect.fromLTWH(0, 0, size.width, 18));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, 18), _sandPaint);
-    _sandPaint.shader = null;
-
-    // Subtle cyan edge glass reflection line on left and right
-    final borderPaint = Paint()
-      ..color = const Color(0x2280D8FF)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-    canvas.drawLine(const Offset(0.5, 0), Offset(0.5, size.height), borderPaint);
-    canvas.drawLine(Offset(size.width - 0.5, 0), Offset(size.width - 0.5, size.height), borderPaint);
-  }
-
-  void _drawOctopusTentacles(
-    Canvas canvas,
-    _SimFish f,
-    double time, {
-    required bool isForeground,
-  }) {
-    final tentacleIndices = isForeground ? const [0, 2, 4] : const [1, 3, 5];
-    final bodyPaint = Paint()
-      ..color = isForeground ? const Color(0xFF9C27B0) : const Color(0xFF6A1B9A)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = isForeground ? 3.8 : 3.0
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final suctionPaint = Paint()
-      ..color = isForeground ? const Color(0xFFEDE7F6) : const Color(0xFFD1C4E9)
-      ..style = PaintingStyle.fill;
-
-    final highlightPaint = Paint()
-      ..color = isForeground ? const Color(0xFFE040FB) : const Color(0xFFBA68C8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..strokeCap = StrokeCap.round;
-
-    final isReachingUp = host.fingerWorldPos != null && host.fingerWorldPos!.dy < 640;
-
-    for (final i in tentacleIndices) {
-      final baseOffsetX = -13.0 + i * 5.2;
-      const baseOffsetY = 8.0;
-
-      final phaseOffset = i * (pi / 3.0);
-      final stepCycle = f.stepPhase + phaseOffset;
-
-      double tipX;
-      double tipY;
-      double ctrl1X;
-      double ctrl1Y;
-      double ctrl2X;
-      double ctrl2Y;
-
-      if (isReachingUp && i <= 2) {
-        // Reaching front tentacles up towards finger!
-        final reachWave = sin(time * 5.0 + phaseOffset) * 4.5;
-        tipX = baseOffsetX + (f.facingRight ? 12.0 : -12.0) + reachWave;
-        tipY = -12.0 - (i * 5.0) + cos(time * 4.0 + phaseOffset) * 3.0;
-        ctrl1X = baseOffsetX + 3.0;
-        ctrl1Y = -2.0;
-        ctrl2X = tipX - 3.0;
-        ctrl2Y = tipY + 6.0;
-      } else if (f.isMoving) {
-        // Active walking crawl gait: foot plants, grips floor, pulls back, then lifts and reaches forward.
-        final strideSin = sin(stepCycle);
-        final strideCos = cos(stepCycle);
-        final isGrounded = strideSin > -0.25;
-        final groundProgress = (strideCos + 1.0) / 2.0; // 0..1
-
-        if (isGrounded) {
-          // Foot on sand pushing/pulling
-          tipX = baseOffsetX + (groundProgress - 0.5) * 24.0;
-          tipY = 17.5 + sin(groundProgress * pi) * 1.5;
-          ctrl1X = baseOffsetX + (tipX - baseOffsetX) * 0.4;
-          ctrl1Y = 12.0 - strideSin * 3.0;
-          ctrl2X = tipX - (f.facingRight ? 2.5 : -2.5);
-          ctrl2Y = 16.0;
-        } else {
-          // Foot lifted forward to take next step
-          tipX = baseOffsetX + (f.facingRight ? 12.0 : -12.0);
-          tipY = 10.0 + strideSin * 4.0;
-          ctrl1X = baseOffsetX + 4.0;
-          ctrl1Y = 7.0;
-          ctrl2X = tipX + 1.5;
-          ctrl2Y = tipY + 3.0;
-        }
-      } else {
-        // Settled on sand: gentle breathing and caustics ripple
-        final wave = sin(time * 2.2 + phaseOffset) * 1.8;
-        tipX = baseOffsetX + (i - 2.5) * 4.5 + wave;
-        tipY = 16.5 + cos(time * 2.0 + phaseOffset) * 1.2;
-        ctrl1X = baseOffsetX + (i - 2.5) * 1.5;
-        ctrl1Y = 12.5;
-        ctrl2X = tipX - (i - 2.5) * 1.2;
-        ctrl2Y = 15.0;
-      }
-
-      final legPath = Path()
-        ..moveTo(baseOffsetX, baseOffsetY)
-        ..cubicTo(ctrl1X, ctrl1Y, ctrl2X, ctrl2Y, tipX, tipY);
-
-      canvas.drawPath(legPath, bodyPaint);
-      canvas.drawPath(legPath, highlightPaint);
-
-      if (isForeground) {
-        final midX = (ctrl2X + tipX) * 0.5;
-        final midY = (ctrl2Y + tipY) * 0.5;
-        canvas.drawCircle(Offset(midX, midY + 0.8), 0.8, suctionPaint);
-        canvas.drawCircle(Offset(tipX, tipY + 0.7), 0.7, suctionPaint);
-      }
     }
   }
 

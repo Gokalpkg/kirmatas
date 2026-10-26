@@ -543,6 +543,43 @@ class SaveManager extends ChangeNotifier {
 
   Color get leagueTierColor => leagueColorForTier(leagueTier);
 
+  // --- WIN STREAK ENGINE ---
+  int _winStreak = 0;
+  int get winStreak => _winStreak;
+  set winStreak(int val) {
+    _winStreak = val.clamp(0, 5);
+    _prefs?.setInt('winStreak', _winStreak);
+    notifyListeners();
+  }
+
+  void incrementWinStreak() {
+    winStreak = _winStreak + 1;
+  }
+
+  void resetWinStreak() {
+    winStreak = 0;
+  }
+
+  // --- FISH OF THE DAY (GÜNÜN ŞANSLI BALIĞI) ---
+  bool luckyFishEnabled = true;
+
+  String? get luckyFishId {
+    if (unlockedFish.isEmpty) return null;
+    final now = DateTime.now();
+    final seed = now.year * 10000 + now.month * 100 + now.day;
+    final rand = math.Random(seed);
+    return unlockedFish[rand.nextInt(unlockedFish.length)];
+  }
+
+  bool isLuckyFish(String fishId) => luckyFishEnabled && luckyFishId == fishId;
+
+  String _lastLuckyFishReminderDate = '';
+  String get lastLuckyFishReminderDate => _lastLuckyFishReminderDate;
+  set lastLuckyFishReminderDate(String val) {
+    _lastLuckyFishReminderDate = val;
+    _prefs?.setString('lastLuckyFishReminderDate', val);
+  }
+
   static Color leagueColorForTier(int tier) {
     switch (tier) {
       case 1:
@@ -792,6 +829,10 @@ class SaveManager extends ChangeNotifier {
   Set<String> unlockedBrickStyles = {'brick_gloss'};
   String activeBrickStyle = 'brick_gloss';
 
+  void resetForTesting() {
+    _initialized = false;
+  }
+
   Future<void> init() async {
     if (_initialized) return;
     _prefs = await SharedPreferences.getInstance();
@@ -972,11 +1013,24 @@ class SaveManager extends ChangeNotifier {
     lastDailyFishFoodAdDate = _prefs?.getString('lastDailyFishFoodAdDate');
 
     _pearls = _prefs?.getInt('pearls') ?? 0;
+    final totalShards = categoryShards.values.fold(0, (a, b) => a + math.max(0, b)) + math.max(0, fishShards);
+    if (totalShards > 0) {
+      _pearls += (totalShards + 1) ~/ 2;
+      for (final k in categoryShards.keys) {
+        categoryShards[k] = 0;
+      }
+      fishShards = 0;
+      await _prefs?.setString('categoryShards', jsonEncode(categoryShards));
+      await _prefs?.setInt('fishShards', 0);
+      await _prefs?.setInt('pearls', _pearls);
+    }
     cosmicGoldMasteryLevel = _prefs?.getInt('cosmicGoldMasteryLevel') ?? 0;
     cosmicPearlMasteryLevel = _prefs?.getInt('cosmicPearlMasteryLevel') ?? 0;
     lastDailyBlitzDate = _prefs?.getString('lastDailyBlitzDate');
+    _lastLuckyFishReminderDate = _prefs?.getString('lastLuckyFishReminderDate') ?? '';
     _leagueTier = (_prefs?.getInt('leagueTier') ?? 0).clamp(0, 4);
     _weeklyTournamentScore = _prefs?.getInt('weeklyTournamentScore') ?? 0;
+    _winStreak = (_prefs?.getInt('winStreak') ?? 0).clamp(0, 5);
     leagueWeekId = _prefs?.getString('leagueWeekId') ?? '';
     leagueRivalsTier = _prefs?.getInt('leagueRivalsTier') ?? -1;
     leagueLastRank = _prefs?.getInt('leagueLastRank') ?? 0;
@@ -1477,9 +1531,13 @@ class SaveManager extends ChangeNotifier {
 
   // --- ECO-TANK PER-FISH FEEDING (3H SATIETY & 6H GOLD PAYOUT) ---
 
-  /// Fixed gold reward for a specific fish after 6 hours
-  int getFishGoldValue(String fishId) {
-    return FishItem.getById(fishId).goldReward;
+  /// Dynamic gold reward for a specific fish after 6 hours, scaled with highest level reached.
+  /// If [fishId] is the Lucky Fish of the Day, gold is multiplied by 3x!
+  int getFishGoldValue(String fishId, {bool applyLucky = true}) {
+    final base = FishItem.getById(fishId).goldReward;
+    final levelMultiplier = 1.0 + (highestLevel * 0.12);
+    final luckyMult = (applyLucky && isLuckyFish(fishId)) ? 3.0 : 1.0;
+    return (base * levelMultiplier * luckyMult).round();
   }
 
   /// Total gold reward if all currently unlocked fish are fed

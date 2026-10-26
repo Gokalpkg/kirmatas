@@ -130,6 +130,43 @@ class BrickShard {
   }
 }
 
+/// Flying chest lid that flips and arches upward when a treasure chest is opened
+class ChestLidParticle {
+  double x;
+  double y;
+  double vx;
+  double vy;
+  double rotation;
+  double vRot;
+  double width;
+  double height;
+  double life;
+  final double maxLife;
+
+  ChestLidParticle({
+    required this.x,
+    required this.y,
+    required this.vx,
+    required this.vy,
+    required this.rotation,
+    required this.vRot,
+    required this.width,
+    required this.height,
+    this.maxLife = 0.95,
+  }) : life = maxLife;
+
+  bool get isDead => life <= 0;
+
+  void update(double dt) {
+    x += vx * dt;
+    y += vy * dt;
+    vy += 540.0 * dt; // gravity arc
+    vx *= 0.985;
+    rotation += vRot * dt;
+    life -= dt;
+  }
+}
+
 /// Step 2: Left-to-right sweeping retro square pixel wave
 class PixelShockwave {
   final double x;
@@ -246,8 +283,47 @@ class ParticleSystem {
   final List<PixelShockwave> pixelShockwaves = [];
   final List<FloatingText> floatingTexts = [];
   final List<BrickShard> shards = [];
+  final List<ChestLidParticle> chestLids = [];
   final List<CoinOrb> coinOrbs = [];
   final Random _rand = Random();
+
+  void spawnChestLid(double x, double y, double width, double height) {
+    final vx = (_rand.nextDouble() - 0.5) * 80.0;
+    final vy = -260.0 - _rand.nextDouble() * 70.0;
+    final vRot = (_rand.nextBool() ? 1.0 : -1.0) * (4.0 + _rand.nextDouble() * 3.0);
+    chestLids.add(
+      ChestLidParticle(
+        x: x,
+        y: y,
+        vx: vx,
+        vy: vy,
+        rotation: -0.12,
+        vRot: vRot,
+        width: width * 0.95,
+        height: height * 0.45,
+        maxLife: 1.0,
+      ),
+    );
+  }
+
+  void spawnPearlCelebration(double x, double y) {
+    spawnCoinOrbs(x, y, count: 5, color: const Color(0xFF00E5FF), totalValue: 0);
+    for (int i = 0; i < 16; i++) {
+      final angle = _rand.nextDouble() * 2 * pi;
+      final speed = 70.0 + _rand.nextDouble() * 140.0;
+      particles.add(
+        Particle(
+          x: x,
+          y: y,
+          vx: cos(angle) * speed,
+          vy: sin(angle) * speed,
+          size: 3.5 + _rand.nextDouble() * 3.0,
+          color: i % 2 == 0 ? const Color(0xFFE0F7FA) : const Color(0xFF00E5FF),
+          maxLife: 0.70 + _rand.nextDouble() * 0.35,
+        ),
+      );
+    }
+  }
 
   static const int maxCoinOrbs = 22;
 
@@ -290,16 +366,20 @@ class ParticleSystem {
 
   double shakeTimeLeft = 0.0;
   double shakeMagnitude = 0.0;
+  double shakeDuration = 0.0;
 
   void triggerShake(double magnitude, double duration) {
     shakeMagnitude = magnitude;
+    shakeDuration = duration > 0 ? duration : 0.001;
     shakeTimeLeft = duration;
   }
 
   Offset getShakeOffset() {
-    if (shakeTimeLeft <= 0) return Offset.zero;
-    final dx = (_rand.nextDouble() * 2 - 1) * shakeMagnitude;
-    final dy = (_rand.nextDouble() * 2 - 1) * shakeMagnitude;
+    if (shakeTimeLeft <= 0 || shakeDuration <= 0) return Offset.zero;
+    final decay = (shakeTimeLeft / shakeDuration).clamp(0.0, 1.0);
+    final currentMag = shakeMagnitude * decay;
+    final dx = (_rand.nextDouble() * 2 - 1) * currentMag;
+    final dy = (_rand.nextDouble() * 2 - 1) * currentMag;
     return Offset(dx, dy);
   }
 
@@ -470,6 +550,11 @@ class ParticleSystem {
       shards[i].update(dt);
     }
     shards.removeWhere((s) => s.isDead);
+
+    for (int i = 0; i < chestLids.length; i++) {
+      chestLids[i].update(dt);
+    }
+    chestLids.removeWhere((l) => l.isDead);
   }
 
   void clear() {
@@ -478,7 +563,9 @@ class ParticleSystem {
     pixelShockwaves.clear();
     floatingTexts.clear();
     shards.clear();
+    chestLids.clear();
     coinOrbs.clear();
     shakeTimeLeft = 0.0;
+    shakeDuration = 0.0;
   }
 }

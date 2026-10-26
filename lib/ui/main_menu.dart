@@ -25,8 +25,10 @@ import 'kaunos_ui.dart';
 import 'crate_opening_dialog.dart';
 import 'main_menu_tour_overlay.dart';
 import 'settings_dialog.dart';
+import '../engine/lucky_fish_notification_manager.dart';
 
 class MainMenuScreen extends StatefulWidget {
+  static bool suppressBootPopups = false;
   const MainMenuScreen({super.key});
 
   @override
@@ -62,6 +64,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (MainMenuScreen.suppressBootPopups) return;
       if (_save.pendingCrate != null && mounted && _activeGame == null) {
         CrateOpeningDialog.show(
           context,
@@ -83,6 +86,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             setState(() => _highlightWheelButton = true);
           }
         });
+      }
+
+      if (mounted && _activeGame == null) {
+        LuckyFishNotificationManager.instance.checkAndShowDailyReminder(context);
       }
     });
   }
@@ -876,21 +883,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 child: PageView(
                   controller: _pageController,
                   onPageChanged: (index) {
-                    if (index == 0 && !_save.isShopUnlocked) {
-                      _goToPage(1);
-                      _showLockedFeedback('Bu özellik Bölüm 2 seviyesinde açılır.');
-                      return;
-                    }
-                    if (index == 2 && !_save.isAquariumUnlocked) {
-                      _goToPage(1);
-                      _showLockedFeedback('Bu özellik Bölüm 5 seviyesinde açılır.');
-                      return;
-                    }
-                    if (index == 3 && !_save.isWorkshopUnlocked) {
-                      _goToPage(1);
-                      _showLockedFeedback('Bu özellik Bölüm 3 seviyesinde açılır.');
-                      return;
-                    }
                     if (_currentPage != index) {
                       setState(() {
                         _currentPage = index;
@@ -1003,6 +995,52 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             ),
                           ),
                         ),
+                        if (_save.pendingCrate != null) ...[
+                          const SizedBox(width: 6),
+                          KaunosPressGlow(
+                            borderRadius: 14,
+                            child: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: KaunosPalette.obsidianGlassElevated,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color(0xFFFFD54F),
+                                  width: 1.4,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFFFD54F).withValues(alpha: 0.4),
+                                    blurRadius: 8,
+                                  ),
+                                  const BoxShadow(
+                                    color: Color(0xFF020308),
+                                    offset: Offset(0, 3),
+                                    blurRadius: 0,
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: () {
+                                    if (_save.pendingCrate != null) {
+                                      CrateOpeningDialog.show(
+                                        context,
+                                        pendingCrate: _save.pendingCrate,
+                                      );
+                                    }
+                                  },
+                                  child: const Center(
+                                    child: Text('🎁', style: TextStyle(fontSize: 18)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
 
                         // Seasonal Title & League Avatar Frame Badge
                         Flexible(
@@ -1490,7 +1528,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         ? '🔒 Bölüm 5'
                         : (_save.isUnlockNew('aquarium', _save.isAquariumUnlocked)
                             ? 'YENİ!'
-                            : (_save.currentAvailableFishGold > 0 || _save.hasClaimableQuests ? '●' : null)),
+                            : (_save.currentAvailableFishGold > 0
+                                ? '🪙 ALTIN!'
+                                : (_save.hasWaitingFish && _save.fishFood > 0
+                                    ? '🐟 ACIKTI!'
+                                    : (_save.hasClaimableQuests ? '●' : null)))),
                     onTap: () => _goToPage(2),
                   ),
                 ),

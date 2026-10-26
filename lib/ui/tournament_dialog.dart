@@ -169,7 +169,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                     child: _buildTabButton(
                       index: 0,
                       icon: Icons.military_tech_rounded,
-                      label: 'LİG',
+                      label: 'HAFTALIK LİG',
                       activeColor: tierColor,
                       isCompact: isCompact,
                     ),
@@ -178,9 +178,9 @@ class _TournamentDialogState extends State<TournamentDialog> {
                   Expanded(
                     child: _buildTabButton(
                       index: 1,
-                      icon: Icons.people_alt_rounded,
-                      label: 'ARKADAŞLAR',
-                      activeColor: const Color(0xFF00E5FF),
+                      icon: Icons.assignment_turned_in_rounded,
+                      label: 'GÜNLÜK GÖREVLER',
+                      activeColor: const Color(0xFFFFD54F),
                       isCompact: isCompact,
                     ),
                   ),
@@ -188,9 +188,9 @@ class _TournamentDialogState extends State<TournamentDialog> {
                   Expanded(
                     child: _buildTabButton(
                       index: 2,
-                      icon: Icons.assignment_turned_in_rounded,
-                      label: 'GÖREVLER',
-                      activeColor: const Color(0xFFFFD54F),
+                      icon: Icons.people_alt_rounded,
+                      label: 'ARKADAŞLAR',
+                      activeColor: const Color(0xFF00E5FF),
                       isCompact: isCompact,
                     ),
                   ),
@@ -211,8 +211,8 @@ class _TournamentDialogState extends State<TournamentDialog> {
                       isCompact,
                     )
                   : (_selectedTab == 1
-                      ? _buildFriendsContent(context, isCompact)
-                      : _buildQuestsContent(context, isCompact)),
+                      ? _buildQuestsContent(context, isCompact)
+                      : _buildFriendsContent(context, isCompact)),
             ),
           ],
         ),
@@ -1326,8 +1326,8 @@ class _TournamentDialogState extends State<TournamentDialog> {
         : (isDemotion ? 'KÜME DÜŞME ⬇️' : 'GÜVENLİ HAT 🛡️');
 
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20, vertical: 4),
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: isCompact ? 7 : 9),
+      margin: EdgeInsets.symmetric(horizontal: isCompact ? 10 : 20, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 12, vertical: isCompact ? 7 : 9),
       decoration: BoxDecoration(
         color: const Color(0xFF141A2D),
         borderRadius: BorderRadius.circular(16),
@@ -1364,7 +1364,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: isCompact ? 6 : 10),
             // Player details
             Expanded(
               child: Column(
@@ -1374,6 +1374,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                   Row(
                     children: [
                       Flexible(
+                        flex: 3,
                         child: Text(
                           'SENİN SIRALAMAN',
                           maxLines: 1,
@@ -1387,19 +1388,26 @@ class _TournamentDialogState extends State<TournamentDialog> {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: zoneColor.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: zoneColor.withValues(alpha: 0.6)),
-                        ),
-                        child: Text(
-                          zoneBadgeText,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 8.5,
+                      Flexible(
+                        flex: 2,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: zoneColor.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: zoneColor.withValues(alpha: 0.6)),
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              zoneBadgeText,
+                              maxLines: 1,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 8.5,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -1421,7 +1429,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
             ),
             // Quick scroll pill button
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              padding: EdgeInsets.symmetric(horizontal: isCompact ? 6 : 8, vertical: isCompact ? 4 : 5),
               decoration: BoxDecoration(
                 color: tierColor.withValues(alpha: 0.22),
                 borderRadius: BorderRadius.circular(10),
@@ -1430,14 +1438,14 @@ class _TournamentDialogState extends State<TournamentDialog> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.gps_fixed_rounded, color: tierColor, size: 13),
+                  Icon(Icons.gps_fixed_rounded, color: tierColor, size: isCompact ? 12 : 13),
                   const SizedBox(width: 4),
                   Text(
                     'GÖSTER',
                     style: TextStyle(
                       color: tierColor,
                       fontWeight: FontWeight.w900,
-                      fontSize: 10,
+                      fontSize: isCompact ? 9.5 : 10,
                     ),
                   ),
                 ],
@@ -1976,20 +1984,29 @@ class _TournamentDialogState extends State<TournamentDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    '🏆 ARKADAŞLAR LİDER TABLOSU',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13,
-                      letterSpacing: 0.5,
+                  const Flexible(
+                    child: Text(
+                      '🏆 ARKADAŞLAR LİDER TABLOSU',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
-                  Text(
-                    'Haftalık Puan Sıralaması',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 11,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Haftalık Puan Sıralaması',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 11,
+                      ),
                     ),
                   ),
                 ],

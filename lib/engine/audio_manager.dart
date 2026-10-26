@@ -13,7 +13,7 @@ enum GameSfx {
   hitPaddle, hitWall, hitBrick, breakBrick, steel,
   powerupBuff, powerupDebuff, laser, explosion, ulti,
   bubble, click, gameOver, victory,
-  cornerBoost, bossHit, wallBounce8
+  cornerBoost, bossHit, wallBounce8, ballLost
 }
 
 class AudioManager {
@@ -35,6 +35,7 @@ class AudioManager {
   final Map<AudioPlayer, int> _playToken = {};
   final Map<AudioPlayer, double> _playerRate = {};
   final Map<GameSfx, int> _lastSfxAt = {};
+  int _lastBrickAt = 0;
   final AudioPlayer _bgmA = AudioPlayer();
   final AudioPlayer _bgmB = AudioPlayer();
   late AudioPlayer _bgmLead;
@@ -47,6 +48,12 @@ class AudioManager {
   bool _hasVib = false;
   bool _hasAmp = false;
   int _lastVibTime = 0;
+  static const List<double> majorPentatonicScale = [1.000, 1.125, 1.250, 1.500, 1.667, 2.000, 2.250, 2.500];
+  static bool usePentatonicScale = false;
+
+  static double getPentatonicPitch(int combo) =>
+      majorPentatonicScale[(combo <= 0 ? 0 : combo - 1) % majorPentatonicScale.length];
+
   bool _appInForeground = true;
   bool get appInForeground => _appInForeground;
   set appInForeground(bool value) {
@@ -139,13 +146,13 @@ class AudioManager {
     } catch (_) {}
 
     await _loadPool('bounce', 'assets/audio/custom_bounce.wav', 4);
-    await _loadPool('brick_neon', 'assets/audio/glass_neon1.mp3', 2);
-    await _loadPool('brick_pixel', 'assets/audio/chip1.mp3', 2);
-    await _loadPool('brick_gloss', 'assets/audio/y2k_digital1.mp3', 2);
-    await _loadPool('brick_neu', 'assets/audio/pop2.mp3', 2);
-    await _loadPool('brick_jelly', 'assets/audio/pop2.mp3', 2);
-    await _loadPool('brick_cyber', 'assets/audio/glass_shatter.mp3', 2);
-    await _loadPool('brick_cosmic', 'assets/audio/glass_glow.mp3', 2);
+    await _loadPool('brick_neon', 'assets/audio/glass_neon1.mp3', 4);
+    await _loadPool('brick_pixel', 'assets/audio/chip1.mp3', 4);
+    await _loadPool('brick_gloss', 'assets/audio/y2k_digital1.mp3', 4);
+    await _loadPool('brick_neu', 'assets/audio/pop2.mp3', 4);
+    await _loadPool('brick_jelly', 'assets/audio/pop2.mp3', 4);
+    await _loadPool('brick_cyber', 'assets/audio/glass_shatter.mp3', 4);
+    await _loadPool('brick_cosmic', 'assets/audio/glass_glow.mp3', 4);
     await _loadPool('steel', 'assets/audio/crystal_block.mp3', 2);
     await _loadPool('bubble', 'assets/audio/bubble2.mp3', 2);
     await _loadPool('click', 'assets/audio/click1.mp3', 2);
@@ -373,14 +380,20 @@ class AudioManager {
   double lastPlaybackRate = 1.0;
   String lastResolvedSoundKey = 'bounce';
 
-  void setDynamicTempo({bool isFever = false, bool isBoss = false}) {
+  double currentBgmPlaybackRate = 1.0;
+
+  void setDynamicTempo({bool isFever = false, bool isBoss = false, bool isTension = false}) {
     try {
       double rate = 1.0;
       if (isFever) {
         rate = 1.08;
+      } else if (isTension) {
+        rate = 1.07;
       } else if (isBoss) {
         rate = 1.04;
       }
+      if ((currentBgmPlaybackRate - rate).abs() < 1e-4) return;
+      currentBgmPlaybackRate = rate;
       _bgmLead.setPlaybackRate(rate);
       _bgmNext.setPlaybackRate(rate);
     } catch (_) {}
@@ -418,6 +431,8 @@ class AudioManager {
         return 'victory';
       case GameSfx.gameOver:
         return 'game_over';
+      case GameSfx.ballLost:
+        return 'powerup_debuff';
       case GameSfx.hitPaddle:
       case GameSfx.hitWall:
       case GameSfx.hitBrick:
@@ -455,6 +470,8 @@ class AudioManager {
         return 0.80;
       case GameSfx.gameOver:
         return 0.75;
+      case GameSfx.ballLost:
+        return 0.45;
       case GameSfx.hitPaddle:
         return 0.55;
       case GameSfx.hitWall:
@@ -467,10 +484,13 @@ class AudioManager {
     lastPlayedCombo = combo;
     double effectiveRate = playbackRate ?? 1.0;
     if (playbackRate == null && (sfx == GameSfx.hitBrick || sfx == GameSfx.breakBrick) && combo > 0) {
-      // Step 4: 8-bit chiptune ascending pitch arpeggio:
-      // Scales pitch progressively with combo hits (1.05x -> 1.50x)
-      final step = combo.clamp(0, 10);
-      effectiveRate = 1.0 + (step * 0.05);
+      if (usePentatonicScale) {
+        effectiveRate = getPentatonicPitch(combo);
+      } else {
+        // Step 4: 8-bit chiptune ascending pitch arpeggio fallback
+        final step = combo.clamp(0, 10);
+        effectiveRate = 1.0 + (step * 0.05);
+      }
     } else if (playbackRate == null && sfx == GameSfx.hitPaddle) {
       // Thematic Paddle Timbre: vary acoustic pitch & resonance by equipped paddle skin
       final paddleSkin = SaveManager.instance.activePaddle.toLowerCase();
@@ -505,6 +525,14 @@ class AudioManager {
 
     final now = DateTime.now().millisecondsSinceEpoch;
     final lastSame = _lastSfxAt[sfx] ?? 0;
+    // Concurrency limiter for brick audio to eliminate harsh audio clipping during multiball storms
+    if ((sfx == GameSfx.hitBrick || sfx == GameSfx.breakBrick) && combo < 6) {
+      if (now - _lastBrickAt < 48) {
+        _maybeVibrate(sfx, now);
+        return;
+      }
+      _lastBrickAt = now;
+    }
     // Throttle identical SFX to 42ms to prevent Android AudioPlayer platform channel queue saturation
     if (now - lastSame < 42) {
       _maybeVibrate(sfx, now);
@@ -530,6 +558,18 @@ class AudioManager {
         final token = (_playToken[p] ?? 0) + 1;
         _playToken[p] = token;
         _restart(p, asset, volume, token, playbackRate: effectiveRate);
+
+        // Mix subtle low-end bass hit under high-pitched brick breaks
+        if (sfx == GameSfx.breakBrick && (combo >= 4 || effectiveRate >= 1.25) && _pools.containsKey('bounce')) {
+          final bPool = _pools['bounce'];
+          if (bPool != null && bPool.isNotEmpty) {
+            final bPlayer = bPool[(_poolIndices['bounce'] ?? 0) % bPool.length];
+            final bAsset = _poolAssets['bounce'] ?? 'audio/custom_bounce.wav';
+            final bToken = (_playToken[bPlayer] ?? 0) + 1;
+            _playToken[bPlayer] = bToken;
+            _restart(bPlayer, bAsset, volume * 0.35, bToken, playbackRate: 0.55);
+          }
+        }
       }
     }
 
@@ -575,6 +615,7 @@ class AudioManager {
           break;
         case GameSfx.powerupBuff:
         case GameSfx.powerupDebuff:
+        case GameSfx.ballLost:
         case GameSfx.ulti:
         case GameSfx.laser:
         case GameSfx.victory:

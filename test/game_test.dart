@@ -1467,6 +1467,8 @@ void main() {
       await save.init();
 
       // Reset state for test with 2 fish: guppy (10 gold) & tetra (20 gold)
+      save.highestLevel = 0;
+      save.luckyFishEnabled = false;
       save.unlockedFish = ['guppy', 'tetra'];
       save.fishFood = 5;
       save.fishFedTimestamps.clear();
@@ -2747,7 +2749,7 @@ void main() {
       expect(controller.stats.ultiCharge, closeTo(ultiBefore + 3.0, 0.01));
     });
 
-    test('Boss level exposes activeBossBrick and triggers Boss Enrage at <= 50% HP', () {
+    test('Boss level exposes activeBossBrick and triggers Boss Enrage at <= 35% HP', () {
       final controller = GameController();
       controller.setDimensions(360, 640);
       controller.startNewGame(GameMode.classic);
@@ -2759,8 +2761,8 @@ void main() {
       expect(boss, isNotNull);
       expect(boss!.isBoss, true);
 
-      // Reduce boss HP to 50% + 1 and hit it with a laser projectile
-      boss.hp = (boss.maxHp * 0.5).floor() + 1;
+      // Reduce boss HP to 35% + 1 and hit it with a laser projectile
+      boss.hp = (boss.maxHp * 0.35).floor() + 1;
       controller.projectiles.add(
         Projectile(
           x: boss.x + boss.width / 2,
@@ -2772,7 +2774,7 @@ void main() {
       );
       controller.update(0.016);
 
-      expect(boss.hp <= boss.maxHp * 0.5, true);
+      expect(boss.hp <= boss.maxHp * 0.35, true);
       expect(controller.particles.floatingTexts.any((t) => t.text.contains('ÖFKELENDİ')), true);
     });
 
@@ -2784,6 +2786,8 @@ void main() {
 
       final save = SaveManager.instance;
       await save.init();
+      save.highestLevel = 0;
+      save.luckyFishEnabled = false;
       save.unlockedFish = ['guppy', 'tetra'];
       save.fishFood = 152;
       save.gold = 12500;

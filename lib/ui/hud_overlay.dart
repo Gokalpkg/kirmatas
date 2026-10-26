@@ -371,6 +371,42 @@ class HudOverlay extends StatelessWidget {
                   ),
                 ),
 
+              // Win Streak multiplier banner / flame chip
+              if (SaveManager.instance.winStreak >= 2 && controller.status == GameStatus.playing)
+                Positioned(
+                  top: 64,
+                  right: 12,
+                  child: IgnorePointer(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xE6210A00),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFF6D00), width: 1.2),
+                        boxShadow: const [
+                          BoxShadow(color: Color(0x66FF6D00), blurRadius: 8),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('🔥', style: TextStyle(fontSize: 11)),
+                          const SizedBox(width: 4),
+                          Text(
+                            'SERİ x${SaveManager.instance.winStreak}',
+                            style: const TextStyle(
+                              color: Color(0xFFFFAB40),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 10,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
               // NEW BEST banner (whip-snaps in the moment the record falls)
               if (controller.newRecordBannerTimer > 0)
                 Positioned(

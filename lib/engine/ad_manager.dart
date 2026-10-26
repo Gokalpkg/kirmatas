@@ -614,6 +614,156 @@ class AdManager extends ChangeNotifier {
     );
   }
 
+  Future<void> watchAdForStreakProtection(
+    BuildContext context, {
+    required VoidCallback onSuccess,
+    required VoidCallback onDismissedEarly,
+  }) async {
+    if (_isShowing) return;
+
+    var adToUse = _highYieldAd ?? _rewardedAd;
+    if (adToUse == null) {
+      preloadHighYieldAd();
+      preloadRewardedAd();
+
+      bool dialogOpen = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dlgCtx) => PopScope(
+          canPop: false,
+          child: Dialog(
+            backgroundColor: const Color(0xFF131726),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: const BorderSide(color: Color(0xFFFF9100), width: 1.5),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.8,
+                      color: Color(0xFFFF9100),
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Seri Koruma Reklamı Hazırlanıyor...',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final startWait = DateTime.now();
+      while (DateTime.now().difference(startWait).inMilliseconds < 3500) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        adToUse = _highYieldAd ?? _rewardedAd;
+        if (adToUse != null) break;
+      }
+
+      if (context.mounted && dialogOpen && Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+        dialogOpen = false;
+      }
+
+      if (adToUse == null) {
+        if (kDebugMode || Platform.environment.containsKey('FLUTTER_TEST')) {
+          SaveManager.instance.recordAdOrWinQuest();
+          _noteVoluntaryAd();
+          onSuccess();
+          return;
+        }
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Reklam yüklenemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.'),
+              backgroundColor: Color(0xFF1E2438),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        onDismissedEarly();
+        return;
+      }
+    }
+
+    _isShowing = true;
+    notifyListeners();
+
+    bool userEarnedReward = false;
+    final currentAd = adToUse;
+
+    currentAd.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (ad) {
+        debugPrint('Streak protection rewarded ad showed');
+      },
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        if (currentAd == _highYieldAd) {
+          _highYieldAd = null;
+        } else {
+          _rewardedAd = null;
+        }
+        _isShowing = false;
+        notifyListeners();
+
+        preloadHighYieldAd();
+        preloadRewardedAd();
+
+        if (userEarnedReward) {
+          SaveManager.instance.recordAdOrWinQuest();
+          _noteVoluntaryAd();
+          onSuccess();
+        } else {
+          onDismissedEarly();
+        }
+      },
+      onAdFailedToShowFullScreenContent: (ad, AdError error) {
+        debugPrint('Streak protection ad failed to show: $error');
+        ad.dispose();
+        if (currentAd == _highYieldAd) {
+          _highYieldAd = null;
+        } else {
+          _rewardedAd = null;
+        }
+        _isShowing = false;
+        notifyListeners();
+        preloadHighYieldAd();
+        preloadRewardedAd();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Reklam açılamadı. Lütfen internet bağlantınızı kontrol edin.'),
+            backgroundColor: Color(0xFFC62828),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+    );
+
+    await currentAd.show(
+      onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+        userEarnedReward = true;
+      },
+    );
+  }
+
   /// Preloads the high-yield rewarded ad using a 3-tier waterfall cascade:
   /// Tier 1 (Ultra High Yield - 7282413936)
   ///   -> Tier 2 (Medium Yield - 7585576971)

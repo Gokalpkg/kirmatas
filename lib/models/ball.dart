@@ -38,6 +38,7 @@ class Ball {
   bool isDayBlessed = false;
   int rapidBounceCount = 0;
   double rapidBounceTimer = 0.0;
+  bool isOverdriveHoming = false;
 
   Ball({
     required this.x,

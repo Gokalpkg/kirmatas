@@ -603,58 +603,46 @@ class LevelDesign {
     switch (worldIndex) {
       case 1:
         return const [
+          Color(0xFF0F172A), // Dark Cyber Navy Base
           Color(0xFF00E5FF), // Cyber Cyan
-          Color(0xFFFF007F), // Electric Magenta
-          Color(0xFFFFD600), // Bright Yellow
-          Color(0xFF00E676), // Neon Green
           Color(0xFF7C4DFF), // Vivid Purple
-          Color(0xFFFF6D00), // Neon Orange
+          Color(0xFF00E676), // Neon Green
         ];
       case 2:
         return const [
+          Color(0xFF0A192F), // Deep Sea Navy Base
           Color(0xFF2979FF), // Cobalt Blue
-          Color(0xFFFF5252), // Bright Coral
+          Color(0xFF1DE9B6), // Ocean Mint
           Color(0xFFFFB300), // Amber Gold
-          Color(0xFF1DE9B6), // Mint
-          Color(0xFF3D5AFE), // Deep Indigo
-          Color(0xFFFF1744), // Crimson
         ];
       case 3:
         return const [
+          Color(0xFF130924), // Twilight Violet Base
           Color(0xFF651FFF), // Electric Violet
-          Color(0xFFFF1744), // Neon Magenta
+          Color(0xFFE040FB), // Plasma Magenta
           Color(0xFF00E5FF), // Pulsar Cyan
-          Color(0xFF304FFE), // Twilight Indigo
-          Color(0xFFFFEA00), // Electric Yellow
-          Color(0xFFE040FB), // Plasma Purple
         ];
       case 4:
         return const [
+          Color(0xFF0B1F1A), // Deep Emerald Base
           Color(0xFF00E676), // Emerald
           Color(0xFF00B0FF), // Deep Azure
-          Color(0xFFAA00FF), // Radiant Amethyst
-          Color(0xFFFFC400), // Gold Amber
-          Color(0xFFFF4081), // Rose Quartz
-          Color(0xFF18FFFF), // Electric Diamond
+          Color(0xFFFFD54F), // Gold Amber
         ];
       case 5:
         return const [
+          Color(0xFF200B07), // Obsidian Charcoal Base
           Color(0xFFFF3D00), // Molten Orange
-          Color(0xFFD50000), // Lava Crimson
           Color(0xFFFFAB00), // Fiery Gold
-          Color(0xFFDD2C00), // Burning Ochre
-          Color(0xFFFF6D00), // Solar Flare
-          Color(0xFFFF1744), // Magma Red
+          Color(0xFFFF1744), // Magma Crimson
         ];
       case 6:
       default:
         return const [
+          Color(0xFF0C1021), // Midnight Void Base
           Color(0xFF2979FF), // Quantum Sapphire
-          Color(0xFF7C4DFF), // Astral Purple
           Color(0xFFFFD700), // Solar Gold
-          Color(0xFFFF1493), // Plasma Pink
-          Color(0xFF00F5FF), // Pure Cyan
-          Color(0xFFFF6E40), // Singularity Coral
+          Color(0xFFE040FB), // Astral Magenta
         ];
     }
   }
@@ -1074,6 +1062,14 @@ class LevelDesign {
           }
         }
 
+        // Mystery Golden Chest Brick placement (~5% chance on standard breakable bricks)
+        bool isChest = false;
+        if (!isSteel && !isHeavySteel && !isDynamite && !isIce) {
+          if ((r * 19 + c * 31 + level * 11) % 43 == 0) {
+            isChest = true;
+          }
+        }
+
         // HP Scaling
         int hp = 1;
         if (isSteel) {
@@ -1131,10 +1127,11 @@ class LevelDesign {
             moverVx: (60.0 + world * 10.0) * moverDirection,
             isDynamite: isDynamite,
             isIce: isIce,
+            isChest: isChest,
             minX: padding,
             maxX: screenWidth - padding,
-            color: (hp > 1 && !isSteel && !isHeavySteel) ? color.withValues(alpha: 0.85) : color,
-            points: (isSteel || isHeavySteel) ? 0 : (25 * hp),
+            color: isChest ? const Color(0xFFFFD700) : ((hp > 1 && !isSteel && !isHeavySteel) ? color.withValues(alpha: 0.85) : color),
+            points: (isSteel || isHeavySteel) ? 0 : (isChest ? 100 : 25 * hp),
           ),
         );
       }
@@ -1367,8 +1364,8 @@ class LevelDesign {
       final color = neonPalette[colorIndex];
 
       final specialRoll = rand.nextDouble();
-      if (specialRoll < 0.08) {
-        // Dynamite brick
+      if (specialRoll < 0.10) {
+        // Dynamite brick - satisfying chain blast!
         bricks.add(
           Brick(
             x: chaosMargin + c * (bw + chaosGap),
@@ -1382,8 +1379,8 @@ class LevelDesign {
             points: 15,
           ),
         );
-      } else if (specialRoll < 0.16) {
-        // Ice brick
+      } else if (specialRoll < 0.20) {
+        // Ice brick - frost shatter!
         bricks.add(
           Brick(
             x: chaosMargin + c * (bw + chaosGap),
@@ -1397,38 +1394,8 @@ class LevelDesign {
             points: 15,
           ),
         );
-      } else if (wave >= 4 && specialRoll < 0.22) {
-        // Reinforced breakable stone brick (Never unbreakable steel in Chaos mode)
-        final stoneHp = min(3, hp + 1);
-        bricks.add(
-          Brick(
-            x: chaosMargin + c * (bw + chaosGap),
-            y: y,
-            width: bw,
-            height: chaosBrickH,
-            hp: stoneHp,
-            maxHp: stoneHp,
-            color: const Color(0xFF78909C),
-            points: 20,
-          ),
-        );
-      } else if (specialRoll < 0.28) {
-        // Tuft / Glass brick
-        bricks.add(
-          Brick(
-            x: chaosMargin + c * (bw + chaosGap),
-            y: y,
-            width: bw,
-            height: chaosBrickH,
-            hp: 1,
-            maxHp: 1,
-            isTuft: true,
-            tuftColor: color,
-            color: Colors.white24,
-            points: 10,
-          ),
-        );
       } else {
+        // Pure vibrant arcade neon brick (no useless tuft or stone sponges in Chaos mode)
         bricks.add(
           Brick(
             x: chaosMargin + c * (bw + chaosGap),

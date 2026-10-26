@@ -7,6 +7,7 @@ import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
 import 'eco_tank_background.dart';
 import 'fish_hoard_chest.dart';
+import 'fish_rig.dart';
 import 'kaunos_ui.dart';
 
 class AquariumView extends StatefulWidget {
@@ -27,6 +28,148 @@ class _FlyingCoin {
   const _FlyingCoin({required this.from, required this.to, required this.delay, required this.sway});
 }
 
+class _BubbleCoinItem {
+  final Key id;
+  final Offset from;
+  final Offset to;
+  final int gold;
+
+  _BubbleCoinItem({
+    required this.id,
+    required this.from,
+    required this.to,
+    required this.gold,
+  });
+}
+
+class _BubbleCoinWidget extends StatefulWidget {
+  final _BubbleCoinItem item;
+  final VoidCallback onComplete;
+
+  const _BubbleCoinWidget({super.key, required this.item, required this.onComplete});
+
+  @override
+  State<_BubbleCoinWidget> createState() => _BubbleCoinWidgetState();
+}
+
+class _BubbleCoinWidgetState extends State<_BubbleCoinWidget> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 720));
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInQuad);
+    _ctrl.forward().then((_) {
+      if (mounted) widget.onComplete();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        final t = _anim.value;
+        final raw = _ctrl.value;
+
+        // Quadratic Bezier arc outward toward target
+        final control = Offset(
+          min(widget.item.from.dx, widget.item.to.dx) - 24.0,
+          min(widget.item.from.dy, widget.item.to.dy) - 36.0,
+        );
+        final oneMinusT = 1.0 - t;
+        final currentPos = Offset(
+          oneMinusT * oneMinusT * widget.item.from.dx +
+              2 * oneMinusT * t * control.dx +
+              t * t * widget.item.to.dx,
+          oneMinusT * oneMinusT * widget.item.from.dy +
+              2 * oneMinusT * t * control.dy +
+              t * t * widget.item.to.dy,
+        );
+
+        final scale = (0.75 + 0.5 * sin(raw * pi)).clamp(0.4, 1.25);
+        final opacity = raw > 0.88 ? ((1.0 - raw) / 0.12).clamp(0.0, 1.0) : 1.0;
+
+        // Floating +1 gold text
+        final textY = widget.item.from.dy - raw * 48.0;
+        final textOpacity = (1.0 - (raw / 0.72)).clamp(0.0, 1.0);
+
+        return Stack(
+          children: [
+            if (textOpacity > 0.01)
+              Positioned(
+                left: widget.item.from.dx - 18,
+                top: textY - 10,
+                child: Opacity(
+                  opacity: textOpacity,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '+${widget.item.gold}',
+                        style: const TextStyle(
+                          color: Color(0xFFFFD54F),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          shadows: [
+                            Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(Icons.star, color: Color(0xFFFFD54F), size: 12),
+                    ],
+                  ),
+                ),
+              ),
+            Positioned(
+              left: currentPos.dx - 9,
+              top: currentPos.dy - 9,
+              child: Opacity(
+                opacity: opacity,
+                child: Transform.scale(
+                  scale: scale,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const RadialGradient(
+                        center: Alignment(-0.35, -0.35),
+                        colors: [Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFF57F17)],
+                        stops: [0.0, 0.55, 1.0],
+                      ),
+                      border: Border.all(color: const Color(0xFFB8860B), width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFFD54F).withValues(alpha: 0.65),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.star, color: Color(0xFFFFFDE7), size: 10),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _AquariumViewState extends State<AquariumView> with TickerProviderStateMixin {
   final GlobalKey<EcoTankBackgroundState> _tankKey = GlobalKey<EcoTankBackgroundState>();
   final GlobalKey _stackKey = GlobalKey();
@@ -37,6 +180,29 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
   late final Animation<double> _pulseScale;
   late final AnimationController _coinCtrl;
   final List<_FlyingCoin> _flyingCoins = [];
+  final List<_BubbleCoinItem> _bubbleCoins = [];
+
+  void _onOxygenBubblePopped(Offset worldPos, int gold) {
+    final stackBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    if (stackBox == null || !stackBox.hasSize) return;
+
+    final screenPos = Offset(
+      worldPos.dx * stackBox.size.width / 410.0,
+      worldPos.dy * stackBox.size.height / 800.0,
+    );
+    final to = _centerOf(_goldPillKey) ?? Offset(stackBox.size.width - 55, 30);
+
+    setState(() {
+      _bubbleCoins.add(
+        _BubbleCoinItem(
+          id: UniqueKey(),
+          from: screenPos,
+          to: to,
+          gold: gold,
+        ),
+      );
+    });
+  }
 
   @override
   void initState() {
@@ -624,6 +790,7 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
           body: EcoTankBackground(
             key: _tankKey,
             interactive: true,
+            onBubblePopped: _onOxygenBubblePopped,
             child: SafeArea(
               child: Stack(
                 key: _stackKey,
@@ -704,6 +871,40 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                     ),
                   ),
 
+                  // Günün Şanslı Balığı Rozeti (3x Altın)
+                  if (_save.luckyFishId != null)
+                    Positioned(
+                      top: 50,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xDD1A1400),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFFFD54F), width: 1.2),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x44FFD54F), blurRadius: 6),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('👑', style: TextStyle(fontSize: 11)),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${FishItem.getById(_save.luckyFishId!).name} (3x 🪙)',
+                              style: const TextStyle(
+                                color: Color(0xFFFFE082),
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
                   // Top-Right Floating "🍤 YEM & EKOSİSTEM" + 1-Tap Quick Feed Button
                   Positioned(
                     top: 50,
@@ -773,16 +974,7 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                     ),
                   ),
 
-                  // Bottom Sunken Aquarium Treasure Chest (Clean unobstructed seabed)
-                  Positioned(
-                    bottom: max(14.0, MediaQuery.of(context).padding.bottom + 6.0),
-                    right: 18,
-                    child: FishHoardChest(
-                      key: _chestKey,
-                      save: _save,
-                      onCollectStart: _launchFlyingCoins,
-                    ),
-                  ),
+
 
 
                   // Flying coins: rise from the chest like bubbles, then
@@ -803,6 +995,27 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                       ),
                     ),
                   ),
+
+                  // Flying bubble pop coins with floating +1 gold badge
+                  if (_bubbleCoins.isNotEmpty)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Stack(
+                          children: [
+                            for (final bCoin in _bubbleCoins)
+                              _BubbleCoinWidget(
+                                key: bCoin.id,
+                                item: bCoin,
+                                onComplete: () {
+                                  if (mounted) {
+                                    setState(() => _bubbleCoins.remove(bCoin));
+                                  }
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
 
                   // Finger Mode Active Pill (Quick toggle back to food mode)
                   if (_tankKey.currentState?.isFingerMode == true)
@@ -847,107 +1060,18 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                       ),
                     ),
 
-                  // Forced Catalog Tutorial Overlay for first-time visitors
-                  if (!_save.hasSeenAquariumCatalogTutorial)
-                    Positioned.fill(
-                      child: Container(
-                        color: const Color(0xCF050B14),
-                        child: Stack(
-                          children: [
-                            Positioned(
-                              top: 6,
-                              right: 12,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Container(
-                                    margin: const EdgeInsets.only(bottom: 6),
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xF20E2235),
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(color: const Color(0xFF00E5FF), width: 1.5),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFF00E5FF).withValues(alpha: 0.45),
-                                          blurRadius: 14,
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          'AKVARYUM KATALOĞU',
-                                          style: TextStyle(
-                                            color: Color(0xFF00E5FF),
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 12,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                        SizedBox(height: 2),
-                                        Text(
-                                          'Balıklarını ve araçları\nkeşfetmek için dokun!',
-                                          textAlign: TextAlign.right,
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 11,
-                                            height: 1.25,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const Padding(
-                                    padding: EdgeInsets.only(right: 26, bottom: 6),
-                                    child: _AquariumBouncingArrow(),
-                                  ),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(20),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFF00E5FF).withValues(alpha: 0.85),
-                                          blurRadius: 16,
-                                          spreadRadius: 3,
-                                        ),
-                                      ],
-                                    ),
-                                    child: ElevatedButton.icon(
-                                      onPressed: () {
-                                        _save.completeAquariumCatalogTutorial();
-                                        _showAquariumCatalogSheet();
-                                      },
-                                      icon: const Icon(Icons.collections_bookmark_rounded, color: Color(0xFF00E5FF), size: 16),
-                                      label: const Text(
-                                        'Katalog',
-                                        style: TextStyle(
-                                          fontFamily: 'Rajdhani',
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 12,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF01579B),
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(18),
-                                          side: const BorderSide(color: Color(0xFF80D8FF), width: 2),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+
+
+                  // Bottom Sunken Aquarium Treasure Chest (Clean unobstructed seabed)
+                  Positioned(
+                    bottom: max(14.0, MediaQuery.of(context).padding.bottom + 6.0),
+                    right: 18,
+                    child: FishHoardChest(
+                      key: _chestKey,
+                      save: _save,
+                      onCollectStart: _launchFlyingCoins,
                     ),
+                  ),
                 ],
               ),
             ),
@@ -1194,16 +1318,12 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   SizedBox(
-                                    height: 38,
-                                    child: owned
-                                        ? Image.asset(fish.assetPath, fit: BoxFit.contain)
-                                        : ColorFiltered(
-                                            colorFilter: const ColorFilter.mode(Colors.black54, BlendMode.srcATop),
-                                            child: Opacity(
-                                              opacity: 0.35,
-                                              child: Image.asset(fish.assetPath, fit: BoxFit.contain),
-                                            ),
-                                          ),
+                                    height: 40,
+                                    child: ProceduralFishPreview(
+                                      fishId: fish.id,
+                                      size: 40,
+                                      lockedSilhouette: !owned,
+                                    ),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(

@@ -17,6 +17,13 @@ abstract final class BalanceConfig {
   /// Hit stop in milliseconds.
   static const int hitStopDurationMs = 35;
 
+  /// Scaled hit stop duration based on active ball count.
+  /// Prevents Multiball from stuttering the physics engine while maintaining tactile punch.
+  static double scaledHitStop(int activeBallCount) {
+    if (activeBallCount <= 1) return hitStopDurationSeconds;
+    return (hitStopDurationSeconds / math.max(1.0, activeBallCount * 0.75)).clamp(0.008, hitStopDurationSeconds);
+  }
+
   /// High combo threshold triggering screen shake and fever aura.
   static const int feverComboThreshold = 8;
 
@@ -24,7 +31,7 @@ abstract final class BalanceConfig {
   static const int cosmicComboThreshold = 16;
 
   /// Seconds before endgame anti-stall micro-steering nudges the ball toward the last 1-2 bricks.
-  static const double endgameStallThresholdSeconds = 10.0;
+  static const double endgameStallThresholdSeconds = 3.5;
 
   /// Base coin drop probability per brick in Classic/Special mode (30%).
   static const double classicCoinBaseDropRate = 0.30;

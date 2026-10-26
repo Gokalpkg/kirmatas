@@ -37,6 +37,10 @@ class Brick {
   bool tuftFilled;
   Color tuftColor;
   bool isBallPickup;
+  bool isChest;
+  bool isPrimedDynamite = false;
+  double primedTimer = 0.0;
+  int chainExplosionDepth = 0;
   double jelly; // wobble deformation amount (0.0 to 1.0)
   double flashTimer = 0.0; // 1-frame pure white flash on hit / destruction
   double bounceOffsetY = 0.0; // Elastic overshoot settling displacement
@@ -72,6 +76,7 @@ class Brick {
     this.tuftFilled = false,
     this.tuftColor = const Color(0xFFFF7043),
     this.isBallPickup = false,
+    this.isChest = false,
     this.jelly = 0.0,
     required this.color,
     this.points = 10,
@@ -172,6 +177,16 @@ class Brick {
   void triggerElasticSettle({double impulse = 5.0}) {
     bounceVy = impulse;
     jelly = 0.6;
+  }
+
+  /// Primes dynamite for a cascading domino chain reaction detonation
+  void primeDynamite({required double delay, required int depth}) {
+    if (isPrimedDynamite) return;
+    isPrimedDynamite = true;
+    primedTimer = delay;
+    chainExplosionDepth = depth;
+    triggerWhiteFlash(delay);
+    triggerElasticSettle(impulse: 7.0);
   }
 }
 

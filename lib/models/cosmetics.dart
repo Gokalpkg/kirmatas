@@ -718,16 +718,16 @@ class CrateDef {
       },
     ),
     // The Divine Octopus Treasure sits at the pinnacle of chests:
-    // Opened exclusively with 3 pearls (see octopusVaultPearlCost).
+    // Opened exclusively with 8 pearls (see octopusVaultPearlCost).
     octopusVault,
   ];
 
   /// Pearls needed to unlock an Octopus Treasure, whether it was won
   /// from the fortune wheel or bought in the shop.
-  static const int octopusVaultPearlCost = 3;
+  static const int octopusVaultPearlCost = 8;
 
   /// The Octopus Treasure: a legendary divine chest guarded by the octopus.
-  /// Sits at the end of the shop catalog and opens exclusively for 3 pearls.
+  /// Sits at the end of the shop catalog and opens exclusively for 8 pearls.
   static const CrateDef octopusVault = CrateDef(
     id: 'octopus',
     nameKey: 'divine_octopus_vault',
@@ -949,12 +949,14 @@ class BrickStyle {
     BrickStyle(id: 'brick_neon', cost: 1800, rarity: Rarity.rare, accent: Color(0xFF00E5FF)),
     BrickStyle(id: 'brick_pixel', cost: 1600, rarity: Rarity.rare, accent: Color(0xFFFFD54F)),
     BrickStyle(id: 'brick_neu', cost: 3200, rarity: Rarity.epic, accent: Color(0xFF90A4AE)),
-    BrickStyle(id: 'brick_jelly', cost: 3600, rarity: Rarity.epic, accent: Color(0xFF00E676)),
     BrickStyle(id: 'brick_cyber', cost: 4500, rarity: Rarity.epic, accent: Color(0xFF00E5FF)),
     BrickStyle(id: 'brick_cosmic', cost: 9500, rarity: Rarity.legendary, accent: Color(0xFFE040FB)),
   ];
 
+  static const BrickStyle jellyStyle = BrickStyle(id: 'brick_jelly', cost: 3600, rarity: Rarity.epic, accent: Color(0xFF00E676));
+
   static BrickStyle getById(String id) {
+    if (id == 'brick_jelly') return jellyStyle;
     return all.firstWhere((s) => s.id == id, orElse: () => all.first);
   }
 }

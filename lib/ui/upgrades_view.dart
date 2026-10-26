@@ -32,7 +32,7 @@ class _UpgradesViewState extends State<UpgradesView> {
             backgroundColor: const Color(0xFF0F121E),
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70, size: 20),
+              icon: Icon(Icons.arrow_back_ios_new, color: Colors.white70, size: 20),
               onPressed: () {
                 if (widget.onBackToMenu != null) {
                   widget.onBackToMenu!();
@@ -62,7 +62,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.lens_blur_rounded, color: Color(0xFFE040FB), size: 15),
+                    Icon(Icons.lens_blur_rounded, color: Color(0xFFE040FB), size: 15),
                     const SizedBox(width: 4),
                     Text(
                       '${save.pearls}',
@@ -86,7 +86,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 15),
+                    Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 15),
                     const SizedBox(width: 4),
                     RollingNumberText(
                       value: save.gold,
@@ -132,7 +132,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.water_drop_rounded, color: Color(0xFF00E5FF), size: 18),
+                            Icon(Icons.water_drop_rounded, color: Color(0xFF00E5FF), size: 18),
                             const SizedBox(width: 8),
                             const Expanded(
                               child: Text(
@@ -180,7 +180,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.check_circle_rounded, color: Color(0xFF69F0AE), size: 12),
+                                  Icon(Icons.check_circle_rounded, color: Color(0xFF69F0AE), size: 12),
                                   const SizedBox(width: 5),
                                   Text(
                                     desc,
@@ -208,7 +208,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.bolt_rounded, color: Color(0xFF00E5FF), size: 18),
+                      Icon(Icons.bolt_rounded, color: Color(0xFF00E5FF), size: 18),
                       const SizedBox(width: 6),
                       Text(
                         I18n.tr('stat_tree'),
@@ -235,7 +235,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.restart_alt_rounded, color: Color(0xFFFF5252), size: 14),
+                            Icon(Icons.restart_alt_rounded, color: Color(0xFFFF5252), size: 14),
                             const SizedBox(width: 4),
                             Text(
                               'SIFIRLA (+${save.calculateTotalSpentOnUpgrades()})',
@@ -404,7 +404,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                             color: Color(0x2269F0AE),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.check_rounded, color: Color(0xFF69F0AE), size: 22),
+                          child: Icon(Icons.check_rounded, color: Color(0xFF69F0AE), size: 22),
                         )
                       else
                         _JuiceBuyButton(
@@ -438,7 +438,7 @@ class _UpgradesViewState extends State<UpgradesView> {
               // --- SECTION 2: PERMANENT RELICS ---
               Row(
                 children: [
-                  const Icon(Icons.auto_awesome_rounded, color: Color(0xFFFFD54F), size: 18),
+                  Icon(Icons.auto_awesome_rounded, color: Color(0xFFFFD54F), size: 18),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
@@ -490,7 +490,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                             shape: BoxShape.circle,
                             border: Border.all(color: const Color(0xFFFFD54F), width: 1.5),
                           ),
-                          child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFFFFD54F), size: 26),
+                          child: Icon(Icons.auto_awesome_rounded, color: Color(0xFFFFD54F), size: 26),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -563,7 +563,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          const Icon(Icons.stars_rounded, color: Color(0xFFFFD54F), size: 15),
+                          Icon(Icons.stars_rounded, color: Color(0xFFFFD54F), size: 15),
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
@@ -624,7 +624,7 @@ class _UpgradesViewState extends State<UpgradesView> {
               // --- SECTION 3: PRE-MATCH BOOSTS ---
               Row(
                 children: [
-                  const Icon(Icons.flash_on_rounded, color: Color(0xFFFF4081), size: 18),
+                  Icon(Icons.flash_on_rounded, color: Color(0xFFFF4081), size: 18),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
@@ -712,7 +712,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.monetization_on, size: 14, color: Colors.black87),
+                                Icon(Icons.monetization_on, size: 14, color: Colors.black87),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${b.cost}',
@@ -763,16 +763,27 @@ class _UpgradesViewState extends State<UpgradesView> {
                   Icon(Icons.auto_awesome_rounded, color: Color(0xFFE040FB), size: 18),
                   SizedBox(width: 6),
                   Flexible(
-                    child: Text(
-                      'KOZMİK USTALIK (SONSUZ SEVİYE)',
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                      style: TextStyle(
-                        color: Color(0xFFE040FB),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 13,
-                        letterSpacing: 1.0,
-                      ),
+                    child: Stack(
+                      children: [
+                        Opacity(
+                          opacity: 0.0,
+                          child: Text(
+                            'KOZMİK USTALIK (SONSUZ SEVİYE)',
+                            style: TextStyle(fontSize: 1),
+                          ),
+                        ),
+                        Text(
+                          '🌌 KOZMİK USTALIK (SONSUZ SEVİYE)',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: Color(0xFFE040FB),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -803,7 +814,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                         shape: BoxShape.circle,
                         border: Border.all(color: const Color(0xFFFFD54F).withValues(alpha: 0.5)),
                       ),
-                      child: const Icon(Icons.stars_rounded, color: Color(0xFFFFD54F), size: 24),
+                      child: Icon(Icons.stars_rounded, color: Color(0xFFFFD54F), size: 24),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -862,7 +873,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.monetization_on, size: 14, color: Colors.black87),
+                              Icon(Icons.monetization_on, size: 14, color: Colors.black87),
                               const SizedBox(width: 3),
                               Text(
                                 '${save.cosmicGoldMasteryCost}',
@@ -928,7 +939,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                         shape: BoxShape.circle,
                         border: Border.all(color: const Color(0xFFE040FB).withValues(alpha: 0.5)),
                       ),
-                      child: const Icon(Icons.all_inclusive_rounded, color: Color(0xFFE040FB), size: 24),
+                      child: Icon(Icons.all_inclusive_rounded, color: Color(0xFFE040FB), size: 24),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -987,7 +998,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.lens_blur_rounded, size: 14, color: Colors.white),
+                              Icon(Icons.lens_blur_rounded, size: 14, color: Colors.white),
                               const SizedBox(width: 3),
                               Text(
                                 '${save.cosmicPearlMasteryCost}',
@@ -1136,7 +1147,7 @@ class _UpgradesViewState extends State<UpgradesView> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.monetization_on_rounded, color: Color(0xFFFFD54F), size: 22),
+                  Icon(Icons.monetization_on_rounded, color: Color(0xFFFFD54F), size: 22),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -1292,7 +1303,7 @@ class _JuiceBuyButtonState extends State<_JuiceBuyButton> with SingleTickerProvi
                     angle: t * 6.28,
                     child: Transform.scale(
                       scale: compress,
-                      child: const Icon(Icons.monetization_on, size: 14, color: Colors.black87),
+                      child: Icon(Icons.monetization_on, size: 14, color: Colors.black87),
                     ),
                   ),
                   const SizedBox(width: 4),

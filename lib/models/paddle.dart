@@ -25,6 +25,8 @@ class Paddle {
   double slideVelocity;
   double prevX;
   double velocityX;
+  double targetX = 0.0;
+  double tiltAngle = 0.0;
 
   /// Pixel Art Phase 2: 1-frame white/cyan impact flash & elastic squash-and-bounce
   double flashTimer = 0.0;
@@ -57,6 +59,8 @@ class Paddle {
     this.slideVelocity = 0.0,
     this.prevX = 0.0,
     this.velocityX = 0.0,
+    this.targetX = 0.0,
+    this.tiltAngle = 0.0,
   });
 
   Rect get rect => Rect.fromLTWH(x, y, width, height);
@@ -64,6 +68,9 @@ class Paddle {
   void update(double dt) {
     velocityX = (x - prevX) / (dt > 0.0001 ? dt : 0.016);
     prevX = x;
+
+    // Rock-solid classic paddle: No tilting or wobbling when moving left/right
+    tiltAngle = 0.0;
 
     if (laserCooldown > 0) laserCooldown -= dt;
     if (rocketCooldown > 0) rocketCooldown -= dt;
@@ -126,6 +133,7 @@ class Projectile {
   bool isRocket;
   bool isBossBullet;
   bool isShrapnel;
+  bool isHazard;
   bool isAlive;
 
   Projectile({
@@ -138,6 +146,7 @@ class Projectile {
     this.isRocket = false,
     this.isBossBullet = false,
     this.isShrapnel = false,
+    this.isHazard = false,
     this.isAlive = true,
   });
 

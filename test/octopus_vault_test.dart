@@ -19,8 +19,8 @@ void main() {
       expect(vault.id, 'octopus');
       expect(vault.name, isNotEmpty);
       expect(vault.tier, Rarity.legendary);
-      expect(vault.cost, 0); // opened exclusively with 3 pearls
-      expect(CrateDef.octopusVaultPearlCost, 3); // pearls to open
+      expect(vault.cost, 0); // opened exclusively with 8 pearls
+      expect(CrateDef.octopusVaultPearlCost, 8); // pearls to open
       final ids = CrateDef.allCrates.map((c) => c.id).toList();
       expect(ids, contains('octopus'));
       expect(ids.last, 'octopus',
@@ -65,12 +65,12 @@ void main() {
       expect(FortuneWheelDialog.vaultRewardFish(save).rarity, Rarity.legendary);
     });
 
-    test('pearl gate math: 3 pearls unlock, fewer do not', () {
+    test('pearl gate math: 8 pearls unlock, fewer do not', () {
       final save = SaveManager.instance;
-      save.pearls = 2;
+      save.pearls = 7;
       expect(save.spendPearls(CrateDef.octopusVaultPearlCost), isFalse);
-      expect(save.pearls, 2);
-      save.pearls = 5;
+      expect(save.pearls, 7);
+      save.pearls = 10;
       expect(save.spendPearls(CrateDef.octopusVaultPearlCost), isTrue);
       expect(save.pearls, 2);
     });

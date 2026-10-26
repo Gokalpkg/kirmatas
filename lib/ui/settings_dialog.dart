@@ -300,9 +300,13 @@ class SettingsDialog extends StatelessWidget {
                             children: [
                               const Icon(Icons.sports_tennis_rounded, size: 14, color: Color(0xFF80D8FF)),
                               const SizedBox(width: 6),
-                              Text(
-                                'Raket Vuruş Sesi: ${save.paddleVolume == 0 ? I18n.tr('off') : save.paddleVolume}',
-                                style: const TextStyle(color: Color(0xFF80D8FF), fontSize: 11.5, fontWeight: FontWeight.bold),
+                              Expanded(
+                                child: Text(
+                                  'Raket Vuruş Sesi: ${save.paddleVolume == 0 ? I18n.tr('off') : save.paddleVolume}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Color(0xFF80D8FF), fontSize: 11.5, fontWeight: FontWeight.bold),
+                                ),
                               ),
                             ],
                           ),
@@ -321,9 +325,13 @@ class SettingsDialog extends StatelessWidget {
                             children: [
                               const Icon(Icons.circle_outlined, size: 14, color: Color(0xFFFFD54F)),
                               const SizedBox(width: 6),
-                              Text(
-                                'Top Sekme Sesi: ${save.ballVolume == 0 ? I18n.tr('off') : save.ballVolume}',
-                                style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 11.5, fontWeight: FontWeight.bold),
+                              Expanded(
+                                child: Text(
+                                  'Top Sekme Sesi: ${save.ballVolume == 0 ? I18n.tr('off') : save.ballVolume}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 11.5, fontWeight: FontWeight.bold),
+                                ),
                               ),
                             ],
                           ),
@@ -342,9 +350,13 @@ class SettingsDialog extends StatelessWidget {
                             children: [
                               const Icon(Icons.grid_view_rounded, size: 14, color: Color(0xFFFF8A80)),
                               const SizedBox(width: 6),
-                              Text(
-                                'Blok Kırma Sesi: ${save.brickVolume == 0 ? I18n.tr('off') : save.brickVolume}',
-                                style: const TextStyle(color: Color(0xFFFF8A80), fontSize: 11.5, fontWeight: FontWeight.bold),
+                              Expanded(
+                                child: Text(
+                                  'Blok Kırma Sesi: ${save.brickVolume == 0 ? I18n.tr('off') : save.brickVolume}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Color(0xFFFF8A80), fontSize: 11.5, fontWeight: FontWeight.bold),
+                                ),
                               ),
                             ],
                           ),

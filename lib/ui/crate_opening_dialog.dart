@@ -7,6 +7,7 @@ import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
 import '../storage/save_manager.dart';
 import 'chest_widget.dart';
+import 'fish_rig.dart';
 import 'kaunos_ui.dart';
 
 class CrateOpeningDialog extends StatefulWidget {
@@ -2112,12 +2113,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
   Widget _buildRewardIcon() {
     if (_reward is FishItem) {
-      return Image.asset(
-        (_reward as FishItem).assetPath,
-        width: 72,
-        height: 72,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => const Icon(Icons.set_meal_rounded, size: 54, color: Colors.amber),
+      return ProceduralFishPreview(
+        fishId: (_reward as FishItem).id,
+        size: 76,
       );
     }
     if (_reward is BallSkin) {

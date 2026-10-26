@@ -14,6 +14,7 @@ import 'engine/analytics_manager.dart';
 import 'engine/play_games_manager.dart';
 import 'engine/cloud_social_manager.dart';
 import 'ui/splash_screen.dart';
+import 'ui/main_menu.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,6 +44,8 @@ void main() async {
   unawaited(PlayGamesManager.instance.init());
   unawaited(CloudSocialManager.instance.syncProfileToCloud());
   unawaited(CloudSocialManager.instance.refreshFriendsFromCloud());
+
+  MainMenuScreen.suppressBootPopups = true;
 
   runApp(const KirmatasApp());
 }

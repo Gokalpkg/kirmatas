@@ -297,10 +297,10 @@ void main() {
       expect(b4.bounceVy, greaterThan(0.0)); // Neighbor settled!
     });
 
-    test('Phase 5: Octopus Vault is locked to 3 pearls and brick_jelly exists', () {
+    test('Phase 5: Octopus Vault is locked to 8 pearls and brick_jelly exists', () {
       final jelly = BrickStyle.getById('brick_jelly');
       expect(jelly.id, 'brick_jelly');
-      expect(CrateDef.octopusVaultPearlCost, 3);
+      expect(CrateDef.octopusVaultPearlCost, 8);
       expect(CrateDef.octopusVault.id, 'octopus');
     });
   });

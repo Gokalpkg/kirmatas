@@ -92,25 +92,6 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
   static CrateDef? _awardedCrateDef;
   static CategoryCrateInfo? _awardedCategoryCrate;
 
-  static void _rollRandomFreeCrate() {
-    _awardedCrateDef = null;
-    _awardedCategoryCrate = null;
-    final rnd = Random();
-    // 5 crates: wood, balls, paddles, trails, bricks (excludes coral, abyss, octopus)
-    final pick = rnd.nextInt(5);
-    if (pick == 0) {
-      _awardedCrateDef = CrateDef.allCrates.firstWhere((c) => c.id == 'wood');
-    } else if (pick == 1) {
-      _awardedCategoryCrate = CategoryCrateInfo.categoryCrates['balls'];
-    } else if (pick == 2) {
-      _awardedCategoryCrate = CategoryCrateInfo.categoryCrates['paddles'];
-    } else if (pick == 3) {
-      _awardedCategoryCrate = CategoryCrateInfo.categoryCrates['trails'];
-    } else {
-      _awardedCategoryCrate = CategoryCrateInfo.categoryCrates['bricks'];
-    }
-  }
-
   String _getCategoryDisplayName(String cat) {
     switch (cat) {
       case 'balls':
@@ -174,7 +155,17 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       primaryColor: const Color(0xFFFFB300),
       secondaryColor: const Color(0xFFFF6F00),
       onClaim: (context, save) async {
-        _rollRandomFreeCrate();
+        final fish = FortuneWheelDialog.vaultRewardFish(save);
+        await save.savePendingCrate(PendingCrate(
+          crateType: 'aquarium',
+          crateId: 'octopus',
+          category: 'fish',
+          rewardType: 'fish',
+          rewardId: fish.id,
+          rewardTitle: fish.name,
+          rewardSubtitle: 'Ahtapot Hazinesi Kilitli (${CrateDef.octopusVaultPearlCost} İnci)',
+          rarityIndex: Rarity.legendary.index,
+        ));
       },
     ),
     WheelReward(
