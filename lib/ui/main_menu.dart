@@ -100,6 +100,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     _pageController.dispose();
     _cooldownRefreshTimer?.cancel();
     _activeGame?.statusVersion.removeListener(_onActiveGameTick);
+    _activeGame?.dispose();
     super.dispose();
   }
 
@@ -526,6 +527,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     AudioManager.instance.pauseBgm();
     setState(() {
       _activeGame?.statusVersion.removeListener(_onActiveGameTick);
+      _activeGame?.dispose();
       _activeGame = GameController()..startNewGame(mode, isResume: isResume, explicitStartLevel: explicitStartLevel);
       _activeGame!.statusVersion.addListener(_onActiveGameTick);
     });
@@ -536,6 +538,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     AudioManager.instance.pauseBgm();
     setState(() {
       _activeGame?.statusVersion.removeListener(_onActiveGameTick);
+      _activeGame?.dispose();
       _activeGame = GameController()..startDailyBlitz();
       _activeGame!.statusVersion.addListener(_onActiveGameTick);
     });
@@ -777,6 +780,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     }
 
     _activeGame?.statusVersion.removeListener(_onActiveGameTick);
+    _activeGame?.dispose();
     AudioManager.instance.isBgmAllowed = true;
     AudioManager.instance.playDuck = 1.0;
     AudioManager.instance.updateBgmVolume();

@@ -488,9 +488,27 @@ class GameController extends ChangeNotifier {
     screenHeight = height;
     paddle.y = screenHeight - 110.0;
     if (status == GameStatus.ready) {
-      resetPaddleAndBall();
-      loadLevelBricks();
+      for (final ball in balls) {
+        if (ball.isStuck) {
+          ball.y = paddle.y - ball.radius - 2.0;
+        }
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    statusVersion.dispose();
+    frameTick.dispose();
+    balls.clear();
+    bricks.clear();
+    capsules.clear();
+    projectiles.clear();
+    particles.clear();
+    blackHoles.clear();
+    portals.clear();
+    activePowerUps.clear();
+    super.dispose();
   }
 
   int revivesUsed = 0;
@@ -606,7 +624,12 @@ class GameController extends ChangeNotifier {
 
   bool get isBossLevel => LevelDesign.isBossLevelNumber(stats.level);
 
-  void startNewGame(GameMode mode, {bool isResume = false, int? explicitStartLevel}) {
+  void startNewGame(
+    GameMode mode, {
+    bool isResume = false,
+    int? explicitStartLevel,
+    Set<String>? selectedBoosts,
+  }) {
     audio.isBgmAllowed = false;
     audio.pauseBgm();
     rollSessionCosmetics();
@@ -698,8 +721,14 @@ class GameController extends ChangeNotifier {
       } else if (mode == GameMode.chaos) {
         save.clearChaosSession();
       }
-      if (save.boostStocks['life'] != null && save.boostStocks['life']! > 0) {
+    }
+
+    // Boost consumption: Stop automatic/unannounced consumption. Never consume life boost in Zen mode!
+    final activeBoosts = selectedBoosts ?? save.selectedBoosts;
+    if (!isResume && mode != GameMode.zen) {
+      if (activeBoosts.contains('life') && (save.boostStocks['life'] ?? 0) > 0) {
         save.consumeBoost('life');
+        save.selectedBoosts.remove('life');
         startLives += 1;
       }
     }
@@ -741,12 +770,14 @@ class GameController extends ChangeNotifier {
     }
 
     if (!isResume) {
-      if (save.boostStocks['wide'] != null && save.boostStocks['wide']! > 0) {
+      if (activeBoosts.contains('wide') && (save.boostStocks['wide'] ?? 0) > 0) {
         save.consumeBoost('wide');
+        save.selectedBoosts.remove('wide');
         applyPowerUp(PowerUpType.wide);
       }
-      if (save.boostStocks['multi'] != null && save.boostStocks['multi']! > 0) {
+      if (activeBoosts.contains('multi') && (save.boostStocks['multi'] ?? 0) > 0) {
         save.consumeBoost('multi');
+        save.selectedBoosts.remove('multi');
         applyPowerUp(PowerUpType.multi);
       }
     }
@@ -892,14 +923,15 @@ class GameController extends ChangeNotifier {
             }
           }
           // Enforce strict safety margin:
-          // Portals are NEVER placed too close to the paddle (at least 165px clearance above paddle.y)
-          // ensuring the ball will never escape immediately before the player can react!
-          final double maxSafePortalY = paddle.y - 165.0;
-          final double minSafePortalY = (lowestAliveBrickY + 36.0).clamp(140.0, maxSafePortalY - 50.0);
-          final double availableSpan = max(30.0, maxSafePortalY - minSafePortalY);
+          // Portals are NEVER placed inside bricks (always below lowest brick)
+          // and NEVER too close to the paddle (at least 150px clearance above paddle.y)
+          final double safeLimitY = paddle.y - 150.0;
+          final double minSafePortalY = min(lowestAliveBrickY + 28.0, safeLimitY - 10.0);
+          final double maxSafePortalY = safeLimitY;
+          final double availableSpan = max(0.0, maxSafePortalY - minSafePortalY);
 
-          final p1Y = minSafePortalY + levelRand.nextDouble() * (availableSpan * 0.42);
-          final p2Y = minSafePortalY + (availableSpan * 0.52) + levelRand.nextDouble() * (availableSpan * 0.45);
+          final p1Y = min(maxSafePortalY, minSafePortalY + levelRand.nextDouble() * (availableSpan * 0.42));
+          final p2Y = min(maxSafePortalY, minSafePortalY + (availableSpan * 0.52) + levelRand.nextDouble() * (availableSpan * 0.45));
 
           final portalType = getPortalTypeForLevel(stats.level);
           Color color1;
@@ -1044,8 +1076,8 @@ class GameController extends ChangeNotifier {
       ball.isStuck = false;
       ball.stuckTimer = 0.0;
       final speed = getBaseBallSpeed();
-      if (currentMode == GameMode.chaos && stuck.length > 1) {
-        final spread = (i - (stuck.length - 1) / 2) * 0.22;
+      if (stuck.length > 1) {
+        final spread = (i - (stuck.length - 1) / 2) * (currentMode == GameMode.chaos ? 0.22 : 0.28);
         ball.vx = speed * sin(spread);
         ball.vy = -speed * cos(spread);
       } else {
@@ -2216,25 +2248,24 @@ class GameController extends ChangeNotifier {
           c.x += (dx / dist) * pull * dt;
           c.y += (dy / dist) * (pull * 0.75) * dt;
         }
-      } else if (save.hasPermanentRelic) {
-        // Midas Micro-Attraction: subtle magnetic pull towards paddle center
+      } else if (save.hasPermanentRelic || magnetLevel > 0) {
         final dx = paddleCenter.dx - c.x;
         final dy = paddleCenter.dy - c.y;
         final dist = sqrt(dx * dx + dy * dy);
-        if (dist > 2.0 && dist < 250.0) {
-          const pull = 38.0;
-          c.x += (dx / dist) * pull * dt;
-          c.y += (dy / dist) * (pull * 0.4) * dt;
-        }
-      } else if (magnetLevel > 0) {
-        final dx = paddleCenter.dx - c.x;
-        final dy = paddleCenter.dy - c.y;
-        final dist = sqrt(dx * dx + dy * dy);
-        final pullRange = 100.0 + magnetLevel * 25.0;
+
+        final relicPull = save.hasPermanentRelic ? 38.0 : 0.0;
+        final relicRange = save.hasPermanentRelic ? 250.0 : 0.0;
+
+        final magnetPull = magnetLevel > 0 ? (120.0 + magnetLevel * 45.0) : 0.0;
+        final magnetRange = magnetLevel > 0 ? (100.0 + magnetLevel * 25.0) : 0.0;
+
+        final pull = max(relicPull, magnetPull);
+        final pullRange = max(relicRange, magnetRange);
+        final yFactor = magnetLevel > 0 ? 0.6 : 0.4;
+
         if (dist > 2.0 && dist < pullRange) {
-          final pull = 120.0 + magnetLevel * 45.0;
           c.x += (dx / dist) * pull * dt;
-          c.y += (dy / dist) * (pull * 0.6) * dt;
+          c.y += (dy / dist) * (pull * yFactor) * dt;
         }
       }
 
@@ -2708,10 +2739,35 @@ class GameController extends ChangeNotifier {
 
             // Safe ejection distance outside target portal's event horizon
             final ejectDist = target.radius + ball.radius + 6.0;
-            ball.x = (target.x + dirX * ejectDist).clamp(ball.radius + 12.0, screenWidth - ball.radius - 12.0);
-            // Critical safeguard: Ejection point is NEVER lower than paddle.y - 100.0,
-            // preventing the ball from instantly escaping past the paddle!
-            ball.y = (target.y + dirY * ejectDist).clamp(42.0, paddle.y - 100.0);
+            var candidateX = (target.x + dirX * ejectDist).clamp(ball.radius + 12.0, screenWidth - ball.radius - 12.0);
+            var candidateY = (target.y + dirY * ejectDist).clamp(42.0, paddle.y - 100.0);
+
+            // Critical safeguard: Prevent portal from ejecting ball inside an unbroken brick!
+            for (final b in bricks) {
+              if (!b.isAlive) continue;
+              if (candidateX + ball.radius >= b.x &&
+                  candidateX - ball.radius <= b.x + b.width &&
+                  candidateY + ball.radius >= b.y &&
+                  candidateY - ball.radius <= b.y + b.height) {
+                // Pointing upward into a brick: deflect downward away from brick layer
+                dirY = dirY.abs();
+                if (dirY < 0.35) dirY = 0.55;
+                final mag = sqrt(dirX * dirX + dirY * dirY);
+                dirX /= mag;
+                dirY /= mag;
+                candidateX = (target.x + dirX * ejectDist).clamp(ball.radius + 12.0, screenWidth - ball.radius - 12.0);
+                candidateY = (target.y + dirY * ejectDist).clamp(42.0, paddle.y - 100.0);
+                if (candidateY + ball.radius >= b.y && candidateY - ball.radius <= b.y + b.height) {
+                  candidateY = (b.y + b.height + ball.radius + 4.0).clamp(42.0, paddle.y - 100.0);
+                }
+                break;
+              }
+            }
+
+            ball.x = candidateX;
+            ball.y = candidateY;
+            ball.vx = dirX * currentSpd;
+            ball.vy = dirY * currentSpd;
 
             // Accelerator portal supercharge:
             if (target.type == PortalType.accelerator || p.type == PortalType.accelerator) {
@@ -3093,7 +3149,7 @@ class GameController extends ChangeNotifier {
           particles.spawnFloatingText(
             screenWidth / 2,
             screenHeight * 0.38,
-            'SÜPER KÖŞE VURUŞU!',
+            '⚡ SÜPER KÖŞE VURUŞU!',
             const Color(0xFFFFD700),
             isLarge: true,
           );
@@ -4292,9 +4348,9 @@ class GameController extends ChangeNotifier {
       // Nadir dörtlü (Çoklu Top, Ateş, Roket, Buz): seçilirlerse %75
       // ihtimalle zar yeniden atılır, böylece dördü de seyrek gelir.
       if (chosen == PowerUpType.multi && balls.length > 1) {
-        // Ekranda birden fazla top varken Çoklu Top'un gelme şansı %0,5:
-        // zar tutmazsa Çoklu Top havuzdan çıkarılıp yeniden seçilir.
-        if (_rand.nextDouble() >= 0.005) {
+        // Ekranda birden fazla top varken Çoklu Top'a adil düşüş oranı (%25 taban şans)
+        final keepChance = balls.length >= 6 ? 0.10 : 0.25;
+        if (_rand.nextDouble() >= keepChance) {
           final noMulti = buffs.where((t) => t != PowerUpType.multi).toList();
           if (noMulti.isNotEmpty) {
             chosen = noMulti[_rand.nextInt(noMulti.length)];
@@ -4371,13 +4427,15 @@ class GameController extends ChangeNotifier {
             final hasPierce = activePowerUps.any((p) => p.type == PowerUpType.pierce) || first.isPierce;
             final hasFrost = activePowerUps.any((p) => p.type == PowerUpType.frost) || first.isFrost;
             final hasShrapnel = activePowerUps.any((p) => p.type == PowerUpType.shrapnel) || first.isShrapnel;
+            final isInitialStuck = status == GameStatus.ready || first.isStuck;
             balls.add(Ball(
-              x: (screenWidth - first.x).clamp(20.0, screenWidth - 20.0),
-              y: first.y,
-              vx: -first.vx,
-              vy: first.vy,
+              x: isInitialStuck ? paddle.x + paddle.width * 0.25 : (screenWidth - first.x).clamp(20.0, screenWidth - 20.0),
+              y: isInitialStuck ? paddle.y - first.radius - 2.0 : first.y,
+              vx: isInitialStuck ? 0.0 : -first.vx,
+              vy: isInitialStuck ? 0.0 : first.vy,
               radius: first.radius,
-              isStuck: false,
+              isStuck: isInitialStuck,
+              stuckOffsetX: isInitialStuck ? paddle.width * 0.25 : 0.0,
               isMirror: true,
               isFireball: hasFireball,
               isBomb: hasBomb,
@@ -4651,14 +4709,17 @@ class GameController extends ChangeNotifier {
     final hasFrost = activePowerUps.any((p) => p.type == PowerUpType.frost) || first.isFrost;
     final hasShrapnel = activePowerUps.any((p) => p.type == PowerUpType.shrapnel) || first.isShrapnel;
 
+    final isInitialStuck = status == GameStatus.ready || first.isStuck;
+
     balls.add(
       Ball(
-        x: first.x,
-        y: first.y,
-        vx: -spd * 0.7,
-        vy: -spd * 0.7,
+        x: isInitialStuck ? paddle.x + paddle.width * 0.35 : first.x,
+        y: isInitialStuck ? paddle.y - first.radius - 2.0 : first.y,
+        vx: isInitialStuck ? 0.0 : -spd * 0.7,
+        vy: isInitialStuck ? 0.0 : -spd * 0.7,
         radius: first.radius,
-        isStuck: false,
+        isStuck: isInitialStuck,
+        stuckOffsetX: isInitialStuck ? paddle.width * 0.35 : 0.0,
         isFireball: hasFireball,
         isBomb: hasBomb,
         isPierce: hasPierce,
@@ -4668,12 +4729,13 @@ class GameController extends ChangeNotifier {
     );
     balls.add(
       Ball(
-        x: first.x,
-        y: first.y,
-        vx: spd * 0.7,
-        vy: -spd * 0.7,
+        x: isInitialStuck ? paddle.x + paddle.width * 0.65 : first.x,
+        y: isInitialStuck ? paddle.y - first.radius - 2.0 : first.y,
+        vx: isInitialStuck ? 0.0 : spd * 0.7,
+        vy: isInitialStuck ? 0.0 : -spd * 0.7,
         radius: first.radius,
-        isStuck: false,
+        isStuck: isInitialStuck,
+        stuckOffsetX: isInitialStuck ? paddle.width * 0.65 : 0.0,
         isFireball: hasFireball,
         isBomb: hasBomb,
         isPierce: hasPierce,

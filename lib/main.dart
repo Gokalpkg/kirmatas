@@ -45,7 +45,7 @@ void main() async {
   unawaited(CloudSocialManager.instance.syncProfileToCloud());
   unawaited(CloudSocialManager.instance.refreshFriendsFromCloud());
 
-  MainMenuScreen.suppressBootPopups = true;
+  MainMenuScreen.suppressBootPopups = false;
 
   runApp(const KirmatasApp());
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -160,8 +161,12 @@ class AdManager extends ChangeNotifier {
     );
   }
 
-  /// Shows ONLY a quick skippable ad (InterstitialAd) to earn free gold reward (+100 gold).
-  /// Never falls back to 60s unskippable RewardedAd.
+  /// Whether test environments can simulate instant ad completion.
+  /// Strictly FALSE in real app execution to close the airplane mode exploit.
+  static bool enableTestBypass = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+
+  /// Displays a RewardedAd (+100 gold) for the main menu gold gift.
+  /// Strictly uses RewardedAd to comply with AdMob policy.
   Future<void> watchAdForGold(
     BuildContext context, {
     required void Function(int goldReward) onSuccess,
@@ -191,138 +196,78 @@ class AdManager extends ChangeNotifier {
       return;
     }
 
-    if (_interstitialAd == null) {
-      preloadInterstitialAd();
+    final adToUse = _highYieldAd ?? _rewardedAd;
+    if (adToUse == null) {
       preloadHighYieldAd();
+      preloadRewardedAd();
 
-      int elapsedMs = 0;
-      while (_interstitialAd == null && elapsedMs < 1000) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        elapsedMs += 100;
-        if (!context.mounted) break;
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST') && enableTestBypass) {
+        SaveManager.instance.addGold(goldRewardAmount);
+        SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
+        SaveManager.instance.recordAdOrWinQuest();
+        AudioManager.instance.playSfx(GameSfx.powerupBuff);
+        onSuccess(goldRewardAmount);
+        return;
       }
 
-      if (_interstitialAd == null) {
-        // Fallback: Check if Rewarded Ad is available
-        if (_highYieldAd != null || _rewardedAd != null) {
-          await watchAdForRevive(
-            context,
-            onReviveSuccess: () {
-              SaveManager.instance.addGold(goldRewardAmount);
-              SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
-              SaveManager.instance.recordAdOrWinQuest();
-              AudioManager.instance.playSfx(GameSfx.powerupBuff);
-              onSuccess(goldRewardAmount);
-            },
-            onDismissedEarly: onDismissedEarly,
-          );
-          return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ödüllü reklam yükleniyor veya internet bağlantısı yok. Lütfen birazdan tekrar deneyin.'),
+          backgroundColor: Color(0xFF1E2438),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      onDismissedEarly();
+      return;
+    }
+
+    _isShowing = true;
+    notifyListeners();
+
+    bool userEarnedReward = false;
+    final currentAd = adToUse;
+
+    currentAd.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (ad) {
+        debugPrint('Rewarded gold ad showed ($tier1RewardedAdUnitId)');
+      },
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        if (currentAd == _highYieldAd) {
+          _highYieldAd = null;
+        } else {
+          _rewardedAd = null;
         }
-
-        // Direct callback / smooth continuation for Google Play compliance
-        SaveManager.instance.addGold(goldRewardAmount);
-        SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
-        SaveManager.instance.recordAdOrWinQuest();
-        AudioManager.instance.playSfx(GameSfx.powerupBuff);
-        onSuccess(goldRewardAmount);
-        return;
-      }
-    }
-
-    _isShowing = true;
-    notifyListeners();
-
-    final ad = _interstitialAd!;
-    ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdShowedFullScreenContent: (ad) {
-        debugPrint('Skippable free gift ad showed');
-      },
-      onAdDismissedFullScreenContent: (ad) {
-        ad.dispose();
-        _interstitialAd = null;
         _isShowing = false;
         notifyListeners();
-        preloadInterstitialAd();
 
-        SaveManager.instance.addGold(goldRewardAmount);
-        SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
-        _noteVoluntaryAd();
-        SaveManager.instance.recordAdOrWinQuest();
-        AudioManager.instance.playSfx(GameSfx.powerupBuff);
-        onSuccess(goldRewardAmount);
+        preloadHighYieldAd();
+        preloadRewardedAd();
+
+        if (userEarnedReward) {
+          SaveManager.instance.addGold(goldRewardAmount);
+          SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
+          _noteVoluntaryAd();
+          SaveManager.instance.recordAdOrWinQuest();
+          AudioManager.instance.playSfx(GameSfx.powerupBuff);
+          onSuccess(goldRewardAmount);
+        } else {
+          onDismissedEarly();
+        }
       },
       onAdFailedToShowFullScreenContent: (ad, AdError error) {
-        debugPrint('Skippable free gift ad failed to show: $error');
+        debugPrint('Rewarded gold ad failed to show: $error');
         ad.dispose();
-        _interstitialAd = null;
+        if (currentAd == _highYieldAd) {
+          _highYieldAd = null;
+        } else {
+          _rewardedAd = null;
+        }
         _isShowing = false;
         notifyListeners();
-        preloadInterstitialAd();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Reklam gösterilemedi. Lütfen bağlantınızı kontrol edin.'),
-            backgroundColor: Color(0xFFC62828),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      },
-    );
-    await ad.show();
-  }
-
-  /// Shows ONLY a quick skippable ad (InterstitialAd) for lighter voluntary rewards
-  /// (Fortune Wheel, Daily Login 2X, Aquarium Fish Food) so the player can skip after 5-15s.
-  /// Never falls back to 60s unskippable RewardedAd.
-  Future<void> watchSkippableAd(
-    BuildContext context, {
-    required VoidCallback onSuccess,
-    VoidCallback? onDismissedEarly,
-  }) async {
-    if (_isShowing) return;
-
-    if (_interstitialAd == null) {
-      preloadInterstitialAd();
-
-      int elapsedMs = 0;
-      while (_interstitialAd == null && elapsedMs < 1000) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        elapsedMs += 100;
-        if (!context.mounted) break;
-      }
-
-      if (_interstitialAd == null) {
-        // Direct callback to continue smoothly without trapping player
-        onSuccess();
-        return;
-      }
-    }
-
-    _isShowing = true;
-    notifyListeners();
-
-    final ad = _interstitialAd!;
-    ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdShowedFullScreenContent: (ad) {
-        debugPrint('AdManager: Skippable reward ad showed.');
-      },
-      onAdDismissedFullScreenContent: (ad) {
-        ad.dispose();
-        _interstitialAd = null;
-        _isShowing = false;
-        notifyListeners();
-        preloadInterstitialAd();
-
-        SaveManager.instance.recordAdOrWinQuest();
-        _noteVoluntaryAd();
-        onSuccess();
-      },
-      onAdFailedToShowFullScreenContent: (ad, AdError error) {
-        debugPrint('AdManager: Skippable reward ad failed to show: $error');
-        ad.dispose();
-        _interstitialAd = null;
-        _isShowing = false;
-        notifyListeners();
-        preloadInterstitialAd();
+        preloadHighYieldAd();
+        preloadRewardedAd();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Reklam açılamadı. Lütfen internet bağlantınızı kontrol edin.'),
@@ -330,9 +275,135 @@ class AdManager extends ChangeNotifier {
             behavior: SnackBarBehavior.floating,
           ),
         );
+        onDismissedEarly();
       },
     );
-    await ad.show();
+
+    await currentAd.show(
+      onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+        userEarnedReward = true;
+      },
+    );
+  }
+
+  /// Compliant RewardedAd viewer for all voluntary in-game incentives
+  /// (Fish food, Fortune wheel extra spin, Daily login 2X, Offline 2X, etc.).
+  /// Strictly uses RewardedAd. Never binds incentives to InterstitialAd.
+  Future<void> watchRewardedAd(
+    BuildContext context, {
+    required VoidCallback onSuccess,
+    VoidCallback? onDismissedEarly,
+  }) async {
+    if (_isShowing) return;
+
+    // 1. VIP No-Ads Pass: Claim reward instantly without ad
+    if (SaveManager.instance.adsRemoved) {
+      SaveManager.instance.recordAdOrWinQuest();
+      _noteVoluntaryAd();
+      AudioManager.instance.playSfx(GameSfx.powerupBuff);
+      onSuccess();
+      return;
+    }
+
+    final adToUse = _highYieldAd ?? _rewardedAd;
+    if (adToUse == null) {
+      preloadHighYieldAd();
+      preloadRewardedAd();
+
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST') && enableTestBypass) {
+        SaveManager.instance.recordAdOrWinQuest();
+        _noteVoluntaryAd();
+        AudioManager.instance.playSfx(GameSfx.powerupBuff);
+        onSuccess();
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ödüllü reklam henüz hazır değil veya internet bağlantısı yok. Lütfen birazdan tekrar deneyin.'),
+          backgroundColor: Color(0xFFC62828),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      onDismissedEarly?.call();
+      return;
+    }
+
+    _isShowing = true;
+    notifyListeners();
+
+    bool userEarnedReward = false;
+    final currentAd = adToUse;
+
+    currentAd.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (ad) {
+        debugPrint('AdManager: Rewarded ad showed for reward.');
+      },
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        if (currentAd == _highYieldAd) {
+          _highYieldAd = null;
+        } else {
+          _rewardedAd = null;
+        }
+        _isShowing = false;
+        notifyListeners();
+
+        preloadHighYieldAd();
+        preloadRewardedAd();
+
+        if (userEarnedReward) {
+          SaveManager.instance.recordAdOrWinQuest();
+          _noteVoluntaryAd();
+          AudioManager.instance.playSfx(GameSfx.powerupBuff);
+          onSuccess();
+        } else {
+          onDismissedEarly?.call();
+        }
+      },
+      onAdFailedToShowFullScreenContent: (ad, AdError error) {
+        debugPrint('AdManager: Rewarded ad failed to show: $error');
+        ad.dispose();
+        if (currentAd == _highYieldAd) {
+          _highYieldAd = null;
+        } else {
+          _rewardedAd = null;
+        }
+        _isShowing = false;
+        notifyListeners();
+        preloadHighYieldAd();
+        preloadRewardedAd();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reklam açılamadı. Lütfen internet bağlantınızı kontrol edin.'),
+            backgroundColor: Color(0xFFC62828),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        onDismissedEarly?.call();
+      },
+    );
+
+    await currentAd.show(
+      onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+        userEarnedReward = true;
+      },
+    );
+  }
+
+  /// Rewarded ad handler for voluntary rewards (formerly skippable interstitial).
+  /// Strictly delegates to watchRewardedAd for 100% AdMob policy compliance.
+  Future<void> watchSkippableAd(
+    BuildContext context, {
+    required VoidCallback onSuccess,
+    VoidCallback? onDismissedEarly,
+  }) async {
+    await watchRewardedAd(
+      context,
+      onSuccess: onSuccess,
+      onDismissedEarly: onDismissedEarly,
+    );
   }
 
   /// Shows the high-yield long rewarded ad to revive with 1 extra life.
@@ -356,19 +427,22 @@ class AdManager extends ChangeNotifier {
       preloadHighYieldAd();
       preloadRewardedAd();
 
-      int elapsedMs = 0;
-      while ((_highYieldAd == null && _rewardedAd == null) && elapsedMs < 1000) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        elapsedMs += 100;
-        if (!context.mounted) break;
-      }
-
-      adToUse = _highYieldAd ?? _rewardedAd;
-      if (adToUse == null) {
-        // Google Play Uyumluluk: Reklam 1 saniyede yüklenemezse oyuncuyu bekletmeden doğrudan devam ettir
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST') && enableTestBypass) {
+        SaveManager.instance.recordAdOrWinQuest();
+        _noteVoluntaryAd();
         onReviveSuccess();
         return;
       }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Yeniden canlanma reklamı henüz hazır değil. Lütfen bağlantınızı kontrol edin.'),
+          backgroundColor: Color(0xFFC62828),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      onDismissedEarly();
+      return;
     }
 
     _isShowing = true;
@@ -422,6 +496,7 @@ class AdManager extends ChangeNotifier {
             behavior: SnackBarBehavior.floating,
           ),
         );
+        onDismissedEarly();
       },
     );
 
@@ -444,20 +519,22 @@ class AdManager extends ChangeNotifier {
       preloadHighYieldAd();
       preloadRewardedAd();
 
-      int elapsedMs = 0;
-      while (elapsedMs < 1000) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        elapsedMs += 100;
-        adToUse = _highYieldAd ?? _rewardedAd;
-        if (adToUse != null) break;
-      }
-
-      if (adToUse == null) {
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST') && enableTestBypass) {
         SaveManager.instance.recordAdOrWinQuest();
         _noteVoluntaryAd();
         onSuccess();
         return;
       }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reklam açılamadı. Lütfen internet bağlantınızı kontrol edin.'),
+          backgroundColor: Color(0xFFC62828),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      onDismissedEarly();
+      return;
     }
 
     _isShowing = true;
@@ -505,12 +582,12 @@ class AdManager extends ChangeNotifier {
         preloadRewardedAd();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-                'Reklam açılamadı. Lütfen internet bağlantınızı kontrol edin.'),
+            content: Text('Reklam açılamadı. Lütfen internet bağlantınızı kontrol edin.'),
             backgroundColor: Color(0xFFC62828),
             behavior: SnackBarBehavior.floating,
           ),
         );
+        onDismissedEarly();
       },
     );
 

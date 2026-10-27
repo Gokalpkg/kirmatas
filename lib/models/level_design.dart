@@ -1001,6 +1001,9 @@ class LevelDesign {
     const gap = 5.0;
     final bw = (screenWidth - (padding * 2) - gap * (cols - 1)) / cols;
     const bh = 22.0;
+    // Enforce safe clearance between lowest brick level and paddle (at screenHeight - 110.0)
+    final maxAllowedRows = max(4, ((screenHeight - 295.0 - baseTopMargin) / (bh + gap)).floor());
+    rows = min(rows, maxAllowedRows);
     final step = level % 10;
     final archetype = _selectArchetype(level, world, step);
     final palette = getWorldPalette(world);

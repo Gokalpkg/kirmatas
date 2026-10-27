@@ -172,8 +172,11 @@ class SaveManager extends ChangeNotifier {
   SharedPreferences? _prefs;
   bool _initialized = false;
   static const String _kPendingCrate = 'pending_unopened_crate';
+  static const String _kPendingCratesQueue = 'pending_crates_queue';
 
   PendingCrate? pendingCrate;
+  final List<PendingCrate> pendingCratesQueue = [];
+  final Set<String> selectedBoosts = {};
 
   int gold = 300;
 
@@ -842,6 +845,9 @@ class SaveManager extends ChangeNotifier {
 
   void resetForTesting() {
     _initialized = false;
+    pendingCratesQueue.clear();
+    pendingCrate = null;
+    selectedBoosts.clear();
   }
 
   Future<void> init() async {
@@ -1082,16 +1088,32 @@ class SaveManager extends ChangeNotifier {
       _leagueBots = [];
     }
 
+    pendingCratesQueue.clear();
+    final queueJson = _prefs?.getString(_kPendingCratesQueue);
+    if (queueJson != null && queueJson.isNotEmpty) {
+      try {
+        final List<dynamic> list = jsonDecode(queueJson);
+        for (final item in list) {
+          pendingCratesQueue.add(PendingCrate.fromJson(Map<String, dynamic>.from(item)));
+        }
+      } catch (e) {
+        debugPrint('Error loading pending crates queue: $e');
+      }
+    }
+
     final pendingJson = _prefs?.getString(_kPendingCrate);
     if (pendingJson != null && pendingJson.isNotEmpty) {
       try {
         final Map<String, dynamic> decoded = jsonDecode(pendingJson);
-        pendingCrate = PendingCrate.fromJson(decoded);
+        final loadedSingle = PendingCrate.fromJson(decoded);
+        if (pendingCratesQueue.isEmpty) {
+          pendingCratesQueue.add(loadedSingle);
+        }
       } catch (e) {
         debugPrint('Error loading pending crate: $e');
-        pendingCrate = null;
       }
     }
+    pendingCrate = pendingCratesQueue.isNotEmpty ? pendingCratesQueue.first : null;
 
     _initialized = true;
     ensureLeagueWeek();
@@ -1112,14 +1134,24 @@ class SaveManager extends ChangeNotifier {
   }
 
   Future<void> savePendingCrate(PendingCrate crate) async {
-    pendingCrate = crate;
-    await _prefs?.setString(_kPendingCrate, jsonEncode(crate.toJson()));
+    pendingCratesQueue.add(crate);
+    pendingCrate = pendingCratesQueue.first;
+    await _prefs?.setString(_kPendingCrate, jsonEncode(pendingCrate!.toJson()));
+    await _prefs?.setString(_kPendingCratesQueue, jsonEncode(pendingCratesQueue.map((c) => c.toJson()).toList()));
     _safeNotifyListeners();
   }
 
   Future<void> clearPendingCrate() async {
-    pendingCrate = null;
-    await _prefs?.remove(_kPendingCrate);
+    if (pendingCratesQueue.isNotEmpty) {
+      pendingCratesQueue.removeAt(0);
+    }
+    pendingCrate = pendingCratesQueue.isNotEmpty ? pendingCratesQueue.first : null;
+    if (pendingCrate != null) {
+      await _prefs?.setString(_kPendingCrate, jsonEncode(pendingCrate!.toJson()));
+    } else {
+      await _prefs?.remove(_kPendingCrate);
+    }
+    await _prefs?.setString(_kPendingCratesQueue, jsonEncode(pendingCratesQueue.map((c) => c.toJson()).toList()));
     _safeNotifyListeners();
   }
 
@@ -1514,6 +1546,15 @@ class SaveManager extends ChangeNotifier {
     await _prefs?.setString('boostStocks', jsonEncode(boostStocks));
     notifyListeners();
     return true;
+  }
+
+  void toggleSelectedBoost(String id) {
+    if (selectedBoosts.contains(id)) {
+      selectedBoosts.remove(id);
+    } else if ((boostStocks[id] ?? 0) > 0) {
+      selectedBoosts.add(id);
+    }
+    notifyListeners();
   }
 
   int getShards(String category) => categoryShards[category] ?? 0;

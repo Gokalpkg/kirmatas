@@ -391,6 +391,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
   }
 
   void _eatPellet(_SimFish f, _FoodPellet pellet, SaveManager save) {
+    if (f.isSatiated || save.isFishProducing(f.item.id)) return;
     _foodPellets.remove(pellet);
     _creditMeal(f, save, sparkleDy: -6.0);
   }
@@ -418,7 +419,9 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
   /// An octopus never gulps a pellet mid-water like a fish: it wraps its
   /// arms around the pellet and tucks it underneath its body, to the beak.
   /// The meal only counts once it has actually eaten down there.
-  void _startGrabbing(_SimFish f, _FoodPellet pellet) {
+  void _startGrabbing(_SimFish f, _FoodPellet pellet, [SaveManager? save]) {
+    final s = save ?? SaveManager.instance;
+    if (f.isSatiated || s.isFishProducing(f.item.id)) return;
     _foodPellets.remove(pellet);
     f.grabbedPellet = pellet;
     f.grabTimer = 0.85;
@@ -473,7 +476,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       return;
     }
 
-    if (pellet != null && !f.isSatiated) {
+    if (pellet != null && !f.isSatiated && !save.isFishProducing(f.item.id)) {
       final dx = pellet.x - f.x;
       f.facingRight = dx >= 0;
       f.isMoving = true;
@@ -513,7 +516,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       f,
       dt,
       target: pellet == null ? null : Offset(pellet.x, pellet.y),
-      isFood: pellet != null && !f.isSatiated,
+      isFood: pellet != null && !f.isSatiated && !save.isFishProducing(f.item.id),
     );
   }
 
@@ -552,7 +555,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
     const floorY = 726.0;
     final rig = f.rig!;
     final grabbing = f.grabbedPellet != null;
-    final hungry = pellet != null && !f.isSatiated;
+    final hungry = pellet != null && !f.isSatiated && !save.isFishProducing(f.item.id);
 
     rig.x = f.x;
     rig.y = f.y;
@@ -579,7 +582,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       final dx = pellet.x - f.x;
       final dy = pellet.y - f.y;
       if (dx * dx + dy * dy < 26.0 * 26.0) {
-        _startGrabbing(f, pellet);
+        _startGrabbing(f, pellet, save);
       }
     }
   }
@@ -650,7 +653,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
     for (int i = _foodPellets.length - 1; i >= 0; i--) {
       final p = _foodPellets[i];
       p.update(dt);
-      if (p.y > 800.0 || p.life > 14.0) {
+      if (p.bottomRestTimer > 8.0 || p.life > 20.0 || p.y > 750.0) {
         _foodPellets.removeAt(i);
       }
     }
@@ -712,6 +715,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       if (chosenFish == null) {
         for (final f in _simFish) {
           if (f.eatCooldown > 0 || f.isSatiated) continue;
+          if (save.isFishProducing(f.item.id)) continue;
           if (fishTargetPellet.containsKey(f)) continue;
           final dist = sqrt((pellet.x - f.x) * (pellet.x - f.x) + (pellet.y - f.y) * (pellet.y - f.y));
           if (dist < minDist) {
@@ -761,7 +765,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
         continue;
       }
 
-      if (targetPellet != null && !f.isSatiated) {
+      if (targetPellet != null && !f.isSatiated && !save.isFishProducing(f.item.id)) {
         // Eagerly swim towards assigned food pellet
         final dx = targetPellet.x - f.x;
         final dy = targetPellet.y - f.y;
@@ -1025,14 +1029,25 @@ class _FoodPellet {
   double vy;
   double swayPhase;
   double life = 0.0;
+  bool isOnBottom = false;
+  double bottomRestTimer = 0.0;
 
   _FoodPellet({required this.x, required this.y, required this.vy, required this.swayPhase});
 
   void update(double dt) {
+    if (isOnBottom) {
+      bottomRestTimer += dt;
+      life += dt;
+      return;
+    }
     y += vy * dt;
     swayPhase += dt * 3.0;
     x += sin(swayPhase) * 12.0 * dt;
     life += dt;
+    if (y >= 740.0) {
+      y = 740.0;
+      isOnBottom = true;
+    }
   }
 }
 

@@ -604,39 +604,8 @@ class AudioManager {
     if (now - _lastVibTime < minInterval) return;
     _lastVibTime = now;
 
-    // 1. Native Flutter Haptic Feedback (Works universally on all mobile platforms)
-    try {
-      switch (sfx) {
-        case GameSfx.explosion:
-        case GameSfx.gameOver:
-        case GameSfx.bossHit:
-          HapticFeedback.heavyImpact();
-          break;
-        case GameSfx.powerupBuff:
-        case GameSfx.powerupDebuff:
-        case GameSfx.ballLost:
-        case GameSfx.ulti:
-        case GameSfx.laser:
-        case GameSfx.victory:
-        case GameSfx.cornerBoost:
-        case GameSfx.wallBounce8:
-          HapticFeedback.mediumImpact();
-          break;
-        case GameSfx.hitPaddle:
-        case GameSfx.breakBrick:
-        case GameSfx.bubble:
-        case GameSfx.steel:
-          HapticFeedback.lightImpact();
-          break;
-        case GameSfx.click:
-        case GameSfx.hitBrick:
-        case GameSfx.hitWall:
-          HapticFeedback.selectionClick();
-          break;
-      }
-    } catch (_) {}
-
-    // 2. Hardware vibration with custom amplitude tuning
+    // If hardware vibration is supported, use it with custom amplitude tuning.
+    // Otherwise fallback to Flutter HapticFeedback. Never trigger both concurrently.
     if (_hasVib) {
       final vibLevel = save.vibrationLevel;
       int dur;
@@ -671,6 +640,38 @@ class AudioManager {
           Vibration.vibrate(duration: dur, amplitude: amp);
         } else {
           Vibration.vibrate(duration: dur);
+        }
+      } catch (_) {}
+    } else {
+      // Fallback: Native Flutter Haptic Feedback
+      try {
+        switch (sfx) {
+          case GameSfx.explosion:
+          case GameSfx.gameOver:
+          case GameSfx.bossHit:
+            HapticFeedback.heavyImpact();
+            break;
+          case GameSfx.powerupBuff:
+          case GameSfx.powerupDebuff:
+          case GameSfx.ballLost:
+          case GameSfx.ulti:
+          case GameSfx.laser:
+          case GameSfx.victory:
+          case GameSfx.cornerBoost:
+          case GameSfx.wallBounce8:
+            HapticFeedback.mediumImpact();
+            break;
+          case GameSfx.hitPaddle:
+          case GameSfx.breakBrick:
+          case GameSfx.bubble:
+          case GameSfx.steel:
+            HapticFeedback.lightImpact();
+            break;
+          case GameSfx.click:
+          case GameSfx.hitBrick:
+          case GameSfx.hitWall:
+            HapticFeedback.selectionClick();
+            break;
         }
       } catch (_) {}
     }

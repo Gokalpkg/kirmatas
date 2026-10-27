@@ -25,6 +25,7 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    SaveManager.instance.resetForTesting();
     await SaveManager.instance.init();
   });
 

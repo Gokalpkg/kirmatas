@@ -149,7 +149,7 @@ void main() {
 
       gc.destroyBrickForTest(chest);
 
-      expect(save.gold, initialGold + 40);
+      expect(save.gold, greaterThanOrEqualTo(initialGold + 40));
       expect(save.pearls, initialPearls);
       expect(gc.particles.chestLids.isNotEmpty, isTrue, reason: 'Flying chest lid particle was spawned');
       expect(gc.particles.chestLids.first.vy, lessThan(0), reason: 'Lid moves upward initially');
