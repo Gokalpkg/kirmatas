@@ -772,7 +772,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                         Opacity(
                           opacity: 0.0,
                           child: Text(
-                            '🌌 KOZMİK USTALIK (SONSUZ SEVİYE)',
+                            'KOZMİK USTALIK (SONSUZ SEVİYE)',
                             style: TextStyle(fontSize: 1),
                           ),
                         ),

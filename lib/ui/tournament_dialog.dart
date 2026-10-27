@@ -372,11 +372,12 @@ class _TournamentDialogState extends State<TournamentDialog> {
                   ),
                   child: Row(
                     children: [
-                      Text(
+                      Icon(
                         save.leagueLastMovement > 0
-                            ? '🏆'
-                            : (save.leagueLastMovement < 0 ? '📉' : '🏁'),
-                        style: const TextStyle(fontSize: 20),
+                            ? Icons.emoji_events_rounded
+                            : (save.leagueLastMovement < 0 ? Icons.trending_down_rounded : Icons.flag_rounded),
+                        color: Colors.amber,
+                        size: 22,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -573,10 +574,10 @@ class _TournamentDialogState extends State<TournamentDialog> {
                       ),
                       child: Text(
                         playerRival.rank <= 3
-                            ? 'YÜKSELME ⬆️'
+                            ? 'YÜKSELME'
                             : (playerRival.rank > 10
-                                  ? 'DÜŞME ⬇️'
-                                  : 'GÜVENLİ 🛡️'),
+                                  ? 'DÜŞME'
+                                  : 'GÜVENLİ'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -927,7 +928,6 @@ class _TournamentDialogState extends State<TournamentDialog> {
     bool isCompact,
     int place,
   ) {
-    final medal = place == 1 ? '🥇' : (place == 2 ? '🥈' : '🥉');
     final medalColor = place == 1
         ? const Color(0xFFFFD700)
         : (place == 2 ? const Color(0xFFC0C0C0) : const Color(0xFFCD7F32));
@@ -937,7 +937,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(medal, style: TextStyle(fontSize: isCompact ? 18 : 22)),
+        Icon(Icons.workspace_premium_rounded, color: medalColor, size: isCompact ? 18 : 22),
         const SizedBox(height: 2),
         Container(
           width: isCompact ? 34 : 40,
@@ -1063,7 +1063,13 @@ class _TournamentDialogState extends State<TournamentDialog> {
     final tierNames = ['BRONZ LİGİ', 'GÜMÜŞ LİGİ', 'ALTIN LİGİ', 'PLATİN LİGİ', 'KAUNOS EFSANESİ'];
     final tierIdx = save.leagueTier.clamp(0, tierNames.length - 1);
     final tierTitle = tierNames[tierIdx];
-    final tierIcons = ['🥉', '🥈', '🥇', '💎', '👑'];
+    final tierIcons = [
+      Icons.shield_rounded,
+      Icons.military_tech_rounded,
+      Icons.emoji_events_rounded,
+      Icons.diamond_rounded,
+      Icons.workspace_premium_rounded,
+    ];
     final tierIcon = tierIcons[tierIdx];
 
     return Container(
@@ -1101,9 +1107,10 @@ class _TournamentDialogState extends State<TournamentDialog> {
               border: Border.all(color: tierColor, width: 2),
             ),
             alignment: Alignment.center,
-            child: Text(
+            child: Icon(
               tierIcon,
-              style: TextStyle(fontSize: isCompact ? 22 : 26),
+              color: tierColor,
+              size: isCompact ? 24 : 28,
             ),
           ),
           const SizedBox(width: 12),
@@ -1198,7 +1205,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
           Row(
             children: [
               _buildCleanRewardItem(
-                '🥇 1. Sıra',
+                '1. Sıra',
                 '${save.leagueRewardGoldForRank(1)} Altın',
                 SaveManager.leaguePearlsForRank(1) > 0 ? '+${SaveManager.leaguePearlsForRank(1)} İnci' : null,
                 const Color(0xFFFFD700),
@@ -1206,7 +1213,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
               ),
               const SizedBox(width: 6),
               _buildCleanRewardItem(
-                '🥈 2. Sıra',
+                '2. Sıra',
                 '${save.leagueRewardGoldForRank(2)} Altın',
                 SaveManager.leaguePearlsForRank(2) > 0 ? '+${SaveManager.leaguePearlsForRank(2)} İnci' : null,
                 const Color(0xFFC0C0C0),
@@ -1214,7 +1221,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
               ),
               const SizedBox(width: 6),
               _buildCleanRewardItem(
-                '🥉 3. Sıra',
+                '3. Sıra',
                 '${save.leagueRewardGoldForRank(3)} Altın',
                 SaveManager.leaguePearlsForRank(3) > 0 ? '+${SaveManager.leaguePearlsForRank(3)} İnci' : null,
                 const Color(0xFFCD7F32),
@@ -1222,7 +1229,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
               ),
               const SizedBox(width: 6),
               _buildCleanRewardItem(
-                '🏅 4-10. Sıra',
+                '4-10. Sıra',
                 '${save.leagueRewardGoldForRank(5)} Altın',
                 null,
                 Colors.white70,
@@ -1232,7 +1239,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
           ),
           const SizedBox(height: 7),
           const Text(
-            '⬆️ İlk 3 oyuncu üst lige terfi eder  •  ⬇️ Son 5 oyuncu alt lige düşer',
+            'İlk 3 oyuncu üst lige terfi eder  •  Son 5 oyuncu alt lige düşer',
             style: TextStyle(
               color: Colors.white38,
               fontSize: 10,
@@ -1322,8 +1329,8 @@ class _TournamentDialogState extends State<TournamentDialog> {
         : (isDemotion ? const Color(0xFFFF5252) : const Color(0xFF00E5FF));
 
     final zoneBadgeText = isPromotion
-        ? 'TERFİ ⬆️'
-        : (isDemotion ? 'KÜME DÜŞME ⬇️' : 'GÜVENLİ HAT 🛡️');
+        ? 'TERFİ'
+        : (isDemotion ? 'KÜME DÜŞME' : 'GÜVENLİ HAT');
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: isCompact ? 10 : 20, vertical: 4),
@@ -1596,7 +1603,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                         ),
                         child: Text(
                           widget.save.isDailyBlitzCompletedToday
-                              ? 'TAMAM ✓'
+                              ? 'TAMAM'
                               : '250G + 3İ',
                           style: TextStyle(
                             color: widget.save.isDailyBlitzCompletedToday
@@ -1773,7 +1780,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                     border: Border.all(color: const Color(0xFF00E676)),
                   ),
                   child: const Text(
-                    'TAMAMLANDI ✓',
+                    'TAMAMLANDI',
                     style: TextStyle(
                       color: Color(0xFF00E676),
                       fontWeight: FontWeight.bold,
@@ -1986,7 +1993,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                 children: [
                   const Flexible(
                     child: Text(
-                      '🏆 ARKADAŞLAR LİDER TABLOSU',
+                      'ARKADAŞLAR LİDER TABLOSU',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -2245,7 +2252,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             child: const Text(
-              'AÇ 🎮',
+              'AÇ',
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
             ),
           ),
@@ -2319,7 +2326,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
             ),
             child: Center(
               child: Text(
-                rank <= 3 ? (rank == 1 ? '🥇' : (rank == 2 ? '🥈' : '🥉')) : '$rank',
+                '$rank',
                 style: TextStyle(
                   color: rankColor,
                   fontWeight: FontWeight.w900,

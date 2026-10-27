@@ -458,7 +458,7 @@ void main() {
               body: SizedBox(
                 width: 150,
                 child: KaunosBadge(
-                  text: '⚡ GÖREV BÖLÜMÜ 10 ULTRA EXTRA LONG TEXT',
+                  text: 'GÖREV BÖLÜMÜ 10 ULTRA EXTRA LONG TEXT',
                 ),
               ),
             ),

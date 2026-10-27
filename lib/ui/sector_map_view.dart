@@ -674,7 +674,7 @@ class _SectorMapViewState extends State<SectorMapView> with TickerProviderStateM
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'PRESTİJ SEKTÖR OMEGA 🌌',
+                          'PRESTİJ SEKTÖR OMEGA',
                           style: TextStyle(
                             color: Color(0xFFFFD700),
                             fontWeight: FontWeight.w900,

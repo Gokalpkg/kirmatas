@@ -10,6 +10,11 @@ import 'fish_hoard_chest.dart';
 import 'fish_rig.dart';
 import 'kaunos_ui.dart';
 
+enum AquariumTabMode {
+  feed,
+  finger,
+}
+
 class AquariumView extends StatefulWidget {
   final VoidCallback? onBackToMenu;
   const AquariumView({super.key, this.onBackToMenu});
@@ -176,6 +181,7 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
   final GlobalKey _goldPillKey = GlobalKey();
   final GlobalKey _chestKey = GlobalKey();
   final SaveManager _save = SaveManager.instance;
+  AquariumTabMode _selectedMode = AquariumTabMode.feed;
   late final AnimationController _pulseCtrl;
   late final Animation<double> _pulseScale;
   late final AnimationController _coinCtrl;
@@ -350,31 +356,6 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
     return '$m dk';
   }
 
-  void _onFeedPressed() {
-    if (_save.fishFood <= 0) {
-      _showGetFoodDialog();
-      return;
-    }
-    if (!_save.hasWaitingFish && _save.unlockedFish.isNotEmpty) {
-      // Every fish is already producing: explain instead of wasting food.
-      final readyGold = _save.currentAvailableFishGold;
-      final msg = readyGold > 0
-          ? 'Altın hazır! Sağdaki sandığa dokunup altını al, sonra balıkları yine yemleyebilirsin.'
-          : 'Bütün balıklar üretimde. Sıradaki altın ${_fmtRemaining(_save.remainingFedDurationMs)} sonra hazır olur.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msg),
-          backgroundColor: const Color(0xFF1E2438),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
-      );
-      return;
-    }
-
-    _tankKey.currentState?.dropSinglePellet();
-  }
-
   void _showGetFoodDialog() {
     showModalBottomSheet(
       context: context,
@@ -541,7 +522,7 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                                         AudioManager.instance.playSfx(GameSfx.powerupBuff);
                                         messenger.showSnackBar(
                                           const SnackBar(
-                                            content: Text('👑 Reklamsız VIP: +3 Balık Yemi Eklendi!'),
+                                            content: Text('VIP: +3 Balık Yemi Eklendi!'),
                                             backgroundColor: Color(0xFF00E5FF),
                                           ),
                                         );
@@ -584,7 +565,7 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                                         children: [
                                           Text(
                                             canClaim
-                                                ? (isVip ? '👑 VIP Yem: +3 Yem Al' : 'Kısa Reklam İzle -> +3 Yem Al')
+                                                ? (isVip ? 'VIP Yem: +3 Yem Al' : 'Kısa Reklam İzle -> +3 Yem Al')
                                                 : 'Bugünkü Yem Ödülü Alındı',
                                             style: TextStyle(
                                               color: canClaim ? const Color(0xFF2E1C00) : Colors.white54,
@@ -791,6 +772,22 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
             key: _tankKey,
             interactive: true,
             onBubblePopped: _onOxygenBubblePopped,
+            onOutOfFood: () {
+              if (mounted) _showGetFoodDialog();
+            },
+            onAllFishFed: () {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Bütün balıklar üretimde! Altın hazır olunca topla.'),
+                    backgroundColor: const Color(0xFF1E2438),
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                );
+              }
+            },
             child: SafeArea(
               child: Stack(
                 key: _stackKey,
@@ -871,105 +868,53 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                     ),
                   ),
 
-                  // Günün Şanslı Balığı Rozeti (3x Altın)
-                  if (_save.luckyFishId != null)
-                    Positioned(
-                      top: 50,
-                      left: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xDD1A1400),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFFFD54F), width: 1.2),
-                          boxShadow: const [
-                            BoxShadow(color: Color(0x44FFD54F), blurRadius: 6),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('👑', style: TextStyle(fontSize: 11)),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${FishItem.getById(_save.luckyFishId!).name} (3x 🪙)',
-                              style: const TextStyle(
-                                color: Color(0xFFFFE082),
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                  // Top-Right Floating "🍤 YEM & EKOSİSTEM" + 1-Tap Quick Feed Button
+                  // Top Status & Controls: Günün Şanslı Balığı (sol) + [ Yem | Parmak | Katalog ] (sağ)
                   Positioned(
-                    top: 50,
+                    top: 52,
+                    left: 12,
                     right: 12,
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        if (_save.fishFood > 0 && _save.hasWaitingFish)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: KaunosPressGlow(
-                              borderRadius: 18,
-                              waveColor: const Color(0xFF00E676),
-                              child: ElevatedButton.icon(
-                                onPressed: _onFeedPressed,
-                                icon: const Icon(Icons.grain, color: Color(0xFF69F0AE), size: 15),
-                                label: Text(
-                                  _save.fishFood <= 0 ? 'Yem Al' : 'Yem At (${_save.fishFood})',
-                                  style: const TextStyle(
-                                    fontFamily: 'Rajdhani',
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 11.5,
-                                    letterSpacing: 0.4,
+                        if (_save.luckyFishId != null)
+                          Flexible(
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xDD1A1400),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFFFFD54F), width: 1.2),
+                                boxShadow: const [
+                                  BoxShadow(color: Color(0x44FFD54F), blurRadius: 6),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.star_rounded, size: 12, color: Color(0xFFFFD54F)),
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      '${FishItem.getById(_save.luckyFishId!).name} (3x)',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Color(0xFFFFE082),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xD907261E),
-                                  foregroundColor: const Color(0xFF69F0AE),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    side: const BorderSide(color: Color(0x8800E676), width: 1.2),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                                  elevation: 4,
-                                ),
+                                ],
                               ),
                             ),
-                          ),
-                        KaunosPressGlow(
-                          borderRadius: 18,
-                          waveColor: const Color(0xFF4FC3F7),
-                          child: ElevatedButton.icon(
-                            onPressed: _showAquariumCatalogSheet,
-                            icon: const Icon(Icons.collections_bookmark_rounded, color: Color(0xFF00E5FF), size: 15),
-                            label: const Text(
-                              'Katalog',
-                              style: TextStyle(
-                                fontFamily: 'Rajdhani',
-                                fontWeight: FontWeight.w900,
-                                fontSize: 11.5,
-                                letterSpacing: 0.4,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xD9081E2C),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                                side: const BorderSide(color: Color(0x664FC3F7), width: 1.2),
-                              ),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                              elevation: 4,
-                            ),
-                          ),
-                        ),
+                          )
+                        else
+                          const Spacer(),
+
+                        _buildAquariumControlTabs(),
                       ],
                     ),
                   ),
@@ -1016,51 +961,6 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                         ),
                       ),
                     ),
-
-                  // Finger Mode Active Pill (Quick toggle back to food mode)
-                  if (_tankKey.currentState?.isFingerMode == true)
-                    Positioned(
-                      top: 50,
-                      left: 12,
-                      child: GestureDetector(
-                        onTap: () {
-                          _tankKey.currentState?.setFingerMode(false);
-                          setState(() {});
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: const Color(0xEE004D40),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: const Color(0xFF00E5FF), width: 1.4),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF00E5FF).withValues(alpha: 0.4),
-                                blurRadius: 8,
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Text('👆', style: TextStyle(fontSize: 14)),
-                              SizedBox(width: 5),
-                              Text(
-                                'PARMAK MODU (DÖN 🍤)',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 11,
-                                  letterSpacing: 0.4,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-
-
 
                   // Bottom Sunken Aquarium Treasure Chest (Clean unobstructed seabed)
                   Positioned(
@@ -1182,7 +1082,7 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'PARMAĞI SEÇ 👆',
+                                  'PARMAĞI SEÇ',
                                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
                                 ),
                                 Text(
@@ -1198,10 +1098,12 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                             onTap: () {
                               Navigator.of(sheetCtx).pop();
                               _tankKey.currentState?.setFingerMode(true);
-                              setState(() {});
+                              setState(() {
+                                _selectedMode = AquariumTabMode.finger;
+                              });
                             },
                             child: const Text(
-                              'SEÇ 👆',
+                              'SEÇ',
                               style: TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.w900, fontSize: 11),
                             ),
                           ),
@@ -1395,6 +1297,180 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(color: color, fontSize: 7.5, fontWeight: FontWeight.w800),
+      ),
+    );
+  }
+
+  Widget _buildAquariumControlTabs() {
+    final isFeed = _selectedMode == AquariumTabMode.feed;
+    final isFinger = _selectedMode == AquariumTabMode.finger;
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: const Color(0xD9071520),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0x444FC3F7), width: 1.1),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 1. YEM SEKMESİ (Bastığında seçilir, ekrana basıldığında yem atar)
+          _buildTabPill(
+            isSelected: isFeed,
+            icon: Icons.grain,
+            label: _save.fishFood > 0 ? 'Yem (${_save.fishFood})' : 'Yem (0)',
+            activeColor: const Color(0xFF00E676),
+            activeBgColor: const Color(0xD9063820),
+            glowColor: const Color(0x6600E676),
+            onTap: () {
+              if (!isFeed) {
+                setState(() => _selectedMode = AquariumTabMode.feed);
+                _tankKey.currentState?.setFingerMode(false);
+                AudioManager.instance.playSfx(GameSfx.click);
+              } else if (_save.fishFood <= 0) {
+                _showGetFoodDialog();
+              }
+            },
+          ),
+          const SizedBox(width: 4),
+
+          // 2. PARMAK MODU SEKMESİ (Bastığında seçilir, ekrana dokunulduğunda balıklar parmağa gelir)
+          _buildTabPill(
+            isSelected: isFinger,
+            icon: Icons.touch_app_rounded,
+            label: 'Parmak',
+            activeColor: const Color(0xFF00E5FF),
+            activeBgColor: const Color(0xD905333F),
+            glowColor: const Color(0x6600E5FF),
+            onTap: () {
+              if (!isFinger) {
+                setState(() => _selectedMode = AquariumTabMode.finger);
+                _tankKey.currentState?.setFingerMode(true);
+                AudioManager.instance.playSfx(GameSfx.click);
+              }
+            },
+          ),
+          const SizedBox(width: 4),
+
+          // Ayraç çizgi
+          Container(
+            width: 1,
+            height: 18,
+            color: const Color(0x334FC3F7),
+          ),
+          const SizedBox(width: 4),
+
+          // 3. KATALOG BUTONU
+          _buildCatalogButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabPill({
+    required bool isSelected,
+    required IconData icon,
+    required String label,
+    required Color activeColor,
+    required Color activeBgColor,
+    required Color glowColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? activeBgColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? activeColor : Colors.transparent,
+            width: 1.2,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: glowColor,
+                    blurRadius: 6,
+                    spreadRadius: 0.5,
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected ? activeColor : const Color(0x88B0BEC5),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Rajdhani',
+                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                fontSize: 11,
+                letterSpacing: 0.3,
+                color: isSelected ? activeColor : const Color(0x99CFD8DC),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCatalogButton() {
+    return GestureDetector(
+      onTap: () {
+        AudioManager.instance.playSfx(GameSfx.click);
+        _showAquariumCatalogSheet();
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xD9081E2C),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0x664FC3F7),
+            width: 1.1,
+          ),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.collections_bookmark_rounded,
+              color: Color(0xFF00E5FF),
+              size: 14,
+            ),
+            SizedBox(width: 4),
+            Text(
+              'Katalog',
+              style: TextStyle(
+                fontFamily: 'Rajdhani',
+                fontWeight: FontWeight.w900,
+                fontSize: 11,
+                letterSpacing: 0.3,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -449,7 +449,7 @@ class _MainMenuTourOverlayState extends State<MainMenuTourOverlay>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              _currentStep == 4 ? 'MACERAYA BAŞLA! 🚀' : 'SONRAKİ',
+                              _currentStep == 4 ? 'MACERAYA BAŞLA!' : 'SONRAKİ',
                               style: TextStyle(
                                 color: accentColor.computeLuminance() > 0.4
                                     ? const Color(0xFF070B18)

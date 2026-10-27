@@ -163,7 +163,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                   _buildQuestCard(
                     id: 'feed_fish',
                     title: I18n.tr('quest_feed'),
-                    rewardText: '+60 ${I18n.tr('quest_gold')} + 1 ${I18n.tr('food_word')} • 🔒 Bölüm 5',
+                    rewardText: '+60 ${I18n.tr('quest_gold')} + 1 ${I18n.tr('food_word')} • Bölüm 5',
                     current: _save.questFishFed ? 1 : 0,
                     target: 1,
                     icon: Icons.set_meal,

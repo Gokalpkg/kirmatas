@@ -56,7 +56,7 @@ class LuckyFishNotificationManager {
     if (!shouldRemindAquariumFeeding) return null;
     return {
       'id': 'aquarium_feed',
-      'title': 'Akvaryum Yem Saati! 🐟',
+      'title': 'Akvaryum Yem Saati!',
       'body': 'Balıkların acıktı! Onları besleyerek %100 sinerji güçlerini aktif tut.',
       'type': 'aquarium_feed',
     };
@@ -67,7 +67,7 @@ class LuckyFishNotificationManager {
     if (!shouldRemindFortuneWheel) return null;
     return {
       'id': 'fortune_wheel',
-      'title': 'Ücretsiz Şans Çarkı! 🎡',
+      'title': 'Ücretsiz Şans Çarkı!',
       'body': 'Bugünkü bedava çarkıfelek hakkın seni bekliyor, hemen çevir!',
       'type': 'fortune_wheel',
     };
@@ -154,7 +154,7 @@ class LuckyFishNotificationManager {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
-                          '3x 🪙',
+                          '3x ALTIN',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 9,

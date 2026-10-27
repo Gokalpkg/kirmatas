@@ -308,7 +308,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                                     ],
                                   ),
                                   child: Text(
-                                    '🔥 SERİ x${save.winStreak}',
+                                    'SERİ x${save.winStreak}',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 10,
@@ -725,7 +725,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
-                              '❤️ CANLAN / ${I18n.tr('save_record_title')}',
+                              'CANLAN / ${I18n.tr('save_record_title')}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w900,

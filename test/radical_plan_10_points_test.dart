@@ -7,6 +7,7 @@ import 'package:kirmatas/models/brick.dart';
 import 'package:kirmatas/models/game_state.dart';
 import 'package:kirmatas/models/level_design.dart';
 import 'package:kirmatas/models/paddle.dart';
+import 'package:kirmatas/models/powerup.dart';
 import 'package:kirmatas/storage/save_manager.dart';
 import 'package:kirmatas/ui/pause_game_over.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -88,10 +89,17 @@ void main() {
   });
 
   group('Radical Plan Item 2: Last Brick Torture & Overdrive Homing Failsafe', () {
-    test('Overdrive homing activates after 4s when <= 3 breakable bricks remain', () {
+    test('Overdrive homing is disabled by default in normal gameplay', () {
       final ctrl = GameController();
+      expect(ctrl.enableOverdriveHoming, isFalse);
+    });
+
+    test('Overdrive homing activates after 18s when enabled and exactly 1 breakable brick remains', () {
+      final ctrl = GameController();
+      ctrl.enableOverdriveHoming = true;
       ctrl.setDimensions(360, 640);
       ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
+      ctrl.enableOverdriveHoming = true;
       ctrl.launchBall();
       final ball = ctrl.balls.first;
       ball.x = 100;
@@ -99,21 +107,20 @@ void main() {
       ball.vx = 80;
       ball.vy = 0;
 
-      // Leave exactly 2 breakable bricks
+      // Leave exactly 1 breakable brick
       ctrl.bricks.clear();
       final brick1 = Brick(x: 100, y: 100, width: 40, height: 20, hp: 1, maxHp: 1, color: Colors.cyan);
-      final brick2 = Brick(x: 200, y: 100, width: 40, height: 20, hp: 1, maxHp: 1, color: Colors.cyan);
-      ctrl.bricks.addAll([brick1, brick2]);
+      ctrl.bricks.add(brick1);
 
       expect(ctrl.balls.first.isOverdriveHoming, isFalse);
 
-      // Simulate 3.5 seconds: not yet homing
-      for (int i = 0; i < 35; i++) {
+      // Simulate 17.5 seconds: not yet homing
+      for (int i = 0; i < 175; i++) {
         ctrl.update(0.1);
       }
       expect(ctrl.balls.first.isOverdriveHoming, isFalse);
 
-      // Advance past 4.0 seconds: homing engages
+      // Advance past 18.0 seconds: homing engages
       for (int i = 0; i < 10; i++) {
         ctrl.update(0.1);
       }
@@ -122,8 +129,10 @@ void main() {
 
     test('Paddle hit resets overdrive homing timer', () {
       final ctrl = GameController();
+      ctrl.enableOverdriveHoming = true;
       ctrl.setDimensions(360, 640);
       ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
+      ctrl.enableOverdriveHoming = true;
       ctrl.launchBall();
       final ball = ctrl.balls.first;
       ball.x = 100;
@@ -134,8 +143,8 @@ void main() {
       ctrl.bricks.clear();
       ctrl.bricks.add(Brick(x: 100, y: 100, width: 40, height: 20, hp: 1, maxHp: 1, color: Colors.cyan));
 
-      // Advance 4.2 seconds: homing is active
-      for (int i = 0; i < 42; i++) {
+      // Advance 18.2 seconds: homing is active
+      for (int i = 0; i < 182; i++) {
         ctrl.update(0.1);
       }
       expect(ctrl.balls.first.isOverdriveHoming, isTrue);
@@ -151,10 +160,12 @@ void main() {
       expect(ball.isOverdriveHoming, isFalse);
     });
 
-    test('7.5s fail-safe destroys brick and spawns lightning strike text and effects', () {
+    test('25.0s fail-safe destroys brick and spawns lightning strike text and effects', () {
       final ctrl = GameController();
+      ctrl.enableOverdriveHoming = true;
       ctrl.setDimensions(360, 640);
       ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
+      ctrl.enableOverdriveHoming = true;
       ctrl.launchBall();
       final ball = ctrl.balls.first;
       ball.x = 100;
@@ -166,8 +177,8 @@ void main() {
       final targetBrick = Brick(x: 100, y: 100, width: 40, height: 20, hp: 1, maxHp: 1, color: Colors.cyan);
       ctrl.bricks.add(targetBrick);
 
-      // Simulate 7.6 seconds without paddle hit
-      for (int i = 0; i < 76; i++) {
+      // Simulate 25.5 seconds without paddle hit
+      for (int i = 0; i < 255; i++) {
         ctrl.update(0.1);
       }
 
@@ -261,7 +272,7 @@ void main() {
   });
 
   group('Radical Plan Item 7: Aquarium Dolphin Leap Bridge', () {
-    test('Dolphin Leap saves lone falling ball once per level if fish are unlocked', () {
+    test('Dolphin Leap saves lone falling ball once per run until restart if fish are unlocked', () {
       final save = SaveManager.instance;
       save.unlockedFish = ['guppy', 'tetra'];
 
@@ -271,7 +282,7 @@ void main() {
       ctrl.launchBall();
 
       final ball = ctrl.balls.first;
-      expect(ctrl.fishSaveUsedThisLevel, isFalse);
+      expect(ctrl.fishSaveUsedThisRun, isFalse);
 
       // Move ball below screen bottom
       ball.y = ctrl.screenHeight + ball.radius + 2.0;
@@ -280,7 +291,7 @@ void main() {
       ctrl.update(0.016);
 
       // Ball rescued by Dolphin Leap
-      expect(ctrl.fishSaveUsedThisLevel, isTrue);
+      expect(ctrl.fishSaveUsedThisRun, isTrue);
       expect(ctrl.stats.lives, 3, reason: 'Player must not lose a life on Dolphin Leap');
       expect(ball.vy, lessThan(0.0), reason: 'Ball should be bouncing upward');
       expect(ctrl.particles.floatingTexts.any((t) => t.text.contains('BALIK KURTARIŞI')), isTrue);
@@ -290,6 +301,30 @@ void main() {
       ball.vy = 300.0;
       ctrl.update(0.016);
       expect(ctrl.stats.lives, 2);
+
+      // Advancing level does NOT reset Dolphin Leap (it is once per entire game run)
+      ctrl.loadLevelBricks();
+      expect(ctrl.fishSaveUsedThisRun, isTrue);
+
+      // Restarting new game resets Dolphin Leap
+      ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
+      expect(ctrl.fishSaveUsedThisRun, isFalse);
+    });
+
+    test('Life powerup hard-caps at maxLivesCap (5) and converts extra hearts to gold', () {
+      final ctrl = GameController();
+      ctrl.setDimensions(360, 640);
+      ctrl.startNewGame(GameMode.classic);
+      ctrl.stats.lives = 4;
+
+      ctrl.applyPowerUp(PowerUpType.life);
+      expect(ctrl.stats.lives, 5);
+
+      // Subsequent life powerup when already at 5 does not exceed 5
+      final initialGold = ctrl.save.gold;
+      ctrl.applyPowerUp(PowerUpType.life);
+      expect(ctrl.stats.lives, 5);
+      expect(ctrl.save.gold, initialGold + 50);
     });
   });
 

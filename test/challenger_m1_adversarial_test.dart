@@ -276,7 +276,7 @@ void main() {
 
       // Two 'ÖDÜLÜ AL' buttons remain
       expect(find.text('ÖDÜLÜ AL'), findsNWidgets(2));
-      expect(find.text('TAMAMLANDI ✓'), findsOneWidget);
+      expect(find.text('TAMAMLANDI'), findsOneWidget);
 
       // Claim remaining 2 quests
       while (find.text('ÖDÜLÜ AL').evaluate().isNotEmpty) {
@@ -287,7 +287,7 @@ void main() {
 
       // All 3 quests claimed: 1060 + 120 + 150 = 1330 gold
       expect(find.text('ÖDÜLÜ AL'), findsNothing);
-      expect(find.text('TAMAMLANDI ✓'), findsNWidgets(3));
+      expect(find.text('TAMAMLANDI'), findsNWidgets(3));
       expect(save.gold, 1330);
 
       // Verify idempotence: direct repeat calls return 0 and do not duplicate gold

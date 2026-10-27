@@ -580,13 +580,13 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: Center(
-              child: KaunosBadge.lock(text: '🔒 Bölüm 2'),
+              child: KaunosBadge.lock(text: 'Bölüm 2'),
             ),
           ),
         ),
       );
 
-      expect(find.text('🔒 Bölüm 2'), findsOneWidget);
+      expect(find.text('Bölüm 2'), findsOneWidget);
       expect(find.byType(KaunosBadge), findsOneWidget);
       expect(find.byType(KaunosEmblem), findsOneWidget);
     });
@@ -614,13 +614,13 @@ void main() {
         const MaterialApp(
           home: Scaffold(
             body: Center(
-              child: KaunosBadge.lock(text: '🔒 BÖLÜM 1'),
+              child: KaunosBadge.lock(text: 'BÖLÜM 1'),
             ),
           ),
         ),
       );
 
-      expect(find.text('🔒 BÖLÜM 1'), findsOneWidget);
+      expect(find.text('BÖLÜM 1'), findsOneWidget);
       expect(find.byType(KaunosBadge), findsOneWidget);
     });
   });
@@ -658,7 +658,7 @@ void main() {
                             const KaunosEmblem.coin(size: 20),
                             const SizedBox(width: 8),
                             const Expanded(child: Text('Obsidian Crystal Bar')),
-                            KaunosBadge.lock(text: '🔒 BÖLÜM 5'),
+                            KaunosBadge.lock(text: 'BÖLÜM 5'),
                           ],
                         ),
                       ),

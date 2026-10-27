@@ -173,7 +173,7 @@ class PlayGamesManager extends ChangeNotifier {
       _lastSync = DateTime.now();
       _statusText = 'Buluta kaydedildi';
       notifyListeners();
-      return 'Buluta kaydedildi ✓';
+      return 'Buluta kaydedildi';
     } catch (_) {
       _statusText = 'Bulut kaydı başarısız';
       notifyListeners();
@@ -191,7 +191,7 @@ class PlayGamesManager extends ChangeNotifier {
       _lastSync = DateTime.now();
       _statusText = 'Buluttan yüklendi';
       notifyListeners();
-      return 'Buluttan yüklendi ✓';
+      return 'Buluttan yüklendi';
     } catch (_) {
       return 'Buluttan yüklenemedi';
     }

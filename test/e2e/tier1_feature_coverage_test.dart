@@ -625,34 +625,34 @@ void main() {
     // F2.4: Update localization strings in i18n.dart
     // -------------------------------------------------------------------------
     group('F2.4: Localization Strings for Yakıcı Top', () {
-      test('F2.4_T1_01: Turkish translation for pup_fireball is 🔥 YAKICI TOP!', () {
+      test('F2.4_T1_01: Turkish translation for pup_fireball is YAKICI TOP!', () {
         SaveManager.instance.setLanguage('tr');
-        expect(I18n.tr('pup_fireball'), equals('🔥 YAKICI TOP!'));
+        expect(I18n.tr('pup_fireball'), equals('YAKICI TOP!'));
       });
 
-      test('F2.4_T1_02: Turkish translation for pup_pierce is 🔥 YAKICI TOP!', () {
+      test('F2.4_T1_02: Turkish translation for pup_pierce is YAKICI TOP!', () {
         SaveManager.instance.setLanguage('tr');
-        expect(I18n.tr('pup_pierce'), equals('🔥 YAKICI TOP!'));
+        expect(I18n.tr('pup_pierce'), equals('YAKICI TOP!'));
       });
 
-      test('F2.4_T1_03: English translation for pup_fireball is 🔥 SEARING BALL!', () {
+      test('F2.4_T1_03: English translation for pup_fireball is SEARING BALL!', () {
         SaveManager.instance.setLanguage('en');
-        expect(I18n.tr('pup_fireball'), equals('🔥 SEARING BALL!'));
+        expect(I18n.tr('pup_fireball'), equals('SEARING BALL!'));
       });
 
-      test('F2.4_T1_04: English translation for pup_pierce is 🔥 SEARING BALL!', () {
+      test('F2.4_T1_04: English translation for pup_pierce is SEARING BALL!', () {
         SaveManager.instance.setLanguage('en');
-        expect(I18n.tr('pup_pierce'), equals('🔥 SEARING BALL!'));
+        expect(I18n.tr('pup_pierce'), equals('SEARING BALL!'));
       });
 
       test('F2.4_T1_05: PowerUpType label property returns localized Searing Ball string', () {
         SaveManager.instance.setLanguage('tr');
-        expect(PowerUpType.fireball.label, equals('🔥 YAKICI TOP!'));
-        expect(PowerUpType.pierce.label, equals('🔥 YAKICI TOP!'));
+        expect(PowerUpType.fireball.label, equals('YAKICI TOP!'));
+        expect(PowerUpType.pierce.label, equals('YAKICI TOP!'));
 
         SaveManager.instance.setLanguage('en');
-        expect(PowerUpType.fireball.label, equals('🔥 SEARING BALL!'));
-        expect(PowerUpType.pierce.label, equals('🔥 SEARING BALL!'));
+        expect(PowerUpType.fireball.label, equals('SEARING BALL!'));
+        expect(PowerUpType.pierce.label, equals('SEARING BALL!'));
       });
     });
 

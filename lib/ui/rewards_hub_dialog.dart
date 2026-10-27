@@ -192,7 +192,7 @@ class RewardsHubDialog extends StatelessWidget {
                 iconGradient: [const Color(0xFF69F0AE), const Color(0xFF00E676)],
                 title: 'Ücretsiz Altın Sandığı',
                 subtitle: sub,
-                badgeText: '+100 🟡',
+                badgeText: '+100 ALTIN',
                 badgeColor: isReady ? const Color(0xFF00E676) : Colors.white24,
                 buttonText: isReady ? 'KAZAN' : (onCooldown ? 'BEKLE' : '...'),
                 buttonColor: isReady ? const Color(0xFF00E676) : Colors.white12,

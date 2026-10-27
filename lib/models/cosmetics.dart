@@ -717,9 +717,6 @@ class CrateDef {
         Rarity.legendary: 12.0,
       },
     ),
-    // The Divine Octopus Treasure sits at the pinnacle of chests:
-    // Opened exclusively with 8 pearls (see octopusVaultPearlCost).
-    octopusVault,
   ];
 
   /// Pearls needed to unlock an Octopus Treasure, whether it was won

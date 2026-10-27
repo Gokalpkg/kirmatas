@@ -903,7 +903,7 @@ class _GameWorldPainter extends CustomPainter {
 
     if (gap < 78 && c.status == GameStatus.playing) {
       _tp.text = TextSpan(
-        text: '⚠ DUVAR YAKLAŞIYOR!',
+        text: 'DUVAR YAKLAŞIYOR!',
         style: TextStyle(
           fontFamily: 'Rajdhani',
           fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
@@ -6254,7 +6254,7 @@ class _GameWorldPainter extends CustomPainter {
 
   void _drawUltiReadyCallout(Canvas canvas, Size size, double time) {
     final pulse = (sin(time * 6.0) * 0.3 + 0.7).clamp(0.0, 1.0);
-    const text = '⚡ ULTİ HAZIR! ÇİFT DOKUN!';
+    const text = 'ULTİ HAZIR! ÇİFT DOKUN!';
     _tp.text = TextSpan(
       text: text,
       style: TextStyle(

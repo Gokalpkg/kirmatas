@@ -66,7 +66,7 @@ void main() {
         if (scrollable.evaluate().isNotEmpty) {
           try {
             await tester.scrollUntilVisible(
-              find.text('🌌 KOZMİK USTALIK (SONSUZ SEVİYE)'),
+              find.text('KOZMİK USTALIK (SONSUZ SEVİYE)'),
               250,
             );
             await tester.pump();
@@ -120,7 +120,7 @@ void main() {
         if (scrollable.evaluate().isNotEmpty) {
           try {
             await tester.scrollUntilVisible(
-              find.text('🌌 KOZMİK USTALIK (SONSUZ SEVİYE)'),
+              find.text('KOZMİK USTALIK (SONSUZ SEVİYE)'),
               250,
             );
             await tester.pump();
@@ -308,7 +308,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
 
         try {
-          await tester.scrollUntilVisible(find.text('PRESTİJ SEKTÖR OMEGA 🌌'), 400);
+          await tester.scrollUntilVisible(find.text('PRESTİJ SEKTÖR OMEGA'), 400);
           await tester.pump();
         } catch (_) {}
 

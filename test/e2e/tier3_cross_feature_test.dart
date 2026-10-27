@@ -108,8 +108,8 @@ void main() {
 
     test('F2.4 x F2.5: Searing ball label localization matches golden-flame pixel art falling capsule icon', () {
       SaveManager.instance.setLanguage('tr');
-      expect(I18n.tr('pup_pierce'), equals('🔥 YAKICI TOP!'));
-      expect(I18n.tr('pup_fireball'), equals('🔥 YAKICI TOP!'));
+      expect(I18n.tr('pup_pierce'), equals('YAKICI TOP!'));
+      expect(I18n.tr('pup_fireball'), equals('YAKICI TOP!'));
 
       final pMatrix = PixelArt.bitmaps[PowerUpType.pierce];
       final fbMatrix = PixelArt.bitmaps[PowerUpType.fireball];

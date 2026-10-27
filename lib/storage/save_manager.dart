@@ -1113,7 +1113,14 @@ class SaveManager extends ChangeNotifier {
         debugPrint('Error loading pending crate: $e');
       }
     }
+    pendingCratesQueue.removeWhere((c) => c.crateId == 'octopus' || c.rewardId == 'octopus');
     pendingCrate = pendingCratesQueue.isNotEmpty ? pendingCratesQueue.first : null;
+    if (pendingCrate != null) {
+      _prefs?.setString(_kPendingCrate, jsonEncode(pendingCrate!.toJson()));
+    } else {
+      _prefs?.remove(_kPendingCrate);
+    }
+    _prefs?.setString(_kPendingCratesQueue, jsonEncode(pendingCratesQueue.map((c) => c.toJson()).toList()));
 
     _initialized = true;
     ensureLeagueWeek();

@@ -62,10 +62,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.text('ADIM 4 / 4'), findsOneWidget);
       expect(find.text('Şans Çarkı ve Görevler'), findsOneWidget);
-      expect(find.text('MACERAYA BAŞLA! 🚀'), findsOneWidget);
+      expect(find.text('MACERAYA BAŞLA!'), findsOneWidget);
 
       // Finish tour
-      await tester.tap(find.text('MACERAYA BAŞLA! 🚀'));
+      await tester.tap(find.text('MACERAYA BAŞLA!'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 

@@ -72,7 +72,7 @@ void main() {
       expect(ctrl.firstCornerHitShown, isTrue, reason: 'Left corner hit must set firstCornerHitShown=true');
       expect(ctrl.stats.bulletTimeLeft, 0.75, reason: 'Must trigger slow-motion pulse (bulletTimeLeft=0.75)');
       expect(
-        ctrl.particles.floatingTexts.any((t) => t.text == '⚡ SÜPER KÖŞE VURUŞU!'),
+        ctrl.particles.floatingTexts.any((t) => t.text == 'SÜPER KÖŞE VURUŞU!'),
         isTrue,
         reason: 'Celebratory banner must be spawned',
       );
@@ -94,7 +94,7 @@ void main() {
 
       expect(ctrl.firstCornerHitShown, isTrue);
       expect(ctrl.stats.bulletTimeLeft, 0.75);
-      expect(ctrl.particles.floatingTexts.any((t) => t.text == '⚡ SÜPER KÖŞE VURUŞU!'), isTrue);
+      expect(ctrl.particles.floatingTexts.any((t) => t.text == 'SÜPER KÖŞE VURUŞU!'), isTrue);
     });
 
     test('Subsequent corner hits (left and right) do NOT re-trigger bullet time or duplicate banner', () {
@@ -111,7 +111,7 @@ void main() {
 
       expect(ctrl.firstCornerHitShown, isTrue);
       expect(ctrl.stats.bulletTimeLeft, 0.75);
-      final bannerCount1 = ctrl.particles.floatingTexts.where((t) => t.text == '⚡ SÜPER KÖŞE VURUŞU!').length;
+      final bannerCount1 = ctrl.particles.floatingTexts.where((t) => t.text == 'SÜPER KÖŞE VURUŞU!').length;
       expect(bannerCount1, 1);
 
       // Simulate game time passing so bulletTimeLeft expires
@@ -125,7 +125,7 @@ void main() {
       ctrl.update(0.016);
 
       expect(ctrl.stats.bulletTimeLeft, 0.0, reason: 'Subsequent corner hit must not reset bulletTimeLeft');
-      final bannerCount2 = ctrl.particles.floatingTexts.where((t) => t.text == '⚡ SÜPER KÖŞE VURUŞU!').length;
+      final bannerCount2 = ctrl.particles.floatingTexts.where((t) => t.text == 'SÜPER KÖŞE VURUŞU!').length;
       expect(bannerCount2, 1, reason: 'Subsequent corner hit must not spawn duplicate banner');
 
       // 3rd hit: right corner again
@@ -136,7 +136,7 @@ void main() {
       ctrl.update(0.016);
 
       expect(ctrl.stats.bulletTimeLeft, 0.0);
-      final bannerCount3 = ctrl.particles.floatingTexts.where((t) => t.text == '⚡ SÜPER KÖŞE VURUŞU!').length;
+      final bannerCount3 = ctrl.particles.floatingTexts.where((t) => t.text == 'SÜPER KÖŞE VURUŞU!').length;
       expect(bannerCount3, 1);
     });
 

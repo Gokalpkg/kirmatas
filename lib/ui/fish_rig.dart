@@ -1874,11 +1874,19 @@ class ProceduralFishPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fish = FishItem.getById(fishId);
     final child = SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(
-        painter: _ProceduralFishPreviewPainter(fishId: fishId, time: time),
+      child: Image.asset(
+        fish.assetPath,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.none,
+        errorBuilder: (context, error, stackTrace) => const Icon(
+          Icons.set_meal_rounded,
+          size: 28,
+          color: Colors.amber,
+        ),
       ),
     );
     if (!lockedSilhouette) return child;
@@ -1887,47 +1895,4 @@ class ProceduralFishPreview extends StatelessWidget {
       child: Opacity(opacity: 0.38, child: child),
     );
   }
-}
-
-class _ProceduralFishPreviewPainter extends CustomPainter {
-  final String fishId;
-  final double time;
-
-  _ProceduralFishPreviewPainter({required this.fishId, required this.time});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rig = FishRig(fishId: fishId, random: Random(fishId.hashCode));
-    rig.wavePhase = time * 4.0 + 0.5;
-    rig.finPhase = time * 3.0 + 0.3;
-    rig.step(0.016, time);
-
-    canvas.save();
-    canvas.translate(size.width * 0.5, size.height * 0.5);
-
-    // Fit nicely inside the preview box regardless of species dimensions
-    final st = rig.style;
-    final double baseSpan = st.species == FishSpecies.arowana
-        ? 48.0
-        : (st.species == FishSpecies.octopus
-            ? 52.0
-            : (st.species == FishSpecies.angel
-                ? 48.0
-                : (st.species == FishSpecies.betta ? 44.0 : 34.0)));
-    final sc = (min(size.width, size.height) / baseSpan) * 0.92;
-    canvas.scale(sc, sc);
-
-    if (st.species == FishSpecies.octopus) {
-      canvas.translate(0, 7.0);
-    } else if (st.species == FishSpecies.jellyfish) {
-      canvas.translate(0, -4.0);
-    }
-
-    FishPainter.paint(canvas, rig, time);
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _ProceduralFishPreviewPainter oldDelegate) =>
-      oldDelegate.fishId != fishId || oldDelegate.time != time;
 }

@@ -3168,13 +3168,13 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
 
         // Level 1 highlight badge on Classic Mode
-        expect(find.text('⭐ MACERAYA BAŞLA!'), findsOneWidget);
+        expect(find.text('MACERAYA BAŞLA!'), findsOneWidget);
 
         // Lock badges visible on locked features
-        expect(find.text('🔒 Bölüm 2'), findsWidgets);
-        expect(find.text('🔒 Bölüm 3'), findsOneWidget);
-        expect(find.text('🔒 Bölüm 5'), findsWidgets);
-        expect(find.text('🔒 BÖLÜM 5'), findsOneWidget);
+        expect(find.text('Bölüm 2'), findsWidgets);
+        expect(find.text('Bölüm 3'), findsOneWidget);
+        expect(find.text('Bölüm 5'), findsWidgets);
+        expect(find.text('BÖLÜM 5'), findsOneWidget);
 
         // Tapping locked Shop tab triggers locked SnackBar feedback
         final shopBtn = find.text(I18n.tr('shop'));
@@ -3352,16 +3352,16 @@ void main() {
 
         expect(ctrl.firstCornerHitShown, true);
         expect(ctrl.stats.bulletTimeLeft, 0.75);
-        expect(ctrl.particles.floatingTexts.any((t) => t.text == '⚡ SÜPER KÖŞE VURUŞU!'), true);
+        expect(ctrl.particles.floatingTexts.any((t) => t.text == 'SÜPER KÖŞE VURUŞU!'), true);
 
         // Subsequent corner hit does not trigger duplicate banner
-        final count = ctrl.particles.floatingTexts.where((t) => t.text == '⚡ SÜPER KÖŞE VURUŞU!').length;
+        final count = ctrl.particles.floatingTexts.where((t) => t.text == 'SÜPER KÖŞE VURUŞU!').length;
         ball.x = ctrl.paddle.x + ctrl.paddle.width * 0.97;
         ball.y = ctrl.paddle.y - ball.radius + 1.0;
         ball.vx = 0;
         ball.vy = 320.0;
         ctrl.update(0.016);
-        expect(ctrl.particles.floatingTexts.where((t) => t.text == '⚡ SÜPER KÖŞE VURUŞU!').length, count);
+        expect(ctrl.particles.floatingTexts.where((t) => t.text == 'SÜPER KÖŞE VURUŞU!').length, count);
       });
 
       test('R4: Early-game pacing, speed boost, PowerUp multiBall alias, and guaranteed drops', () {
@@ -3522,7 +3522,7 @@ void main() {
 
         expect(find.text('42'), findsOneWidget);
         expect(find.text('5000'), findsOneWidget);
-        expect(find.text('🌌 KOZMİK USTALIK (SONSUZ SEVİYE)'), findsOneWidget);
+        expect(find.text('KOZMİK USTALIK (SONSUZ SEVİYE)'), findsOneWidget);
         expect(find.text('Kozmik Altın Ustalığı'), findsOneWidget);
         expect(find.text('Kozmik İnci Ustalığı'), findsOneWidget);
         expect(find.text('Sv. 3'), findsOneWidget);
@@ -3630,12 +3630,12 @@ void main() {
         expect(find.text('Prestij 1  •  Bölüm 245 (Sonsuz Omega)'), findsOneWidget);
         expect(find.text('P1 • 14/14'), findsOneWidget);
 
-        await tester.scrollUntilVisible(find.text('PRESTİJ SEKTÖR OMEGA 🌌'), 400);
-        expect(find.text('PRESTİJ SEKTÖR OMEGA 🌌'), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('PRESTİJ SEKTÖR OMEGA'), 400);
+        expect(find.text('PRESTİJ SEKTÖR OMEGA'), findsOneWidget);
         expect(find.text('Sonsuz Seviye • Prestij Kademesi 1'), findsOneWidget);
         expect(find.text('Bölüm 245'), findsOneWidget);
 
-        await tester.tap(find.text('PRESTİJ SEKTÖR OMEGA 🌌'));
+        await tester.tap(find.text('PRESTİJ SEKTÖR OMEGA'));
         await tester.pump();
         expect(startedLevel, 245);
       });

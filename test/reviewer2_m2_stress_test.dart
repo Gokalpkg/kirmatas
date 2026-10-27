@@ -84,7 +84,7 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
 
-        await tester.scrollUntilVisible(find.text('PRESTİJ SEKTÖR OMEGA 🌌'), 400);
+        await tester.scrollUntilVisible(find.text('PRESTİJ SEKTÖR OMEGA'), 400);
         await tester.pump();
 
         expect(tester.takeException(), isNull, reason: 'Overflow occurred on SectorMapView at $size');

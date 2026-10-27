@@ -1038,7 +1038,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     }
                                   },
                                   child: const Center(
-                                    child: Text('🎁', style: TextStyle(fontSize: 18)),
+                                    child: Icon(Icons.inventory_2_rounded, color: Color(0xFFFFD54F), size: 18),
                                   ),
                                 ),
                               ),
@@ -1306,7 +1306,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     color1: KaunosPalette.terracottaPrimary,
                                     color2: KaunosPalette.classicSunsetTop,
                                     badge: !_save.isLeagueUnlocked
-                                        ? '🔒 Bölüm 7'
+                                        ? 'Bölüm 7'
                                         : (_save.isUnlockNew('zen', _save.isLeagueUnlocked) ? 'YENİ!' : null),
                                     dimmed: !_save.isLeagueUnlocked,
                                     onTap: () {
@@ -1356,10 +1356,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               color1: const Color(0xFFFF9100),
                               color2: const Color(0xFFBF360C),
                               badge: !_save.isLeagueUnlocked
-                                  ? '🔒 Bölüm 7'
+                                  ? 'Bölüm 7'
                                   : (_save.isUnlockNew('daily', _save.isLeagueUnlocked)
                                       ? 'YENİ!'
-                                      : (_save.isDailyBlitzCompletedToday ? 'TAMAMLANDI ✓' : '250G + 3İ')),
+                                      : (_save.isDailyBlitzCompletedToday ? 'TAMAMLANDI' : '250G + 3İ')),
                               dimmed: !_save.isLeagueUnlocked,
                               onTap: () {
                                 if (!_save.isLeagueUnlocked) {
@@ -1512,7 +1512,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   icon: Icons.storefront_rounded,
                           label: I18n.tr('shop'),
                   badge: !_save.isShopUnlocked
-                      ? '🔒 Bölüm 2'
+                      ? 'Bölüm 2'
                       : (_save.isUnlockNew('shop', _save.isShopUnlocked) ? 'YENİ!' : null),
                   onTap: () => _goToPage(0),
                 ),
@@ -1529,13 +1529,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     icon: Icons.water_drop_rounded,
                           label: I18n.tr('aquarium'),
                     badge: !_save.isAquariumUnlocked
-                        ? '🔒 Bölüm 5'
+                        ? 'Bölüm 5'
                         : (_save.isUnlockNew('aquarium', _save.isAquariumUnlocked)
                             ? 'YENİ!'
                             : (_save.currentAvailableFishGold > 0
-                                ? '🪙 ALTIN!'
+                                ? 'ALTIN!'
                                 : (_save.hasWaitingFish && _save.fishFood > 0
-                                    ? '🐟 ACIKTI!'
+                                    ? 'ACIKTI!'
                                     : (_save.hasClaimableQuests ? '●' : null)))),
                     onTap: () => _goToPage(2),
                   ),
@@ -1549,7 +1549,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     icon: Icons.auto_awesome_rounded,
                           label: I18n.tr('upgrades'),
                     badge: !_save.isWorkshopUnlocked
-                        ? '🔒 Bölüm 3'
+                        ? 'Bölüm 3'
                         : (_save.isUnlockNew('workshop', _save.isWorkshopUnlocked) ? 'YENİ!' : null),
                     onTap: () => _goToPage(3),
                   ),
@@ -1650,7 +1650,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           ? (_save.isNextWheelSpinFree ? const Color(0xFF69F0AE) : const Color(0xFF00E5FF))
                           : Colors.white38),
                   badgeText: isLocked
-                      ? '🔒 Bölüm 2'
+                      ? 'Bölüm 2'
                       : (hasSpins
                           ? (_save.isNextWheelSpinFree ? 'BEDAVA' : '$spinsLeft')
                           : null),
@@ -1949,7 +1949,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 ],
                               ),
                               child: const Text(
-                                '⭐ MACERAYA BAŞLA!',
+                                'MACERAYA BAŞLA!',
                                 style: TextStyle(
                                   color: Color(0xFF051B11),
                                   fontSize: 10,
@@ -2021,8 +2021,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                     const SizedBox(width: 4),
                       Text(
                                       _save.prestigeTier > 0
-                                          ? 'PRESTİJ ${_save.prestigeTier} • SEKTÖR 14/14 🌌'
-                                          : 'SEKTÖR ${_save.highestUnlockedSector}/14 🗺️',
+                                          ? 'PRESTİJ ${_save.prestigeTier} • SEKTÖR 14/14'
+                                          : 'SEKTÖR ${_save.highestUnlockedSector}/14',
                                       style: const TextStyle(
                                         color: KaunosPalette.goldHighlight,
                                         fontSize: 10,
@@ -2226,7 +2226,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         children: [
                           if (isLocked)
                             KaunosBadge.lock(
-                              text: '🔒 BÖLÜM 5',
+                              text: 'BÖLÜM 5',
                               borderColor: const Color(0xFFEF5350).withValues(alpha: 0.6),
                             )
                           else ...[
@@ -2353,7 +2353,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                             border: Border.all(color: const Color(0x6600E5FF), width: 0.9),
                           ),
                           child: Text(
-                            '🏆 ${_save.chaosRankTitle} • En İyi Dalga ${_save.bestChaosWave}',
+                            '${_save.chaosRankTitle} • En İyi Dalga ${_save.bestChaosWave}',
                             style: const TextStyle(
                               color: Color(0xFF80D8FF),
                               fontSize: 10.5,
@@ -2610,7 +2610,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 if (isLocked)
                   const Flexible(
                     flex: 2,
-                    child: KaunosBadge.lock(text: '🔒 Bölüm 7'),
+                    child: KaunosBadge.lock(text: 'Bölüm 7'),
                   )
                 else
                   Flexible(

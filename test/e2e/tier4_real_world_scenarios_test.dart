@@ -122,8 +122,8 @@ void main() {
       gc.applyPowerUp(PowerUpType.pierce);
 
       // Step 3: Verify localized label
-      expect(I18n.tr('pup_pierce'), equals('🔥 YAKICI TOP!'));
-      expect(PowerUpType.pierce.label, equals('🔥 YAKICI TOP!'));
+      expect(I18n.tr('pup_pierce'), equals('YAKICI TOP!'));
+      expect(PowerUpType.pierce.label, equals('YAKICI TOP!'));
 
       // Step 4: Verify ball has unified Searing Ball state
       final ball = gc.balls.first;

@@ -155,16 +155,19 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       primaryColor: const Color(0xFFFFB300),
       secondaryColor: const Color(0xFFFF6F00),
       onClaim: (context, save) async {
-        final fish = FortuneWheelDialog.vaultRewardFish(save);
+        final rand = Random();
+        final crates = CrateDef.allCrates;
+        final chosen = crates[rand.nextInt(crates.length)];
+        _awardedCrateDef = chosen;
         await save.savePendingCrate(PendingCrate(
           crateType: 'aquarium',
-          crateId: 'octopus',
+          crateId: chosen.id,
           category: 'fish',
           rewardType: 'fish',
-          rewardId: fish.id,
-          rewardTitle: fish.name,
-          rewardSubtitle: 'Ahtapot Hazinesi Kilitli (${CrateDef.octopusVaultPearlCost} İnci)',
-          rarityIndex: Rarity.legendary.index,
+          rewardId: chosen.id,
+          rewardTitle: chosen.name,
+          rewardSubtitle: I18n.tr('random_crate'),
+          rarityIndex: chosen.tier.index,
         ));
       },
     ),

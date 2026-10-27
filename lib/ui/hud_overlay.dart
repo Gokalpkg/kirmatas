@@ -391,7 +391,7 @@ class HudOverlay extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('🔥', style: TextStyle(fontSize: 11)),
+                          const Icon(Icons.whatshot, size: 12, color: Color(0xFFFFAB40)),
                           const SizedBox(width: 4),
                           Text(
                             'SERİ x${SaveManager.instance.winStreak}',

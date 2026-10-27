@@ -2691,7 +2691,7 @@ class KaunosBadge extends StatelessWidget {
     this.showGlow = false,
   });
 
-  /// Const named constructor for a locked chapter badge (e.g. "🔒 Bölüm 2", "🔒 BÖLÜM 5").
+  /// Const named constructor for a locked chapter badge (e.g. "Bölüm 2", "BÖLÜM 5").
   const KaunosBadge.lock({
     super.key,
     required this.text,

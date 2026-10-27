@@ -13,12 +13,16 @@ class EcoTankBackground extends StatefulWidget {
   final bool interactive;
   final Widget? child;
   final void Function(Offset worldPos, int gold)? onBubblePopped;
+  final VoidCallback? onOutOfFood;
+  final VoidCallback? onAllFishFed;
 
   const EcoTankBackground({
     super.key,
     this.interactive = false,
     this.child,
     this.onBubblePopped,
+    this.onOutOfFood,
+    this.onAllFishFed,
   });
 
   @override
@@ -370,11 +374,13 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
     // Bütün balıklar üretimdeyse yem boşa gitmesin: tüketme, animasyon da yok
     if (!save.hasWaitingFish) {
       AudioManager.instance.playSfx(GameSfx.hitWall);
+      widget.onAllFishFed?.call();
       return;
     }
     // Yem yoksa yem atılma animasyonu olmasın
     if (!save.consumeFishFoodOne()) {
       AudioManager.instance.playSfx(GameSfx.hitWall);
+      widget.onOutOfFood?.call();
       return;
     }
 
@@ -1096,7 +1102,7 @@ class _TankPainter extends CustomPainter {
   final Paint _fingerCorePaint = Paint()
     ..color = Colors.white
     ..style = PaintingStyle.fill;
-  final Paint _imgPaint = Paint()..filterQuality = FilterQuality.medium;
+  final Paint _imgPaint = Paint()..filterQuality = FilterQuality.none;
   final Paint _bodyPaint = Paint()..style = PaintingStyle.fill;
   final Paint _tailPaint = Paint()..style = PaintingStyle.fill;
   final Paint _eyeWhite = Paint()..color = Colors.white;
@@ -1239,68 +1245,69 @@ class _TankPainter extends CustomPainter {
       canvas.translate(f.x, f.y);
 
       final rollAngle = f.flipTimer > 0 ? (f.flipProgress * pi * 2.0) : 0.0;
-      if (f.rig != null && f.item.kind == FishKind.octopus) {
-        if (!f.facingRight) {
-          canvas.scale(-1, 1);
-        }
-        canvas.rotate(f.pitchAngle + rollAngle);
-        // Procedural octopus: body, face and eight soft-body arms.
-        canvas.scale(1.2, 1.2);
-        OctopusPainter.paint(canvas, f.rig!, time, f.item.color);
-        canvas.scale(1 / 1.2, 1 / 1.2);
-      } else if (f.fishRig != null) {
-        final fr = f.fishRig!;
-        final signedPitch = f.facingRight ? f.pitchAngle : -f.pitchAngle;
-        canvas.rotate(signedPitch + rollAngle);
+      if (!f.facingRight) {
+        canvas.scale(-1, 1);
+      }
+      canvas.rotate(f.pitchAngle + rollAngle);
 
-        if (f.item.kind == FishKind.crab) {
+      // Creature motion language & natural swimming dynamics
+      switch (f.item.kind) {
+        case FishKind.snail:
+          canvas.rotate(sin(time * 2.0 + f.tailPhase) * 0.03);
+          break;
+        case FishKind.crab:
           if (f.isMoving) {
             canvas.translate(0, -sin(time * 16.0 + f.tailPhase).abs() * 2.2);
           }
           canvas.rotate(sin(time * 8.0 + f.tailPhase) * 0.045);
-        } else if (f.item.kind == FishKind.jellyfish) {
+          break;
+        case FishKind.shrimp:
+          canvas.rotate(sin(time * 6.0 + f.tailPhase) * 0.07);
+          break;
+        case FishKind.octopus:
+          if (f.grabbedPellet != null) {
+            final bite = sin(time * 10.0 + f.tailPhase);
+            canvas.scale(1.07, 0.90 + bite * 0.02);
+            canvas.translate(0, 3.0 + bite * 0.4);
+          } else if (f.isMoving) {
+            final stride = sin(f.stepPhase * 2.0);
+            canvas.translate(0, -stride.abs() * 2.6);
+            canvas.rotate(stride * 0.05);
+            final pulse = 1.0 + sin(time * 2.4 + f.tailPhase) * 0.04;
+            canvas.scale(pulse, 2.0 - pulse);
+          } else {
+            final pulse = 1.0 + sin(time * 2.4 + f.tailPhase) * 0.05;
+            canvas.scale(pulse, 2.0 - pulse);
+            canvas.translate(0, sin(time * 1.8 + f.tailPhase) * 1.6);
+          }
+          break;
+        case FishKind.jellyfish:
+          final bell = sin(time * 2.2 + f.tailPhase);
+          canvas.scale(1.0 - bell * 0.06, 1.0 + bell * 0.09);
           canvas.rotate(sin(time * 1.4 + f.tailPhase) * 0.06);
-        }
+          break;
+        case FishKind.fish:
+          final wag = sin(time * 4.5 + f.tailPhase) * 0.05;
+          canvas.rotate(wag);
+          final breath = 1.0 + sin(time * 3.0 + f.tailPhase) * 0.02;
+          canvas.scale(breath, 2.0 - breath);
+          break;
+      }
 
-        final drawScale = 0.88 + f.item.size * 0.24;
-        canvas.scale(drawScale, drawScale);
-        FishPainter.paint(canvas, fr, time);
-        canvas.scale(1.0 / drawScale, 1.0 / drawScale);
+      final img = AssetCache.instance.getFishImage(f.item.id);
+      if (img != null) {
+        final fishScale = f.item.size * 0.14;
+        canvas.scale(fishScale, fishScale);
+
+        final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
+        final dst = Rect.fromCenter(
+          center: Offset.zero,
+          width: img.width.toDouble(),
+          height: img.height.toDouble(),
+        );
+        canvas.drawImageRect(img, src, dst, _imgPaint);
+        canvas.scale(1.0 / fishScale, 1.0 / fishScale);
       } else {
-        // Authentic classic sprite rendering with natural swimming dynamics
-        if (!f.facingRight) {
-          canvas.scale(-1, 1);
-        }
-        canvas.rotate(f.pitchAngle + rollAngle);
-
-        // Creature motion language
-        switch (f.item.kind) {
-          case FishKind.snail:
-            canvas.rotate(sin(time * 2.0 + f.tailPhase) * 0.03);
-            break;
-          case FishKind.shrimp:
-            canvas.rotate(sin(time * 6.0 + f.tailPhase) * 0.07);
-            break;
-          default:
-            final wag = sin(time * 3.5 + f.tailPhase) * 0.03;
-            canvas.rotate(wag);
-            break;
-        }
-
-        final img = AssetCache.instance.getFishImage(f.item.id);
-        if (img != null) {
-          final fishScale = f.item.size * 0.14;
-          canvas.scale(fishScale, fishScale);
-
-          final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
-          final dst = Rect.fromCenter(
-            center: Offset.zero,
-            width: img.width.toDouble(),
-            height: img.height.toDouble(),
-          );
-          canvas.drawImageRect(img, src, dst, _imgPaint);
-          canvas.scale(1.0 / fishScale, 1.0 / fishScale);
-        } else {
           final fishScale = f.item.size * 0.7;
           canvas.scale(fishScale, fishScale);
           final bodyRect = Rect.fromCenter(center: Offset.zero, width: 26, height: 13);
@@ -1322,7 +1329,6 @@ class _TankPainter extends CustomPainter {
           canvas.drawCircle(const Offset(8, -2), 0.9, _eyeBlack);
           canvas.scale(1.0 / fishScale, 1.0 / fishScale);
         }
-      }
 
       // 8. Status marker above fed fish: a bouncing gold coin once the
       // 6h gold is ready to collect, otherwise a thin 6h progress bar.

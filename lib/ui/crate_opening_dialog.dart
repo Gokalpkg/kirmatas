@@ -157,7 +157,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '🐙 ${CrateDef.octopusVault.name.toUpperCase()}',
+            CrateDef.octopusVault.name.toUpperCase(),
             style: const TextStyle(color: Color(0xFFEA80FC), fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.0),
           ),
           const SizedBox(height: 5),

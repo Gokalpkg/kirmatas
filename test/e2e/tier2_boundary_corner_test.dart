@@ -660,18 +660,18 @@ void main() {
     group('F2.4: Localization Boundaries', () {
       test('F2.4_T2_01: Dynamic language switch tr -> en -> tr preserves localized Searing Ball string', () {
         SaveManager.instance.setLanguage('tr');
-        expect(I18n.tr('pup_fireball'), equals('🔥 YAKICI TOP!'));
+        expect(I18n.tr('pup_fireball'), equals('YAKICI TOP!'));
 
         SaveManager.instance.setLanguage('en');
-        expect(I18n.tr('pup_fireball'), equals('🔥 SEARING BALL!'));
+        expect(I18n.tr('pup_fireball'), equals('SEARING BALL!'));
 
         SaveManager.instance.setLanguage('tr');
-        expect(I18n.tr('pup_fireball'), equals('🔥 YAKICI TOP!'));
+        expect(I18n.tr('pup_fireball'), equals('YAKICI TOP!'));
       });
 
-      test('F2.4_T2_02: Fallback for unsupported locale defaults to English 🔥 SEARING BALL!', () {
+      test('F2.4_T2_02: Fallback for unsupported locale defaults to English SEARING BALL!', () {
         SaveManager.instance.setLanguage('unknown_locale_xyz');
-        expect(I18n.tr('pup_fireball'), equals('🔥 SEARING BALL!'));
+        expect(I18n.tr('pup_fireball'), equals('SEARING BALL!'));
       });
 
       test('F2.4_T2_03: Collecting pierce capsule spawns floating text with localized label', () {
@@ -681,17 +681,18 @@ void main() {
 
         gc.applyPowerUp(PowerUpType.pierce);
 
-        expect(PowerUpType.pierce.label, equals('🔥 YAKICI TOP!'));
+        expect(PowerUpType.pierce.label, equals('YAKICI TOP!'));
       });
 
-      test('F2.4_T2_04: Localized labels strictly contain the flame emoji 🔥 and non-empty text', () {
+      test('F2.4_T2_04: Localized labels strictly contain non-empty uppercase text without emojis', () {
+        final emojiRegex = RegExp(r'[\uD83C-\uD83E][\uDC00-\uDFFF]|[\u2600-\u27BF]');
         for (final lang in ['tr', 'en']) {
           SaveManager.instance.setLanguage(lang);
           final fbLabel = I18n.tr('pup_fireball');
           final pierceLabel = I18n.tr('pup_pierce');
 
-          expect(fbLabel.contains('🔥'), isTrue);
-          expect(pierceLabel.contains('🔥'), isTrue);
+          expect(emojiRegex.hasMatch(fbLabel), isFalse);
+          expect(emojiRegex.hasMatch(pierceLabel), isFalse);
           expect(fbLabel.length, greaterThan(3));
           expect(pierceLabel.length, greaterThan(3));
         }

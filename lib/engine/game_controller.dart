@@ -356,7 +356,18 @@ class GameController extends ChangeNotifier {
   double _nearMissSlowLeft = 0.0;
   double _lastBrickHitTimer = 0.0;
   double _currentLevelDuration = 0.0;
-  bool fishSaveUsedThisLevel = false;
+  bool fishSaveUsedThisRun = false;
+  bool get fishSaveUsedThisLevel => fishSaveUsedThisRun;
+  set fishSaveUsedThisLevel(bool v) => fishSaveUsedThisRun = v;
+
+  /// Max hard-cap on player lives to prevent endless stockpiling
+  static const int maxLivesCap = 5;
+
+  /// Track how many hearts have dropped during the current level
+  int levelHeartsDropped = 0;
+
+  /// Overdrive homing is disabled in normal gameplay so ball trajectory follows purely physics.
+  bool enableOverdriveHoming = false;
 
   /// Target lock-on state (PowerUpType.lock): homing missile steering and visual reticle
   Brick? lockedTargetBrick;
@@ -663,6 +674,10 @@ class GameController extends ChangeNotifier {
     level1GuideTimer = 0.0;
     levelBricksBroken = 0;
     earlyActionDropGranted = false;
+    levelHeartsDropped = 0;
+    if (!isResume) {
+      fishSaveUsedThisRun = false;
+    }
 
     if (mode == GameMode.shapes) {
       shapesPermutation = List<int>.generate(LevelDesign.allShapes.length, (i) => i)..shuffle();
@@ -891,7 +906,7 @@ class GameController extends ChangeNotifier {
     _blackHoleTimer = 0.0;
     levelBricksBroken = 0;
     earlyActionDropGranted = false;
-    fishSaveUsedThisLevel = false;
+    levelHeartsDropped = 0;
     _lastBrickHitTimer = 0.0;
     switch (currentMode) {
       case GameMode.classic:
@@ -1081,10 +1096,12 @@ class GameController extends ChangeNotifier {
         ball.vx = speed * sin(spread);
         ball.vy = -speed * cos(spread);
       } else {
-        // Extremely subtle tilt angle (~0.8-1.5 degrees) barely perceptible to human eye yet prevents idle vertical exploit
-        final tilt = (_rand.nextBool() ? 1.0 : -1.0) * (0.014 + _rand.nextDouble() * 0.012);
-        ball.vx = speed * sin(tilt);
-        ball.vy = -speed * cos(tilt);
+        // Natural launch angle between 15° and 25° (randomly left or right)
+        // Ensures the ball never bounces in a purely vertical idle loop and requires active paddle play
+        final angleDeg = 15.0 + _rand.nextDouble() * 10.0;
+        final angleRad = (_rand.nextBool() ? 1.0 : -1.0) * (angleDeg * pi / 180.0);
+        ball.vx = speed * sin(angleRad);
+        ball.vy = -speed * cos(angleRad);
       }
       anyLaunched = true;
     }
@@ -2402,117 +2419,126 @@ class GameController extends ChangeNotifier {
     }
 
     // Black Hole random dynamic appearance strictly in open playable zone between bricks and paddle
-    // Genelde (%90+) 1 adet karadelik bulunur. 2. karadelik çok nadiren (%5-10) belirir.
+    // Çok daha seyrek (35-40s aralık) ve genelde 1 adet. 2. karadelik ihtimali sadece %0.8.
     if (status == GameStatus.playing &&
         currentMode != GameMode.zen &&
         currentMode != GameMode.chaos &&
         blackHoles.length < 2 &&
         _blackHolesAllowed) {
       _blackHoleTimer = (_blackHoleTimer ?? 0.0) + dt;
-      final canSpawn = blackHoles.isEmpty
-          ? (_blackHoleTimer! >= 8.0 && _rand.nextDouble() < 0.12)
-          : (blackHoles.length == 1 && _blackHoleTimer! >= 14.0 && _rand.nextDouble() < 0.02);
-      if (canSpawn) {
-        // Find bottom-most active breakable brick so steel barriers don't block black hole spawns
-        double lowestAliveBrickY = 0.0;
-        for (final b in bricks) {
-          if (b.isAlive && !b.isSteel && (b.y + b.height) > lowestAliveBrickY) {
-            lowestAliveBrickY = b.y + b.height;
-          }
-        }
-
-        final minY = lowestAliveBrickY + 45.0;
-        final maxY = paddle.y - 170.0;
-
+      if (_blackHoleTimer! >= 35.0) {
         _blackHoleTimer = 0.0;
-        final roll = _rand.nextDouble();
-        final isVortexTrap = roll < 0.02; // 2% rare ultra vortex
-        final isSupercharged = !isVortexTrap && (roll < 0.30); // ~28% exotic supercharged black hole
-        final r = isVortexTrap ? 32.0 : (isSupercharged ? 28.0 : (20.0 + _rand.nextDouble() * 10.0));
-        final double spawnY = (maxY > minY + 20.0)
-            ? (minY + _rand.nextDouble() * (maxY - minY))
-            : (paddle.y - 200.0).clamp(160.0, paddle.y - 170.0);
-        var spawnX = (screenWidth * 0.22 + _rand.nextDouble() * (screenWidth * 0.56)).clamp(r + 20.0, screenWidth - r - 20.0);
-
-        // 2. karadelik çıktığında 1.siyle üst üste binmesin diye yatay mesafe garantisi:
-        if (blackHoles.isNotEmpty) {
-          final first = blackHoles.first;
-          if ((spawnX - first.x).abs() < 120.0) {
-            spawnX = (first.x > screenWidth * 0.5)
-                ? (first.x - 130.0).clamp(r + 20.0, screenWidth - r - 20.0)
-                : (first.x + 130.0).clamp(r + 20.0, screenWidth - r - 20.0);
+        final canSpawn = blackHoles.isEmpty
+            ? (_rand.nextDouble() < 0.22)
+            : (_rand.nextDouble() < 0.008);
+        if (canSpawn) {
+          // Find bottom-most active breakable brick so steel barriers don't block black hole spawns
+          double lowestAliveBrickY = 0.0;
+          for (final b in bricks) {
+            if (b.isAlive && !b.isSteel && (b.y + b.height) > lowestAliveBrickY) {
+              lowestAliveBrickY = b.y + b.height;
+            }
           }
-        }
 
-        blackHoles.add(
-          BlackHole(
-            x: spawnX,
-            y: spawnY,
-            radius: r,
-            mass: r * 8000.0,
-            timeLeft: isVortexTrap ? 7.5 : (isSupercharged ? 6.5 : (5.5 + _rand.nextDouble() * 2.0)),
-            isVortexTrap: isVortexTrap,
-            isSupercharged: isSupercharged,
-          ),
-        );
-        audio.playSfx(GameSfx.laser);
-        if (isVortexTrap) {
-          particles.spawnFloatingText(screenWidth * 0.5, spawnY, I18n.tr('vortex_black_hole'), const Color(0xFFFF1744), isLarge: true);
-          particles.spawnShockwave(spawnX, spawnY, const Color(0xFFFF1744), maxRadius: 80.0);
-        } else if (isSupercharged) {
-          particles.spawnShockwave(spawnX, spawnY, const Color(0xFFFF9100), maxRadius: 70.0);
-        } else {
-          particles.spawnShockwave(spawnX, spawnY, const Color(0xFF7C4DFF), maxRadius: 60.0);
+          final minY = lowestAliveBrickY + 45.0;
+          final maxY = paddle.y - 170.0;
+
+          final roll = _rand.nextDouble();
+          final isVortexTrap = roll < 0.02; // 2% rare ultra vortex
+          final isSupercharged = !isVortexTrap && (roll < 0.25);
+          final r = isVortexTrap ? 30.0 : (isSupercharged ? 26.0 : (18.0 + _rand.nextDouble() * 8.0));
+          final double spawnY = (maxY > minY + 20.0)
+              ? (minY + _rand.nextDouble() * (maxY - minY))
+              : (paddle.y - 200.0).clamp(160.0, paddle.y - 170.0);
+          var spawnX = (screenWidth * 0.22 + _rand.nextDouble() * (screenWidth * 0.56)).clamp(r + 20.0, screenWidth - r - 20.0);
+
+          // 2. karadelik çıktığında 1.siyle üst üste binmesin diye yatay mesafe garantisi:
+          if (blackHoles.isNotEmpty) {
+            final first = blackHoles.first;
+            if ((spawnX - first.x).abs() < 120.0) {
+              spawnX = (first.x > screenWidth * 0.5)
+                  ? (first.x - 130.0).clamp(r + 20.0, screenWidth - r - 20.0)
+                  : (first.x + 130.0).clamp(r + 20.0, screenWidth - r - 20.0);
+            }
+          }
+
+          blackHoles.add(
+            BlackHole(
+              x: spawnX,
+              y: spawnY,
+              radius: r,
+              mass: r * 3500.0,
+              timeLeft: isVortexTrap ? 4.5 : (isSupercharged ? 3.8 : 3.2),
+              isVortexTrap: isVortexTrap,
+              isSupercharged: isSupercharged,
+            ),
+          );
+          audio.playSfx(GameSfx.laser);
+          if (isVortexTrap) {
+            particles.spawnFloatingText(screenWidth * 0.5, spawnY, I18n.tr('vortex_black_hole'), const Color(0xFFFF1744), isLarge: true);
+            particles.spawnShockwave(spawnX, spawnY, const Color(0xFFFF1744), maxRadius: 70.0);
+          } else if (isSupercharged) {
+            particles.spawnShockwave(spawnX, spawnY, const Color(0xFFFF9100), maxRadius: 55.0);
+          } else {
+            particles.spawnShockwave(spawnX, spawnY, const Color(0xFF7C4DFF), maxRadius: 45.0);
+          }
+          showMicroTip('black_hole', I18n.tr('tip_black_hole'));
         }
-        showMicroTip('black_hole', I18n.tr('tip_black_hole'));
       }
     }
   }
 
   void _updateBalls(double dt) {
-    // Item 2: Son Tuğla İşkencesi & Sonsuz Döngü Koruması (Overdrive Homing + Fail-safe Lightning)
-    final aliveBreakable = bricks.where((b) => b.isAlive && !b.isSteel && !b.isHeavySteel).toList();
-    if (aliveBreakable.isNotEmpty && aliveBreakable.length <= 3 && status == GameStatus.playing && currentMode != GameMode.chaos) {
-      _lastBrickHitTimer += dt;
-      if (_lastBrickHitTimer >= 4.0) {
-        for (final b in balls) {
-          b.isOverdriveHoming = true;
-        }
-        final targetBrick = aliveBreakable.first;
-        final tx = targetBrick.x + targetBrick.width / 2;
-        final ty = targetBrick.y + targetBrick.height / 2;
-        for (final b in balls) {
-          if (b.isStuck) continue;
-          final dx = tx - b.x;
-          final dy = ty - b.y;
-          final dist = sqrt(dx * dx + dy * dy);
-          if (dist > 8.0) {
-            final targetAngle = atan2(dy, dx);
-            final spd = b.speed;
-            b.vx = b.vx * 0.94 + cos(targetAngle) * spd * 0.06;
-            b.vy = b.vy * 0.94 + sin(targetAngle) * spd * 0.06;
-            b.setSpeed(spd);
+    // Overdrive Homing & Fail-safe Lightning (Disabled by default so ball moves purely by physics)
+    if (enableOverdriveHoming) {
+      final aliveBreakable = bricks.where((b) => b.isAlive && !b.isSteel && !b.isHeavySteel).toList();
+      if (aliveBreakable.isNotEmpty && aliveBreakable.length == 1 && status == GameStatus.playing && currentMode != GameMode.chaos) {
+        _lastBrickHitTimer += dt;
+        if (_lastBrickHitTimer >= 18.0) {
+          for (final b in balls) {
+            b.isOverdriveHoming = true;
+          }
+          final targetBrick = aliveBreakable.first;
+          final tx = targetBrick.x + targetBrick.width / 2;
+          final ty = targetBrick.y + targetBrick.height / 2;
+          for (final b in balls) {
+            if (b.isStuck) continue;
+            final dx = tx - b.x;
+            final dy = ty - b.y;
+            final dist = sqrt(dx * dx + dy * dy);
+            if (dist > 8.0) {
+              final targetAngle = atan2(dy, dx);
+              final spd = b.speed;
+              b.vx = b.vx * 0.94 + cos(targetAngle) * spd * 0.06;
+              b.vy = b.vy * 0.94 + sin(targetAngle) * spd * 0.06;
+              b.setSpeed(spd);
+            }
           }
         }
-      }
-      if (_lastBrickHitTimer >= 7.5) {
-        final targetBrick = aliveBreakable.first;
-        final tx = targetBrick.x + targetBrick.width / 2;
-        final ty = targetBrick.y + targetBrick.height / 2;
-        if (balls.isNotEmpty) {
-          final ball = balls.first;
-          // Electric lightning strike arc connecting ball to target brick
-          for (double t = 0.0; t <= 1.0; t += 0.1) {
-            final lx = ball.x + (tx - ball.x) * t;
-            final ly = ball.y + (ty - ball.y) * t;
-            particles.spawnBurst(lx, ly, const Color(0xFF00E5FF), count: 2, speed: 30.0);
+        if (_lastBrickHitTimer >= 25.0) {
+          final targetBrick = aliveBreakable.first;
+          final tx = targetBrick.x + targetBrick.width / 2;
+          final ty = targetBrick.y + targetBrick.height / 2;
+          if (balls.isNotEmpty) {
+            final ball = balls.first;
+            // Electric lightning strike arc connecting ball to target brick
+            for (double t = 0.0; t <= 1.0; t += 0.1) {
+              final lx = ball.x + (tx - ball.x) * t;
+              final ly = ball.y + (ty - ball.y) * t;
+              particles.spawnBurst(lx, ly, const Color(0xFF00E5FF), count: 2, speed: 30.0);
+            }
+          }
+          particles.triggerShake(6.0, 0.3);
+          particles.spawnShockwave(tx, ty, const Color(0xFF00E5FF), maxRadius: 110.0);
+          particles.spawnFloatingText(tx, targetBrick.y - 14, 'YILDIRIM VURUŞU!', const Color(0xFF00E5FF), isLarge: true);
+          audio.playSfx(GameSfx.ulti);
+          _destroyBrick(targetBrick);
+          _lastBrickHitTimer = 0.0;
+          for (final b in balls) {
+            b.isOverdriveHoming = false;
           }
         }
-        particles.triggerShake(6.0, 0.3);
-        particles.spawnShockwave(tx, ty, const Color(0xFF00E5FF), maxRadius: 110.0);
-        particles.spawnFloatingText(tx, targetBrick.y - 14, '⚡ YILDIRIM VURUŞU!', const Color(0xFF00E5FF), isLarge: true);
-        audio.playSfx(GameSfx.ulti);
-        _destroyBrick(targetBrick);
+      } else {
         _lastBrickHitTimer = 0.0;
         for (final b in balls) {
           b.isOverdriveHoming = false;
@@ -2640,10 +2666,10 @@ class GameController extends ChangeNotifier {
 
           final normalizedDist = (dist / maxInfluenceDist).clamp(0.0, 1.0);
           final proximity = 1.0 - normalizedDist;
-          final falloff = pow(proximity, 0.65).toDouble();
+          final falloff = pow(proximity, 1.35).toDouble();
 
-          final sizeMult = (bh.radius / 20.0).clamp(1.0, 2.0);
-          final basePull = (bh.isVortexTrap ? 5400.0 : (bh.isSupercharged ? 4400.0 : 3400.0)) * sizeMult;
+          final sizeMult = (bh.radius / 20.0).clamp(1.0, 1.6);
+          final basePull = (bh.isVortexTrap ? 1400.0 : (bh.isSupercharged ? 1100.0 : 850.0)) * sizeMult;
           final pull = basePull * falloff;
 
           final nx = dx / dist;
@@ -2656,24 +2682,24 @@ class GameController extends ChangeNotifier {
           final tangentY = nx;
           final dotTangent = ball.vx * tangentX + ball.vy * tangentY;
           final dragDirection = dotTangent >= 0 ? 1.0 : -1.0;
-          final spinDrag = (bh.isVortexTrap ? 1400.0 : (bh.isSupercharged ? 1100.0 : 850.0)) * falloff;
+          final spinDrag = (bh.isVortexTrap ? 320.0 : (bh.isSupercharged ? 250.0 : 180.0)) * falloff;
           ball.vx += tangentX * spinDrag * dragDirection * dt;
           ball.vy += tangentY * spinDrag * dragDirection * dt;
 
-          if (proximity > 0.45 || dist < bh.radius * 3.5) {
-            ball.vx += tangentX * 280.0 * dragDirection * dt;
-            ball.vy += tangentY * 280.0 * dragDirection * dt;
-            if (_rand.nextDouble() < 0.25) {
+          if (proximity > 0.60 || dist < bh.radius * 2.2) {
+            ball.vx += tangentX * 120.0 * dragDirection * dt;
+            ball.vy += tangentY * 120.0 * dragDirection * dt;
+            if (_rand.nextDouble() < 0.20) {
               particles.spawnBurnEmber(ball.x, ball.y, color: bh.isSupercharged ? const Color(0xFF00E5FF) : const Color(0xFFE040FB));
             }
           }
 
           if (dist <= bh.radius * 0.48 + ball.radius) {
-            final exitSpeed = max(ball.speed * 1.15, getBaseBallSpeed() * 1.25).clamp(getBaseBallSpeed(), 820.0);
+            final exitSpeed = (ball.speed * 1.06).clamp(getBaseBallSpeed(), 540.0);
             ball.vx = tangentX * exitSpeed * dragDirection;
             ball.vy = tangentY * exitSpeed * dragDirection;
-            particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD54F), count: 12, speed: 160.0);
-            particles.spawnShockwave(bh.x, bh.y, const Color(0xFFE040FB), maxRadius: 45.0);
+            particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD54F), count: 8, speed: 120.0);
+            particles.spawnShockwave(bh.x, bh.y, const Color(0xFFE040FB), maxRadius: 35.0);
             audio.playSfx(GameSfx.cornerBoost);
           }
 
@@ -2681,7 +2707,7 @@ class GameController extends ChangeNotifier {
           if (ball.speed < minSpeed) {
             ball.setSpeed(minSpeed);
           }
-          final maxAllowedSpeed = (bh.isSupercharged || bh.isVortexTrap || ball.isWallSpeedBoosted) ? 800.0 : 700.0;
+          final maxAllowedSpeed = 580.0;
           if (ball.speed > maxAllowedSpeed) {
             ball.setSpeed(maxAllowedSpeed);
           }
@@ -2689,9 +2715,9 @@ class GameController extends ChangeNotifier {
           final ballKey = ball.hashCode;
           if ((bh.isSupercharged || bh.isVortexTrap) && (bh.ballAccumulatedAngles[ballKey] ?? 0.0) >= pi * 0.65) {
             final currentSpd = ball.speed;
-            final slingshotSpeed = (currentSpd * 1.18).clamp(getBaseBallSpeed(), 760.0);
+            final slingshotSpeed = (currentSpd * 1.08).clamp(getBaseBallSpeed(), 560.0);
             ball.setSpeed(slingshotSpeed);
-            particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD54F), count: 8, speed: 140.0);
+            particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD54F), count: 6, speed: 100.0);
             audio.playSfx(GameSfx.hitPaddle);
           }
           bh.ballAngles.remove(ballKey);
@@ -2817,23 +2843,21 @@ class GameController extends ChangeNotifier {
         }
       }
 
-      // Vortex Rescue Magnet: curves falling balls toward the center of the paddle!
+      // Vortex Rescue Magnet: curves falling balls slightly toward the center of the paddle without artificial teleportation
       if (paddle.hasVortex &&
           currentMode != GameMode.chaos &&
           ball.vy > 0 &&
-          ball.y > paddle.y - 210.0 &&
-          ball.y <= paddle.y + 12.0) {
+          ball.y > paddle.y - 75.0 &&
+          ball.y <= paddle.y + 6.0) {
         final targetX = paddle.x + paddle.width / 2;
         final dx = targetX - ball.x;
-        final dy = (paddle.y - ball.y).clamp(16.0, 210.0);
-        final desiredVx = (dx / dy) * ball.vy.abs();
-        ball.vx += (desiredVx - ball.vx) * (6.5 * dt).clamp(0.0, 1.0);
-        ball.x += dx.clamp(-140.0, 140.0) * 2.8 * dt;
-        final spd = ball.speed.clamp(getBaseBallSpeed(), 750.0);
+        final desiredVx = (dx / (paddle.y - ball.y).clamp(16.0, 75.0)) * ball.vy.abs();
+        ball.vx += (desiredVx - ball.vx) * (2.8 * dt).clamp(0.0, 0.4);
+        final spd = ball.speed.clamp(getBaseBallSpeed(), 580.0);
         ball.setSpeed(spd);
       }
 
-      // Guided Strike / Target Lock: Ball curves and tracks directly towards locked target brick!
+      // Guided Strike / Target Lock: Ball curves gently towards locked target brick
       if (lockedTargetBrick != null &&
           lockedTargetBrick!.isAlive &&
           (ball == targetLockingBall || balls.length == 1) &&
@@ -2844,11 +2868,10 @@ class GameController extends ChangeNotifier {
         final dy = ty - ball.y;
         final dist = sqrt(dx * dx + dy * dy);
         if (dist > 8.0) {
-          final curSpeed = ball.speed.clamp(getBaseBallSpeed(), 650.0);
+          final curSpeed = ball.speed.clamp(getBaseBallSpeed(), 580.0);
           final targetVx = (dx / dist) * curSpeed;
           final targetVy = (dy / dist) * curSpeed;
-          // Crisp, intelligent homing turn towards target
-          final steer = (dt * 9.5).clamp(0.05, 0.40);
+          final steer = (dt * 3.5).clamp(0.03, 0.15);
           ball.vx = ball.vx * (1.0 - steer) + targetVx * steer;
           ball.vy = ball.vy * (1.0 - steer) + targetVy * steer;
           final normSpeed = sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
@@ -2999,9 +3022,9 @@ class GameController extends ChangeNotifier {
           audio.playSfx(GameSfx.powerupBuff);
           continue;
         }
-        // Item 7: Aquarium-Game Bridge: Dolphin Leap / Balık Kurtarışı
-        if (balls.length == 1 && !fishSaveUsedThisLevel && save.unlockedFish.isNotEmpty) {
-          fishSaveUsedThisLevel = true;
+        // Item 7: Aquarium-Game Bridge: Dolphin Leap / Balık Kurtarışı (Oyun/Run başına strictly 1 kez)
+        if (balls.length == 1 && !fishSaveUsedThisRun && save.unlockedFish.isNotEmpty) {
+          fishSaveUsedThisRun = true;
           ball.y = paddle.y - ball.radius - 4.0;
           ball.vy = -ball.vy.abs();
           particles.triggerShake(5.0, 0.28);
@@ -3149,7 +3172,7 @@ class GameController extends ChangeNotifier {
           particles.spawnFloatingText(
             screenWidth / 2,
             screenHeight * 0.38,
-            '⚡ SÜPER KÖŞE VURUŞU!',
+            'SÜPER KÖŞE VURUŞU!',
             const Color(0xFFFFD700),
             isLarge: true,
           );
@@ -3622,11 +3645,14 @@ class GameController extends ChangeNotifier {
       lockedTargetBrick = null;
       targetLockingBall = null;
       targetLockTimer = 0.0;
-      dmg += 3; // Huge guided missile damage!
-      particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFF00E5FF), maxRadius: 52.0);
-      particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD54F), count: 16, speed: 160.0);
-      particles.triggerShake(4.5, 0.22);
+      // LOCK SADECE 1 TANE TUĞLA KIRSIN: Hedeflenen taşı doğrudan kırar ve kilit anında sonlanır
+      particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFF00E5FF), maxRadius: 46.0);
+      particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD54F), count: 14, speed: 140.0);
+      particles.triggerShake(4.0, 0.18);
       audio.playSfx(GameSfx.bossHit);
+      b.hp = 0;
+      _destroyBrick(b);
+      return;
     }
     if (activeCosmeticSynergy == CosmeticSynergy.iceCrystal &&
         (b.isIce || b.maxHp > 1 || b.isHeavySteel)) {
@@ -4331,6 +4357,13 @@ class GameController extends ChangeNotifier {
       if (currentMode == GameMode.classic && stats.level < 4) {
         buffs = buffs.where((t) => t != PowerUpType.vortex).toList();
       }
+      // Kalp / Can düşüş kuralları & tavan sınırları:
+      // 1. Oyuncunun 3 veya daha fazla canı varsa kalp kesinlikle düşmez.
+      // 2. Bir bölümde en fazla 1 adet kalp düşebilir.
+      // 3. Ekranda zaten düşmekte olan bir kalp kapsülü varsa ikincisi düşmez.
+      if (stats.lives >= 3 || levelHeartsDropped >= 1 || capsules.any((c) => c.type == PowerUpType.life)) {
+        buffs = buffs.where((t) => t != PowerUpType.life).toList();
+      }
       // Alev ve buz aynı anda olmaz: biri aktifken diğeri asla düşmez.
       final fireInPlay = balls.any((b) => b.isFireball) ||
           activePowerUps.any((p) => p.type == PowerUpType.fireball);
@@ -4364,6 +4397,9 @@ class GameController extends ChangeNotifier {
               chosen == PowerUpType.shrapnel) &&
           _rand.nextDouble() < 0.75) {
         chosen = buffs[_rand.nextInt(buffs.length)];
+      } else if (chosen == PowerUpType.life && _rand.nextDouble() < 0.75) {
+        final noLife = buffs.where((t) => t != PowerUpType.life).toList();
+        if (noLife.isNotEmpty) chosen = noLife[_rand.nextInt(noLife.length)];
       }
 
       // Eşzamanlı bomba & mükerrer kapsül koruması (Aynı anda 2 bomba veya mükerrer kapsül düşmesini engeller)
@@ -4377,6 +4413,10 @@ class GameController extends ChangeNotifier {
     } else {
       final debuffs = allTypes.where((t) => t.kind == PowerUpKind.debuff).toList();
       chosen = debuffs[_rand.nextInt(debuffs.length)];
+    }
+
+    if (chosen == PowerUpType.life) {
+      levelHeartsDropped++;
     }
 
     capsules.add(FallingCapsule(x: x, y: y, type: chosen));
@@ -4416,8 +4456,17 @@ class GameController extends ChangeNotifier {
           _splitBalls();
           break;
         case PowerUpType.life:
-          stats.lives++;
-          _lastKnownLives = stats.lives;
+          if (stats.lives < maxLivesCap) {
+            stats.lives++;
+            _lastKnownLives = stats.lives;
+            particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, '+1 CAN', const Color(0xFFFF5252), isLarge: true);
+            audio.playSfx(GameSfx.powerupBuff);
+          } else {
+            stats.goldCollected += 50;
+            save.addGold(50);
+            particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, 'MAX CAN! +50 ALTIN', const Color(0xFFFFD700), isLarge: true);
+            audio.playSfx(GameSfx.powerupBuff);
+          }
           break;
         case PowerUpType.mirror:
           if (balls.isNotEmpty) {
@@ -4597,8 +4646,8 @@ class GameController extends ChangeNotifier {
           BlackHole(
             x: spawnX,
             y: spawnY,
-            radius: 30.0,
-            mass: 30.0 * 5000.0,
+            radius: 26.0,
+            mass: 26.0 * 3500.0,
             timeLeft: 9.0,
             isSupercharged: true,
           ),
@@ -5032,15 +5081,16 @@ class GameController extends ChangeNotifier {
     }
   }
 
-  /// Chaos revive rescue: wipes the lowest [rows] brick rows so the wall
+  /// Chaos revive rescue: wipes the lowest [rows] (at least 3) brick rows so the wall
   /// that just crushed the player can't instantly crush them again after
   /// watching the revive ad. Returns how many bricks were cleared.
   int clearChaosBottomRows(int rows) {
     if (currentMode != GameMode.chaos) return 0;
+    final effectiveRows = max(3, rows);
     final alive = bricks.where((b) => b.isAlive && !b.isBallPickup).toList();
     if (alive.isEmpty) return 0;
     final rowKeys = alive.map((b) => (b.targetY / LevelDesign.chaosStep).round()).toSet().toList()..sort();
-    final doomed = rowKeys.reversed.take(rows).toSet();
+    final doomed = rowKeys.reversed.take(effectiveRows).toSet();
     var cleared = 0;
     for (final b in alive) {
       if (doomed.contains((b.targetY / LevelDesign.chaosStep).round())) {
@@ -5053,7 +5103,36 @@ class GameController extends ChangeNotifier {
       particles.spawnFloatingText(
         screenWidth / 2,
         chaosFloorY - 130,
-        'ALT $rows SIRA TEMİZLENDİ!',
+        'ALT $effectiveRows SIRA TEMİZLENDİ!',
+        const Color(0xFF69F0AE),
+        isLarge: true,
+      );
+    }
+    return cleared;
+  }
+
+  /// Classic revive rescue: wipes at least [rows] (default 3) lowest breakable brick rows
+  /// so that on revive the player has comfortable clearance above the paddle.
+  int clearClassicBottomRows(int rows) {
+    final effectiveRows = max(3, rows);
+    final alive = bricks.where((b) => b.isAlive && !b.isBoss && !b.isSteel && !b.isHeavySteel).toList();
+    if (alive.isEmpty) return 0;
+    // Group alive bricks by discrete row Y coordinates
+    final rowHeights = alive.map((b) => (b.y / 24.0).round()).toSet().toList()..sort();
+    final doomedRows = rowHeights.reversed.take(effectiveRows).toSet();
+    var cleared = 0;
+    for (final b in alive) {
+      if (doomedRows.contains((b.y / 24.0).round())) {
+        b.isAlive = false;
+        cleared++;
+        particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, b.color, count: 8);
+      }
+    }
+    if (cleared > 0) {
+      particles.spawnFloatingText(
+        screenWidth / 2,
+        paddle.y - 120.0,
+        'ALT $effectiveRows SIRA TEMİZLENDİ!',
         const Color(0xFF69F0AE),
         isLarge: true,
       );
@@ -5066,6 +5145,8 @@ class GameController extends ChangeNotifier {
     revivesUsed++;
     if (currentMode == GameMode.chaos) {
       clearChaosBottomRows(3);
+    } else {
+      clearClassicBottomRows(3);
     }
     stats.lives = 1;
     if (streakBeforeGameOver > 0) {
