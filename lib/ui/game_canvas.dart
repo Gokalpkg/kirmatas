@@ -30,6 +30,7 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
   late final Ticker _ticker;
   Duration _lastElapsed = Duration.zero;
   bool _pointerMoved = false;
+  double _pointerTravel = 0.0;
   Offset? _chaosPointerDownPos;
   int? _touchStartLevel;
   bool _canLaunchOnUp = false;
@@ -128,6 +129,7 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
               return;
             }
             _pointerMoved = false;
+            _pointerTravel = 0.0;
           },
           onPointerMove: (event) {
             final c = widget.controller;
@@ -160,7 +162,12 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
               _pointerMoved = true;
             }
             final dx = event.delta.dx;
-            _pointerMoved = true;
+            // Raket her zaman gecikmesiz hareket eder; ancak parmak titremesi
+            // (tap sırasında birkaç piksel kayma) fırlatmayı iptal etmemeli.
+            _pointerTravel += dx.abs();
+            if (_pointerTravel >= 10.0) {
+              _pointerMoved = true;
+            }
             c.movePaddleBy(dx);
           },
           onPointerUp: (_) {
