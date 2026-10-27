@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../engine/play_games_manager.dart';
 import '../storage/save_manager.dart';
+import 'achievements_dialog.dart';
 import 'kaunos_ui.dart';
 
 /// Personal stats sheet: lifetime counters, hardest levels, chaos rank
@@ -392,7 +393,7 @@ class _StatsDialogState extends State<StatsDialog> {
         children: [
           Row(
             children: [
-              const Text('🎮', style: TextStyle(fontSize: 18)),
+              const Icon(Icons.sports_esports_rounded, color: Color(0xFFA5D6A7), size: 20),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
@@ -444,6 +445,12 @@ class _StatsDialogState extends State<StatsDialog> {
             ),
           ],
           const SizedBox(height: 10),
+          _gamesButton(
+            label: 'BAŞARIMLAR (42 HEDEF)',
+            icon: Icons.emoji_events_rounded,
+            onTap: () => AchievementsDialog.show(context, save: save),
+          ),
+          const SizedBox(height: 8),
           if (!signedIn)
             _gamesButton(
               label: _busy ? 'BAĞLANIYOR...' : 'GOOGLE İLE BAĞLAN',

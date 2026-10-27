@@ -1,4 +1,5 @@
 import '../engine/analytics_manager.dart';
+import '../engine/achievement_manager.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/scheduler.dart';
@@ -272,6 +273,15 @@ class SaveManager extends ChangeNotifier {
   int statPlaySeconds = 0;
   Map<int, int> statDeathsByLevel = {};
   Map<int, int> statClearsByLevel = {};
+  int statChestBricksBroken = 0;
+  int statCornerStrikes = 0;
+  int statFeverCount = 0;
+  int statMaxCombo = 0;
+  int statFishFedTotal = 0;
+  int statWheelSpins = 0;
+  int statBossesDefeated = 0;
+  Set<String> unlockedAchievements = {};
+  Map<String, int> achievementSteps = {};
 
   /// Best chaos wave ever reached (drives the chaos rank title).
   int bestChaosWave = 0;
@@ -400,6 +410,7 @@ class SaveManager extends ChangeNotifier {
   void addPearls(int amount) {
     if (amount <= 0) return;
     pearls += amount;
+    AchievementManager.instance.onPearlsEarned(amount);
   }
 
   bool spendPearls(int amount) {
@@ -912,6 +923,21 @@ class SaveManager extends ChangeNotifier {
     statGoldEarnedTotal = _prefs?.getInt('statGoldEarnedTotal') ?? 0;
     statPlaySeconds = _prefs?.getInt('statPlaySeconds') ?? 0;
     bestChaosWave = _prefs?.getInt('bestChaosWave') ?? 0;
+    statChestBricksBroken = _prefs?.getInt('statChestBricksBroken') ?? 0;
+    statCornerStrikes = _prefs?.getInt('statCornerStrikes') ?? 0;
+    statFeverCount = _prefs?.getInt('statFeverCount') ?? 0;
+    statMaxCombo = _prefs?.getInt('statMaxCombo') ?? 0;
+    statFishFedTotal = _prefs?.getInt('statFishFedTotal') ?? 0;
+    statWheelSpins = _prefs?.getInt('statWheelSpins') ?? 0;
+    statBossesDefeated = _prefs?.getInt('statBossesDefeated') ?? 0;
+    unlockedAchievements = (_prefs?.getStringList('unlockedAchievements') ?? []).toSet();
+    final stepsJson = _prefs?.getString('achievementSteps');
+    if (stepsJson != null) {
+      try {
+        final decoded = jsonDecode(stepsJson) as Map<String, dynamic>;
+        achievementSteps = decoded.map((k, v) => MapEntry(k, (v as num).toInt()));
+      } catch (_) {}
+    }
     statDeathsByLevel = _loadIntMap('statDeathsByLevel');
     statClearsByLevel = _loadIntMap('statClearsByLevel');
     final fishCountsStr = _prefs?.getString('ownedFishCounts');
@@ -1161,6 +1187,7 @@ class SaveManager extends ChangeNotifier {
     if (amount > 0) {
       statGoldEarnedTotal += amount;
       await _prefs?.setInt('statGoldEarnedTotal', statGoldEarnedTotal);
+      AchievementManager.instance.onGoldEarned(amount);
     }
     await _prefs?.setInt('gold', gold);
     notifyListeners();
@@ -1217,6 +1244,61 @@ class SaveManager extends ChangeNotifier {
       await _prefs?.setInt('bestChaosWave', bestChaosWave);
       notifyListeners();
     }
+  }
+
+  Future<bool> recordAchievementUnlocked(String id) async {
+    if (unlockedAchievements.add(id)) {
+      await _prefs?.setStringList('unlockedAchievements', unlockedAchievements.toList());
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> setAchievementSteps(String id, int steps) async {
+    final current = achievementSteps[id] ?? 0;
+    if (steps > current) {
+      achievementSteps[id] = steps;
+      await _prefs?.setString('achievementSteps', jsonEncode(achievementSteps));
+      notifyListeners();
+    }
+  }
+
+  Future<void> incrementChestBricks() async {
+    statChestBricksBroken++;
+    await _prefs?.setInt('statChestBricksBroken', statChestBricksBroken);
+  }
+
+  Future<void> incrementCornerStrikes() async {
+    statCornerStrikes++;
+    await _prefs?.setInt('statCornerStrikes', statCornerStrikes);
+  }
+
+  Future<void> incrementFeverCount() async {
+    statFeverCount++;
+    await _prefs?.setInt('statFeverCount', statFeverCount);
+  }
+
+  Future<void> recordMaxCombo(int combo) async {
+    if (combo > statMaxCombo) {
+      statMaxCombo = combo;
+      await _prefs?.setInt('statMaxCombo', statMaxCombo);
+    }
+  }
+
+  Future<void> incrementFishFed() async {
+    statFishFedTotal++;
+    await _prefs?.setInt('statFishFedTotal', statFishFedTotal);
+  }
+
+  Future<void> incrementWheelSpins() async {
+    statWheelSpins++;
+    await _prefs?.setInt('statWheelSpins', statWheelSpins);
+  }
+
+  Future<void> incrementBossesDefeated() async {
+    statBossesDefeated++;
+    await _prefs?.setInt('statBossesDefeated', statBossesDefeated);
   }
 
   // --- FULL SAVE EXPORT / IMPORT (Play Games cloud snapshots) ---
@@ -1369,6 +1451,11 @@ class SaveManager extends ChangeNotifier {
     await _prefs?.setString('upgrades', jsonEncode(upgrades));
     AnalyticsManager.instance.logStatUpgraded(id, cur + 1);
     notifyListeners();
+    AchievementManager.instance.onSkillUpgraded(
+      skillId: id,
+      newLevel: cur + 1,
+      isMax: cur + 1 >= 5,
+    );
     return true;
   }
 
@@ -1409,6 +1496,7 @@ class SaveManager extends ChangeNotifier {
     upgrades['battery'] = 0;
     await _prefs?.setString('upgrades', jsonEncode(upgrades));
     notifyListeners();
+    AchievementManager.instance.onSkillTreeReset();
     return refund;
   }
 
@@ -1510,6 +1598,7 @@ class SaveManager extends ChangeNotifier {
     await _prefs?.setStringList('unlockedFish', unlockedFish);
     await _prefs?.setString('ownedFishCounts', jsonEncode(ownedFishCounts));
     notifyListeners();
+    AchievementManager.instance.onFishAcquired(fishId);
     return true;
   }
 
@@ -1720,6 +1809,7 @@ class SaveManager extends ChangeNotifier {
     fishFood--;
     await _prefs?.setInt('fishFood', fishFood);
     await onFishAtePellet(chosenId);
+    AchievementManager.instance.onFishFed();
     return true;
   }
 
@@ -2124,6 +2214,8 @@ class SaveManager extends ChangeNotifier {
     fortuneWheelSpinsToday++;
     await _prefs?.setString('lastFortuneWheelDate', today);
     await _prefs?.setInt('fortuneWheelSpinsToday', fortuneWheelSpinsToday);
+    await incrementWheelSpins();
+    AchievementManager.instance.onWheelSpun();
     notifyListeners();
     return true;
   }

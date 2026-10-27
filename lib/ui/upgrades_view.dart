@@ -777,7 +777,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                           ),
                         ),
                         Text(
-                          '🌌 KOZMİK USTALIK (SONSUZ SEVİYE)',
+                          'KOZMİK USTALIK (SONSUZ SEVİYE)',
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
                           style: TextStyle(

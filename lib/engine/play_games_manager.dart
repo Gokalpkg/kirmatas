@@ -133,6 +133,37 @@ class PlayGamesManager extends ChangeNotifier {
     }
   }
 
+  /// Opens the native Play Games achievements screen.
+  Future<String> showAchievements() async {
+    if (!_signedIn) return 'Önce giriş yap';
+    try {
+      await Achievements.showAchievements();
+      return 'Başarımlar açıldı';
+    } catch (_) {
+      return 'Başarımlar açılamadı';
+    }
+  }
+
+  /// Unlocks an achievement on Google Play Games Services defensively.
+  Future<void> unlockAchievement(String androidId) async {
+    if (!_signedIn || androidId.isEmpty) return;
+    try {
+      await Achievements.unlock(
+        achievement: Achievement(androidID: androidId),
+      );
+    } catch (_) {}
+  }
+
+  /// Increments an incremental achievement on Google Play Games Services defensively.
+  Future<void> incrementAchievement(String androidId, {int steps = 1}) async {
+    if (!_signedIn || androidId.isEmpty || steps <= 0) return;
+    try {
+      await Achievements.increment(
+        achievement: Achievement(androidID: androidId, steps: steps),
+      );
+    } catch (_) {}
+  }
+
   Future<String> saveToCloud(SaveManager save) async {
     if (!_signedIn) return 'Önce giriş yap';
     try {

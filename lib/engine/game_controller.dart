@@ -17,6 +17,7 @@ import '../models/powerup.dart';
 import '../models/sector_data.dart';
 import '../models/sector_blessing.dart';
 import '../storage/save_manager.dart';
+import 'achievement_manager.dart';
 import 'audio_manager.dart';
 import 'ad_manager.dart';
 import 'play_games_manager.dart';
@@ -354,6 +355,7 @@ class GameController extends ChangeNotifier {
   double _nearMissCooldown = 0.0;
   double _nearMissSlowLeft = 0.0;
   double _lastBrickHitTimer = 0.0;
+  double _currentLevelDuration = 0.0;
   bool fishSaveUsedThisLevel = false;
 
   /// Target lock-on state (PowerUpType.lock): homing missile steering and visual reticle
@@ -477,6 +479,7 @@ class GameController extends ChangeNotifier {
   GameController() {
     paddle = Paddle(x: 140, y: 560);
     rollSessionCosmetics();
+    AchievementManager.instance.init(save: save);
   }
 
   void setDimensions(double width, double height) {
@@ -846,6 +849,7 @@ class GameController extends ChangeNotifier {
 
   void loadLevelBricks() {
     _hasLoadedBricks = true;
+    _currentLevelDuration = 0.0;
     AnalyticsManager.instance.logLevelStart(stats.level, currentMode.name);
     activeIceVariant = _rand.nextInt(4);
     portals.clear();
@@ -1382,6 +1386,9 @@ class GameController extends ChangeNotifier {
 
   void update(double dt) {
     gameTime += dt;
+    if (status == GameStatus.playing) {
+      _currentLevelDuration += dt;
+    }
 
     // Perk / Blessing choice freezes the whole board until the player picks.
     if (awaitingChaosPerkSelection || awaitingSectorBlessingSelection) {
@@ -1700,6 +1707,7 @@ class GameController extends ChangeNotifier {
         // Consumed into the event horizon!
         if (dist <= bh.radius * 0.85 || dist < 18.0) {
           activeBee = null;
+          AchievementManager.instance.onBlackholeSwallowedBee();
           // Black hole feeds on the bee and grows 1 tier larger!
           bh.radius = (bh.radius * 1.25).clamp(bh.radius, 48.0);
           bh.mass *= 1.25;
@@ -2943,8 +2951,9 @@ class GameController extends ChangeNotifier {
           particles.triggerShake(5.0, 0.28);
           particles.spawnShockwave(ball.x, paddle.y + 10.0, const Color(0xFF00E5FF), maxRadius: 85.0);
           particles.spawnBurst(ball.x, paddle.y + 10.0, const Color(0xFF80D8FF), count: 20, speed: 160.0);
-          particles.spawnFloatingText(ball.x.clamp(80.0, screenWidth - 80.0), paddle.y - 35.0, '🐬 BALIK KURTARIŞI!', const Color(0xFF00E5FF), isLarge: true);
+          particles.spawnFloatingText(ball.x.clamp(80.0, screenWidth - 80.0), paddle.y - 35.0, 'BALIK KURTARIŞI!', const Color(0xFF00E5FF), isLarge: true);
           audio.playSfx(GameSfx.victory);
+          AchievementManager.instance.onMiracleDolphinSave();
           continue;
         }
         balls.removeAt(i);
@@ -3071,6 +3080,7 @@ class GameController extends ChangeNotifier {
       );
 
       if (isCornerHit) {
+        AchievementManager.instance.onCornerStrike();
         ball.cornerHitCount++;
         ball.cornerBoostTimer = 3.2; // Speeds up for 3.2 seconds
         ball.megaTimer = 2.5; // Option C: Mega Ball for 2.5 seconds!
@@ -3083,7 +3093,7 @@ class GameController extends ChangeNotifier {
           particles.spawnFloatingText(
             screenWidth / 2,
             screenHeight * 0.38,
-            '⚡ SÜPER KÖŞE VURUŞU!',
+            'SÜPER KÖŞE VURUŞU!',
             const Color(0xFFFFD700),
             isLarge: true,
           );
@@ -3717,7 +3727,7 @@ class GameController extends ChangeNotifier {
         particles.spawnPearlCelebration(cx, cy);
         audio.playSfx(GameSfx.victory);
       } else {
-        const goldWon = 40;
+        final goldWon = 75 + _rand.nextInt(51);
         save.addGold(goldWon);
         stats.goldCollected += goldWon;
 
@@ -3783,6 +3793,12 @@ class GameController extends ChangeNotifier {
         wasSolid: !b.isBallPickup,
         goldAwarded: b.isBoss ? BalanceConfig.bossBrickGold : BalanceConfig.regularBrickGold,
       ),
+    );
+
+    AchievementManager.instance.onBrickHit(
+      isChest: b.isChest,
+      gold: b.isChest ? (stats.goldCollected) : 0,
+      isFrozen: b.isFrozen,
     );
 
     if (stats.combo == BalanceConfig.feverComboThreshold || stats.combo == BalanceConfig.cosmicComboThreshold) {
@@ -3998,6 +4014,7 @@ class GameController extends ChangeNotifier {
       _destroyBrick(brick);
     }
     if (chain.length > 1) {
+      AchievementManager.instance.onFrozenBlocksShattered(chain.length);
       particles.triggerShake(min(2.0 + chain.length * 0.5, 6.0), 0.22);
       particles.spawnFloatingText(start.x + start.width / 2, start.y - 10, 'ZİNCİR KIRILDI! x${chain.length}', const Color(0xFF80D8FF), isLarge: true);
       audio.playSfx(GameSfx.explosion, playbackRate: 1.3);
@@ -4167,6 +4184,7 @@ class GameController extends ChangeNotifier {
     if (stats.combo > stats.maxCombo) {
       stats.maxCombo = stats.combo;
     }
+    AchievementManager.instance.onCombo(stats.combo);
     comboTimer = 2.4 * (1.0 + activeCosmeticSynergy.comboMomentumBonus);
 
     double multiplier = activeCosmeticSynergy.scoreMultiplier;
@@ -4175,6 +4193,7 @@ class GameController extends ChangeNotifier {
       if (!stats.isFever) {
         stats.isFever = true;
         stats.feverTimeLeft = 6.0;
+        AchievementManager.instance.onFever();
         particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.35, I18n.tr('fever_mode'), const Color(0xFFFF9100), isLarge: true);
         particles.spawnShockwave(screenWidth / 2, screenHeight * 0.4, const Color(0xFFFFD700), maxRadius: screenWidth * 0.6);
         particles.triggerShake(4.0, 0.25);
@@ -4864,9 +4883,18 @@ class GameController extends ChangeNotifier {
         }
         final clearedLevel = stats.level;
         final wasBossLevel = LevelDesign.isBossLevelNumber(clearedLevel);
+        AchievementManager.instance.onLevelCompleted(
+          levelNumber: clearedLevel,
+          noDamage: stats.lives >= stats.maxLives,
+          durationSec: _currentLevelDuration,
+        );
+        if (wasBossLevel) {
+          AchievementManager.instance.onBossDefeated(clearedLevel ~/ 5);
+        }
         stats.level++;
         if (currentMode == GameMode.chaos) {
           save.noteBestChaosWave(stats.level);
+          AchievementManager.instance.onChaosWave(stats.level, stats.score);
           if (save.isLeagueUnlocked) {
             save.addTournamentScore(25);
             particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.30, '+25 LİG PUANI', const Color(0xFF00E676));
@@ -4899,6 +4927,11 @@ class GameController extends ChangeNotifier {
   void _onVictory() {
     _haltBackgroundGameplay();
     status = GameStatus.victory;
+    AchievementManager.instance.onLevelCompleted(
+      levelNumber: stats.level,
+      noDamage: stats.lives >= stats.maxLives,
+      durationSec: _currentLevelDuration,
+    );
     if (currentMode == GameMode.classic) {
       save.clearClassicSession();
     } else if (currentMode == GameMode.chaos) {

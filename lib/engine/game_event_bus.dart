@@ -63,6 +63,21 @@ class GoldCollectedEvent extends GameEvent {
   });
 }
 
+/// Dispatched when an achievement is successfully unlocked.
+class AchievementUnlockedEvent extends GameEvent {
+  final String achievementId;
+  final String name;
+  final String description;
+  final int points;
+
+  AchievementUnlockedEvent({
+    required this.achievementId,
+    required this.name,
+    required this.description,
+    required this.points,
+  });
+}
+
 /// High-performance, lightweight singleton event bus providing pub/sub decoupling
 /// between GameController physics/loop and UI/Audio/VFX feedback systems.
 class GameEventBus {
