@@ -108,14 +108,17 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
     final fishIds = save.allOwnedFishInstances;
     for (int i = 0; i < fishIds.length; i++) {
       final item = FishItem.getById(fishIds[i]);
+      final isBg = (i % 3 == 0) && !item.isBottomDweller;
+      final zDepth = isBg ? 0.74 : 1.0;
       _simFish.add(
         _SimFish(
           item: item,
+          zDepth: zDepth,
           x: 50.0 + (i * 65.0) % 280.0,
           y: item.isBottomDweller
-              ? 726.0
-              : 180.0 + (i * 70.0) % 360.0,
-          vx: (_rand.nextBool() ? 1 : -1) * (26.0 + _rand.nextDouble() * 18.0),
+              ? 728.0
+              : 190.0 + (i * 68.0) % 340.0,
+          vx: (_rand.nextBool() ? 1 : -1) * (26.0 + _rand.nextDouble() * 18.0) * (isBg ? 0.82 : 1.0),
           vy: (_rand.nextDouble() * 2 - 1) * 8.0,
           facingRight: _rand.nextBool(),
           tailPhase: _rand.nextDouble() * pi * 2,
@@ -766,7 +769,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
           f.pitchAngle = (sin(orbitAngle) * 0.25).clamp(-0.35, 0.35);
         }
         f.x = f.x.clamp(35.0, 375.0);
-        f.y = f.y.clamp(90.0, 710.0);
+        f.y = f.y.clamp(148.0, 700.0);
         _syncFishRig(f, dt, target: _fingerWorldPos, isFinger: true);
         continue;
       }
@@ -816,17 +819,20 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
           vx *= 0.35;
           final thrust = sin(_animTime * 2.2 + f.tailPhase);
           if (thrust > 0.2) {
-            f.y -= 30.0 * dt;
+            f.y -= 26.0 * dt;
           } else {
             f.y += 8.0 * dt;
           }
-          // Lives in the upper-mid water column.
-          if (f.y < 130.0) f.y += 20.0 * dt;
+          // Lives in mid-upper water column safely below UI bar
+          if (f.y < 170.0) f.y += 24.0 * dt;
+          if (f.y > 440.0) f.y -= 20.0 * dt;
         } else if (fr?.style.species == FishSpecies.arowana) {
-          // Arowana patrols the upper water column with level poise
+          // Arowana patrols the upper water column with level poise below top UI
           bobAmp = 4.5;
-          if (f.y > 250.0) {
+          if (f.y > 270.0) {
             f.y -= 18.0 * dt;
+          } else if (f.y < 165.0) {
+            f.y += 18.0 * dt;
           }
         } else if (fr?.style.species == FishSpecies.tetra) {
           // Tetra schooling cohesion: align direction and depth with nearby tetras
@@ -864,12 +870,12 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
           f.x = 375.0;
           f.facingRight = false;
         }
-        f.y = f.y.clamp(90.0, 710.0);
+        f.y = f.y.clamp(148.0, 680.0);
         _syncFishRig(f, dt);
       }
     }
 
-    // 6. Fish Collision Avoidance (Separation steering)
+    // 6. Fish Collision Avoidance (Separation steering / Boids repulsion)
     for (int i = 0; i < _simFish.length; i++) {
       for (int j = i + 1; j < _simFish.length; j++) {
         final f1 = _simFish[i];
@@ -877,32 +883,37 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
         final dx = f1.x - f2.x;
         final dy = f1.y - f2.y;
         final dist = sqrt(dx * dx + dy * dy);
-        const minDistance = 42.0;
+        const minDistance = 56.0;
 
         if (dist < minDistance && dist > 0.001) {
           final overlap = (minDistance - dist) / minDistance;
-          final pushX = (dx / dist) * overlap * 30.0 * dt;
+          final pushX = (dx / dist) * overlap * 120.0 * dt;
           f1.x += pushX;
           f2.x -= pushX;
 
-          // Vertical separation only between swimmers: bottom dwellers
-          // stay glued to the floor (their update re-pins y anyway).
+          // Vertical separation only between free swimmers
           if (!f1.item.isBottomDweller && !f2.item.isBottomDweller) {
-            final pushY = (dy / dist) * overlap * 30.0 * dt;
+            final pushY = (dy / dist) * overlap * 95.0 * dt;
             f1.y += pushY;
             f2.y -= pushY;
+            final vDisperse = overlap * 40.0 * dt;
             if (f1.y < f2.y) {
-              f1.y -= 16.0 * dt;
-              f2.y += 16.0 * dt;
+              f1.y -= vDisperse;
+              f2.y += vDisperse;
             } else {
-              f1.y += 16.0 * dt;
-              f2.y -= 16.0 * dt;
+              f1.y += vDisperse;
+              f2.y -= vDisperse;
             }
+            f1.y = f1.y.clamp(148.0, 680.0);
+            f2.y = f2.y.clamp(148.0, 680.0);
           }
 
-          // If overlapping head-on, steer one away
-          if (dist < 25.0 && _rand.nextDouble() < 0.08) {
-            f2.facingRight = !f2.facingRight;
+          // Gentle steering evasion when approaching head-on
+          if (dist < 32.0 && _rand.nextDouble() < 0.15) {
+            if (dx.abs() > 4.0) {
+              f1.facingRight = dx > 0;
+              f2.facingRight = dx < 0;
+            }
           }
         }
       }
@@ -959,6 +970,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
 
 class _SimFish {
   final FishItem item;
+  final double zDepth;
   double x;
   double y;
   double vx;
@@ -987,6 +999,7 @@ class _SimFish {
   /// True while the fish is in its 3-hour post-feeding satiety window
   bool get isSatiated => SaveManager.instance.isFishInSatietyCooldown(item.id);
   bool get isProducing => SaveManager.instance.isFishProducing(item.id);
+  bool get isBackground => zDepth < 0.9;
 
   _SimFish({
     required this.item,
@@ -996,6 +1009,7 @@ class _SimFish {
     required this.vy,
     required this.facingRight,
     required this.tailPhase,
+    this.zDepth = 1.0,
   })  : rig = item.kind == FishKind.octopus ? OctopusRig() : null,
         fishRig = item.kind == FishKind.octopus
             ? null
@@ -1083,7 +1097,6 @@ class _TankPainter extends CustomPainter {
   Size? _shaderSize;
   Shader? _waterShader;
   final Paint _waterPaint = Paint();
-  final Paint _sandPaint = Paint();
   final Paint _bubblePaint = Paint()..color = const Color(0x2881D4FA);
   final Paint _foodPaint = Paint()..color = const Color(0xFFFFD54F);
   final Paint _foodGlow = Paint()..color = const Color(0x44FFD54F);
@@ -1108,7 +1121,6 @@ class _TankPainter extends CustomPainter {
   final Paint _eyeWhite = Paint()..color = Colors.white;
   final Paint _eyeBlack = Paint()..color = Colors.black;
   final Path _tailPath = Path();
-  Path? _sandPath;
 
   _TankPainter(this.host) : super(repaint: host._frame);
 
@@ -1122,12 +1134,16 @@ class _TankPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (_waterShader == null || _shaderSize != size) {
       _shaderSize = size;
-      _sandPath = null;
-      _sandPaint.shader = null;
       _waterShader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFF0C1726), Color(0xFF09131F), Color(0xFF040A10)],
+        colors: [
+          Color(0xFF0F384C), // Petrol turquoise top
+          Color(0xFF0B2637), // Vibrant mid ocean blue
+          Color(0xFF071824), // Deep aquatic blue
+          Color(0xFF030C14), // Abyssal seabed dark
+        ],
+        stops: [0.0, 0.32, 0.68, 1.0],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
     }
     _waterPaint.shader = _waterShader;
@@ -1144,57 +1160,66 @@ class _TankPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          const Color(0xFF80D8FF).withValues(alpha: 0.05 + 0.02 * sin(time * 0.8)),
+          const Color(0xFF80D8FF).withValues(alpha: 0.06 + 0.02 * sin(time * 0.8)),
           const Color(0x0080D8FF),
         ],
         stops: const [0.0, 0.45],
       ).createShader(const Rect.fromLTWH(0, 0, 410, 360));
     canvas.drawRect(const Rect.fromLTWH(0, 0, 410, 360), causticPaint);
 
-    // 2. Sand layer at the bottom of the world (surface ~y=745)
-    _sandPath ??= Path()
-      ..moveTo(0, 752)
-      ..quadraticBezierTo(205, 738, 410, 756)
-      ..lineTo(410, 800)
-      ..lineTo(0, 800)
-      ..close();
-    _sandPaint.shader ??= const LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [Color(0x38C2A86E), Color(0x665C4628)],
-    ).createShader(const Rect.fromLTWH(0, 738, 410, 62));
-    canvas.drawPath(_sandPath!, _sandPaint);
+    // 1c. Surface Sunlight Beams (God Rays) piercing down through water
+    _drawGodRays(canvas, time);
 
-    // 3. Background procedural plants (Vallisneria sazları & Rotala)
-    for (final p in host._plants) {
-      if (!p.isForeground) {
-        p.paint(canvas, time);
-      }
-    }
-
-    // 4. Rising bubbles
+    // 2. Rising ambient bubbles
     for (final b in bubbles) {
       canvas.drawCircle(Offset(b.x + sin(time + b.radius) * 3, b.y), b.radius, _bubblePaint);
     }
 
-    // 5. Food Pellets
+    // 3. Far background procedural plants (Tall Vallisneria ribbon grass)
+    for (final p in host._plants) {
+      if (!p.isForeground && p.species == PlantSpecies.vallisneria) {
+        p.paint(canvas, time);
+      }
+    }
+
+    // 4. Background swimming fish (Z-depth ~0.74, swimming behind midground plants)
+    for (final f in simFish) {
+      if (!f.item.isBottomDweller && f.isBackground) {
+        _drawFish(canvas, f);
+      }
+    }
+
+    // 5. Midground procedural plants (Rotala stem clusters)
+    for (final p in host._plants) {
+      if (!p.isForeground && p.species != PlantSpecies.vallisneria) {
+        p.paint(canvas, time);
+      }
+    }
+
+    // 6. Food Pellets
     for (final p in foodPellets) {
       canvas.drawCircle(Offset(p.x, p.y), 4.0, _foodGlow);
       canvas.drawCircle(Offset(p.x, p.y), 2.5, _foodPaint);
     }
-    // 3b. Foreground procedural plants (Anubias Nana)
+
+    // 7. Foreground swimming fish (Z-depth 1.0, swimming in front of midground plants)
+    for (final f in simFish) {
+      if (!f.item.isBottomDweller && !f.isBackground) {
+        _drawFish(canvas, f);
+      }
+    }
+
+    // 8. Foreground procedural plants (Broad Anubias Nana)
     for (final p in host._plants) {
       if (p.isForeground) {
         p.paint(canvas, time);
       }
     }
 
-    // 4b. Rising photosynthetic oxygen bubbles (pearling)
-    for (final b in host._plantBubbles) {
-      PlantOxygenPainter.paintBubble(canvas, b);
-    }
-    // Pellets an octopus has tucked underneath itself: drawn before the
-    // creatures, so the body sits on top of the meal while it eats.
+    // 9. Substrate / Seabed (Deep sediment + warm contoured sand dune + crest highlight + river pebbles)
+    _drawSubstrate(canvas);
+
+    // 10. Pellets an octopus has tucked underneath itself
     for (final f in simFish) {
       final gp = f.grabbedPellet;
       if (gp == null) continue;
@@ -1202,7 +1227,19 @@ class _TankPainter extends CustomPainter {
       canvas.drawCircle(Offset(gp.x, gp.y), 2.5, _foodPaint);
     }
 
-    // 6. Eat particles & tap reaction hearts
+    // 11. Bottom dwellers (Crab, snail, octopus) walking ON the seabed
+    for (final f in simFish) {
+      if (f.item.isBottomDweller) {
+        _drawFish(canvas, f);
+      }
+    }
+
+    // 12. Rising photosynthetic oxygen bubbles (pearling)
+    for (final b in host._plantBubbles) {
+      PlantOxygenPainter.paintBubble(canvas, b);
+    }
+
+    // 13. Eat particles & tap reaction hearts
     for (final ep in eatParticles) {
       final alpha = (ep.life / ep.maxLife).clamp(0.0, 1.0);
       _sparkPaint.color = ep.color.withValues(alpha: alpha);
@@ -1222,7 +1259,7 @@ class _TankPainter extends CustomPainter {
       }
     }
 
-    // Finger Attraction Touch Wave & Ripple
+    // 14. Finger Attraction Touch Wave & Ripple
     if (host.fingerWorldPos != null) {
       final fp = host.fingerWorldPos!;
       final r1 = 14.0 + sin(time * 8.0) * 4.0;
@@ -1233,106 +1270,237 @@ class _TankPainter extends CustomPainter {
       canvas.drawCircle(fp, 2.2, _fingerCorePaint);
     }
 
-    // 7. Fish drawing (Procedural spine, fins, patterns, and soft-body rigs)
-    // Octopus ink drifts behind the creatures.
+    // 15. Octopus ink drifts
     for (final ink in host._inkClouds) {
       final t = (ink.life / ink.maxLife).clamp(0.0, 1.0);
       _sparkPaint.color = const Color(0xFF2A0A3D).withValues(alpha: 0.55 * (1.0 - t));
       canvas.drawCircle(Offset(ink.x, ink.y), ink.radius * (1.0 + t * 1.8), _sparkPaint);
     }
-    for (final f in simFish) {
+  }
+
+  void _drawGodRays(Canvas canvas, double time) {
+    final rayPaint = Paint()
+      ..blendMode = BlendMode.screen
+      ..style = PaintingStyle.fill;
+
+    // 4 diagonal light shafts from surface penetrating down into the tank
+    const rays = [
+      (x1: 20.0, w1: 36.0, x2: 95.0, w2: 110.0, len: 650.0, phase: 0.0, speed: 0.65),
+      (x1: 110.0, w1: 44.0, x2: 215.0, w2: 135.0, len: 730.0, phase: 1.4, speed: 0.80),
+      (x1: 215.0, w1: 38.0, x2: 305.0, w2: 125.0, len: 700.0, phase: 2.7, speed: 0.72),
+      (x1: 320.0, w1: 34.0, x2: 395.0, w2: 100.0, len: 620.0, phase: 3.9, speed: 0.85),
+    ];
+
+    for (final r in rays) {
+      final sway = sin(time * r.speed + r.phase) * 8.0;
+      final alphaPulse = (0.045 + 0.02 * sin(time * (r.speed * 0.7) + r.phase)).clamp(0.02, 0.08);
+
+      final path = Path()
+        ..moveTo(r.x1 + sway * 0.3, 0)
+        ..lineTo(r.x1 + r.w1 + sway * 0.3, 0)
+        ..lineTo(r.x2 + r.w2 + sway, r.len)
+        ..lineTo(r.x2 + sway, r.len)
+        ..close();
+
+      rayPaint.shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFFC8F0FF).withValues(alpha: alphaPulse),
+          const Color(0xFF80D8FF).withValues(alpha: alphaPulse * 0.55),
+          const Color(0x0080D8FF),
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, 410, r.len));
+
+      canvas.drawPath(path, rayPaint);
+    }
+  }
+
+  void _drawSubstrate(Canvas canvas) {
+    // 1. Deep sediment layer at the very bottom
+    final deepBedPath = Path()
+      ..moveTo(0, 744)
+      ..cubicTo(110, 734, 230, 746, 410, 738)
+      ..lineTo(410, 800)
+      ..lineTo(0, 800)
+      ..close();
+    final deepBedPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF5E4327), Color(0xFF2C1E10), Color(0xFF140D07)],
+        stops: [0.0, 0.5, 1.0],
+      ).createShader(const Rect.fromLTWH(0, 734, 410, 66));
+    canvas.drawPath(deepBedPath, deepBedPaint);
+
+    // 2. Main warm sand dune layer with natural contours
+    final dunePath = Path()
+      ..moveTo(0, 748)
+      ..cubicTo(90, 738, 170, 732, 250, 740)
+      ..cubicTo(320, 747, 370, 736, 410, 742)
+      ..lineTo(410, 800)
+      ..lineTo(0, 800)
+      ..close();
+    final dunePaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFB38F5C), Color(0xFF7A5833), Color(0xFF3B2816)],
+        stops: [0.0, 0.4, 1.0],
+      ).createShader(const Rect.fromLTWH(0, 732, 410, 68));
+    canvas.drawPath(dunePath, dunePaint);
+
+    // 3. Sand crest highlight catching light
+    final crestPath = Path()
+      ..moveTo(0, 748)
+      ..cubicTo(90, 738, 170, 732, 250, 740)
+      ..cubicTo(320, 747, 370, 736, 410, 742);
+    final crestPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..shader = const LinearGradient(
+        colors: [Color(0x55FFE082), Color(0x88FFD54F), Color(0x55FFE082)],
+      ).createShader(const Rect.fromLTWH(0, 732, 410, 16));
+    canvas.drawPath(crestPath, crestPaint);
+
+    // 4. Smooth river pebbles resting on the seabed
+    _drawSeabedPebbles(canvas);
+  }
+
+  void _drawSeabedPebbles(Canvas canvas) {
+    final stonePaint = Paint()..style = PaintingStyle.fill;
+    final highlightPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..color = const Color(0x44FFFFFF);
+
+    const pebbles = [
+      (x: 48.0, y: 764.0, rx: 7.0, ry: 4.0, rot: -0.15, color: Color(0xFF4A5559)),
+      (x: 88.0, y: 756.0, rx: 5.5, ry: 3.2, rot: 0.22, color: Color(0xFF384245)),
+      (x: 138.0, y: 768.0, rx: 8.5, ry: 4.8, rot: 0.1, color: Color(0xFF5C5247)),
+      (x: 215.0, y: 759.0, rx: 6.0, ry: 3.5, rot: -0.2, color: Color(0xFF454E52)),
+      (x: 280.0, y: 766.0, rx: 7.5, ry: 4.2, rot: 0.18, color: Color(0xFF52483D)),
+      (x: 345.0, y: 758.0, rx: 5.0, ry: 3.0, rot: -0.12, color: Color(0xFF3B464A)),
+      (x: 388.0, y: 766.0, rx: 6.8, ry: 3.8, rot: 0.25, color: Color(0xFF4C5558)),
+    ];
+
+    for (final p in pebbles) {
       canvas.save();
-      canvas.translate(f.x, f.y);
-
-      final rollAngle = f.flipTimer > 0 ? (f.flipProgress * pi * 2.0) : 0.0;
-      if (!f.facingRight) {
-        canvas.scale(-1, 1);
-      }
-      canvas.rotate(f.pitchAngle + rollAngle);
-
-      // Creature motion language & natural swimming dynamics
-      switch (f.item.kind) {
-        case FishKind.snail:
-          canvas.rotate(sin(time * 2.0 + f.tailPhase) * 0.03);
-          break;
-        case FishKind.crab:
-          if (f.isMoving) {
-            canvas.translate(0, -sin(time * 16.0 + f.tailPhase).abs() * 2.2);
-          }
-          canvas.rotate(sin(time * 8.0 + f.tailPhase) * 0.045);
-          break;
-        case FishKind.shrimp:
-          canvas.rotate(sin(time * 6.0 + f.tailPhase) * 0.07);
-          break;
-        case FishKind.octopus:
-          if (f.grabbedPellet != null) {
-            final bite = sin(time * 10.0 + f.tailPhase);
-            canvas.scale(1.07, 0.90 + bite * 0.02);
-            canvas.translate(0, 3.0 + bite * 0.4);
-          } else if (f.isMoving) {
-            final stride = sin(f.stepPhase * 2.0);
-            canvas.translate(0, -stride.abs() * 2.6);
-            canvas.rotate(stride * 0.05);
-            final pulse = 1.0 + sin(time * 2.4 + f.tailPhase) * 0.04;
-            canvas.scale(pulse, 2.0 - pulse);
-          } else {
-            final pulse = 1.0 + sin(time * 2.4 + f.tailPhase) * 0.05;
-            canvas.scale(pulse, 2.0 - pulse);
-            canvas.translate(0, sin(time * 1.8 + f.tailPhase) * 1.6);
-          }
-          break;
-        case FishKind.jellyfish:
-          final bell = sin(time * 2.2 + f.tailPhase);
-          canvas.scale(1.0 - bell * 0.06, 1.0 + bell * 0.09);
-          canvas.rotate(sin(time * 1.4 + f.tailPhase) * 0.06);
-          break;
-        case FishKind.fish:
-          final wag = sin(time * 4.5 + f.tailPhase) * 0.05;
-          canvas.rotate(wag);
-          final breath = 1.0 + sin(time * 3.0 + f.tailPhase) * 0.02;
-          canvas.scale(breath, 2.0 - breath);
-          break;
-      }
-
-      final img = AssetCache.instance.getFishImage(f.item.id);
-      if (img != null) {
-        final fishScale = f.item.size * 0.14;
-        canvas.scale(fishScale, fishScale);
-
-        final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
-        final dst = Rect.fromCenter(
-          center: Offset.zero,
-          width: img.width.toDouble(),
-          height: img.height.toDouble(),
-        );
-        canvas.drawImageRect(img, src, dst, _imgPaint);
-        canvas.scale(1.0 / fishScale, 1.0 / fishScale);
-      } else {
-          final fishScale = f.item.size * 0.7;
-          canvas.scale(fishScale, fishScale);
-          final bodyRect = Rect.fromCenter(center: Offset.zero, width: 26, height: 13);
-          _bodyPaint.color = f.item.color;
-          canvas.drawOval(bodyRect, _bodyPaint);
-
-          final tailWag = sin(time * 5 + f.tailPhase) * 4.0;
-          _tailPath
-            ..reset()
-            ..moveTo(-11, 0)
-            ..lineTo(-22, -7 + tailWag)
-            ..lineTo(-18, 0)
-            ..lineTo(-22, 7 + tailWag)
-            ..close();
-          _tailPaint.color = f.item.secondaryColor;
-          canvas.drawPath(_tailPath, _tailPaint);
-
-          canvas.drawCircle(const Offset(7, -2), 2.0, _eyeWhite);
-          canvas.drawCircle(const Offset(8, -2), 0.9, _eyeBlack);
-          canvas.scale(1.0 / fishScale, 1.0 / fishScale);
-        }
-
-      // Status markers above fish removed for pure aesthetic organic swimming.
+      canvas.translate(p.x, p.y);
+      canvas.rotate(p.rot);
+      stonePaint.color = p.color;
+      canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: p.rx * 2, height: p.ry * 2), stonePaint);
+      canvas.drawArc(
+        Rect.fromCenter(center: const Offset(0, -0.5), width: p.rx * 1.8, height: p.ry * 1.6),
+        pi * 1.1,
+        pi * 0.8,
+        false,
+        highlightPaint,
+      );
       canvas.restore();
     }
+  }
+
+  void _drawFish(Canvas canvas, _SimFish f) {
+    canvas.save();
+    canvas.translate(f.x, f.y);
+
+    final isBg = f.isBackground && !f.item.isBottomDweller;
+    if (isBg) {
+      canvas.scale(f.zDepth, f.zDepth);
+    }
+
+    final rollAngle = f.flipTimer > 0 ? (f.flipProgress * pi * 2.0) : 0.0;
+    if (!f.facingRight) {
+      canvas.scale(-1, 1);
+    }
+    canvas.rotate(f.pitchAngle + rollAngle);
+
+    // Creature motion language & natural swimming dynamics
+    switch (f.item.kind) {
+      case FishKind.snail:
+        canvas.rotate(sin(time * 2.0 + f.tailPhase) * 0.03);
+        break;
+      case FishKind.crab:
+        if (f.isMoving) {
+          canvas.translate(0, -sin(time * 16.0 + f.tailPhase).abs() * 2.2);
+        }
+        canvas.rotate(sin(time * 8.0 + f.tailPhase) * 0.045);
+        break;
+      case FishKind.shrimp:
+        canvas.rotate(sin(time * 6.0 + f.tailPhase) * 0.07);
+        break;
+      case FishKind.octopus:
+        if (f.grabbedPellet != null) {
+          final bite = sin(time * 10.0 + f.tailPhase);
+          canvas.scale(1.07, 0.90 + bite * 0.02);
+          canvas.translate(0, 3.0 + bite * 0.4);
+        } else if (f.isMoving) {
+          final stride = sin(f.stepPhase * 2.0);
+          canvas.translate(0, -stride.abs() * 2.6);
+          canvas.rotate(stride * 0.05);
+          final pulse = 1.0 + sin(time * 2.4 + f.tailPhase) * 0.04;
+          canvas.scale(pulse, 2.0 - pulse);
+        } else {
+          final pulse = 1.0 + sin(time * 2.4 + f.tailPhase) * 0.05;
+          canvas.scale(pulse, 2.0 - pulse);
+          canvas.translate(0, sin(time * 1.8 + f.tailPhase) * 1.6);
+        }
+        break;
+      case FishKind.jellyfish:
+        final bell = sin(time * 2.2 + f.tailPhase);
+        canvas.scale(1.0 - bell * 0.06, 1.0 + bell * 0.09);
+        canvas.rotate(sin(time * 1.4 + f.tailPhase) * 0.06);
+        break;
+      case FishKind.fish:
+        final wag = sin(time * 4.5 + f.tailPhase) * 0.05;
+        canvas.rotate(wag);
+        final breath = 1.0 + sin(time * 3.0 + f.tailPhase) * 0.02;
+        canvas.scale(breath, 2.0 - breath);
+        break;
+    }
+
+    final alpha = isBg ? 0.68 : 1.0;
+    _imgPaint.color = Colors.white.withValues(alpha: alpha);
+
+    final img = AssetCache.instance.getFishImage(f.item.id);
+    if (img != null) {
+      final fishScale = f.item.size * 0.14;
+      canvas.scale(fishScale, fishScale);
+
+      final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
+      final dst = Rect.fromCenter(
+        center: Offset.zero,
+        width: img.width.toDouble(),
+        height: img.height.toDouble(),
+      );
+      canvas.drawImageRect(img, src, dst, _imgPaint);
+      canvas.scale(1.0 / fishScale, 1.0 / fishScale);
+    } else {
+      final fishScale = f.item.size * 0.7;
+      canvas.scale(fishScale, fishScale);
+      final bodyRect = Rect.fromCenter(center: Offset.zero, width: 26, height: 13);
+      _bodyPaint.color = f.item.color.withValues(alpha: alpha);
+      canvas.drawOval(bodyRect, _bodyPaint);
+
+      final tailWag = sin(time * 5 + f.tailPhase) * 4.0;
+      _tailPath
+        ..reset()
+        ..moveTo(-11, 0)
+        ..lineTo(-22, -7 + tailWag)
+        ..lineTo(-18, 0)
+        ..lineTo(-22, 7 + tailWag)
+        ..close();
+      _tailPaint.color = f.item.secondaryColor.withValues(alpha: alpha);
+      canvas.drawPath(_tailPath, _tailPaint);
+
+      canvas.drawCircle(const Offset(7, -2), 2.0, _eyeWhite);
+      canvas.drawCircle(const Offset(8, -2), 0.9, _eyeBlack);
+      canvas.scale(1.0 / fishScale, 1.0 / fishScale);
+    }
+
+    canvas.restore();
   }
 
   @override

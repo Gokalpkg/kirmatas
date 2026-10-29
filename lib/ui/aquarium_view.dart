@@ -779,11 +779,39 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: const Text('Bütün balıklar üretimde! Altın hazır olunca topla.'),
-                    backgroundColor: const Color(0xFF1E2438),
+                    content: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: Color(0x334FC3F7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.info_outline_rounded, color: Color(0xFF4FC3F7), size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Bütün balıklar üretimde! Altın hazır olunca topla.',
+                            style: TextStyle(
+                              color: Color(0xFFE2F1FF),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12.5,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    backgroundColor: const Color(0xEE0A1826),
                     behavior: SnackBarBehavior.floating,
+                    elevation: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     duration: const Duration(seconds: 2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      side: const BorderSide(color: Color(0x664FC3F7), width: 1.2),
+                    ),
                   ),
                 );
               }
@@ -792,7 +820,7 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
               child: Stack(
                 key: _stackKey,
                 children: [
-                  // Top Bar (Overflow-safe)
+                  // Top Bar: Back button, Lucky Fish Badge / Title, Gold Pill
                   Positioned(
                     top: 10,
                     left: 12,
@@ -821,26 +849,59 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0x80000000),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: const Color(0x334FC3F7)),
-                            ),
-                            child: Text(
-                              I18n.tr('aquarium_title'),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xFF4FC3F7),
-                                fontWeight: FontWeight.w900,
-                                fontSize: 12,
-                                letterSpacing: 0.6,
-                              ),
-                            ),
-                          ),
+                          child: _save.luckyFishId != null
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xDD1A1400),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(color: const Color(0xFFFFD54F), width: 1.2),
+                                    boxShadow: const [
+                                      BoxShadow(color: Color(0x44FFD54F), blurRadius: 6),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.star_rounded, size: 15, color: Color(0xFFFFD54F)),
+                                      const SizedBox(width: 5),
+                                      Flexible(
+                                        child: Text(
+                                          '★ ${FishItem.getById(_save.luckyFishId!).name} (3x Altın)',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Color(0xFFFFE082),
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0x80000000),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(color: const Color(0x334FC3F7)),
+                                  ),
+                                  child: Text(
+                                    I18n.tr('aquarium_title'),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFF4FC3F7),
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12,
+                                      letterSpacing: 0.6,
+                                    ),
+                                  ),
+                                ),
                         ),
                         const SizedBox(width: 8),
                         // Gold Pill (flying coins land here)
@@ -868,54 +929,13 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                     ),
                   ),
 
-                  // Top Status & Controls: Günün Şanslı Balığı (sol) + [ Yem | Parmak | Katalog ] (sağ)
+                  // Floating Centered Control Capsule Bar [ Yem | Parmak | Katalog ]
                   Positioned(
-                    top: 52,
-                    left: 12,
-                    right: 12,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        if (_save.luckyFishId != null)
-                          Flexible(
-                            child: Container(
-                              margin: const EdgeInsets.only(right: 6),
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: const Color(0xDD1A1400),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: const Color(0xFFFFD54F), width: 1.2),
-                                boxShadow: const [
-                                  BoxShadow(color: Color(0x44FFD54F), blurRadius: 6),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.star_rounded, size: 12, color: Color(0xFFFFD54F)),
-                                  const SizedBox(width: 4),
-                                  Flexible(
-                                    child: Text(
-                                      '${FishItem.getById(_save.luckyFishId!).name} (3x)',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Color(0xFFFFE082),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        else
-                          const Spacer(),
-
-                        _buildAquariumControlTabs(),
-                      ],
+                    top: 56,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: _buildAquariumControlTabs(),
                     ),
                   ),
 
