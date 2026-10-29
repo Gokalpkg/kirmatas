@@ -421,7 +421,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 10));
       }
 
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 500));
 
       // Must display feedback snackbar cleanly
       expect(find.text('Etkinlikler ve Lig Bölüm 7 seviyesinde açılır.'), findsOneWidget);
@@ -495,7 +495,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 10));
       }
 
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('Bu özellik Bölüm 2 seviyesinde açılır.'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -567,13 +567,13 @@ void main() {
         final gearIcon = find.byIcon(Icons.settings_rounded).first;
         await tester.tap(gearIcon);
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 200));
+        await tester.pump(const Duration(milliseconds: 300));
 
-        final closeIcon = find.byIcon(Icons.close_rounded);
-        expect(closeIcon, findsOneWidget);
-        await tester.tap(closeIcon);
+        final closeBtn = find.text(I18n.tr('close'));
+        expect(closeBtn, findsOneWidget);
+        await tester.tap(closeBtn);
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 200));
+        await tester.pump(const Duration(milliseconds: 300));
       }
 
       expect(find.byType(AlertDialog), findsNothing);

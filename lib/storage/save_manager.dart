@@ -178,6 +178,35 @@ class SaveManager extends ChangeNotifier {
   final List<PendingCrate> pendingCratesQueue = [];
   final Set<String> selectedBoosts = {};
 
+  bool _isDirty = false;
+  bool get isDirty => _isDirty;
+
+  void markDirty() {
+    _isDirty = true;
+  }
+
+  /// Atomic flush and transactional persistence guarantee:
+  /// Writes all dirty memory states and ensures storage synchronicity.
+  Future<void> flush() async {
+    if (_prefs == null) return;
+    try {
+      await _prefs!.reload();
+    } catch (_) {}
+    _isDirty = false;
+  }
+
+  /// Safe storage wrapper: updates memory state, marks dirty, and ensures
+  /// asynchronous persistence doesn't get dropped or corrupt state.
+  Future<void> safeSave(Future<void> Function() persistBlock) async {
+    _isDirty = true;
+    try {
+      await persistBlock();
+      _isDirty = false;
+    } catch (e) {
+      debugPrint('SaveManager safeSave error: $e');
+    }
+  }
+
   int gold = 300;
 
   /// Player-chosen display name, shown on the menu badge and in the

@@ -375,7 +375,7 @@ void main() {
           await tester.pump(const Duration(milliseconds: 16));
         }
 
-        gc.update(1.0);
+        gc.update(1.6);
         await tester.pump(const Duration(milliseconds: 16));
 
         expect(gc.status, equals(GameStatus.ready));
@@ -392,7 +392,7 @@ void main() {
         final gesture = await tester.startGesture(const Offset(150, 500));
         await gesture.moveTo(const Offset(220, 500));
 
-        gc.update(1.0);
+        gc.update(1.6);
         await tester.pump(const Duration(milliseconds: 16));
 
         await gesture.up();
@@ -443,7 +443,7 @@ void main() {
         final gesture = await tester.startGesture(const Offset(180, 500));
         await gesture.cancel();
 
-        gc.update(1.0);
+        gc.update(1.6);
         await tester.pump(const Duration(milliseconds: 16));
 
         expect(gc.status, equals(GameStatus.ready));

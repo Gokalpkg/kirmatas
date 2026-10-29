@@ -7,6 +7,11 @@ class FishSynergyBuffs {
   final double critChanceBonus;
   final double goldMultiplier;
   final int startingLaserAmmoBonus;
+  final bool hasOctopusClutchSave;
+  final bool hasArowanaRicochet;
+  final bool hasTetraSwarm;
+  final bool hasDiscusBlast;
+  final double foodDropBonus;
   final List<String> activeBuffDescriptions;
 
   const FishSynergyBuffs({
@@ -14,6 +19,11 @@ class FishSynergyBuffs {
     required this.critChanceBonus,
     required this.goldMultiplier,
     required this.startingLaserAmmoBonus,
+    this.hasOctopusClutchSave = false,
+    this.hasArowanaRicochet = false,
+    this.hasTetraSwarm = false,
+    this.hasDiscusBlast = false,
+    this.foodDropBonus = 0.0,
     required this.activeBuffDescriptions,
   });
 
@@ -71,22 +81,52 @@ class FishSynergyBuffs {
       descs.add('+$laserAmmo Ekstra Lazer Cephanesi');
     }
 
-    // 4. Dragon Arowana: Imperial Wealth (Gold Multiplier)
+    // 4. Dragon Arowana: Imperial Wealth & Ricochet Laser
     double extraGold = 0.0;
-    if (unlocked.contains('arowana')) extraGold += 0.10 * factor('arowana');
-    if (unlocked.contains('arowana_red')) extraGold += 0.15 * factor('arowana_red');
-    if (unlocked.contains('arowana_silver')) extraGold += 0.20 * factor('arowana_silver');
+    bool hasArowana = false;
+    if (unlocked.contains('arowana')) { extraGold += 0.10 * factor('arowana'); hasArowana = true; }
+    if (unlocked.contains('arowana_red')) { extraGold += 0.15 * factor('arowana_red'); hasArowana = true; }
+    if (unlocked.contains('arowana_silver')) { extraGold += 0.20 * factor('arowana_silver'); hasArowana = true; }
     if (extraGold > 0) {
       goldMult += extraGold;
       final display = (extraGold * 100).toStringAsFixed((extraGold * 100).truncateToDouble() == (extraGold * 100) ? 0 : 1);
       descs.add('+$display% Seviye Altını');
     }
+    if (hasArowana) {
+      descs.add('Arowana Altın Lazeri & Ekstra Sıçrama');
+    }
+
+    // 5. Ahtapot: Clutch Save (Paddle altından kaçan topu 1 kez vantuzla fırlatma)
+    final hasOctopus = unlocked.contains('octopus') || save.ownedFishCounts.containsKey('octopus');
+    if (hasOctopus) {
+      descs.add('Ahtapot Vantuz Kurtarışı (Can Koruma)');
+    }
+
+    // 6. Neon Tetra: Sürü Zekası (Multiball toplarının dağılım ve hız optimizasyonu)
+    final hasTetra = unlocked.any((id) => id.startsWith('tetra'));
+    if (hasTetra) {
+      descs.add('Neon Tetra Sürü Zekası (Senkron Çoklu Top)');
+    }
+
+    // 7. Diskus: Geniş Patlama Alanı (+50% bomba & ateş topu etki alanı)
+    final hasDiscus = unlocked.any((id) => id.startsWith('discus'));
+    if (hasDiscus) {
+      descs.add('Diskus Genişletilmiş Patlama Yarıçapı');
+    }
+
+    // Tuğla Kırma & Akvaryum Döngüsü: Balık yemi düşme bonusu
+    final foodBonus = unlocked.isNotEmpty ? 0.08 : 0.04;
 
     return FishSynergyBuffs(
       extraPaddleWidth: width,
       critChanceBonus: crit,
       goldMultiplier: goldMult,
       startingLaserAmmoBonus: laserAmmo,
+      hasOctopusClutchSave: hasOctopus,
+      hasArowanaRicochet: hasArowana,
+      hasTetraSwarm: hasTetra,
+      hasDiscusBlast: hasDiscus,
+      foodDropBonus: foodBonus,
       activeBuffDescriptions: descs,
     );
   }

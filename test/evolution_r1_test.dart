@@ -243,6 +243,11 @@ void main() {
 
   group('Evolution R1: MainMenu Hub & Streamlined Bottom Dock', () {
     testWidgets('Locked player (< Level 7) sees lock badge on Etkinlikler & Lig and receives snackbar feedback', (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+      addTearDown(() => tester.view.resetDevicePixelRatio());
+
       final save = SaveManager.instance;
       save.highestLevel = 3;
       save.hasCompletedMainMenuTour = true;
@@ -261,7 +266,7 @@ void main() {
 
       // Tap locked card
       await tester.tap(find.text('ETKİNLİKLER & LİG'));
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('Etkinlikler ve Lig Bölüm 7 seviyesinde açılır.'), findsOneWidget);
     });
 

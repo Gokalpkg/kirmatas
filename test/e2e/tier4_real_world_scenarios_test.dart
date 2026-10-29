@@ -65,7 +65,7 @@ void main() {
 
       // Step 5: Touch gesture held across transition end
       final gesture = await tester.startGesture(const Offset(180, 500));
-      gc.update(1.0); // Complete transition
+      gc.update(1.6); // Complete transition
       await tester.pump(const Duration(milliseconds: 16));
 
       await gesture.up();

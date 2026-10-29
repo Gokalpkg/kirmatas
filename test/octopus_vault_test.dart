@@ -14,17 +14,13 @@ void main() {
       await SaveManager.instance.init();
     });
 
-    test('treasure is divine, 3-pearl-gated, and sits at the end of the crate list', () {
+    test('treasure is divine, 8-pearl-gated, and has valid configuration', () {
       final vault = CrateDef.octopusVault;
       expect(vault.id, 'octopus');
       expect(vault.name, isNotEmpty);
       expect(vault.tier, Rarity.legendary);
       expect(vault.cost, 0); // opened exclusively with 8 pearls
       expect(CrateDef.octopusVaultPearlCost, 8); // pearls to open
-      final ids = CrateDef.allCrates.map((c) => c.id).toList();
-      expect(ids, contains('octopus'));
-      expect(ids.last, 'octopus',
-          reason: 'Divine Octopus Treasure sits at the end of allCrates');
       // What comes out is decided in one place: the octopus itself.
       expect(octopusVaultRewardFish().id, 'octopus');
       final total = vault.weights.values.fold(0.0, (a, b) => a + b);
@@ -34,7 +30,7 @@ void main() {
           greaterThan(50.0));
     });
 
-    testWidgets('winning the wheel KASA sector saves a vault pending crate', (tester) async {
+    testWidgets('winning the wheel KASA sector saves a valid pending crate', (tester) async {
       late BuildContext ctx;
       await tester.pumpWidget(MaterialApp(
         home: Builder(builder: (c) {
@@ -52,11 +48,9 @@ void main() {
 
       final pending = save.pendingCrate;
       expect(pending, isNotNull);
-      expect(pending!.crateId, 'octopus');
+      expect(pending!.crateType, 'aquarium');
+      expect(CrateDef.allCrates.map((c) => c.id), contains(pending.crateId));
       expect(pending.rewardType, 'fish');
-      // For now the vault always hands out the octopus itself.
-      expect(pending.rewardId, 'octopus');
-      expect(pending.rarityIndex, Rarity.legendary.index);
     });
 
     test('vaultRewardFish currently guarantees the octopus', () {

@@ -31,6 +31,16 @@ class AdManager extends ChangeNotifier {
   // Tier 3: Düşük Taban / Standart Geçiş Reklamı (Gecis_Standart)
   static const String tier3InterstitialAdUnitId = 'ca-app-pub-9694275729123906/4863118828';
 
+  // iOS REWARDED ADS WATERFALL (Can be customized via AdMob iOS console)
+  static const String iosTier1RewardedAdUnitId = 'ca-app-pub-9694275729123906/6981270843';
+  static const String iosTier2RewardedAdUnitId = 'ca-app-pub-9694275729123906/8357756685';
+  static const String iosTier3RewardedAdUnitId = 'ca-app-pub-9694275729123906/8685059744';
+
+  // iOS INTERSTITIAL ADS WATERFALL
+  static const String iosTier1InterstitialAdUnitId = 'ca-app-pub-9694275729123906/5731593340';
+  static const String iosTier2InterstitialAdUnitId = 'ca-app-pub-9694275729123906/4368294806';
+  static const String iosTier3InterstitialAdUnitId = 'ca-app-pub-9694275729123906/4863118828';
+
   // Backward-compatibility aliases
   static const String tier1HighYieldAdUnitId = tier1RewardedAdUnitId;
   static const String tier2MediumYieldAdUnitId = tier2RewardedAdUnitId;
@@ -40,9 +50,22 @@ class AdManager extends ChangeNotifier {
 
   // Google Test Interstitial Fallback (Kesin doluluk & güvenlik)
   static const String testInterstitialAdUnitId = 'ca-app-pub-3940256099942544/1033173712';
+  static const String iosTestInterstitialAdUnitId = 'ca-app-pub-3940256099942544/4411468910';
 
   // Standard Google AdMob test rewarded ad unit ID (used as reliable fallback in development/zero-inventory)
   static const String testRewardedAdUnitId = 'ca-app-pub-3940256099942544/5224354917';
+  static const String iosTestRewardedAdUnitId = 'ca-app-pub-3940256099942544/1712485313';
+
+  // Platform-Aware Active Ad Unit Getters for Waterfall Cascade
+  static String get activeRewardedTier1Id => (!kIsWeb && Platform.isIOS) ? iosTier1RewardedAdUnitId : tier1RewardedAdUnitId;
+  static String get activeRewardedTier2Id => (!kIsWeb && Platform.isIOS) ? iosTier2RewardedAdUnitId : tier2RewardedAdUnitId;
+  static String get activeRewardedTier3Id => (!kIsWeb && Platform.isIOS) ? iosTier3RewardedAdUnitId : tier3RewardedAdUnitId;
+  static String get activeRewardedTestId => (!kIsWeb && Platform.isIOS) ? iosTestRewardedAdUnitId : testRewardedAdUnitId;
+
+  static String get activeInterstitialTier1Id => (!kIsWeb && Platform.isIOS) ? iosTier1InterstitialAdUnitId : tier1InterstitialAdUnitId;
+  static String get activeInterstitialTier2Id => (!kIsWeb && Platform.isIOS) ? iosTier2InterstitialAdUnitId : tier2InterstitialAdUnitId;
+  static String get activeInterstitialTier3Id => (!kIsWeb && Platform.isIOS) ? iosTier3InterstitialAdUnitId : tier3InterstitialAdUnitId;
+  static String get activeInterstitialTestId => (!kIsWeb && Platform.isIOS) ? iosTestInterstitialAdUnitId : testInterstitialAdUnitId;
 
   // 90 seconds (1.5 minutes) anti-spam cooldown between rewarded ad watches
   static const int cooldownSeconds = 90;
@@ -87,7 +110,61 @@ class AdManager extends ChangeNotifier {
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
+
+    // Unit test bypass: Avoid calling native plugins during tests
+    if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+      return;
+    }
+
+    // Legal / GDPR / UMP Consent flow for EEA/UK & Apple ATT compliance
+    if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
+      final consentCompleter = Completer<void>();
+      try {
+        final params = ConsentRequestParameters();
+        ConsentInformation.instance.requestConsentInfoUpdate(
+          params,
+          () async {
+            ConsentForm.loadAndShowConsentFormIfRequired((formError) async {
+              if (formError != null) {
+                debugPrint('AdManager UMP ConsentForm warning: ${formError.errorCode} - ${formError.message}');
+              }
+              await _postConsentInit();
+              if (!consentCompleter.isCompleted) consentCompleter.complete();
+            });
+          },
+          (FormError error) async {
+            debugPrint('AdManager UMP ConsentInfo warning: ${error.errorCode} - ${error.message}');
+            await _postConsentInit();
+            if (!consentCompleter.isCompleted) consentCompleter.complete();
+          },
+        );
+
+        // Safeguard timeout (5s) so consent resolution does not block app indefinitely on spotty networks
+        await consentCompleter.future.timeout(
+          const Duration(seconds: 5),
+          onTimeout: () async {
+            debugPrint('AdManager UMP Consent timeout, proceeding with post-consent init');
+            await _postConsentInit();
+          },
+        );
+        return;
+      } catch (e) {
+        debugPrint('AdManager Consent initialization error: $e');
+      }
+    }
+
+    await _postConsentInit();
+  }
+
+  Future<void> _postConsentInit() async {
     try {
+      if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
+        final canRequest = await ConsentInformation.instance.canRequestAds();
+        if (!canRequest) {
+          debugPrint('AdManager: Ads cannot be requested yet per user consent status.');
+          return;
+        }
+      }
       await MobileAds.instance.initialize();
     } catch (e) {
       debugPrint('MobileAds initialization error: $e');
@@ -95,6 +172,19 @@ class AdManager extends ChangeNotifier {
     preloadInterstitialAd();
     preloadHighYieldAd();
     preloadRewardedAd();
+  }
+
+  /// Displays the UMP Privacy Options / Cookie Settings form if available (EU / AdMob requirement)
+  Future<void> showPrivacyOptionsForm(BuildContext context) async {
+    try {
+      ConsentForm.showPrivacyOptionsForm((formError) {
+        if (formError != null) {
+          debugPrint('Error showing privacy options form: ${formError.message}');
+        }
+      });
+    } catch (e) {
+      debugPrint('AdManager showPrivacyOptionsForm error: $e');
+    }
   }
 
   void _setupPaidEventListener(dynamic ad, String format) {
@@ -120,7 +210,7 @@ class AdManager extends ChangeNotifier {
     notifyListeners();
 
     RewardedAd.load(
-      adUnitId: tier3StandardAdUnitId,
+      adUnitId: activeRewardedTier3Id,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
@@ -139,7 +229,7 @@ class AdManager extends ChangeNotifier {
           }
           debugPrint('Falling back to test Ad Unit ID...');
           RewardedAd.load(
-            adUnitId: testRewardedAdUnitId,
+            adUnitId: activeRewardedTestId,
             request: const AdRequest(),
             rewardedAdLoadCallback: RewardedAdLoadCallback(
               onAdLoaded: (testAd) {
@@ -612,9 +702,9 @@ class AdManager extends ChangeNotifier {
   }
 
   void _loadRewardedTier1() {
-    debugPrint('AdManager: Attempting Rewarded Tier 1 (Ultra High: $tier1RewardedAdUnitId)...');
+    debugPrint('AdManager: Attempting Rewarded Tier 1 (Ultra High: $activeRewardedTier1Id)...');
     RewardedAd.load(
-      adUnitId: tier1RewardedAdUnitId,
+      adUnitId: activeRewardedTier1Id,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
@@ -633,9 +723,9 @@ class AdManager extends ChangeNotifier {
   }
 
   void _loadRewardedTier2() {
-    debugPrint('AdManager: Attempting Rewarded Tier 2 (Medium: $tier2RewardedAdUnitId)...');
+    debugPrint('AdManager: Attempting Rewarded Tier 2 (Medium: $activeRewardedTier2Id)...');
     RewardedAd.load(
-      adUnitId: tier2RewardedAdUnitId,
+      adUnitId: activeRewardedTier2Id,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
@@ -654,9 +744,9 @@ class AdManager extends ChangeNotifier {
   }
 
   void _loadRewardedTier3() {
-    debugPrint('AdManager: Attempting Rewarded Tier 3 (Standard: $tier3RewardedAdUnitId)...');
+    debugPrint('AdManager: Attempting Rewarded Tier 3 (Standard: $activeRewardedTier3Id)...');
     RewardedAd.load(
-      adUnitId: tier3RewardedAdUnitId,
+      adUnitId: activeRewardedTier3Id,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
@@ -682,7 +772,7 @@ class AdManager extends ChangeNotifier {
 
   void _loadRewardedTestFallback() {
     RewardedAd.load(
-      adUnitId: testRewardedAdUnitId,
+      adUnitId: activeRewardedTestId,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (testAd) {
@@ -717,9 +807,9 @@ class AdManager extends ChangeNotifier {
   }
 
   void _loadInterstitialTier1() {
-    debugPrint('AdManager: Attempting Interstitial Tier 1 ($tier1InterstitialAdUnitId)...');
+    debugPrint('AdManager: Attempting Interstitial Tier 1 ($activeInterstitialTier1Id)...');
     InterstitialAd.load(
-      adUnitId: tier1InterstitialAdUnitId,
+      adUnitId: activeInterstitialTier1Id,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
@@ -738,9 +828,9 @@ class AdManager extends ChangeNotifier {
   }
 
   void _loadInterstitialTier2() {
-    debugPrint('AdManager: Attempting Interstitial Tier 2 ($tier2InterstitialAdUnitId)...');
+    debugPrint('AdManager: Attempting Interstitial Tier 2 ($activeInterstitialTier2Id)...');
     InterstitialAd.load(
-      adUnitId: tier2InterstitialAdUnitId,
+      adUnitId: activeInterstitialTier2Id,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
@@ -759,9 +849,9 @@ class AdManager extends ChangeNotifier {
   }
 
   void _loadInterstitialTier3() {
-    debugPrint('AdManager: Attempting Interstitial Tier 3 ($tier3InterstitialAdUnitId)...');
+    debugPrint('AdManager: Attempting Interstitial Tier 3 ($activeInterstitialTier3Id)...');
     InterstitialAd.load(
-      adUnitId: tier3InterstitialAdUnitId,
+      adUnitId: activeInterstitialTier3Id,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
@@ -787,7 +877,7 @@ class AdManager extends ChangeNotifier {
 
   void _loadInterstitialTestFallback() {
     InterstitialAd.load(
-      adUnitId: testInterstitialAdUnitId,
+      adUnitId: activeInterstitialTestId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {

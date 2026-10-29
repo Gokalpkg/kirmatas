@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kirmatas/engine/i18n.dart';
 import 'package:kirmatas/storage/save_manager.dart';
 import 'package:kirmatas/ui/main_menu.dart';
 import 'package:kirmatas/ui/aquarium_view.dart';
@@ -140,9 +141,11 @@ void main() {
       expect(physics.maxPage, greaterThanOrEqualTo(2));
 
       // Tap the Akvaryum button in bottom dock
-      await tester.tap(find.text('AKVARYUM').first);
+      await tester.tap(find.text(I18n.tr('aquarium')).first);
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
+      for (int i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
       // Verify AquariumView IS now mounted and visible
       expect(find.byType(AquariumView), findsOneWidget);

@@ -574,9 +574,9 @@ class _TournamentDialogState extends State<TournamentDialog> {
                       ),
                       child: Text(
                         playerRival.rank <= 3
-                            ? 'YÜKSELME'
+                            ? 'YÜKSELME ⬆️'
                             : (playerRival.rank > 10
-                                  ? 'DÜŞME'
+                                  ? 'DÜŞME ⬇️'
                                   : 'GÜVENLİ'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

@@ -377,7 +377,7 @@ void main() {
         gc.update(0.016);
         expect(gc.levelTransitionTimer > 0, isTrue);
 
-        gc.update(1.0);
+        gc.update(1.6);
         expect(gc.levelTransitionTimer, equals(0));
         expect(gc.status, equals(GameStatus.ready));
         expect(gc.hasStuckBall, isTrue);
@@ -423,7 +423,7 @@ void main() {
         final gc = createTestController();
         clearAllBreakableBricks(gc);
         gc.update(0.016);
-        gc.update(1.0);
+        gc.update(1.6);
 
         expect(gc.status, equals(GameStatus.ready));
         expect(gc.balls.length, equals(1));

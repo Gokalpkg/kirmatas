@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
@@ -767,27 +767,16 @@ class _UpgradesViewState extends State<UpgradesView> {
                   Icon(Icons.auto_awesome_rounded, color: Color(0xFFE040FB), size: 18),
                   SizedBox(width: 6),
                   Flexible(
-                    child: Stack(
-                      children: [
-                        Opacity(
-                          opacity: 0.0,
-                          child: Text(
-                            'KOZMİK USTALIK (SONSUZ SEVİYE)',
-                            style: TextStyle(fontSize: 1),
-                          ),
-                        ),
-                        Text(
-                          'KOZMİK USTALIK (SONSUZ SEVİYE)',
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                          style: TextStyle(
-                            color: Color(0xFFE040FB),
-                            fontWeight: FontWeight.w900,
-                            fontSize: 13,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      'KOZMİK USTALIK (SONSUZ SEVİYE)',
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: Color(0xFFE040FB),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                        letterSpacing: 1.0,
+                      ),
                     ),
                   ),
                 ],

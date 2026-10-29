@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kirmatas/storage/save_manager.dart';
 import 'package:kirmatas/ui/aquarium_view.dart';
-import 'package:kirmatas/ui/eco_tank_background.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -55,7 +54,7 @@ void main() {
 
       // Tap Yem tab -> switches mode back to feed, does not consume food
       await tester.tap(find.textContaining('Yem'));
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(save.fishFood, initialFood, reason: 'Tapping Yem tab directly must only select the tab, not drop food');
     });

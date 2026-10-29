@@ -545,6 +545,7 @@ class GameController extends ChangeNotifier {
   bool _chaosAllSolidBroken = false;
   int activeIceVariant = 0;
   double endgameStallTimer = 0.0;
+  bool octopusClutchUsedThisStage = false;
   String? activeTipText;
   double tipTimer = 0.0;
 
@@ -909,6 +910,7 @@ class GameController extends ChangeNotifier {
     final upgradeWidthBonus = paddleWidthLvl * 2.0;
     final relicWidthBonus = (save.hasPermanentRelic && save.activeRelicStyle == 'aegis') ? paddle.baseWidth * 0.08 : 0.0;
     paddle.width = paddle.baseWidth + fishBuffs.extraPaddleWidth + upgradeWidthBonus + relicWidthBonus;
+    octopusClutchUsedThisStage = false;
     paddle.x = (screenWidth - paddle.width) / 2;
     paddle.y = screenHeight - 110.0;
     paddle.isSticky = false;
@@ -3023,6 +3025,22 @@ class GameController extends ChangeNotifier {
           ball.vy = ball.vy.abs();
           ball.triggerSquash(pi / 2);
           audio.playSfx(GameSfx.hitWall);
+
+          // Aquarium Active: Arowana Ricochet Laser
+          final fishBuffs = FishSynergyBuffs.calculate(save);
+          if (fishBuffs.hasArowanaRicochet) {
+            for (final b in bricks) {
+              if (b.isAlive && !b.isSteel && (b.x - ball.x).abs() < 42.0) {
+                b.hp -= 1;
+                if (b.hp <= 0) b.isAlive = false;
+                particles.spawnShockwave(ball.x, 36.0, const Color(0xFFFFD700), maxRadius: 32.0);
+                particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD700), count: 8, speed: 100.0);
+                particles.spawnFloatingText(ball.x, 50.0, '✨ AROWANA LAZERİ!', const Color(0xFFFFD700));
+                audio.playSfx(GameSfx.laser);
+                break;
+              }
+            }
+          }
         }
 
         // Safety Net / Shield collision
@@ -3071,6 +3089,19 @@ class GameController extends ChangeNotifier {
           particles.spawnShockwave(screenWidth / 2, paddle.y + 15.0, const Color(0xFF76FF03), maxRadius: screenWidth);
           particles.spawnFloatingText(screenWidth / 2, paddle.y - 30.0, I18n.tr('blessing_clutch_title'), const Color(0xFF76FF03), isLarge: true);
           audio.playSfx(GameSfx.powerupBuff);
+          continue;
+        }
+        // Aquarium Active: Ahtapot Vantuz Kurtarışı (Clutch Save)
+        final fishBuffs = FishSynergyBuffs.calculate(save);
+        if (balls.length == 1 && !octopusClutchUsedThisStage && fishBuffs.hasOctopusClutchSave) {
+          octopusClutchUsedThisStage = true;
+          ball.y = paddle.y - ball.radius - 4.0;
+          ball.vy = -ball.vy.abs();
+          particles.triggerShake(6.0, 0.32);
+          particles.spawnShockwave(ball.x, paddle.y + 10.0, const Color(0xFFE040FB), maxRadius: 95.0);
+          particles.spawnBurst(ball.x, paddle.y + 10.0, const Color(0xFFEA80FC), count: 24, speed: 170.0);
+          particles.spawnFloatingText(ball.x.clamp(80.0, screenWidth - 80.0), paddle.y - 35.0, '🐙 AHTAPOT KURTARIŞI!', const Color(0xFFE040FB), isLarge: true);
+          audio.playSfx(GameSfx.victory);
           continue;
         }
         // Item 7: Aquarium-Game Bridge: Dolphin Leap / Balık Kurtarışı (Oyun/Run başına strictly 1 kez)
@@ -3189,6 +3220,46 @@ class GameController extends ChangeNotifier {
           vy = (vy / spinMag) * finalSpeed;
         }
 
+        // Son Tuğla Manyetizması / Sonar Güç Alanı (Smart Angle Guidance):
+        // Seviyede 3 veya daha az canlı tuğla kaldığında top paddle'a her açılı vurduğunda
+        // son kalan tuğlaya doğru hafif akıllı açı düzeltmesi alır (tam dik merkez vuruşlar korunur).
+        final remainingBricks = bricks.where((b) => b.isAlive && !b.isSteel).toList();
+        if (hitOffset.abs() > 0.05 && remainingBricks.isNotEmpty && remainingBricks.length <= 3) {
+          Brick? closest;
+          double minDistSq = double.infinity;
+          for (final rb in remainingBricks) {
+            final dx = (rb.x + rb.width / 2) - ball.x;
+            final dy = (rb.y + rb.height / 2) - pr.top;
+            final dSq = dx * dx + dy * dy;
+            if (dSq < minDistSq) {
+              minDistSq = dSq;
+              closest = rb;
+            }
+          }
+          if (closest != null) {
+            final targetAngle = atan2((closest.x + closest.width / 2) - ball.x, -((closest.y + closest.height / 2) - pr.top));
+            final clampedTarget = targetAngle.clamp(-pi / 2.8, pi / 2.8);
+            final guidedAngle = bounceAngle * 0.70 + clampedTarget * 0.30;
+            vx = sin(guidedAngle) * finalSpeed;
+            vy = -cos(guidedAngle) * finalSpeed;
+            particles.spawnShockwave(ball.x, pr.top, const Color(0xFF00E5FF), maxRadius: 28.0);
+          }
+        }
+
+        // Paddle Kenar Koruması (Elastic Tip Bounce Protection):
+        // Uç temaslarda topun alta kaymasını veya tünellemesini engellemek için vy kesinlikle yukarı yönlendirilir
+        if (hitOffset.abs() >= 0.82) {
+          vy = -vy.abs();
+          if (vy.abs() < finalSpeed * 0.42) {
+            vy = -finalSpeed * 0.42;
+            final spd = sqrt(vx * vx + vy * vy);
+            if (spd > 0) {
+              vx = (vx / spd) * finalSpeed;
+              vy = (vy / spd) * finalSpeed;
+            }
+          }
+        }
+
         ball.vx = vx;
         ball.vy = vy;
       }
@@ -3232,7 +3303,7 @@ class GameController extends ChangeNotifier {
         // Outer clutch edge save: slow-mo, neon shockwave & epic floating text!
         final isClutchSave = hitOffset.abs() >= 0.88;
         if (isClutchSave) {
-          stats.score += 200;
+          stats.score += 150;
           if (_nearMissCooldown <= 0) {
             _nearMissCooldown = 1.2;
             nearMissFlashTimer = 0.50;
@@ -3244,7 +3315,7 @@ class GameController extends ChangeNotifier {
             particles.spawnFloatingText(
               ball.x,
               pr.top - 20,
-              '🔥 SON ANDA! +200 🔥',
+              '🔥 SON ANDA! +150 🔥',
               const Color(0xFF00E5FF),
               isLarge: true,
             );
@@ -4337,7 +4408,9 @@ class GameController extends ChangeNotifier {
       _explodeArea(cx, cy, radius: radius);
 
   void _explodeArea(double cx, double cy, {double radius = 60.0, int chainDepth = 0}) {
-    final effectiveRadius = radius * (1.0 + activeCosmeticSynergy.explosionRadiusBonus);
+    final fishBuffs = FishSynergyBuffs.calculate(save);
+    final discusBonus = fishBuffs.hasDiscusBlast ? 0.50 : 0.0;
+    final effectiveRadius = radius * (1.0 + activeCosmeticSynergy.explosionRadiusBonus + discusBonus);
     particles.spawnBurst(cx, cy, const Color(0xFFFF5722), count: 28, speed: 240.0);
     particles.spawnShockwave(cx, cy, const Color(0xFFFF9800), maxRadius: effectiveRadius);
     particles.spawnPixelCrossBlast(cx, cy, effectiveRadius, const Color(0xFFFF5722));
@@ -4602,6 +4675,12 @@ class GameController extends ChangeNotifier {
         final unspawned = buffs.where((t) => !capsules.any((c) => c.type == t)).toList();
         if (unspawned.isNotEmpty) chosen = unspawned[_rand.nextInt(unspawned.length)];
       }
+
+      // Symbiotic Aquarium loop: Bricks drop fish food to directly fuel Eco-Tank
+      final fishBuffs = FishSynergyBuffs.calculate(save);
+      if (_rand.nextDouble() < (0.08 + fishBuffs.foodDropBonus)) {
+        chosen = PowerUpType.food;
+      }
     } else {
       final debuffs = allTypes.where((t) => t.kind == PowerUpKind.debuff).toList();
       chosen = debuffs[_rand.nextInt(debuffs.length)];
@@ -4659,6 +4738,11 @@ class GameController extends ChangeNotifier {
             particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, 'MAX CAN! +50 ALTIN', const Color(0xFFFFD700), isLarge: true);
             audio.playSfx(GameSfx.powerupBuff);
           }
+          break;
+        case PowerUpType.food:
+          save.addFishFood(1);
+          particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, '+1 YEM 🐟', const Color(0xFFFFB300), isLarge: true);
+          audio.playSfx(GameSfx.powerupBuff);
           break;
         case PowerUpType.mirror:
           if (balls.isNotEmpty) {
@@ -4952,12 +5036,20 @@ class GameController extends ChangeNotifier {
 
     final isInitialStuck = status == GameStatus.ready || first.isStuck;
 
+    final fishBuffs = FishSynergyBuffs.calculate(save);
+    final splitVx = fishBuffs.hasTetraSwarm ? spd * 0.58 : spd * 0.7;
+    final splitVy = fishBuffs.hasTetraSwarm ? -spd * 0.81 : -spd * 0.7;
+    if (fishBuffs.hasTetraSwarm) {
+      particles.spawnBurst(first.x, first.y, const Color(0xFF00E5FF), count: 12, speed: 130.0);
+      particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 30.0, '🐟 TETRA SÜRÜSÜ!', const Color(0xFF00E5FF));
+    }
+
     balls.add(
       Ball(
         x: isInitialStuck ? paddle.x + paddle.width * 0.35 : first.x,
         y: isInitialStuck ? paddle.y - first.radius - 2.0 : first.y,
-        vx: isInitialStuck ? 0.0 : -spd * 0.7,
-        vy: isInitialStuck ? 0.0 : -spd * 0.7,
+        vx: isInitialStuck ? 0.0 : -splitVx,
+        vy: isInitialStuck ? 0.0 : splitVy,
         radius: first.radius,
         isStuck: isInitialStuck,
         stuckOffsetX: isInitialStuck ? paddle.width * 0.35 : 0.0,
@@ -4972,8 +5064,8 @@ class GameController extends ChangeNotifier {
       Ball(
         x: isInitialStuck ? paddle.x + paddle.width * 0.65 : first.x,
         y: isInitialStuck ? paddle.y - first.radius - 2.0 : first.y,
-        vx: isInitialStuck ? 0.0 : spd * 0.7,
-        vy: isInitialStuck ? 0.0 : -spd * 0.7,
+        vx: isInitialStuck ? 0.0 : splitVx,
+        vy: isInitialStuck ? 0.0 : splitVy,
         radius: first.radius,
         isStuck: isInitialStuck,
         stuckOffsetX: isInitialStuck ? paddle.width * 0.65 : 0.0,

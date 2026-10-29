@@ -109,6 +109,7 @@ class _FishHoardChestState extends State<FishHoardChest> with TickerProviderStat
     final available = widget.save.currentAvailableFishGold;
     final ready = available > 0 || (_busy && (from ?? 0) > 0);
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: _onTap,
       child: AnimatedBuilder(
         animation: Listenable.merge([_glow, _pour, _nudge]),

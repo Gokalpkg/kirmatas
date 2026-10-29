@@ -547,6 +547,10 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
 class _ScreenVignettePainter extends CustomPainter {
   final GameController c;
 
+  static final Paint _vignetteEdgePaint = Paint();
+  static final Paint _flamePaint = Paint();
+  static final Paint _flameBorderStroke = Paint()..style = PaintingStyle.stroke;
+
   _ScreenVignettePainter(this.c) : super(repaint: c.frameTick);
 
   @override
@@ -572,17 +576,16 @@ class _ScreenVignettePainter extends CustomPainter {
 
     final rect = Offset.zero & size;
     void edge(Color color, double alpha) {
-      final paint = Paint()
-        ..shader = RadialGradient(
-          radius: 0.95,
-          colors: [
-            color.withValues(alpha: 0.0),
-            color.withValues(alpha: 0.0),
-            color.withValues(alpha: alpha),
-          ],
-          stops: const [0.0, 0.78, 1.0],
-        ).createShader(rect);
-      canvas.drawRect(rect, paint);
+      _vignetteEdgePaint.shader = RadialGradient(
+        radius: 0.95,
+        colors: [
+          color.withValues(alpha: 0.0),
+          color.withValues(alpha: 0.0),
+          color.withValues(alpha: alpha),
+        ],
+        stops: const [0.0, 0.78, 1.0],
+      ).createShader(rect);
+      canvas.drawRect(rect, _vignetteEdgePaint);
     }
 
     if (hasStreakBorder) {
@@ -598,10 +601,10 @@ class _ScreenVignettePainter extends CustomPainter {
         ],
         stops: const [0.0, 0.72, 1.0],
       ).createShader(rect);
-      canvas.drawRect(rect, Paint()..shader = flameShader);
+      _flamePaint.shader = flameShader;
+      canvas.drawRect(rect, _flamePaint);
 
-      final borderStroke = Paint()
-        ..style = PaintingStyle.stroke
+      _flameBorderStroke
         ..strokeWidth = 2.5 + 1.5 * pulse
         ..shader = LinearGradient(
           begin: Alignment.topLeft,
@@ -612,7 +615,7 @@ class _ScreenVignettePainter extends CustomPainter {
             Color.lerp(const Color(0xFFFFAB00), const Color(0xFFFF3D00), pulse)!.withValues(alpha: 0.40 + 0.25 * pulse),
           ],
         ).createShader(rect);
-      canvas.drawRect(rect.deflate(1.5), borderStroke);
+      canvas.drawRect(rect.deflate(1.5), _flameBorderStroke);
     }
 
     if (redAlpha > 0.0) edge(const Color(0xFFFF1744), redAlpha);

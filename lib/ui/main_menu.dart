@@ -25,9 +25,9 @@ import 'kaunos_ui.dart';
 import 'crate_opening_dialog.dart';
 import 'main_menu_tour_overlay.dart';
 import 'settings_dialog.dart';
-import '../engine/lucky_fish_notification_manager.dart';
 
 class MainMenuScreen extends StatefulWidget {
+  // Item 3: Zero-Popup Boot Policy - Never interrupt players with forced popups on launch
   static bool suppressBootPopups = false;
   const MainMenuScreen({super.key});
 
@@ -86,10 +86,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             setState(() => _highlightWheelButton = true);
           }
         });
-      }
-
-      if (mounted && _activeGame == null) {
-        LuckyFishNotificationManager.instance.checkAndShowDailyReminder(context);
       }
     });
   }
@@ -838,24 +834,28 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 controller: _activeGame!,
                 onResume: () => _activeGame!.resume(),
                 onRestart: () {
-                  final wasGameOverOrVictory = _activeGame!.status == GameStatus.gameOver || _activeGame!.status == GameStatus.victory;
+                  // Item 7: Can Kaybında / Yanınca Sıfır Zorunlu Reklam! Reklam asla kaybetme cezası olamaz.
+                  final wasVictory = _activeGame!.status == GameStatus.victory;
                   final mode = _activeGame!.currentMode;
-                  if (wasGameOverOrVictory) {
+                  if (wasVictory) {
                     AdManager.instance.checkAndShowInterstitial(context, onComplete: () {
                       if (mounted && _activeGame != null) {
                         final resumeBand = mode == GameMode.classic &&
-                            _activeGame!.status == GameStatus.gameOver &&
                             _save.hasSavedGame(GameMode.classic);
                         _activeGame!.startNewGame(mode, isResume: resumeBand);
                       }
                     });
                   } else {
-                    _activeGame!.startNewGame(mode);
+                    final resumeBand = mode == GameMode.classic &&
+                        _activeGame!.status == GameStatus.gameOver &&
+                        _save.hasSavedGame(GameMode.classic);
+                    _activeGame!.startNewGame(mode, isResume: resumeBand);
                   }
                 },
                 onMainMenu: () {
-                  final wasGameOverOrVictory = _activeGame!.status == GameStatus.gameOver || _activeGame!.status == GameStatus.victory;
-                  if (wasGameOverOrVictory) {
+                  // Item 7: Can Kaybında / Yanınca Sıfır Zorunlu Reklam!
+                  final wasVictory = _activeGame!.status == GameStatus.victory;
+                  if (wasVictory) {
                     AdManager.instance.checkAndShowInterstitial(context, onComplete: () {
                       if (mounted) _exitGameToMenu();
                     });
