@@ -260,6 +260,48 @@ class SettingsDialog extends StatelessWidget {
                     ),
                   ),
 
+                  const SizedBox(height: 10),
+
+                  // Privacy Policy trigger button (Google Play Compliance)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () {
+                      _showPrivacyPolicyDialog(context);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0x33101C30),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color(0x5500E5FF),
+                          width: 1.0,
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.privacy_tip_rounded, color: Color(0xFF00E5FF), size: 18),
+                          SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              'GİZLİLİK POLİTİKASI (PRIVACY POLICY)',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Color(0xFF00E5FF),
+                                fontFamily: 'Rajdhani',
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12.0,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                   const SizedBox(height: 16),
 
                   // SFX Volume
@@ -439,6 +481,84 @@ class SettingsDialog extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  static void _showPrivacyPolicyDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xF2101320),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: const BorderSide(color: KaunosPalette.crystalBorderStarlight),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.privacy_tip_rounded, color: Color(0xFF00E5FF), size: 22),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'GİZLİLİK POLİTİKASI',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+            KaunosCloseButton(onTap: () => Navigator.of(ctx).pop()),
+          ],
+        ),
+        content: SizedBox(
+          width: 440,
+          height: 380,
+          child: const SingleChildScrollView(
+            physics: BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Kırmataş — Kaunos Games Gizlilik Politikası',
+                  style: TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Geliştirici: Kaunos Games (kaunosgames@gmail.com)\n'
+                  'Uygulama: Kırmataş (com.kaunos.kirmatas)\n'
+                  'Yürürlük Tarihi: Ekim 2026\n\n'
+                  '1. Veri Toplama ve Kullanımı:\n'
+                  'Kırmataş oyunu, adınız, adresiniz veya telefon numaranız gibi doğrudan kişisel kimlik bilgilerinizi toplamaz. Oyun içi ilerlemeniz (bölümler, altın, inci, balıklar) cihazınızda yerel olarak saklanır. İsteğe bağlı olarak Google Play Games üzerinden bulut kaydı yapılabilir.\n\n'
+                  '2. Entegre Edilen Üçüncü Taraf Hizmetleri:\n'
+                  'Oyun deneyimini sunabilmek, kilitlenmeleri çözmek ve ödüllü reklam sunmak amacıyla aşağıdaki güvenilir Google servisleri kullanılmaktadır:\n'
+                  '• Google Play Games Services (Liderlik tablosu, başarımlar ve bulut kayıtları)\n'
+                  '• Google AdMob (Ödüllü ve geçiş reklamları - Android Advertising ID kullanabilir)\n'
+                  '• Firebase Analytics (Anonim oyun performansı ve bölüm istatistikleri)\n'
+                  '• Firebase Crashlytics (Kilitlenme ve hata teşhisi raporları)\n'
+                  '• Google Play In-App Billing (Güvenli uygulama içi satın alımlar)\n\n'
+                  '3. Reklamlar ve Reklam Kimliği:\n'
+                  'AdMob servisleri, dolandırıcılığı önlemek ve uygun reklamları gösterebilmek için cihazınızın Reklam Kimliğini (AAID) kullanabilir. Dilediğiniz zaman cihazınızın "Ayarlar > Google > Reklamlar" menüsünden reklam kimliğinizi sıfırlayabilir veya kişiselleştirmeyi kapatabilirsiniz.\n\n'
+                  '4. Çocukların Gizliliği:\n'
+                  'Uygulamamız 13 yaşın altındaki çocuklardan bilerek herhangi bir kişisel veri talep etmez.\n\n'
+                  '5. Veri Güvenliği ve Silme Talebi:\n'
+                  'Tüm veri iletimleri endüstri standardı HTTPS/TLS şifrelemesi ile gerçekleşir. Cihazınızdaki oyun verilerini dilediğiniz an uygulama verilerini temizleyerek silebilirsiniz. Gizlilikle ilgili her türlü soru ve talebiniz için kaunosgames@gmail.com adresinden bizimle iletişime geçebilirsiniz.',
+                  style: TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.55),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text(
+              'ANLADIM',
+              style: TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.w900),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
