@@ -15,6 +15,7 @@ class EcoTankBackground extends StatefulWidget {
   final void Function(Offset worldPos, int gold)? onBubblePopped;
   final VoidCallback? onOutOfFood;
   final VoidCallback? onAllFishFed;
+  final void Function(bool isZoomed, double zoom)? onCameraZoomChanged;
 
   const EcoTankBackground({
     super.key,
@@ -23,6 +24,7 @@ class EcoTankBackground extends StatefulWidget {
     this.onBubblePopped,
     this.onOutOfFood,
     this.onAllFishFed,
+    this.onCameraZoomChanged,
   });
 
   @override
@@ -32,6 +34,29 @@ class EcoTankBackground extends StatefulWidget {
 class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
   Duration _lastElapsed = Duration.zero;
+
+  final TankCamera camera = TankCamera();
+  bool get isCameraZoomed => camera.isZoomed;
+  double get cameraZoom => camera.zoom;
+
+  double _startScale = 1.0;
+  Offset? _lastFocalPoint;
+  bool _hasMovedSignificantly = false;
+
+  void toggleCameraZoom({Offset? focalPoint}) {
+    camera.toggleZoom(focalWorldPoint: focalPoint);
+    widget.onCameraZoomChanged?.call(camera.isZoomed, camera.targetZoom);
+  }
+
+  void zoomIn({Offset? focalPoint}) {
+    camera.zoomIn(focalWorldPoint: focalPoint);
+    widget.onCameraZoomChanged?.call(camera.isZoomed, camera.targetZoom);
+  }
+
+  void zoomOut() {
+    camera.zoomOut();
+    widget.onCameraZoomChanged?.call(camera.isZoomed, camera.targetZoom);
+  }
 
   final List<_SimFish> _simFish = [];
   final List<_Bubble> _bubbles = [];
@@ -59,11 +84,14 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
   Offset _toWorldPos(Offset rawPos) {
     final box = context.findRenderObject() as RenderBox?;
     if (box == null || box.size.isEmpty) return rawPos;
-    final scaleX = 410.0 / box.size.width;
-    final scaleY = 800.0 / box.size.height;
+    final w = box.size.width;
+    final h = box.size.height;
+    final z = max(0.5, camera.zoom);
+    final worldX = 205.0 - camera.pan.dx + ((rawPos.dx - w / 2.0) * (410.0 / w)) / z;
+    final worldY = 400.0 - camera.pan.dy + ((rawPos.dy - h / 2.0) * (800.0 / h)) / z;
     return Offset(
-      (rawPos.dx * scaleX).clamp(15.0, 395.0),
-      (rawPos.dy * scaleY).clamp(70.0, 740.0),
+      worldX.clamp(15.0, 395.0),
+      worldY.clamp(70.0, 740.0),
     );
   }
 
@@ -98,6 +126,7 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       final clampedDt = dt.clamp(0.001, 0.05);
 
       _animTime += clampedDt;
+      camera.update(clampedDt);
       _updateSimulation(clampedDt);
       _frame.ping();
     })..start();
@@ -924,30 +953,75 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: (details) {
+      onDoubleTapDown: (details) {
+        if (!widget.interactive) return;
+        final worldPos = _toWorldPos(details.localPosition);
+        camera.toggleZoom(focalWorldPoint: worldPos);
+        widget.onCameraZoomChanged?.call(camera.isZoomed, camera.targetZoom);
+        AudioManager.instance.playSfx(GameSfx.click);
+      },
+      onTapUp: (details) {
+        if (!widget.interactive) return;
+        if (_hasMovedSignificantly) return;
         if (_isFingerMode) {
-          _onFingerDown(details.localPosition);
+          _onFingerUp();
         } else {
           _onTankTap(details.localPosition);
         }
       },
-      onTapUp: (_) {
-        if (_isFingerMode) _onFingerUp();
+      onScaleStart: (details) {
+        if (!widget.interactive) return;
+        _startScale = camera.zoom;
+        _lastFocalPoint = details.localFocalPoint;
+        _hasMovedSignificantly = false;
+        if (_isFingerMode && details.pointerCount == 1) {
+          _onFingerDown(details.localFocalPoint);
+        }
       },
-      onTapCancel: () {
-        if (_isFingerMode) _onFingerUp();
+      onScaleUpdate: (details) {
+        if (!widget.interactive) return;
+        final box = context.findRenderObject() as RenderBox?;
+        if (box == null || box.size.isEmpty) return;
+
+        if (details.pointerCount >= 2) {
+          // Pinch-to-zoom (two fingers)
+          final newTargetZoom = (_startScale * details.scale).clamp(1.0, 2.0);
+          camera.targetZoom = newTargetZoom;
+          if (newTargetZoom <= 1.05) {
+            camera.zoomOut();
+          } else {
+            camera.setTargetPan(camera.targetPan);
+          }
+          _hasMovedSignificantly = true;
+          widget.onCameraZoomChanged?.call(camera.isZoomed, camera.targetZoom);
+        } else if (details.pointerCount == 1) {
+          if (_isFingerMode) {
+            _onFingerMove(details.localFocalPoint);
+          } else if (camera.isZoomed && _lastFocalPoint != null) {
+            // Single finger drag to pan around zoomed tank
+            final delta = details.localFocalPoint - _lastFocalPoint!;
+            if (delta.distanceSquared > 16.0) {
+              _hasMovedSignificantly = true;
+            }
+            final scaleX = 410.0 / box.size.width;
+            final scaleY = 800.0 / box.size.height;
+            final worldDeltaX = (delta.dx * scaleX) / camera.zoom;
+            final worldDeltaY = (delta.dy * scaleY) / camera.zoom;
+            camera.setTargetPan(camera.targetPan + Offset(worldDeltaX, worldDeltaY));
+          }
+        }
+        _lastFocalPoint = details.localFocalPoint;
       },
-      onPanStart: (details) {
-        if (_isFingerMode) _onFingerDown(details.localPosition);
-      },
-      onPanUpdate: (details) {
-        if (_isFingerMode) _onFingerMove(details.localPosition);
-      },
-      onPanEnd: (_) {
-        if (_isFingerMode) _onFingerUp();
-      },
-      onPanCancel: () {
-        if (_isFingerMode) _onFingerUp();
+      onScaleEnd: (details) {
+        if (!widget.interactive) return;
+        if (_isFingerMode) {
+          _onFingerUp();
+        }
+        if (camera.targetZoom < 1.06) {
+          camera.zoomOut();
+          widget.onCameraZoomChanged?.call(false, 1.0);
+        }
+        _lastFocalPoint = null;
       },
       child: Stack(
         children: [
@@ -965,6 +1039,69 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
         ],
       ),
     );
+  }
+}
+
+/// Dynamic aquarium camera controller managing smooth lerp zoom,
+/// panning limits (preventing off-tank scrolling), and Macro vs Micro modes.
+class TankCamera {
+  double zoom = 1.0;
+  double targetZoom = 1.0;
+  Offset pan = Offset.zero;
+  Offset targetPan = Offset.zero;
+
+  static const double minZoom = 1.0;
+  static const double maxZoom = 2.0;
+
+  bool get isZoomed => targetZoom > 1.05;
+
+  void toggleZoom({Offset? focalWorldPoint}) {
+    if (isZoomed) {
+      zoomOut();
+    } else {
+      zoomIn(focalWorldPoint: focalWorldPoint);
+    }
+  }
+
+  void zoomIn({Offset? focalWorldPoint}) {
+    targetZoom = 1.85;
+    if (focalWorldPoint != null) {
+      setTargetPan(Offset(205.0 - focalWorldPoint.dx, 400.0 - focalWorldPoint.dy));
+    } else {
+      setTargetPan(targetPan);
+    }
+  }
+
+  void zoomOut() {
+    targetZoom = 1.0;
+    targetPan = Offset.zero;
+  }
+
+  void setTargetPan(Offset newPan) {
+    if (targetZoom <= 1.02) {
+      targetPan = Offset.zero;
+      return;
+    }
+    // Allowable pan so camera cannot view beyond aquarium borders
+    final maxPanX = 205.0 * (1.0 - 1.0 / targetZoom);
+    final maxPanY = 400.0 * (1.0 - 1.0 / targetZoom);
+    targetPan = Offset(
+      newPan.dx.clamp(-maxPanX, maxPanX),
+      newPan.dy.clamp(-maxPanY, maxPanY),
+    );
+  }
+
+  void update(double dt) {
+    final t = min(1.0, dt * 8.5);
+    zoom += (targetZoom - zoom) * t;
+    pan = Offset(
+      pan.dx + (targetPan.dx - pan.dx) * t,
+      pan.dy + (targetPan.dy - pan.dy) * t,
+    );
+    if (targetZoom <= 1.01 && (zoom - 1.0).abs() < 0.004) {
+      zoom = 1.0;
+      pan = Offset.zero;
+    }
   }
 }
 
@@ -1152,7 +1289,12 @@ class _TankPainter extends CustomPainter {
     // The simulation runs in a fixed 410x800 world. Scale it onto the
     // real canvas so the sand, plants and bottom dwellers always sit
     // on the drawn floor, whatever the screen size.
+    // Apply Camera Matrix Transform (Smooth Zoom & Pan)
+    canvas.save();
+    canvas.translate(size.width / 2.0, size.height / 2.0);
+    canvas.scale(host.camera.zoom, host.camera.zoom);
     canvas.scale(size.width / 410.0, size.height / 800.0);
+    canvas.translate(-205.0 + host.camera.pan.dx, -400.0 + host.camera.pan.dy);
 
     // 1b. Soft underwater surface caustics filtering down from surface
     final causticPaint = Paint()
@@ -1276,6 +1418,8 @@ class _TankPainter extends CustomPainter {
       _sparkPaint.color = const Color(0xFF2A0A3D).withValues(alpha: 0.55 * (1.0 - t));
       canvas.drawCircle(Offset(ink.x, ink.y), ink.radius * (1.0 + t * 1.8), _sparkPaint);
     }
+
+    canvas.restore();
   }
 
   void _drawGodRays(Canvas canvas, double time) {

@@ -182,6 +182,7 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
   final GlobalKey _chestKey = GlobalKey();
   final SaveManager _save = SaveManager.instance;
   AquariumTabMode _selectedMode = AquariumTabMode.feed;
+  bool _isCameraZoomed = false;
   late final AnimationController _pulseCtrl;
   late final Animation<double> _pulseScale;
   late final AnimationController _coinCtrl;
@@ -192,10 +193,14 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
     final stackBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
     if (stackBox == null || !stackBox.hasSize) return;
 
-    final screenPos = Offset(
-      worldPos.dx * stackBox.size.width / 410.0,
-      worldPos.dy * stackBox.size.height / 800.0,
-    );
+    final tankState = _tankKey.currentState;
+    final w = stackBox.size.width;
+    final h = stackBox.size.height;
+    final z = tankState?.cameraZoom ?? 1.0;
+    final pan = tankState?.camera.pan ?? Offset.zero;
+    final screenX = w / 2.0 + (worldPos.dx - 205.0 + pan.dx) * (w / 410.0) * z;
+    final screenY = h / 2.0 + (worldPos.dy - 400.0 + pan.dy) * (h / 800.0) * z;
+    final screenPos = Offset(screenX, screenY);
     final to = _centerOf(_goldPillKey) ?? Offset(stackBox.size.width - 55, 30);
 
     setState(() {
@@ -772,6 +777,11 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
             key: _tankKey,
             interactive: true,
             onBubblePopped: _onOxygenBubblePopped,
+            onCameraZoomChanged: (isZoomed, zoom) {
+              if (mounted && _isCameraZoomed != isZoomed) {
+                setState(() => _isCameraZoomed = isZoomed);
+              }
+            },
             onOutOfFood: () {
               if (mounted) _showGetFoodDialog();
             },
@@ -1380,6 +1390,21 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
           ),
           const SizedBox(width: 4),
 
+          // 3. KAMERA ZOOM MODU (Kuşbakışı 1.0x / Yakın Plan Detay 1.8x)
+          _buildTabPill(
+            isSelected: _isCameraZoomed,
+            icon: _isCameraZoomed ? Icons.zoom_out_map_rounded : Icons.zoom_in_rounded,
+            label: _isCameraZoomed ? '1.8x' : '1.0x',
+            activeColor: const Color(0xFFFFD54F),
+            activeBgColor: const Color(0xD9332600),
+            glowColor: const Color(0x66FFD54F),
+            onTap: () {
+              _tankKey.currentState?.toggleCameraZoom();
+              AudioManager.instance.playSfx(GameSfx.click);
+            },
+          ),
+          const SizedBox(width: 4),
+
           // Ayraç çizgi
           Container(
             width: 1,
@@ -1388,7 +1413,7 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
           ),
           const SizedBox(width: 4),
 
-          // 3. KATALOG BUTONU
+          // 4. KATALOG BUTONU
           _buildCatalogButton(),
         ],
       ),
