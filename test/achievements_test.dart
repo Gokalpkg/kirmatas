@@ -110,6 +110,16 @@ void main() {
           .toList();
       expect(secret.length, equals(7));
     });
+
+    test('8. All 42 achievements have distinct, valid Google Play Games CgkI... IDs', () {
+      final consoleIds = <String>{};
+      for (final a in AchievementManager.catalog) {
+        expect(a.playConsoleId, startsWith('CgkIwf_oppkBEAIQ'));
+        expect(consoleIds.add(a.playConsoleId), isTrue,
+            reason: 'Duplicate Play Console ID: ${a.playConsoleId}');
+      }
+      expect(consoleIds.length, equals(42));
+    });
   });
 
   group('AchievementManager Runtime & Persistence Tests', () {

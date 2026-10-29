@@ -69,6 +69,7 @@ class AchievementManager extends ChangeNotifier {
     // --- Kategori 1: İlk Adımlar (İlk 1 saatte kazanılanlar) ---
     AchievementDefinition(
       id: 'achievement_first_strike',
+      playConsoleId: 'CgkIwf_oppkBEAIQBA',
       name: 'İlk Kıvılcım',
       description: 'Herhangi bir oyun modunda ilk tuğlayı kır ve parçala.',
       type: AchievementType.standard,
@@ -78,6 +79,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_first_chest',
+      playConsoleId: 'CgkIwf_oppkBEAIQBQ',
       name: 'Kaunos Hazinesi',
       description: 'Oyun içinde gizlenmiş ilk hazine sandığı bloğunu patlat ve ganimeti topla.',
       type: AchievementType.standard,
@@ -87,6 +89,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_first_fish',
+      playConsoleId: 'CgkIwf_oppkBEAIQBg',
       name: 'Akvaryumun İlk Sakini',
       description: 'Akvaryumuna ilk süs balığını ekle ve akvaryumunda yüzdür.',
       type: AchievementType.standard,
@@ -96,6 +99,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_combo_starter',
+      playConsoleId: 'CgkIwf_oppkBEAIQBw',
       name: 'Ritim Ustası',
       description: 'Topu düşürmeden peş peşe 5 tuğla kırarak 5x kombo serisi yakala.',
       type: AchievementType.standard,
@@ -105,6 +109,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_sector_1_clear',
+      playConsoleId: 'CgkIwf_oppkBEAIQCA',
       name: 'Lagün Kaşifi',
       description: 'Klasik modda Sektör 1\'i (Bölüm 1 - 5) başarıyla tamamla.',
       type: AchievementType.standard,
@@ -114,6 +119,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_first_upgrade',
+      playConsoleId: 'CgkIwf_oppkBEAIQCQ',
       name: 'Güçlenme',
       description: 'Yetenek Ağacında herhangi bir kalıcı geliştirmeyi altınla aç.',
       type: AchievementType.standard,
@@ -125,6 +131,7 @@ class AchievementManager extends ChangeNotifier {
     // --- Kategori 2: Klasik Mod & Sektörler ---
     AchievementDefinition(
       id: 'achievement_sector_2_clear',
+      playConsoleId: 'CgkIwf_oppkBEAIQCg',
       name: 'Mercan Fatihi',
       description: 'Klasik modda Sektör 2\'nin tüm bölümlerini bitir.',
       type: AchievementType.standard,
@@ -133,6 +140,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_sector_3_clear',
+      playConsoleId: 'CgkIwf_oppkBEAIQCw',
       name: 'Abis Derinliği',
       description: 'Klasik modda Sektör 3\'ün tüm bölümlerini tamamla.',
       type: AchievementType.standard,
@@ -141,6 +149,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_sector_4_clear',
+      playConsoleId: 'CgkIwf_oppkBEAIQDA',
       name: 'Volkanik Basınç',
       description: 'Klasik modda Sektör 4\'ün tüm bölümlerini aş.',
       type: AchievementType.standard,
@@ -149,6 +158,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_sector_5_clear',
+      playConsoleId: 'CgkIwf_oppkBEAIQDQ',
       name: 'Kozmik Vorteks',
       description: 'Klasik modda Sektör 5\'in tüm zorlu bölümlerini geç.',
       type: AchievementType.standard,
@@ -157,6 +167,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_boss_hunter',
+      playConsoleId: 'CgkIwf_oppkBEAIQDg',
       name: 'Gözcü Avcısı',
       description: 'Klasik modda karşına çıkan ilk boss\'u yenilgiye uğrat.',
       type: AchievementType.standard,
@@ -165,6 +176,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_boss_master',
+      playConsoleId: 'CgkIwf_oppkBEAIQDw',
       name: 'Titan Yıkıcı',
       description: 'Klasik modda toplam 5 boss savaşını zaferle bitir.',
       type: AchievementType.standard,
@@ -173,6 +185,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_level_50',
+      playConsoleId: 'CgkIwf_oppkBEAIQEA',
       name: 'Yarım Asır',
       description: 'Klasik modda Bölüm 50\'ye ulaşarak galakside iz bırak.',
       type: AchievementType.standard,
@@ -181,6 +194,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_level_100',
+      playConsoleId: 'CgkIwf_oppkBEAIQEQ',
       name: 'Kozmosun Zirvesi',
       description: 'Klasik modda Bölüm 100\'e ulaş ve efsanevi ustalığını kanıtla.',
       type: AchievementType.standard,
@@ -189,6 +203,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_prestige_1',
+      playConsoleId: 'CgkIwf_oppkBEAIQEg',
       name: 'Yeniden Doğuş',
       description: 'İlk Prestij yükseltmesini yaparak kozmik yolculuğuna yeni bir seviyede başla.',
       type: AchievementType.standard,
@@ -199,6 +214,7 @@ class AchievementManager extends ChangeNotifier {
     // --- Kategori 3: Tuğla & Yıkım Maratonu (Artımlı) ---
     AchievementDefinition(
       id: 'achievement_bricks_500',
+      playConsoleId: 'CgkIwf_oppkBEAIQEw',
       name: 'Tuğla Çırağı',
       description: 'Oyun boyunca toplam 500 tuğla kırarak yıkım yolculuğuna başla.',
       type: AchievementType.incremental,
@@ -208,6 +224,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_bricks_2500',
+      playConsoleId: 'CgkIwf_oppkBEAIQFA',
       name: 'Kaya Kırıcı',
       description: 'Oyun boyunca toplam 2.500 tuğla kırarak ustalığa yaklaş.',
       type: AchievementType.incremental,
@@ -217,6 +234,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_bricks_10000',
+      playConsoleId: 'CgkIwf_oppkBEAIQFQ',
       name: 'Usta Yıkıcı',
       description: 'Oyun boyunca toplam 10.000 tuğla kırarak gerçek bir kırıcı ol.',
       type: AchievementType.incremental,
@@ -226,6 +244,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_bricks_50000',
+      playConsoleId: 'CgkIwf_oppkBEAIQFg',
       name: 'Kozmik Parçalayıcı',
       description: 'Oyun boyunca toplam 50.000 tuğla kırarak Kaunos efsanesine adını yazdır.',
       type: AchievementType.incremental,
@@ -237,6 +256,7 @@ class AchievementManager extends ChangeNotifier {
     // --- Kategori 4: Kombo, Fever & Beceri ---
     AchievementDefinition(
       id: 'achievement_combo_15',
+      playConsoleId: 'CgkIwf_oppkBEAIQFw',
       name: 'Ateşli Ritim',
       description: 'Tek bir rauntta hiç top kaybetmeden 15x kombo serisine ulaş.',
       type: AchievementType.standard,
@@ -245,6 +265,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_combo_30',
+      playConsoleId: 'CgkIwf_oppkBEAIQGA',
       name: 'Durdurulamaz Akış',
       description: 'Tek bir rauntta aralıksız vuruşlarla 30x kombo serisi yakala.',
       type: AchievementType.standard,
@@ -253,6 +274,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_fever_master',
+      playConsoleId: 'CgkIwf_oppkBEAIQGQ',
       name: 'Fever Fırtınası',
       description: 'Fever modunu oyunlar boyunca toplam 25 kez aktif et.',
       type: AchievementType.incremental,
@@ -262,6 +284,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_corner_strikes',
+      playConsoleId: 'CgkIwf_oppkBEAIQGg',
       name: 'Köşe Virtüözü',
       description: 'Paddle\'ın uç kenarlarıyla 50 kez Süper Köşe Vuruşu yap.',
       type: AchievementType.incremental,
@@ -271,6 +294,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_perfect_round',
+      playConsoleId: 'CgkIwf_oppkBEAIQGw',
       name: 'Kusursuz Zafer',
       description: 'Herhangi bir bölümü hiç can kaybetmeden ve darbe almadan bitir.',
       type: AchievementType.standard,
@@ -281,6 +305,7 @@ class AchievementManager extends ChangeNotifier {
     // --- Kategori 5: Ekonomi, Sandık & Akvaryum ---
     AchievementDefinition(
       id: 'achievement_gold_10000',
+      playConsoleId: 'CgkIwf_oppkBEAIQHA',
       name: 'Kozmik Tüccar',
       description: 'Kariyerin boyunca toplam 10.000 altın topla.',
       type: AchievementType.incremental,
@@ -290,6 +315,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_gold_50000',
+      playConsoleId: 'CgkIwf_oppkBEAIQHQ',
       name: 'Hazine Baronu',
       description: 'Kariyerin boyunca toplam 50.000 altın biriktir.',
       type: AchievementType.incremental,
@@ -299,6 +325,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_pearl_collector',
+      playConsoleId: 'CgkIwf_oppkBEAIQHg',
       name: 'İnci Avcısı',
       description: 'Sandıklardan veya ödüllerden toplam 10 inci kazan.',
       type: AchievementType.incremental,
@@ -308,6 +335,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_aquarium_5_species',
+      playConsoleId: 'CgkIwf_oppkBEAIQHw',
       name: 'Denizler İmparatorluğu',
       description: 'Akvaryumunda aynı anda en az 5 farklı balık türünü yüzdür.',
       type: AchievementType.standard,
@@ -316,6 +344,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_fish_feeder_50',
+      playConsoleId: 'CgkIwf_oppkBEAIQIA',
       name: 'Şef Bakıcı',
       description: 'Akvaryumundaki balıkları toplam 50 kez besle.',
       type: AchievementType.incremental,
@@ -325,6 +354,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_wheel_spins_20',
+      playConsoleId: 'CgkIwf_oppkBEAIQIQ',
       name: 'Kader Çarkı',
       description: 'Şans Çarkını toplam 20 kez çevir.',
       type: AchievementType.incremental,
@@ -334,6 +364,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_octopus_vault',
+      playConsoleId: 'CgkIwf_oppkBEAIQIg',
       name: 'Kraken\'in Sandığı',
       description: 'Ahtapot Kasasını aç ve efsanevi Ahtapotu akvaryumuna ekle.',
       type: AchievementType.standard,
@@ -342,6 +373,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_skill_tree_max',
+      playConsoleId: 'CgkIwf_oppkBEAIQIw',
       name: 'Bilgelik Doruğu',
       description: 'Yetenek Ağacında herhangi bir yükseltmeyi son seviyesine ulaştır.',
       type: AchievementType.standard,
@@ -352,6 +384,7 @@ class AchievementManager extends ChangeNotifier {
     // --- Kategori 6: Kaos Modu & Sonsuz Hayatta Kalma ---
     AchievementDefinition(
       id: 'achievement_chaos_survivor_1',
+      playConsoleId: 'CgkIwf_oppkBEAIQJA',
       name: 'Kaos Kaşifi',
       description: 'Kaos modunda 5. dalgaya ulaşarak hayatta kal.',
       type: AchievementType.standard,
@@ -360,6 +393,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_chaos_survivor_2',
+      playConsoleId: 'CgkIwf_oppkBEAIQJQ',
       name: 'Kaos Savaşçısı',
       description: 'Kaos modunda 15. dalgaya ulaşarak yıkıma meydan oku.',
       type: AchievementType.standard,
@@ -368,6 +402,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_chaos_score_100k',
+      playConsoleId: 'CgkIwf_oppkBEAIQJg',
       name: 'Kaosun Efendisi',
       description: 'Kaos modunda tek bir koşuda 100.000 puan barajını aş.',
       type: AchievementType.standard,
@@ -378,6 +413,7 @@ class AchievementManager extends ChangeNotifier {
     // --- Kategori 7: Gizli Başarımlar (Secret Achievements) ---
     AchievementDefinition(
       id: 'achievement_secret_blackhole_bee',
+      playConsoleId: 'CgkIwf_oppkBEAIQJw',
       name: 'Olay Ufku Şöleni',
       description: 'Kozmik arının bir karadelik tarafından sifon gibi çekilip yutulmasına tanık ol.',
       type: AchievementType.secret,
@@ -386,6 +422,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_secret_miracle_save',
+      playConsoleId: 'CgkIwf_oppkBEAIQKA',
       name: 'Mucizevi Sıçrayış',
       description: 'Son topun düşerken Balık Kurtarışı özelliğiyle topu son anda kurtar.',
       type: AchievementType.secret,
@@ -394,6 +431,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_secret_reset_tree',
+      playConsoleId: 'CgkIwf_oppkBEAIQKQ',
       name: 'Zamanı Geri Sar',
       description: 'Yetenek Ağacını sıfırla ve harcadığın tüm altınları geri al.',
       type: AchievementType.secret,
@@ -402,6 +440,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_secret_freeze_shatter',
+      playConsoleId: 'CgkIwf_oppkBEAIQKg',
       name: 'Buzul Patlaması',
       description: 'Tek bir atışta 8 veya daha fazla donmuş bloğu aynı anda parçala.',
       type: AchievementType.secret,
@@ -410,6 +449,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_secret_super_chest',
+      playConsoleId: 'CgkIwf_oppkBEAIQKw',
       name: 'Midas Dokunuşu',
       description: 'Tek bir hazine sandığı bloğundan 100 veya daha fazla altın fışkırt.',
       type: AchievementType.secret,
@@ -418,6 +458,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_secret_night_owl',
+      playConsoleId: 'CgkIwf_oppkBEAIQLA',
       name: 'Gece Mesaisi',
       description: 'Gece yarısından sonra (00:00 - 05:00) bir bölümü zaferle tamamla.',
       type: AchievementType.secret,
@@ -426,6 +467,7 @@ class AchievementManager extends ChangeNotifier {
     ),
     AchievementDefinition(
       id: 'achievement_secret_speedrunner',
+      playConsoleId: 'CgkIwf_oppkBEAIQLQ',
       name: 'Şimşek Hızı',
       description: 'Herhangi bir standart bölümü 20 saniyenin altında tamamla.',
       type: AchievementType.secret,
