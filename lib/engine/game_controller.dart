@@ -3635,6 +3635,16 @@ class GameController extends ChangeNotifier {
       }
       if (b.hp <= 0) {
         _destroyBrick(b, 0, isEcho);
+      } else if (b.isChest) {
+        final cx = b.x + b.width / 2;
+        final cy = b.y + b.height / 2;
+        particles.spawnBurst(cx, cy, const Color(0xFFFFD700), count: 8, speed: 100.0);
+        particles.spawnCoinOrbs(cx, cy, count: 1, totalValue: 3);
+        save.addGold(3);
+        stats.goldCollected += 3;
+        particles.spawnFloatingText(cx, b.y - 10, '+3 ', const Color(0xFFFFD54F));
+        audio.playSfx(GameSfx.powerupBuff);
+        b.triggerElasticSettle(impulse: 5.0);
       } else if (b.hp % 6 == 0) {
         audio.playSfx(GameSfx.hitBrick, combo: stats.combo);
       }
@@ -3708,6 +3718,17 @@ class GameController extends ChangeNotifier {
             particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.35, I18n.tr('boss_enraged'), const Color(0xFFFF1744), isLarge: true);
           }
         }
+      } else if (b.isChest) {
+        // Tactile treasure leak on hit: sparks, 2 coin orbs, clink sfx & wobble
+        final cx = b.x + b.width / 2;
+        final cy = b.y + b.height / 2;
+        particles.spawnBurst(cx, cy, const Color(0xFFFFD700), count: 12, speed: 120.0);
+        particles.spawnCoinOrbs(cx, cy, count: 2, totalValue: 5);
+        save.addGold(5);
+        stats.goldCollected += 5;
+        particles.spawnFloatingText(cx, b.y - 12, '+5 ', const Color(0xFFFFD54F));
+        audio.playSfx(GameSfx.powerupBuff);
+        b.triggerElasticSettle(impulse: 6.0);
       } else {
         audio.playSfx(GameSfx.hitBrick, combo: stats.combo, playbackRate: AudioManager.getPentatonicPitch(stats.combo));
       }
@@ -3786,50 +3807,150 @@ class GameController extends ChangeNotifier {
       final cx = b.x + b.width / 2;
       final cy = b.y + b.height / 2;
 
-      // Flying chest lid effect
+      // Flying chest lid effect with high upward impulse
       particles.spawnChestLid(cx, b.y + b.height * 0.25, b.width, b.height);
 
-      // Gold & sparkle scatter particles
-      particles.spawnBurst(cx, cy, const Color(0xFFFFD700), count: 32, speed: 220.0);
-      particles.spawnBurst(cx, cy, const Color(0xFFFFF9C4), count: 20, speed: 150.0);
-      particles.spawnCoinOrbs(cx, cy, count: 8, color: const Color(0xFFFFD54F));
+      // Gold, amber & sparkle scatter particles
+      particles.spawnBurst(cx, cy, const Color(0xFFFFD700), count: 42, speed: 260.0);
+      particles.spawnBurst(cx, cy, const Color(0xFFFFF9C4), count: 28, speed: 190.0);
+      particles.spawnBurst(cx, cy, const Color(0xFFFF8F00), count: 18, speed: 140.0);
+      particles.triggerShake(7.5, 0.25);
 
-      final bool isPearl = forceNextChestPearl ?? (_rand.nextDouble() < 0.05);
-      forceNextChestPearl = null;
-
-      if (isPearl) {
-        save.addPearls(1);
-        particles.spawnFloatingText(
-          cx,
-          b.y - 18,
-          '1 İNCİ BULDUN!',
-          const Color(0xFF00E5FF),
-          isLarge: true,
-        );
-        particles.spawnShockwave(cx, cy, const Color(0xFF00E5FF), maxRadius: 100.0);
-        particles.spawnPearlCelebration(cx, cy);
-        audio.playSfx(GameSfx.victory);
-      } else {
-        final goldWon = 75 + _rand.nextInt(51);
+      if (currentMode == GameMode.chaos) {
+        // In Chaos Mode: Big Extra Balls Shower + Gold
+        final extraBalls = 5 + _rand.nextInt(4); // +5 to +8 balls!
+        chaosStock += extraBalls;
+        final goldWon = 150 + _rand.nextInt(101);
         save.addGold(goldWon);
         stats.goldCollected += goldWon;
-
-        // Juicy vacuum stream: gold coins flying straight into the HUD tally
         GameEventBus().fire(GoldCollectedEvent(amount: goldWon, sourcePosition: Offset(cx, cy)));
-
+        particles.spawnCoinOrbs(cx, cy, count: 14, totalValue: goldWon, color: const Color(0xFFFFD54F));
         particles.spawnFloatingText(
           cx,
-          b.y - 16,
-          'HAZİNE SANDIĞI! +$goldWon ALTIN',
+          b.y - 20,
+          'HAZİNE! +$extraBalls TOP & +$goldWon ALTIN',
           const Color(0xFFFFD700),
           isLarge: true,
         );
-        particles.spawnShockwave(cx, cy, const Color(0xFFFFD700), maxRadius: 75.0);
+        particles.spawnShockwave(cx, cy, const Color(0xFFFFD700), maxRadius: 110.0);
         audio.playSfx(GameSfx.victory);
+      } else {
+        // Dynamic Gold Calculation based on world progress & upgrades
+        final world = ((stats.level - 1) ~/ 10) + 1;
+        final int baseGold = 180 + (world * 50) + _rand.nextInt(80);
+        int goldWon = baseGold;
+        if (stats.combo >= 5) {
+          goldWon += (stats.combo * 15);
+        }
+        final goldLvl = save.getUpgradeLevel('u_gold');
+        goldWon = (goldWon * (1.0 + goldLvl * 0.10)).round();
+        if (save.cosmicGoldMasteryLevel > 0) {
+          goldWon = (goldWon * cosmicGoldRewardMultiplier).round();
+        }
+        if (activeCosmeticSynergy == CosmeticSynergy.cosmicLegendary) {
+          goldWon = (goldWon * activeCosmeticSynergy.goldMultiplier).round();
+        }
+
+        final bool isPearl = forceNextChestPearl ?? (_rand.nextDouble() < 0.10);
+        forceNextChestPearl = null;
+
+        if (isPearl) {
+          final int pearlsWon = (world >= 4 && _rand.nextBool()) ? 2 : 1;
+          save.addPearls(pearlsWon);
+          final bonusGold = goldWon ~/ 2;
+          save.addGold(bonusGold);
+          stats.goldCollected += bonusGold;
+          GameEventBus().fire(GoldCollectedEvent(amount: bonusGold, sourcePosition: Offset(cx, cy)));
+
+          particles.spawnFloatingText(
+            cx,
+            b.y - 22,
+            '💎 $pearlsWon İNCİ BULDUN! (+$bonusGold ALTIN) 💎',
+            const Color(0xFF00E5FF),
+            isLarge: true,
+          );
+          particles.spawnShockwave(cx, cy, const Color(0xFF00E5FF), maxRadius: 120.0);
+          particles.spawnPearlCelebration(cx, cy);
+          particles.spawnCoinOrbs(cx, cy, count: 10, totalValue: bonusGold, color: const Color(0xFF00E5FF));
+          audio.playSfx(GameSfx.victory);
+        } else {
+          final rewardRoll = _rand.nextDouble();
+          if (rewardRoll < 0.14) {
+            // Drop a real shop crate into pending crates!
+            final dropCrate = CrateDef.allCrates[_rand.nextInt(CrateDef.allCrates.length)];
+            save.savePendingCrate(PendingCrate(
+              crateType: 'aquarium',
+              crateId: dropCrate.id,
+              category: 'fish',
+              rewardType: 'fish',
+              rewardId: dropCrate.id,
+              rewardTitle: dropCrate.name,
+              rewardSubtitle: 'Oyun İçi Hazine',
+              rarityIndex: dropCrate.tier.index,
+            ));
+            save.addGold(goldWon);
+            stats.goldCollected += goldWon;
+            GameEventBus().fire(GoldCollectedEvent(amount: goldWon, sourcePosition: Offset(cx, cy)));
+
+            particles.spawnFloatingText(
+              cx,
+              b.y - 24,
+              '🎁 GİZEMLİ SANDIK KAZANDIN! 🎁',
+              const Color(0xFFE040FB),
+              isLarge: true,
+            );
+            particles.spawnFloatingText(
+              cx,
+              b.y - 4,
+              '+$goldWon ALTIN',
+              const Color(0xFFFFD700),
+              isLarge: true,
+            );
+            particles.spawnShockwave(cx, cy, const Color(0xFFE040FB), maxRadius: 110.0);
+            particles.spawnCoinOrbs(cx, cy, count: 16, totalValue: goldWon, color: const Color(0xFFFFD54F));
+            audio.playSfx(GameSfx.victory);
+          } else if (rewardRoll < 0.28) {
+            // Aquarium Fish Food & Gold Bounty
+            final foodCount = 5 + _rand.nextInt(4);
+            save.addFishFood(foodCount);
+            save.addGold(goldWon);
+            stats.goldCollected += goldWon;
+            GameEventBus().fire(GoldCollectedEvent(amount: goldWon, sourcePosition: Offset(cx, cy)));
+
+            particles.spawnFloatingText(
+              cx,
+              b.y - 20,
+              '🐠 AKVARYUM HAZİNESİ! +$foodCount YEM & +$goldWon ALTIN 🐠',
+              const Color(0xFF00E5FF),
+              isLarge: true,
+            );
+            particles.spawnShockwave(cx, cy, const Color(0xFF00E5FF), maxRadius: 100.0);
+            particles.spawnCoinOrbs(cx, cy, count: 16, totalValue: goldWon, color: const Color(0xFFFFD54F));
+            audio.playSfx(GameSfx.victory);
+          } else {
+            // Super Gold Jackpot
+            save.addGold(goldWon);
+            stats.goldCollected += goldWon;
+            GameEventBus().fire(GoldCollectedEvent(amount: goldWon, sourcePosition: Offset(cx, cy)));
+
+            particles.spawnFloatingText(
+              cx,
+              b.y - 18,
+              '🌟 BÜYÜK HAZİNE! +$goldWon ALTIN 🌟',
+              const Color(0xFFFFD700),
+              isLarge: true,
+            );
+            particles.spawnShockwave(cx, cy, const Color(0xFFFFD700), maxRadius: 95.0);
+            particles.spawnCoinOrbs(cx, cy, count: 18, totalValue: goldWon, color: const Color(0xFFFFD54F));
+            audio.playSfx(GameSfx.victory);
+          }
+        }
       }
     }
     final double hitStopDur;
-    if (b.isBoss) {
+    if (b.isChest) {
+      hitStopDur = 0.055;
+    } else if (b.isBoss) {
       hitStopDur = 0.060;
     } else if (b.isDynamite) {
       hitStopDur = 0.045;
@@ -4020,7 +4141,18 @@ class GameController extends ChangeNotifier {
 
     // R4: Guaranteed Action Capsule Drop in Levels 1–5
     bool actionDropped = false;
-    if (stats.level <= 5 && !isChaosMode && !isZenMode && !earlyActionDropGranted) {
+    if (b.isChest) {
+      // Guaranteed high-tier action capsule drop from cracked treasure chest!
+      const chestPowerUps = [
+        PowerUpType.multi,
+        PowerUpType.fireball,
+        PowerUpType.laser,
+        PowerUpType.wide,
+      ];
+      final chosenPower = chestPowerUps[_rand.nextInt(chestPowerUps.length)];
+      capsules.add(FallingCapsule(x: b.x + b.width / 2, y: b.y + b.height / 2, type: chosenPower));
+      actionDropped = true;
+    } else if (stats.level <= 5 && !isChaosMode && !isZenMode && !earlyActionDropGranted) {
       if (levelBricksBroken <= 3) {
         final shouldDrop = levelBricksBroken == 1 || (levelBricksBroken == 3 && !earlyActionDropGranted);
         if (shouldDrop) {

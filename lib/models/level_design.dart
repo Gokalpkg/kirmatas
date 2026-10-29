@@ -1065,10 +1065,15 @@ class LevelDesign {
           }
         }
 
-        // Mystery Golden Chest Brick placement (~5% chance on standard breakable bricks)
+        // Mystery Golden Chest Brick placement:
+        // Guaranteed tactical Golden Chest per level from level 2 onwards!
         bool isChest = false;
+        final targetChestCol = (level * 3 + 1) % cols;
+        final targetChestRow = min(2, (level * 2) % rows);
         if (!isSteel && !isHeavySteel && !isDynamite && !isIce) {
-          if ((r * 19 + c * 31 + level * 11) % 43 == 0) {
+          if (level >= 2 && r == targetChestRow && c == targetChestCol) {
+            isChest = true;
+          } else if ((r * 19 + c * 31 + level * 11) % 41 == 0) {
             isChest = true;
           }
         }
@@ -1081,6 +1086,9 @@ class LevelDesign {
           hp = 9999;
         } else if (isIce || isDynamite) {
           hp = 1;
+        } else if (isChest) {
+          // Sturdy reinforced treasure chest: takes 2 hits in early worlds, 3 hits in late worlds
+          hp = (world <= 2) ? 2 : 3;
         } else {
           switch (world) {
             case 1:
@@ -1403,6 +1411,23 @@ class LevelDesign {
             isIce: true,
             color: const Color(0xFF80D8FF),
             points: 15,
+          ),
+        );
+      } else if (specialRoll < 0.26) {
+        // Mystery Golden Treasure Chest in Chaos Mode!
+        // When cracked: drops +5 to +8 extra balls and big gold jackpot!
+        final chestHp = min(3, max(1, hp ~/ 2));
+        bricks.add(
+          Brick(
+            x: chaosMargin + c * (bw + chaosGap),
+            y: y,
+            width: bw,
+            height: chaosBrickH,
+            hp: chestHp,
+            maxHp: chestHp,
+            isChest: true,
+            color: const Color(0xFFFFD700),
+            points: 100,
           ),
         );
       } else {

@@ -1415,14 +1415,16 @@ class _GameWorldPainter extends CustomPainter {
         }
 
         // Retro-Modern Crisp Pixel Art Mandate:
-        // Enforce 1.5px sharp dark pixel outer contour (#0B1021) across all brick styles
-        _stroke
-          ..isAntiAlias = false
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5
-          ..color = const Color(0xFF0B1021);
-        canvas.drawRect(rect, _stroke);
-        _stroke.isAntiAlias = true;
+        // Enforce 1.5px sharp dark pixel outer contour (#0B1021) across standard brick styles
+        if (!b.isChest) {
+          _stroke
+            ..isAntiAlias = false
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5
+            ..color = const Color(0xFF0B1021);
+          canvas.drawRect(rect, _stroke);
+          _stroke.isAntiAlias = true;
+        }
 
         // Organic Crystalline Damage Cracks (tactile fractures that match brick depth)
         if (b.hp < b.maxHp && b.maxHp > 1 && b.hp > 0) {
@@ -1695,45 +1697,167 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawChestBrick(Canvas canvas, Brick b, Rect rect, RRect rrect, double halfW, double halfH) {
-    // 1. Golden ambient treasure aura
-    final shimmer = 0.85 + sin(time * 8.0) * 0.15;
-    _fill.color = _ca(const Color(0xFFFFD54F), 0.25 * shimmer);
-    canvas.drawRRect(rrect.inflate(3.0), _fill);
+    final w = rect.width;
+    final h = rect.height;
 
-    // 2. Chest base body (Gleaming Gold)
-    _fill.color = const Color(0xFFFFB300);
-    canvas.drawRRect(rrect, _fill);
+    // 1. Radiant Pulsating Golden Aura
+    final pulse = sin(time * 5.0) * 0.5 + 0.5;
+    final auraDist = 3.5 + pulse * 3.0;
+    _fill
+      ..shader = null
+      ..color = const Color(0xFFFFD54F).withValues(alpha: 0.18 + pulse * 0.16);
+    canvas.drawRRect(rrect.inflate(auraDist), _fill);
 
-    // Top lid highlight
-    _fill.color = const Color(0xFFFFE082);
+    // 2. 3D Bottom Drop Shadow (heavy dark amber)
+    _fill
+      ..shader = null
+      ..color = const Color(0xFF1E1108);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(-halfW + 1.5, -halfH + 1.5, b.width - 3.0, halfH - 1.5),
-        const Radius.circular(3.0),
+        Rect.fromLTWH(-halfW, -halfH + 2.5, w, h),
+        const Radius.circular(5.0),
       ),
       _fill,
     );
 
-    // 3. Dark iron trim / lock strap
-    _fill.color = const Color(0xFF5D4037);
-    canvas.drawRect(Rect.fromLTWH(-3.0, -halfH, 6.0, b.height), _fill);
-    _stroke
-      ..color = const Color(0xFF5D4037)
-      ..strokeWidth = 1.4;
-    canvas.drawLine(Offset(-halfW, 0), Offset(halfW, 0), _stroke);
+    // 3. Antique Mahogany Wood Chest Trunk Body (3-stop linear gradient)
+    final chestBodyKey = Object.hash('chest_body_grad', w.round(), h.round());
+    _fill.shader = _brickShaders.putIfAbsent(chestBodyKey, () {
+      return const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0xFF8D6E63), // warm light mahogany top
+          Color(0xFF5D4037), // rich deep teak wood center
+          Color(0xFF3E2723), // deep dark timber bottom
+        ],
+        stops: [0.0, 0.45, 1.0],
+      ).createShader(rect);
+    });
+    canvas.drawRRect(rrect, _fill);
+    _fill.shader = null;
 
-    // 4. Golden keyhole / lock buckle
+    // 4. Horizontal Domed Lid Seam
+    final lidY = -halfH * 0.15;
+    // Dark depth groove
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..color = const Color(0xFF2E1C0C);
+    canvas.drawLine(Offset(-halfW + 1.0, lidY), Offset(halfW - 1.0, lidY), _stroke);
+    // Upper lid highlight line
+    _stroke
+      ..strokeWidth = 1.0
+      ..color = const Color(0xFFFFE082);
+    canvas.drawLine(Offset(-halfW + 1.0, lidY + 1.2), Offset(halfW - 1.0, lidY + 1.2), _stroke);
+
+    // 5. Dual Golden Vertical Reinforcement Straps
+    const strapW = 4.2;
+    final strapOffset = halfW * 0.48;
+    _fill.color = const Color(0xFFFFB300);
+    // Left strap
+    canvas.drawRect(Rect.fromLTWH(-strapOffset - strapW / 2, -halfH, strapW, h), _fill);
+    // Right strap
+    canvas.drawRect(Rect.fromLTWH(strapOffset - strapW / 2, -halfH, strapW, h), _fill);
+
+    // Strap specular glint pinstripe
     _fill.color = const Color(0xFFFFF9C4);
-    canvas.drawCircle(const Offset(0, 0), 3.0, _fill);
-    _fill.color = const Color(0xFF3E2723);
-    canvas.drawCircle(const Offset(0, -0.5), 1.2, _fill);
-    canvas.drawRect(const Rect.fromLTWH(-0.8, -0.5, 1.6, 2.2), _fill);
+    canvas.drawRect(Rect.fromLTWH(-strapOffset - 0.5, -halfH, 1.1, h), _fill);
+    canvas.drawRect(Rect.fromLTWH(strapOffset - 0.5, -halfH, 1.1, h), _fill);
 
-    // 5. Crisp gleaming outer border
+    // 6. Corner & Strap Golden Rivets
+    _fill.color = const Color(0xFFFFE082);
+    for (final sx in [-strapOffset, strapOffset]) {
+      for (final sy in [-halfH + 2.5, halfH - 2.5]) {
+        canvas.drawCircle(Offset(sx, sy), 1.1, _fill);
+      }
+    }
+
+    // 7. Gleaming Golden Bevel Border
     _stroke
-      ..color = const Color(0xFFFFF59D)
-      ..strokeWidth = 1.5;
-    canvas.drawRRect(rrect, _stroke);
+      ..strokeWidth = 1.6
+      ..color = const Color(0xFFFFD54F);
+    canvas.drawRRect(rrect.deflate(0.5), _stroke);
+
+    // 8. Center Padlock Clasp & Mystical Keyhole
+    const lockW = 9.0;
+    const lockH = 9.0;
+    final lockRect = Rect.fromCenter(center: Offset(0, lidY + 1.0), width: lockW, height: lockH);
+
+    // Dark iron backing
+    _fill.color = const Color(0xFF3E2723);
+    canvas.drawRRect(RRect.fromRectAndRadius(lockRect.inflate(1.0), const Radius.circular(2.5)), _fill);
+
+    // Gold brass plate
+    _fill.color = const Color(0xFFFFD700);
+    canvas.drawRRect(RRect.fromRectAndRadius(lockRect, const Radius.circular(2.0)), _fill);
+
+    // Shackle loop
+    _stroke
+      ..strokeWidth = 1.4
+      ..color = const Color(0xFFFFF176);
+    canvas.drawArc(
+      Rect.fromCenter(center: Offset(0, lidY - 3.2), width: 6.0, height: 6.0),
+      pi,
+      pi,
+      false,
+      _stroke,
+    );
+
+    // Keyhole cutout
+    _fill.color = const Color(0xFF26170F);
+    canvas.drawCircle(Offset(0, lidY + 0.2), 1.5, _fill);
+    canvas.drawRect(Rect.fromCenter(center: Offset(0, lidY + 1.8), width: 1.2, height: 2.2), _fill);
+
+    // Magical cyan pulse inside keyhole
+    final keyholePulse = sin(time * 8.0) * 0.5 + 0.5;
+    _fill.color = const Color(0xFF00E5FF).withValues(alpha: 0.5 + keyholePulse * 0.4);
+    canvas.drawCircle(Offset(0, lidY + 0.2), 0.9, _fill);
+
+    // 9. Diagonal Specular Glint Sweep (sweeps across every 2.4s)
+    final glintCycle = (time * 1.5) % 2.4;
+    if (glintCycle < 0.65) {
+      final glintProgress = glintCycle / 0.65;
+      final glintX = -halfW - 8.0 + glintProgress * (w + 16.0);
+      canvas.save();
+      canvas.clipRRect(rrect);
+      _fill
+        ..shader = null
+        ..color = Colors.white.withValues(alpha: 0.55 * sin(glintProgress * pi));
+      final glintPath = Path()
+        ..moveTo(glintX - 4.0, -halfH)
+        ..lineTo(glintX + 4.0, -halfH)
+        ..lineTo(glintX - 1.0, halfH)
+        ..lineTo(glintX - 9.0, halfH)
+        ..close();
+      canvas.drawPath(glintPath, _fill);
+      canvas.restore();
+    }
+
+    // 10. Floating Sparkle Stars
+    final spark1 = sin(time * 6.0) * 0.5 + 0.5;
+    if (spark1 > 0.4) {
+      _drawChestSparkle(canvas, Offset(-halfW + 3.0, -halfH - 1.5), 2.2 * spark1, const Color(0xFFFFF9C4));
+    }
+    final spark2 = cos(time * 5.0) * 0.5 + 0.5;
+    if (spark2 > 0.4) {
+      _drawChestSparkle(canvas, Offset(halfW - 3.0, -halfH - 1.5), 2.0 * spark2, const Color(0xFFFFD54F));
+    }
+  }
+
+  void _drawChestSparkle(Canvas canvas, Offset center, double radius, Color color) {
+    if (radius <= 0.2) return;
+    _fill
+      ..shader = null
+      ..color = color;
+    final path = Path()
+      ..moveTo(center.dx, center.dy - radius)
+      ..quadraticBezierTo(center.dx, center.dy, center.dx + radius, center.dy)
+      ..quadraticBezierTo(center.dx, center.dy, center.dx, center.dy + radius)
+      ..quadraticBezierTo(center.dx, center.dy, center.dx - radius, center.dy)
+      ..quadraticBezierTo(center.dx, center.dy, center.dx, center.dy - radius)
+      ..close();
+    canvas.drawPath(path, _fill);
   }
 
   void _drawDynamiteBrick(Canvas canvas, Brick b, Rect rect, double halfW, double halfH) {
