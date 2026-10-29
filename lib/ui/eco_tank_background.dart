@@ -655,11 +655,11 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
       }
     }
 
-    // 2. Update food pellets
+    // 2. Update food pellets (persist on the sand bed so no food is wasted)
     for (int i = _foodPellets.length - 1; i >= 0; i--) {
       final p = _foodPellets[i];
       p.update(dt);
-      if (p.bottomRestTimer > 8.0 || p.life > 20.0 || p.y > 750.0) {
+      if (p.bottomRestTimer > 60.0 || p.life > 90.0 || p.y > 750.0) {
         _foodPellets.removeAt(i);
       }
     }

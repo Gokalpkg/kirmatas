@@ -585,6 +585,55 @@ class GameController extends ChangeNotifier {
   int levelBricksBroken = 0;
   bool earlyActionDropGranted = false;
 
+  final Set<String> usedPreMatchBoosts = {};
+  int lastClearedLevelStars = 3;
+
+  bool activatePreMatchBoost(String id) {
+    if (usedPreMatchBoosts.contains(id)) return false;
+    final save = SaveManager.instance;
+    final stock = save.boostStocks[id] ?? 0;
+    if (stock <= 0) return false;
+
+    save.consumeBoost(id);
+    usedPreMatchBoosts.add(id);
+
+    switch (id) {
+      case 'life':
+        stats.lives++;
+        _lastKnownLives = stats.lives;
+        particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, '+1 CAN!', const Color(0xFFFF5252), isLarge: true);
+        audio.playSfx(GameSfx.powerupBuff);
+        break;
+      case 'wide':
+        applyPowerUp(PowerUpType.wide);
+        break;
+      case 'multi':
+        if (balls.isEmpty) {
+          balls.add(
+            Ball(
+              x: paddle.x + paddle.width / 2,
+              y: paddle.y - 12.0,
+              isStuck: true,
+              stuckOffsetX: paddle.width / 2,
+            ),
+          );
+        }
+        applyPowerUp(PowerUpType.multi);
+        break;
+    }
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> buyAndActivatePreMatchBoost(String id) async {
+    final save = SaveManager.instance;
+    if (save.gold < 100) return false;
+    final ok = await save.spendGold(100);
+    if (!ok) return false;
+    await save.addBoostStock(id, 1);
+    return activatePreMatchBoost(id);
+  }
+
   bool get isChaosMode => currentMode == GameMode.chaos;
   bool get isZenMode => currentMode == GameMode.zen;
   int get level => stats.level;
@@ -709,6 +758,7 @@ class GameController extends ChangeNotifier {
       offeredSectorBlessings.clear();
       emergencyClutchUsedThisStage = false;
       chronoBulletTimeTimer = 0.0;
+      usedPreMatchBoosts.clear();
     }
 
     int startLives = mode == GameMode.zen ? 999 : 3;
@@ -3179,18 +3229,27 @@ class GameController extends ChangeNotifier {
           );
         }
 
-        // Outer 10% tip save bonus (silent bonus, no extra overlapping text!)
-        final isClutchSave = hitOffset.abs() >= 0.90 && balls.length == 1;
+        // Outer clutch edge save: slow-mo, neon shockwave & epic floating text!
+        final isClutchSave = hitOffset.abs() >= 0.88;
         if (isClutchSave) {
-          stats.score += 150;
-          // Near-miss: 0.35s cinematic slow-mo + neon edge flash (5s cooldown) + outward shockwave ring.
-          if (_nearMissCooldown <= 0 && _nearMissSlowLeft <= 0) {
-            _nearMissCooldown = 5.0;
-            nearMissFlashTimer = 0.55;
-            _nearMissSlowLeft = 0.35;
-            particles.triggerShake(4.0, 0.2);
-            particles.spawnShockwave(ball.x, pr.top, const Color(0xFF00E5FF), maxRadius: 85.0);
-            audio.playSfx(GameSfx.powerupBuff, playbackRate: 0.7);
+          stats.score += 200;
+          if (_nearMissCooldown <= 0) {
+            _nearMissCooldown = 1.2;
+            nearMissFlashTimer = 0.50;
+            _nearMissSlowLeft = 0.28;
+            triggerHitStop(0.045);
+            particles.triggerShake(5.5, 0.22);
+            particles.spawnShockwave(ball.x, pr.top, const Color(0xFF00E5FF), maxRadius: 95.0);
+            particles.spawnBurst(ball.x, pr.top, const Color(0xFFFFD54F), count: 14, speed: 180.0);
+            particles.spawnFloatingText(
+              ball.x,
+              pr.top - 20,
+              '🔥 SON ANDA! +200 🔥',
+              const Color(0xFF00E5FF),
+              isLarge: true,
+            );
+            audio.playSfx(GameSfx.cornerBoost);
+            audio.playSfx(GameSfx.powerupBuff, playbackRate: 0.8);
           }
         }
         stats.ultiCharge = (stats.ultiCharge + 3.0 * cosmicPearlUltiMultiplier).clamp(0.0, 100.0);
@@ -5097,7 +5156,17 @@ class GameController extends ChangeNotifier {
         _onVictory();
       } else {
         // Immediate next level load with celebratory transition freeze!
-        levelTransitionTimer = 0.65;
+        final int earnedStars;
+        if (stats.lives >= stats.maxLives) {
+          earnedStars = 3;
+        } else if (stats.lives >= 2) {
+          earnedStars = 2;
+        } else {
+          earnedStars = 1;
+        }
+        lastClearedLevelStars = earnedStars;
+        save.saveLevelStars(stats.level, earnedStars);
+        levelTransitionTimer = 1.6;
         final baseGold = 25 + (stats.level * 5).clamp(0, 50);
         final relicBonus = save.hasPermanentRelic ? max(1, (baseGold * 0.05).round()) : 0;
         final luckLvl = save.getUpgradeLevel('luck');
@@ -5153,6 +5222,7 @@ class GameController extends ChangeNotifier {
         loadLevelBricks();
         _hasLoadedBricks = bricks.isNotEmpty;
         status = GameStatus.ready;
+        usedPreMatchBoosts.clear();
         emergencyClutchUsedThisStage = false;
         if (wasBossLevel && currentMode == GameMode.classic) {
           offerSectorBlessings();

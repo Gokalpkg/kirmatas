@@ -71,6 +71,7 @@ class _FishHoardChestState extends State<FishHoardChest> with TickerProviderStat
     if (_busy) return;
     final ready = widget.save.currentAvailableFishGold;
     if (ready <= 0) {
+      AudioManager.instance.playSfx(GameSfx.bubble);
       _nudge.forward(from: 0);
       return;
     }
@@ -140,19 +141,19 @@ class _FishHoardChestState extends State<FishHoardChest> with TickerProviderStat
                   ),
                   if (ready && available > 0 && _pour.value == 0)
                     Positioned(
-                      top: -4 + sin(_glow.value * pi * 2) * 2,
+                      top: -6 + sin(_glow.value * pi * 2) * 2,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFFF8F00)],
                           ),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.white, width: 0.8),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white, width: 1.0),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFFFB300).withValues(alpha: 0.6),
-                              blurRadius: 8,
+                              color: const Color(0xFFFFB300).withValues(alpha: 0.7),
+                              blurRadius: 10,
                               offset: const Offset(0, 2),
                             ),
                           ],
@@ -160,14 +161,15 @@ class _FishHoardChestState extends State<FishHoardChest> with TickerProviderStat
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.monetization_on, color: Color(0xFF3E230D), size: 11),
+                            const Icon(Icons.touch_app_rounded, color: Color(0xFF3E230D), size: 12),
                             const SizedBox(width: 3),
                             Text(
-                              '+$available',
+                              '+$available TOPLA',
                               style: const TextStyle(
                                 color: Color(0xFF3E230D),
                                 fontWeight: FontWeight.w900,
-                                fontSize: 10,
+                                fontSize: 10.5,
+                                letterSpacing: 0.3,
                                 height: 1.1,
                               ),
                             ),

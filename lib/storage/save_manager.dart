@@ -247,6 +247,7 @@ class SaveManager extends ChangeNotifier {
   Map<String, int> upgrades = {'battery': 0, 'magnet': 0, 'luck': 0};
   Map<String, int> boostStocks = {'life': 0, 'wide': 0, 'multi': 0};
   Map<String, int> categoryShards = {'balls': 0, 'paddles': 0, 'trails': 0, 'bricks': 0};
+  Map<int, int> levelStars = {};
 
   // --- KALICI LÜKS YADİGAR (PERMANENT RELIC) & ANTİK MÜHÜR YUVASI ---
   bool hasPermanentRelic = false;
@@ -920,6 +921,14 @@ class SaveManager extends ChangeNotifier {
       } catch (_) {}
     }
 
+    final starsRaw = _prefs?.getString('level_stars_map');
+    if (starsRaw != null) {
+      try {
+        final Map<String, dynamic> decoded = jsonDecode(starsRaw);
+        levelStars = decoded.map((k, v) => MapEntry(int.parse(k), (v as num).toInt()));
+      } catch (_) {}
+    }
+
     unlockedFish = _prefs?.getStringList('unlockedFish') ?? ['guppy', 'tetra'];
     fishShards = _prefs?.getInt('fishShards') ?? 0;
     statTotalRuns = _prefs?.getInt('statTotalRuns') ?? 0;
@@ -1562,6 +1571,17 @@ class SaveManager extends ChangeNotifier {
       selectedBoosts.add(id);
     }
     notifyListeners();
+  }
+
+  int getLevelStars(int level) => levelStars[level] ?? 0;
+
+  Future<void> saveLevelStars(int level, int stars) async {
+    final cur = levelStars[level] ?? 0;
+    if (stars > cur) {
+      levelStars[level] = stars;
+      await _prefs?.setString('level_stars_map', jsonEncode(levelStars.map((k, v) => MapEntry(k.toString(), v))));
+      notifyListeners();
+    }
   }
 
   int getShards(String category) => categoryShards[category] ?? 0;

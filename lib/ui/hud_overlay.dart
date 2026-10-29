@@ -4,6 +4,7 @@ import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
 import '../models/game_state.dart';
 import '../models/level_design.dart';
+import '../models/powerup.dart';
 import '../models/sector_data.dart';
 import '../storage/save_manager.dart';
 import 'pixel_art.dart';
@@ -696,6 +697,14 @@ class HudOverlay extends StatelessWidget {
                   ),
                 ),
 
+              // Pre-Match Tactical Booster Tray
+              if (controller.status == GameStatus.ready &&
+                  controller.currentMode != GameMode.chaos &&
+                  controller.currentMode != GameMode.zen &&
+                  !controller.awaitingChaosPerkSelection &&
+                  !controller.awaitingSectorBlessingSelection)
+                _buildPreMatchBoosterTray(context, controller),
+
               // Bottom Active PowerUp Chips & Ulti Button
               if (controller.currentMode != GameMode.chaos || controller.activePowerUps.isNotEmpty)
                 Positioned(
@@ -806,6 +815,122 @@ class HudOverlay extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildPreMatchBoosterTray(BuildContext context, GameController controller) {
+    final save = SaveManager.instance;
+    final boosts = [
+      (id: 'life', icon: Icons.favorite_rounded, label: '+1 Can', color: const Color(0xFFFF5252)),
+      (id: 'wide', icon: Icons.unfold_more_rounded, label: 'Geniş', color: const Color(0xFF40C4FF)),
+      (id: 'multi', icon: Icons.hub_rounded, label: 'Çift Top', color: const Color(0xFFFF9800)),
+    ];
+
+    return Positioned(
+      bottom: 82.0,
+      left: 16.0,
+      right: 16.0,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xDD0B1021),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: Colors.white24, width: 1.2),
+            boxShadow: const [
+              BoxShadow(color: Colors.black54, blurRadius: 10, offset: Offset(0, 4)),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: boosts.map((b) {
+              final stock = save.boostStocks[b.id] ?? 0;
+              final isEquipped = controller.usedPreMatchBoosts.contains(b.id) ||
+                  (b.id == 'wide' && controller.activePowerUps.any((p) => p.type == PowerUpType.wide)) ||
+                  (b.id == 'multi' && controller.balls.length > 1);
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: isEquipped
+                        ? null
+                        : () async {
+                            if (stock > 0) {
+                              controller.activatePreMatchBoost(b.id);
+                            } else {
+                              final ok = await controller.buyAndActivatePreMatchBoost(b.id);
+                              if (!ok && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Yetersiz altın! (100 Altın gerekir)'),
+                                    duration: Duration(milliseconds: 1200),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isEquipped
+                            ? b.color.withValues(alpha: 0.35)
+                            : (stock > 0 ? const Color(0xFF1C2436) : Colors.black38),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isEquipped
+                              ? b.color
+                              : (stock > 0 ? b.color.withValues(alpha: 0.6) : Colors.white24),
+                          width: isEquipped ? 2.0 : 1.0,
+                        ),
+                        boxShadow: isEquipped
+                            ? [BoxShadow(color: b.color.withValues(alpha: 0.5), blurRadius: 8)]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(b.icon, color: isEquipped ? Colors.white : b.color, size: 16),
+                          const SizedBox(width: 5),
+                          Text(
+                            b.label,
+                            style: TextStyle(
+                              color: isEquipped ? Colors.white : Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: isEquipped
+                                  ? Colors.greenAccent.withValues(alpha: 0.3)
+                                  : (stock > 0 ? b.color.withValues(alpha: 0.25) : Colors.amber.withValues(alpha: 0.2)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              isEquipped ? '✓' : (stock > 0 ? 'x$stock' : '100G'),
+                              style: TextStyle(
+                                color: isEquipped ? Colors.greenAccent : (stock > 0 ? Colors.white : const Color(0xFFFFD54F)),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
     );
   }
 }

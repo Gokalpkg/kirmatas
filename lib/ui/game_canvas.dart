@@ -6296,15 +6296,16 @@ class _GameWorldPainter extends CustomPainter {
   void _drawLevelClearCelebration(Canvas canvas, Size size) {
     if (c.levelTransitionTimer <= 0) return;
     final timer = c.levelTransitionTimer;
-    final progress = (1.0 - timer / 0.95).clamp(0.0, 1.0);
-    final alpha = (progress < 0.2 ? progress / 0.2 : (progress > 0.8 ? (1.0 - progress) / 0.2 : 1.0)).clamp(0.0, 1.0);
+    const totalDur = 1.6;
+    final progress = (1.0 - timer / totalDur).clamp(0.0, 1.0);
+    final alpha = (progress < 0.15 ? progress / 0.15 : (progress > 0.85 ? (1.0 - progress) / 0.15 : 1.0)).clamp(0.0, 1.0);
 
-    final bannerH = 60.0;
-    final bannerY = size.height * 0.38;
+    final bannerH = 100.0;
+    final bannerY = size.height * 0.36;
     final bannerRect = Rect.fromLTWH(0, bannerY - bannerH / 2, size.width, bannerH);
 
     // Holographic celebration container
-    _fill.color = _ca(const Color(0xEE0B1A24), alpha * 0.95);
+    _fill.color = _ca(const Color(0xEE0B1A24), alpha * 0.96);
     canvas.drawRect(bannerRect, _fill);
 
     // Glowing cyan / gold celebratory border lines
@@ -6316,12 +6317,12 @@ class _GameWorldPainter extends CustomPainter {
     canvas.drawLine(Offset(0, bannerRect.bottom), Offset(size.width, bannerRect.bottom), _stroke);
 
     // Sparkling confetti particles across banner
-    for (int i = 0; i < 16; i++) {
-      final cx = (i * 47.0 + time * 60.0) % size.width;
-      final cy = bannerRect.top + 8.0 + (i * 17.0) % (bannerH - 16.0);
+    for (int i = 0; i < 22; i++) {
+      final cx = (i * 47.0 + time * 65.0) % size.width;
+      final cy = bannerRect.top + 8.0 + (i * 19.0) % (bannerH - 16.0);
       final cColor = (i % 3 == 0) ? const Color(0xFFFFD54F) : ((i % 3 == 1) ? const Color(0xFF00E5FF) : const Color(0xFFFF4081));
       _fill.color = _ca(cColor, alpha * (0.6 + 0.4 * sin(time * 8.0 + i)));
-      canvas.drawCircle(Offset(cx, cy), 2.2, _fill);
+      canvas.drawCircle(Offset(cx, cy), 2.4, _fill);
     }
 
     // Celebration Text
@@ -6331,7 +6332,7 @@ class _GameWorldPainter extends CustomPainter {
         fontFamily: 'Rajdhani',
         fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
         color: _ca(const Color(0xFFFFD54F), alpha),
-        fontSize: 18.0,
+        fontSize: 17.0,
         fontWeight: FontWeight.w900,
         letterSpacing: 2.2,
         shadows: [
@@ -6341,7 +6342,87 @@ class _GameWorldPainter extends CustomPainter {
       ),
     );
     _tp.layout();
-    _tp.paint(canvas, Offset((size.width - _tp.width) / 2, bannerY - _tp.height / 2));
+    _tp.paint(canvas, Offset((size.width - _tp.width) / 2, bannerRect.top + 10.0));
+
+    // 3 Sequential Dropping Golden Stars ("PAT - PAT - PAT")
+    final earnedStars = c.lastClearedLevelStars.clamp(1, 3);
+    final starCenterY = bannerRect.top + 58.0;
+    final starOffsets = [
+      Offset(size.width / 2 - 44.0, starCenterY),
+      Offset(size.width / 2, starCenterY - 5.0),
+      Offset(size.width / 2 + 44.0, starCenterY),
+    ];
+    final starDelays = [0.18, 0.38, 0.58];
+
+    for (int s = 0; s < 3; s++) {
+      final delay = starDelays[s];
+      final starProgress = ((progress - delay) / 0.18).clamp(0.0, 1.0);
+      if (starProgress <= 0) continue;
+
+      // Elastic overshoot bounce drop
+      final bounceScale = starProgress < 1.0 ? (1.0 + sin(starProgress * pi) * 0.45) : 1.0;
+      final isEarned = (s + 1) <= earnedStars;
+      _drawCelebrationStar(canvas, starOffsets[s], bounceScale, isEarned, alpha);
+    }
+  }
+
+  void _drawCelebrationStar(Canvas canvas, Offset center, double scale, bool earned, double alpha) {
+    if (scale <= 0.05) return;
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(scale, scale);
+
+    final path = Path();
+    const int points = 5;
+    const double outerR = 14.0;
+    const double innerR = 6.0;
+    for (int i = 0; i < points * 2; i++) {
+      final r = i.isEven ? outerR : innerR;
+      final angle = -pi / 2 + (i * pi / points);
+      final x = cos(angle) * r;
+      final y = sin(angle) * r;
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    path.close();
+
+    if (earned) {
+      // Golden glow aura
+      _fill
+        ..shader = null
+        ..color = const Color(0xFFFFD54F).withValues(alpha: 0.35 * alpha);
+      canvas.drawCircle(Offset.zero, 18.0, _fill);
+
+      // Star gold body
+      _fill.color = const Color(0xFFFFD700).withValues(alpha: alpha);
+      canvas.drawPath(path, _fill);
+
+      // Star highlight rim
+      _stroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6
+        ..color = const Color(0xFFFFF9C4).withValues(alpha: alpha);
+      canvas.drawPath(path, _stroke);
+
+      // Center sparkle
+      _fill.color = Colors.white.withValues(alpha: 0.9 * alpha);
+      canvas.drawCircle(const Offset(-2.5, -2.5), 2.0, _fill);
+    } else {
+      // Dark unfilled star silhouette
+      _fill
+        ..shader = null
+        ..color = const Color(0xFF1E2830).withValues(alpha: 0.85 * alpha);
+      canvas.drawPath(path, _fill);
+      _stroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = const Color(0xFF546E7A).withValues(alpha: 0.6 * alpha);
+      canvas.drawPath(path, _stroke);
+    }
+    canvas.restore();
   }
 
   void _drawLevel1DragGuide(Canvas canvas, Rect paddleRect, double time) {

@@ -127,6 +127,39 @@ class AudioManager {
     } catch (_) {}
   }
 
+  static const Map<String, String> _brickAudioAssets = {
+    'brick_neon': 'assets/audio/glass_neon1.mp3',
+    'brick_pixel': 'assets/audio/chip1.mp3',
+    'brick_gloss': 'assets/audio/y2k_digital1.mp3',
+    'brick_neu': 'assets/audio/pop2.mp3',
+    'brick_jelly': 'assets/audio/pop2.mp3',
+    'brick_cyber': 'assets/audio/glass_shatter.mp3',
+    'brick_cosmic': 'assets/audio/glass_glow.mp3',
+  };
+
+  String _currentLoadedBrickKey = '';
+
+  void _ensureBrickAudioLoaded(String brickKey) {
+    if (_currentLoadedBrickKey == brickKey) return;
+    final path = _brickAudioAssets[brickKey] ?? 'assets/audio/glass_neon1.mp3';
+    final asset = path.replaceFirst('assets/', '');
+    final existingPool = _pools[_currentLoadedBrickKey];
+    if (existingPool != null && existingPool.isNotEmpty) {
+      _pools.remove(_currentLoadedBrickKey);
+      _poolIndices.remove(_currentLoadedBrickKey);
+      _pools[brickKey] = existingPool;
+      _poolIndices[brickKey] = 0;
+      _poolAssets[brickKey] = asset;
+      _currentLoadedBrickKey = brickKey;
+      for (final p in existingPool) {
+        p.setSource(AssetSource(asset)).catchError((_) {});
+      }
+    } else {
+      _loadPool(brickKey, path, 4);
+      _currentLoadedBrickKey = brickKey;
+    }
+  }
+
   Future<void> init() async {
     try {
       final mix = AudioContext(
@@ -146,13 +179,12 @@ class AudioManager {
     } catch (_) {}
 
     await _loadPool('bounce', 'assets/audio/custom_bounce.wav', 4);
-    await _loadPool('brick_neon', 'assets/audio/glass_neon1.mp3', 4);
-    await _loadPool('brick_pixel', 'assets/audio/chip1.mp3', 4);
-    await _loadPool('brick_gloss', 'assets/audio/y2k_digital1.mp3', 4);
-    await _loadPool('brick_neu', 'assets/audio/pop2.mp3', 4);
-    await _loadPool('brick_jelly', 'assets/audio/pop2.mp3', 4);
-    await _loadPool('brick_cyber', 'assets/audio/glass_shatter.mp3', 4);
-    await _loadPool('brick_cosmic', 'assets/audio/glass_glow.mp3', 4);
+    // Dynamic loading of active brick style to prevent Android AudioTrack allocation exhaustion (saves 24 AudioPlayers)
+    final initialBrickKey = resolveSoundKey(GameSfx.breakBrick);
+    final initialAsset = _brickAudioAssets[initialBrickKey] ?? 'assets/audio/glass_neon1.mp3';
+    await _loadPool(initialBrickKey, initialAsset, 4);
+    _currentLoadedBrickKey = initialBrickKey;
+
     await _loadPool('steel', 'assets/audio/crystal_block.mp3', 2);
     await _loadPool('bubble', 'assets/audio/bubble2.mp3', 2);
     await _loadPool('click', 'assets/audio/click1.mp3', 2);
@@ -542,6 +574,9 @@ class AudioManager {
     final volLevel = SaveManager.instance.sfxVolume;
     if (volLevel > 0) {
       String soundKey = resolvedKey;
+      if (soundKey.startsWith('brick_')) {
+        _ensureBrickAudioLoaded(soundKey);
+      }
       final double gain = _resolveGain(sfx);
 
       if (!_pools.containsKey(soundKey) || _pools[soundKey]!.isEmpty) soundKey = 'bounce';
