@@ -438,6 +438,9 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
       save.activeTrail,
     );
     final isActive = synergy != CosmeticSynergy.none;
+    if (!isActive) {
+      return const SizedBox.shrink(key: Key('active_cosmetic_synergy_badge'));
+    }
     final badgeColor = synergy.color;
 
     return Container(
@@ -446,11 +449,11 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isActive ? badgeColor.withValues(alpha: 0.14) : const Color(0xFF141828),
+        color: badgeColor.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isActive ? badgeColor.withValues(alpha: 0.65) : Colors.white12,
-          width: isActive ? 1.4 : 1.0,
+          color: badgeColor.withValues(alpha: 0.65),
+          width: 1.4,
         ),
       ),
       child: Row(
@@ -463,11 +466,11 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  synergy.nameTr,
+                  '✨ AKTİF SET: ${synergy.nameTr}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: isActive ? Colors.white : Colors.white70,
+                  style: const TextStyle(
+                    color: Colors.white,
                     fontWeight: FontWeight.w900,
                     fontSize: 12,
                   ),
@@ -477,7 +480,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: isActive ? badgeColor : Colors.white54,
+                    color: badgeColor,
                     fontWeight: FontWeight.w600,
                     fontSize: 10,
                   ),
