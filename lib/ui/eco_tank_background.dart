@@ -1330,44 +1330,7 @@ class _TankPainter extends CustomPainter {
           canvas.scale(1.0 / fishScale, 1.0 / fishScale);
         }
 
-      // 8. Status marker above fed fish: a bouncing gold coin once the
-      // 6h gold is ready to collect, otherwise a thin 6h progress bar.
-      if (f.isProducing || f.satiatedTimer > 0) {
-        final save = SaveManager.instance;
-        final floatY = -18.0 + sin(time * 3.5 + f.tailPhase) * 2.5;
-        final pulse = 0.65 + 0.35 * sin(time * 4.0 + f.tailPhase);
-        if (save.isFishGoldReady(f.item.id)) {
-          // Ready coin: collect me from the hoard chest!
-          _sparkPaint.color = const Color(0xFFFFD54F).withValues(alpha: 0.95);
-          canvas.drawCircle(Offset(0, floatY), 5.6, _sparkPaint);
-          _sparkPaint.color = const Color(0xFFFF8F00).withValues(alpha: 0.9);
-          canvas.drawCircle(Offset(0, floatY), 3.4, _sparkPaint);
-          _sparkPaint.color = Colors.white.withValues(alpha: 0.9 * pulse);
-          canvas.drawCircle(Offset(-1.4, floatY - 1.4), 1.3, _sparkPaint);
-        } else {
-          _sparkPaint.color = const Color(0xFFFFD54F).withValues(alpha: 0.65 * pulse);
-          canvas.drawCircle(Offset(0, floatY), 2.2, _sparkPaint);
-          _sparkPaint.color = Colors.white.withValues(alpha: 0.85 * pulse);
-          canvas.drawCircle(Offset(0, floatY), 1.0, _sparkPaint);
-          if (f.isProducing) {
-            // Production progress: fills up over the 6-hour cycle.
-            final remain = save.remainingFishPayoutMs(f.item.id);
-            final frac = (1.0 - remain / SaveManager.fishPayoutDurationMs).clamp(0.0, 1.0);
-            const barW = 30.0;
-            _sparkPaint.color = const Color(0x59000000);
-            canvas.drawRRect(
-              RRect.fromRectAndRadius(const Rect.fromLTWH(-barW / 2, -27, barW, 3.6), const Radius.circular(2)),
-              _sparkPaint,
-            );
-            _sparkPaint.color = const Color(0xFF4FC3F7).withValues(alpha: 0.9);
-            canvas.drawRRect(
-              RRect.fromRectAndRadius(Rect.fromLTWH(-barW / 2, -27, barW * frac, 3.6), const Radius.circular(2)),
-              _sparkPaint,
-            );
-          }
-        }
-      }
-
+      // Status markers above fish removed for pure aesthetic organic swimming.
       canvas.restore();
     }
   }
