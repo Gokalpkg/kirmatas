@@ -1261,7 +1261,8 @@ class GameController extends ChangeNotifier {
       stats.level++;
       stats.score += 300 * stats.level;
       if (AdManager.instance.registerLevelClear()) pendingLevelInterstitial = true;
-      chaosStock = 3;
+      // BBTAN SÜREKLİLİK: Top sayısı ASLA 3'e sıfırlanmaz! Biriken tüm toplar korunur.
+      chaosStock += chaosPendingExtraBalls;
       chaosPendingExtraBalls = 0;
       chaosReturned = 0;
       chaosToLaunch = 0;
@@ -1270,10 +1271,10 @@ class GameController extends ChangeNotifier {
       loadLevelBricks();
       status = GameStatus.ready;
       _layoutChaosPile();
-      particles.spawnShockwave(screenWidth * 0.5, screenHeight * 0.4, const Color(0xFFFFD700), maxRadius: 75.0);
-      particles.spawnBurst(screenWidth * 0.5, screenHeight * 0.4, const Color(0xFF00E5FF), count: 25, speed: 180.0);
-      particles.spawnFloatingText(screenWidth * 0.5, screenHeight * 0.4, I18n.tr('level_cleared'), const Color(0xFFFFD700), isLarge: true);
-      particles.spawnFloatingText(screenWidth * 0.5, screenHeight * 0.47, '+$levelGold  ${I18n.tr('level_bonus')}', const Color(0xFFFFD54F), isLarge: false);
+      particles.spawnShockwave(screenWidth * 0.5, screenHeight * 0.4, const Color(0xFFFFD700), maxRadius: 90.0);
+      particles.spawnBurst(screenWidth * 0.5, screenHeight * 0.4, const Color(0xFF00E5FF), count: 30, speed: 200.0);
+      particles.spawnFloatingText(screenWidth * 0.5, screenHeight * 0.38, '⚡ TAM SÜPÜRME! (BOARD CLEAR)', const Color(0xFFFFD700), isLarge: true);
+      particles.spawnFloatingText(screenWidth * 0.5, screenHeight * 0.46, '+$levelGold 🪙 ${I18n.tr('level_bonus')} • $chaosStock TOP HAZIR!', const Color(0xFF00E5FF), isLarge: false);
       audio.playSfx(GameSfx.victory);
       notifyListeners();
       return;
@@ -3507,7 +3508,7 @@ class GameController extends ChangeNotifier {
     audio.playSfx(GameSfx.steel);
   }
 
-  void _hitBrick(Brick b, Ball? ball) {
+  void _hitBrick(Brick b, Ball? ball, {bool isEcho = false}) {
     if (b.isPrimedDynamite) {
       _primedDynamites.remove(b);
       b.isPrimedDynamite = false;
@@ -3523,7 +3524,7 @@ class GameController extends ChangeNotifier {
           ball.isWallSpeedBoosted = false;
           ball.setSpeed(getBaseBallSpeed());
         }
-        _destroyBrick(b);
+        _destroyBrick(b, 0, isEcho);
       } else {
         b.jelly = 1.0;
         particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, Colors.grey, count: 6);
@@ -3582,14 +3583,14 @@ class GameController extends ChangeNotifier {
       stats.score += 25 * (stats.combo + 1);
     }
 
-    // Sector Blessing: Ghost Echo
-    if (activeSectorBlessing?.type == SectorBlessingType.ghostEcho) {
+    // Sector Blessing: Ghost Echo (Single echo jump, strictly prevents infinite domino chain reaction)
+    if (!isEcho && activeSectorBlessing?.type == SectorBlessingType.ghostEcho) {
       final neighbors = bricks.where((other) =>
           other != b && other.isAlive && !other.isSteel &&
           (other.x - b.x).abs() <= 60 && (other.y - b.y).abs() <= 60).toList();
       if (neighbors.isNotEmpty) {
         final target = neighbors[_rand.nextInt(neighbors.length)];
-        _hitBrick(target, null);
+        _hitBrick(target, null, isEcho: true);
         particles.spawnBurst(target.x + target.width / 2, target.y + target.height / 2, const Color(0xFFB388FF), count: 8, speed: 85.0);
       }
     }
@@ -3628,12 +3629,12 @@ class GameController extends ChangeNotifier {
           nb.hp -= 1;
           particles.spawnBurst(nb.x + nb.width / 2, nb.y + nb.height / 2, const Color(0xFF00E5FF), count: 5);
           if (nb.hp <= 0) {
-            _destroyBrick(nb);
+            _destroyBrick(nb, 0, isEcho);
           }
         }
       }
       if (b.hp <= 0) {
-        _destroyBrick(b);
+        _destroyBrick(b, 0, isEcho);
       } else if (b.hp % 6 == 0) {
         audio.playSfx(GameSfx.hitBrick, combo: stats.combo);
       }
@@ -3651,7 +3652,7 @@ class GameController extends ChangeNotifier {
       particles.triggerShake(4.0, 0.18);
       audio.playSfx(GameSfx.bossHit);
       b.hp = 0;
-      _destroyBrick(b);
+      _destroyBrick(b, 0, isEcho);
       return;
     }
     if (activeCosmeticSynergy == CosmeticSynergy.iceCrystal &&
@@ -3681,7 +3682,7 @@ class GameController extends ChangeNotifier {
     }
 
     if (b.hp <= 0) {
-      _destroyBrick(b);
+      _destroyBrick(b, 0, isEcho);
     } else {
       // Step 1: Hit white flash
       b.triggerWhiteFlash(b.isBoss ? 0.035 : 0.025);
@@ -3763,7 +3764,7 @@ class GameController extends ChangeNotifier {
   @visibleForTesting
   void triggerGameOverForTest() => _onGameOver();
 
-  void _destroyBrick(Brick b, [int chainDepth = 0]) {
+  void _destroyBrick(Brick b, [int chainDepth = 0, bool isEcho = false]) {
     b.isAlive = false;
     if (b == lockedTargetBrick) {
       lockedTargetBrick = null;
@@ -3983,14 +3984,14 @@ class GameController extends ChangeNotifier {
       stats.score += 25 * (stats.combo + 1);
     }
 
-    // Sector Blessing: Ghost Echo
-    if (activeSectorBlessing?.type == SectorBlessingType.ghostEcho) {
+    // Sector Blessing: Ghost Echo (Single echo jump, strictly prevents infinite domino chain reaction)
+    if (!isEcho && activeSectorBlessing?.type == SectorBlessingType.ghostEcho) {
       final neighbors = bricks.where((other) =>
           other != b && other.isAlive && !other.isSteel &&
           (other.x - b.x).abs() <= 60 && (other.y - b.y).abs() <= 60).toList();
       if (neighbors.isNotEmpty) {
         final target = neighbors[_rand.nextInt(neighbors.length)];
-        _hitBrick(target, null);
+        _hitBrick(target, null, isEcho: true);
         particles.spawnBurst(target.x + target.width / 2, target.y + target.height / 2, const Color(0xFFB388FF), count: 8, speed: 85.0);
       }
     }

@@ -1353,18 +1353,26 @@ class LevelDesign {
         continue;
       }
 
-      // Balanced HP for 3-ball gameplay progression
+      // BBTAN Dynamic Scaling: Bricks scale smoothly with wave/turn progression.
+      // 16% chance of a high-resistance Tank brick (1.6x - 2.0x HP) that requires ricocheting tactics!
+      final int baseHp = max(1, wave);
+      final bool isTankBrick = rand.nextDouble() < 0.16 && wave >= 5;
       final int hp;
       if (wave <= 1) {
-        hp = (row == 0) ? (1 + rand.nextInt(2)) : (1 + rand.nextInt(3));
+        hp = (row == 0) ? 1 : (1 + rand.nextInt(2));
       } else if (wave <= 3) {
         hp = 2 + rand.nextInt(3);
+      } else if (isTankBrick) {
+        // High-resistance challenge brick (e.g. at wave 60, HP ~ 100-130)
+        hp = (baseHp * 1.7).round() + rand.nextInt(max(3, (baseHp * 0.35).round()));
       } else {
-        hp = (wave - 1) + rand.nextInt(4);
+        // Standard brick closely tracking wave count
+        final variance = max(2, (baseHp * 0.22).round());
+        hp = max(1, (baseHp * 0.95).round() + rand.nextInt(variance + 1));
       }
 
       final colorIndex = (wave * 3 + row * 2 + c) % neonPalette.length;
-      final color = neonPalette[colorIndex];
+      final color = isTankBrick ? const Color(0xFFFF5252) : neonPalette[colorIndex];
 
       final specialRoll = rand.nextDouble();
       if (specialRoll < 0.10) {
