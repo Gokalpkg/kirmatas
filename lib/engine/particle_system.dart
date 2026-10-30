@@ -385,7 +385,7 @@ class ParticleSystem {
 
   static const int maxParticles = 50;
   static const int maxShockwaves = 6;
-  static const int maxFloatingTexts = 5;
+  static const int maxFloatingTexts = 10;
   static const int maxShards = 24;
 
   void spawnBurst(double x, double y, Color color, {int count = 10, double speed = 150.0}) {

@@ -59,6 +59,9 @@ class _TournamentDialogState extends State<TournamentDialog> {
     CloudSocialManager.instance.refreshFriendsFromCloud().then((_) {
       if (mounted) setState(() {});
     });
+    CloudSocialManager.instance.fetchWeeklyLeagueRivals().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -863,15 +866,48 @@ class _TournamentDialogState extends State<TournamentDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  r.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: isPlayer ? Colors.white : Colors.white70,
-                    fontWeight: isPlayer ? FontWeight.w900 : FontWeight.w600,
-                    fontSize: 13,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        r.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isPlayer ? Colors.white : Colors.white70,
+                          fontWeight: isPlayer ? FontWeight.w900 : FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    if (r.tag.isNotEmpty) ...[
+                      const SizedBox(width: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: isPlayer
+                              ? tierColor.withValues(alpha: 0.25)
+                              : Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isPlayer
+                                ? tierColor.withValues(alpha: 0.6)
+                                : Colors.white12,
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Text(
+                          r.tag,
+                          style: TextStyle(
+                            color: isPlayer ? tierColor : Colors.white60,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 3),
                 ClipRRect(
@@ -975,6 +1011,19 @@ class _TournamentDialogState extends State<TournamentDialog> {
             fontSize: isCompact ? 10.5 : 11.5,
           ),
         ),
+        if (r.tag.isNotEmpty)
+          Text(
+            r.tag,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: r.isPlayer ? tierColor.withValues(alpha: 0.85) : Colors.white54,
+              fontWeight: FontWeight.w700,
+              fontSize: isCompact ? 8.5 : 9.5,
+              letterSpacing: 0.2,
+            ),
+          ),
         Text(
           _fmtNum(r.score),
           style: TextStyle(

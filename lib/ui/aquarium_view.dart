@@ -182,7 +182,6 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
   final GlobalKey _chestKey = GlobalKey();
   final SaveManager _save = SaveManager.instance;
   AquariumTabMode _selectedMode = AquariumTabMode.feed;
-  bool _isCameraZoomed = false;
   late final AnimationController _pulseCtrl;
   late final Animation<double> _pulseScale;
   late final AnimationController _coinCtrl;
@@ -777,11 +776,6 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
             key: _tankKey,
             interactive: true,
             onBubblePopped: _onOxygenBubblePopped,
-            onCameraZoomChanged: (isZoomed, zoom) {
-              if (mounted && _isCameraZoomed != isZoomed) {
-                setState(() => _isCameraZoomed = isZoomed);
-              }
-            },
             onOutOfFood: () {
               if (mounted) _showGetFoodDialog();
             },
@@ -1335,89 +1329,78 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
     final isFeed = _selectedMode == AquariumTabMode.feed;
     final isFinger = _selectedMode == AquariumTabMode.finger;
 
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: const Color(0xD9071520),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0x444FC3F7), width: 1.1),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x66000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 1. YEM SEKMESİ (Bastığında seçilir, ekrana basıldığında yem atar)
-            _buildTabPill(
-              isSelected: isFeed,
-              icon: Icons.grain,
-              label: _save.fishFood > 0 ? 'Yem (${_save.fishFood})' : 'Yem (0)',
-              activeColor: const Color(0xFF00E676),
-              activeBgColor: const Color(0xD9063820),
-              glowColor: const Color(0x6600E676),
-              onTap: () {
-                if (!isFeed) {
-                  setState(() => _selectedMode = AquariumTabMode.feed);
-                  _tankKey.currentState?.setFingerMode(false);
-                  AudioManager.instance.playSfx(GameSfx.click);
-                } else if (_save.fishFood <= 0) {
-                  _showGetFoodDialog();
-                }
-              },
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {},
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: const Color(0xD9071520),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0x444FC3F7), width: 1.1),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x66000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
             ),
-            const SizedBox(width: 4),
-
-            // 2. PARMAK MODU SEKMESİ (Bastığında seçilir, ekrana dokunulduğunda balıklar parmağa gelir)
-            _buildTabPill(
-              isSelected: isFinger,
-              icon: Icons.touch_app_rounded,
-              label: 'Parmak',
-              activeColor: const Color(0xFF00E5FF),
-              activeBgColor: const Color(0xD905333F),
-              glowColor: const Color(0x6600E5FF),
-              onTap: () {
-                if (!isFinger) {
-                  setState(() => _selectedMode = AquariumTabMode.finger);
-                  _tankKey.currentState?.setFingerMode(true);
-                  AudioManager.instance.playSfx(GameSfx.click);
-                }
-              },
-            ),
-            const SizedBox(width: 4),
-
-            // 3. KAMERA ZOOM MODU (Kuşbakışı 1.0x / Yakın Plan Detay 1.8x)
-            _buildTabPill(
-              isSelected: _isCameraZoomed,
-              icon: _isCameraZoomed ? Icons.zoom_out_map_rounded : Icons.zoom_in_rounded,
-              label: _isCameraZoomed ? '1.8x' : '1.0x',
-              activeColor: const Color(0xFFFFD54F),
-              activeBgColor: const Color(0xD9332600),
-              glowColor: const Color(0x66FFD54F),
-              onTap: () {
-                _tankKey.currentState?.toggleCameraZoom();
-                AudioManager.instance.playSfx(GameSfx.click);
-              },
-            ),
-            const SizedBox(width: 4),
-
-            // Ayraç çizgi
-            Container(
-              width: 1,
-              height: 18,
-              color: const Color(0x334FC3F7),
-            ),
-            const SizedBox(width: 4),
-
-            // 4. KATALOG BUTONU
-            _buildCatalogButton(),
           ],
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. YEM SEKMESİ (Bastığında seçilir, ekrana basıldığında yem atar)
+              _buildTabPill(
+                isSelected: isFeed,
+                icon: Icons.grain,
+                label: _save.fishFood > 0 ? 'Yem (${_save.fishFood})' : 'Yem (0)',
+                activeColor: const Color(0xFF00E676),
+                activeBgColor: const Color(0xD9063820),
+                glowColor: const Color(0x6600E676),
+                onTap: () {
+                  if (!isFeed) {
+                    setState(() => _selectedMode = AquariumTabMode.feed);
+                    _tankKey.currentState?.setFingerMode(false);
+                    AudioManager.instance.playSfx(GameSfx.click);
+                  } else if (_save.fishFood <= 0) {
+                    _showGetFoodDialog();
+                  }
+                },
+              ),
+              const SizedBox(width: 4),
+
+              // 2. PARMAK MODU SEKMESİ (Bastığında seçilir, ekrana dokunulduğunda balıklar parmağa gelir)
+              _buildTabPill(
+                isSelected: isFinger,
+                icon: Icons.touch_app_rounded,
+                label: 'Parmak',
+                activeColor: const Color(0xFF00E5FF),
+                activeBgColor: const Color(0xD905333F),
+                glowColor: const Color(0x6600E5FF),
+                onTap: () {
+                  if (!isFinger) {
+                    setState(() => _selectedMode = AquariumTabMode.finger);
+                    _tankKey.currentState?.setFingerMode(true);
+                    AudioManager.instance.playSfx(GameSfx.click);
+                  }
+                },
+              ),
+              const SizedBox(width: 4),
+
+              // Ayraç çizgi
+              Container(
+                width: 1,
+                height: 18,
+                color: const Color(0x334FC3F7),
+              ),
+              const SizedBox(width: 4),
+
+              // 3. KATALOG BUTONU
+              _buildCatalogButton(),
+            ],
+          ),
         ),
       ),
     );

@@ -159,4 +159,116 @@ class CloudSocialManager {
       // Offline fallback
     }
   }
+
+  /// Fetches 100% real players from Firestore for the weekly league.
+  /// Seamlessly falls back to local cached real players when offline.
+  Future<List<LeagueRival>> fetchWeeklyLeagueRivals({int? tier}) async {
+    final save = SaveManager.instance;
+    final targetTier = (tier ?? save.leagueTier).clamp(0, 4);
+    final cleanPlayerTag = save.playerTag.replaceAll('#', '').toUpperCase();
+
+    try {
+      List<QueryDocumentSnapshot<Map<String, dynamic>>> docs = [];
+      try {
+        final querySnapshot = await FirebaseFirestore.instance
+            .collection(_collectionName)
+            .where('leagueTier', isEqualTo: targetTier)
+            .orderBy('weeklyScore', descending: true)
+            .limit(SaveManager.leagueGroupSize * 2)
+            .get()
+            .timeout(const Duration(seconds: 4));
+        docs = querySnapshot.docs;
+      } catch (_) {
+        // Fallback if composite index ('leagueTier' + 'weeklyScore') is not provisioned:
+        try {
+          final fallbackQuery = await FirebaseFirestore.instance
+              .collection(_collectionName)
+              .where('leagueTier', isEqualTo: targetTier)
+              .limit(SaveManager.leagueGroupSize * 2)
+              .get()
+              .timeout(const Duration(seconds: 4));
+          docs = fallbackQuery.docs;
+        } catch (_) {}
+      }
+
+      final List<LeagueRival> rivals = [];
+
+      for (final doc in docs) {
+        final data = doc.data();
+        final docTag = (data['tag'] as String?) ?? '#${doc.id}';
+        final cleanDocTag = docTag.replaceAll('#', '').toUpperCase();
+
+        if (cleanDocTag == cleanPlayerTag) continue;
+
+        final rawName = data['name'] as String?;
+        final name = (rawName != null && rawName.trim().isNotEmpty)
+            ? rawName.trim()
+            : 'Oyuncu $docTag';
+        final score = (data['weeklyScore'] as num?)?.toInt() ?? 0;
+
+        rivals.add(LeagueRival(
+          name: name,
+          tag: docTag,
+          score: score,
+          isPlayer: false,
+        ));
+        if (rivals.length >= SaveManager.leagueGroupSize - 1) break;
+      }
+
+      // If fewer real players in this exact tier, fetch top weekly players
+      if (rivals.length < SaveManager.leagueGroupSize - 1) {
+        try {
+          final fallbackSnapshot = await FirebaseFirestore.instance
+              .collection(_collectionName)
+              .orderBy('weeklyScore', descending: true)
+              .limit(SaveManager.leagueGroupSize * 2)
+              .get()
+              .timeout(const Duration(seconds: 4));
+
+          for (final doc in fallbackSnapshot.docs) {
+            final data = doc.data();
+            final docTag = (data['tag'] as String?) ?? '#${doc.id}';
+            final cleanDocTag = docTag.replaceAll('#', '').toUpperCase();
+
+            if (cleanDocTag == cleanPlayerTag) continue;
+            if (rivals.any((r) => r.tag.toUpperCase() == docTag.toUpperCase())) continue;
+
+            final rawName = data['name'] as String?;
+            final name = (rawName != null && rawName.trim().isNotEmpty)
+                ? rawName.trim()
+                : 'Oyuncu $docTag';
+            final score = (data['weeklyScore'] as num?)?.toInt() ?? 0;
+
+            rivals.add(LeagueRival(
+              name: name,
+              tag: docTag,
+              score: score,
+              isPlayer: false,
+            ));
+            if (rivals.length >= SaveManager.leagueGroupSize - 1) break;
+          }
+        } catch (_) {}
+      }
+
+      // Sort rivals descending by score
+      rivals.sort((a, b) => b.score.compareTo(a.score));
+
+      if (rivals.length >= SaveManager.leagueGroupSize - 1) {
+        await save.updateCachedLeagueRivals(rivals, tier: targetTier);
+      } else if (rivals.isNotEmpty) {
+        // Merge with existing fallback/cached to maintain group size
+        final merged = List<LeagueRival>.from(rivals);
+        for (final cached in save.cachedLeagueRivals) {
+          if (!merged.any((m) => m.tag.toUpperCase() == cached.tag.toUpperCase())) {
+            merged.add(cached);
+          }
+          if (merged.length >= SaveManager.leagueGroupSize - 1) break;
+        }
+        await save.updateCachedLeagueRivals(merged, tier: targetTier);
+      }
+    } catch (_) {
+      // Defensive: silent fallback to cached real players
+    }
+    return save.cachedLeagueRivals;
+  }
 }

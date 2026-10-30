@@ -159,37 +159,48 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                 BoxShadow(color: Colors.black87, blurRadius: 30, offset: Offset(0, 10)),
               ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Top Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.calendar_month, color: Color(0xFFFFD54F), size: 26),
-                        SizedBox(width: 8),
-                        Text( 'GÜNLÜK GİRİŞ ÖDÜLÜ',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.8,
-                          ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Top Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_month, color: Color(0xFFFFD54F), size: 26),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: const Text(
+                                  'GÜNLÜK GİRİŞ ÖDÜLÜ',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    KaunosCloseButton(
-                      onTap: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                const Text( 'Her gün oyuna gir, seriyi bozma ve büyük ödülleri topla!',
-                  style: TextStyle(color: Colors.white60, fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
+                      ),
+                      KaunosCloseButton(
+                        onTap: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Her gün oyuna gir, seriyi bozma ve büyük ödülleri topla!',
+                    style: TextStyle(color: Colors.white60, fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
                 const SizedBox(height: 16),
 
                 // Days Grid (Days 1 to 6 in 2x3, Day 7 as bottom banner)
@@ -217,15 +228,19 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                 if (canClaimBase)
                   const Padding(
                     padding: EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.touch_app_rounded, size: 14, color: Color(0xFFFFD54F)),
-                        SizedBox(width: 4),
-                        Text( 'Normal almak için bugünkü gün kutusuna dokunun',
-                          style: TextStyle(color: Color(0xFFFFD54F), fontSize: 11, fontWeight: FontWeight.w700),
-                        ),
-                      ],
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.touch_app_rounded, size: 14, color: Color(0xFFFFD54F)),
+                          SizedBox(width: 4),
+                          Text(
+                            'Normal almak için bugünkü gün kutusuna dokunun',
+                            style: TextStyle(color: Color(0xFFFFD54F), fontSize: 11, fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
 
@@ -273,40 +288,43 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                     child: Column(
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.all(5),
-                                              decoration: const BoxDecoration(
-                                                color: Color(0xFF2E1C00),
-                                                shape: BoxShape.circle,
+                                       children: [
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(5),
+                                                decoration: const BoxDecoration(
+                                                  color: Color(0xFF2E1C00),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFFFD54F), size: 18),
                                               ),
-                                              child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFFFD54F), size: 18),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              buttonTitle,
-                                              style: const TextStyle(
-                                                color: Color(0xFF2E1C00),
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 16,
-                                                letterSpacing: 0.3,
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                buttonTitle,
+                                                style: const TextStyle(
+                                                  color: Color(0xFF2E1C00),
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 16,
+                                                  letterSpacing: 0.3,
+                                                ),
                                               ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFD50000),
-                                                borderRadius: BorderRadius.circular(6),
+                                              const SizedBox(width: 6),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFD50000),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: const Text( '+2X',
+                                                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900),
+                                                ),
                                               ),
-                                              child: const Text( '+2X',
-                                                style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900),
-                                              ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                         const SizedBox(height: 3),
                                         Text(
@@ -352,7 +370,8 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
               ],
             ),
           ),
-        );
+        ),
+      );
       },
     );
   }
@@ -418,48 +437,54 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
               ]
             : null,
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text( '$dayNum. GÜN',
-                style: TextStyle(
-                  color: isToday ? const Color(0xFFFFD54F) : Colors.white54,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              if (isToday) ...[
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF8F00),
-                    borderRadius: BorderRadius.circular(4),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text( '$dayNum. GÜN',
+                    style: TextStyle(
+                      color: isToday ? const Color(0xFFFFD54F) : Colors.white54,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                  child: const Text('AL', style: TextStyle(color: Colors.black, fontSize: 8, fontWeight: FontWeight.w900)),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 4),
-          if (isPast)
-            const Icon(Icons.check_circle, color: Color(0xFF69F0AE), size: 22)
-          else
-            Icon(icon, color: iconColor, size: 22),
-          const SizedBox(height: 4),
-          Text(
-            isPast ? 'Alındı' : rewardText,
-            style: TextStyle(
-              color: isPast ? const Color(0xFF69F0AE) : (isToday ? const Color(0xFFFFD54F) : Colors.white),
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
+                  if (isToday) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF8F00),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text('AL', style: TextStyle(color: Colors.black, fontSize: 8, fontWeight: FontWeight.w900)),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 4),
+            if (isPast)
+              const Icon(Icons.check_circle, color: Color(0xFF69F0AE), size: 22)
+            else
+              Icon(icon, color: iconColor, size: 22),
+            const SizedBox(height: 4),
+            Text(
+              isPast ? 'Alındı' : rewardText,
+              style: TextStyle(
+                color: isPast ? const Color(0xFF69F0AE) : (isToday ? const Color(0xFFFFD54F) : Colors.white),
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
 
@@ -520,28 +545,32 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text( '7. GÜN BÜYÜK ÖDÜL',
-                      style: TextStyle(
-                        color: isToday ? Colors.white : const Color(0xFFFFD54F),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.5,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    children: [
+                      Text( '7. GÜN BÜYÜK ÖDÜL',
+                        style: TextStyle(
+                          color: isToday ? Colors.white : const Color(0xFFFFD54F),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent,
-                        borderRadius: BorderRadius.circular(6),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text( 'EFSANEVİ',
+                          style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
+                        ),
                       ),
-                      child: const Text( 'EFSANEVİ',
-                        style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(

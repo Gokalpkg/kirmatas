@@ -3950,7 +3950,7 @@ void main() {
         gc.update(0.01);
 
         expect(boss.isAlive, false);
-        expect(save.gold >= goldBefore + 100, true);
+        expect(save.gold >= goldBefore + 20, true);
         expect(save.pearls >= pearlsBefore + 2, true);
       });
 

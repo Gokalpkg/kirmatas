@@ -73,7 +73,7 @@ void main() {
 
       expect(chest.hp, 1);
       expect(chest.isAlive, isTrue);
-      expect(save.gold, initialGold + 5, reason: 'Chest should leak +5 gold on mid-hit');
+      expect(save.gold, initialGold + 1, reason: 'Chest should leak +1 gold on mid-hit');
       expect(gc.particles.coinOrbs.isNotEmpty, isTrue, reason: 'Coin orbs should spawn on hit');
     });
 
@@ -99,7 +99,7 @@ void main() {
 
       gc.destroyBrickForTest(chest);
 
-      expect(save.gold, greaterThanOrEqualTo(initialGold + 180), reason: 'Classic chest gold should be big jackpot');
+      expect(save.gold, greaterThanOrEqualTo(initialGold + 30), reason: 'Classic chest gold should be rebalanced scaled gold');
       expect(gc.capsules.length, initialCapsules + 1, reason: 'Chest must guarantee an action power-up capsule drop');
       expect(gc.particles.chestLids.isNotEmpty, isTrue);
     });
@@ -123,7 +123,7 @@ void main() {
 
       gc.destroyBrickForTest(chest);
 
-      expect(gc.chaosStock, greaterThanOrEqualTo(15), reason: 'Chaos chest must award +5 to +8 extra balls');
+      expect(gc.chaosStock, greaterThanOrEqualTo(13), reason: 'Chaos chest must award extra balls');
       expect(gc.particles.chestLids.isNotEmpty, isTrue);
     });
   });

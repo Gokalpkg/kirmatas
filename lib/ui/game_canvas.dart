@@ -1702,19 +1702,83 @@ class _GameWorldPainter extends CustomPainter {
   void _drawChestBrick(Canvas canvas, Brick b, Rect rect, RRect rrect, double halfW, double halfH) {
     final w = rect.width;
     final h = rect.height;
+    final tier = b.chestTier.clamp(0, 3);
 
-    // 1. Radiant Pulsating Golden Aura
+    // Tier-specific visual palettes
+    final Color auraColor;
+    final List<Color> bodyColors;
+    final Color strapColor;
+    final Color strapGlintColor;
+    final Color borderColor;
+    final Color lockPlateColor;
+    final Color keyholeColor;
+    final Color sparkle1Color;
+    final Color sparkle2Color;
+
+    switch (tier) {
+      case 1:
+        // Tier 1: Abyssal Jade / Oceanic Chest
+        auraColor = const Color(0xFF00E5FF);
+        bodyColors = const [Color(0xFF00897B), Color(0xFF004D40), Color(0xFF00251A)];
+        strapColor = const Color(0xFF80DEEA);
+        strapGlintColor = const Color(0xFFE0F7FA);
+        borderColor = const Color(0xFF00E5FF);
+        lockPlateColor = const Color(0xFF00B0FF);
+        keyholeColor = const Color(0xFF69F0AE);
+        sparkle1Color = const Color(0xFFE0F7FA);
+        sparkle2Color = const Color(0xFF00E5FF);
+        break;
+      case 2:
+        // Tier 2: Royal Obsidian Amethyst Chest
+        auraColor = const Color(0xFFE040FB);
+        bodyColors = const [Color(0xFF6A1B9A), Color(0xFF4A148C), Color(0xFF1A0033)];
+        strapColor = const Color(0xFFFFD700);
+        strapGlintColor = const Color(0xFFFFF59D);
+        borderColor = const Color(0xFFD500F9);
+        lockPlateColor = const Color(0xFFFFD700);
+        keyholeColor = const Color(0xFFFF1744);
+        sparkle1Color = const Color(0xFFF8BBD0);
+        sparkle2Color = const Color(0xFFE040FB);
+        break;
+      case 3:
+        // Tier 3: Celestial Sun-Gold Vault Chest
+        auraColor = const Color(0xFFFFEA00);
+        bodyColors = const [Color(0xFFFFE082), Color(0xFFFFB300), Color(0xFFFF6F00)];
+        strapColor = const Color(0xFFFFFFFF);
+        strapGlintColor = const Color(0xFFE1F5FE);
+        borderColor = const Color(0xFFFFEA00);
+        lockPlateColor = const Color(0xFFFFFFFF);
+        keyholeColor = const Color(0xFF00E5FF);
+        sparkle1Color = const Color(0xFFFFFFFF);
+        sparkle2Color = const Color(0xFFFFEA00);
+        break;
+      case 0:
+      default:
+        // Tier 0: Classic Gilded Mahogany Chest
+        auraColor = const Color(0xFFFFD54F);
+        bodyColors = const [Color(0xFF8D6E63), Color(0xFF5D4037), Color(0xFF3E2723)];
+        strapColor = const Color(0xFFFFB300);
+        strapGlintColor = const Color(0xFFFFF9C4);
+        borderColor = const Color(0xFFFFD54F);
+        lockPlateColor = const Color(0xFFFFD700);
+        keyholeColor = const Color(0xFF00E5FF);
+        sparkle1Color = const Color(0xFFFFF9C4);
+        sparkle2Color = const Color(0xFFFFD54F);
+        break;
+    }
+
+    // 1. Radiant Pulsating Golden/Cyan/Amethyst/Solar Aura
     final pulse = sin(time * 5.0) * 0.5 + 0.5;
     final auraDist = 3.5 + pulse * 3.0;
     _fill
       ..shader = null
-      ..color = const Color(0xFFFFD54F).withValues(alpha: 0.18 + pulse * 0.16);
+      ..color = auraColor.withValues(alpha: 0.18 + pulse * 0.16);
     canvas.drawRRect(rrect.inflate(auraDist), _fill);
 
-    // 2. 3D Bottom Drop Shadow (heavy dark amber)
+    // 2. 3D Bottom Drop Shadow
     _fill
       ..shader = null
-      ..color = const Color(0xFF1E1108);
+      ..color = const Color(0xFF100A06);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(-halfW, -halfH + 2.5, w, h),
@@ -1723,18 +1787,14 @@ class _GameWorldPainter extends CustomPainter {
       _fill,
     );
 
-    // 3. Antique Mahogany Wood Chest Trunk Body (3-stop linear gradient)
-    final chestBodyKey = Object.hash('chest_body_grad', w.round(), h.round());
+    // 3. Trunk Body (3-stop linear gradient)
+    final chestBodyKey = Object.hash('chest_body_grad', tier, w.round(), h.round());
     _fill.shader = _brickShaders.putIfAbsent(chestBodyKey, () {
-      return const LinearGradient(
+      return LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [
-          Color(0xFF8D6E63), // warm light mahogany top
-          Color(0xFF5D4037), // rich deep teak wood center
-          Color(0xFF3E2723), // deep dark timber bottom
-        ],
-        stops: [0.0, 0.45, 1.0],
+        colors: bodyColors,
+        stops: const [0.0, 0.45, 1.0],
       ).createShader(rect);
     });
     canvas.drawRRect(rrect, _fill);
@@ -1746,40 +1806,40 @@ class _GameWorldPainter extends CustomPainter {
     _stroke
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0
-      ..color = const Color(0xFF2E1C0C);
+      ..color = const Color(0xFF1E1108);
     canvas.drawLine(Offset(-halfW + 1.0, lidY), Offset(halfW - 1.0, lidY), _stroke);
     // Upper lid highlight line
     _stroke
       ..strokeWidth = 1.0
-      ..color = const Color(0xFFFFE082);
+      ..color = strapGlintColor;
     canvas.drawLine(Offset(-halfW + 1.0, lidY + 1.2), Offset(halfW - 1.0, lidY + 1.2), _stroke);
 
-    // 5. Dual Golden Vertical Reinforcement Straps
+    // 5. Dual Vertical Reinforcement Straps
     const strapW = 4.2;
     final strapOffset = halfW * 0.48;
-    _fill.color = const Color(0xFFFFB300);
+    _fill.color = strapColor;
     // Left strap
     canvas.drawRect(Rect.fromLTWH(-strapOffset - strapW / 2, -halfH, strapW, h), _fill);
     // Right strap
     canvas.drawRect(Rect.fromLTWH(strapOffset - strapW / 2, -halfH, strapW, h), _fill);
 
     // Strap specular glint pinstripe
-    _fill.color = const Color(0xFFFFF9C4);
+    _fill.color = strapGlintColor;
     canvas.drawRect(Rect.fromLTWH(-strapOffset - 0.5, -halfH, 1.1, h), _fill);
     canvas.drawRect(Rect.fromLTWH(strapOffset - 0.5, -halfH, 1.1, h), _fill);
 
     // 6. Corner & Strap Golden Rivets
-    _fill.color = const Color(0xFFFFE082);
+    _fill.color = strapGlintColor;
     for (final sx in [-strapOffset, strapOffset]) {
       for (final sy in [-halfH + 2.5, halfH - 2.5]) {
         canvas.drawCircle(Offset(sx, sy), 1.1, _fill);
       }
     }
 
-    // 7. Gleaming Golden Bevel Border
+    // 7. Gleaming Bevel Border
     _stroke
       ..strokeWidth = 1.6
-      ..color = const Color(0xFFFFD54F);
+      ..color = borderColor;
     canvas.drawRRect(rrect.deflate(0.5), _stroke);
 
     // 8. Center Padlock Clasp & Mystical Keyhole
@@ -1788,17 +1848,17 @@ class _GameWorldPainter extends CustomPainter {
     final lockRect = Rect.fromCenter(center: Offset(0, lidY + 1.0), width: lockW, height: lockH);
 
     // Dark iron backing
-    _fill.color = const Color(0xFF3E2723);
+    _fill.color = const Color(0xFF1E1108);
     canvas.drawRRect(RRect.fromRectAndRadius(lockRect.inflate(1.0), const Radius.circular(2.5)), _fill);
 
-    // Gold brass plate
-    _fill.color = const Color(0xFFFFD700);
+    // Lock plate
+    _fill.color = lockPlateColor;
     canvas.drawRRect(RRect.fromRectAndRadius(lockRect, const Radius.circular(2.0)), _fill);
 
     // Shackle loop
     _stroke
       ..strokeWidth = 1.4
-      ..color = const Color(0xFFFFF176);
+      ..color = strapGlintColor;
     canvas.drawArc(
       Rect.fromCenter(center: Offset(0, lidY - 3.2), width: 6.0, height: 6.0),
       pi,
@@ -1808,13 +1868,13 @@ class _GameWorldPainter extends CustomPainter {
     );
 
     // Keyhole cutout
-    _fill.color = const Color(0xFF26170F);
+    _fill.color = const Color(0xFF1A0E08);
     canvas.drawCircle(Offset(0, lidY + 0.2), 1.5, _fill);
     canvas.drawRect(Rect.fromCenter(center: Offset(0, lidY + 1.8), width: 1.2, height: 2.2), _fill);
 
-    // Magical cyan pulse inside keyhole
+    // Magical pulse inside keyhole
     final keyholePulse = sin(time * 8.0) * 0.5 + 0.5;
-    _fill.color = const Color(0xFF00E5FF).withValues(alpha: 0.5 + keyholePulse * 0.4);
+    _fill.color = keyholeColor.withValues(alpha: 0.5 + keyholePulse * 0.4);
     canvas.drawCircle(Offset(0, lidY + 0.2), 0.9, _fill);
 
     // 9. Diagonal Specular Glint Sweep (sweeps across every 2.4s)
@@ -1840,11 +1900,11 @@ class _GameWorldPainter extends CustomPainter {
     // 10. Floating Sparkle Stars
     final spark1 = sin(time * 6.0) * 0.5 + 0.5;
     if (spark1 > 0.4) {
-      _drawChestSparkle(canvas, Offset(-halfW + 3.0, -halfH - 1.5), 2.2 * spark1, const Color(0xFFFFF9C4));
+      _drawChestSparkle(canvas, Offset(-halfW + 3.0, -halfH - 1.5), 2.2 * spark1, sparkle1Color);
     }
     final spark2 = cos(time * 5.0) * 0.5 + 0.5;
     if (spark2 > 0.4) {
-      _drawChestSparkle(canvas, Offset(halfW - 3.0, -halfH - 1.5), 2.0 * spark2, const Color(0xFFFFD54F));
+      _drawChestSparkle(canvas, Offset(halfW - 3.0, -halfH - 1.5), 2.0 * spark2, sparkle2Color);
     }
   }
 
@@ -3986,7 +4046,7 @@ class _GameWorldPainter extends CustomPainter {
 
     for (final ball in ballsToDraw) {
       final isFireball = ball.isFireball;
-      final isComboFever = c.stats.combo >= 5;
+      final isComboFever = c.isBlazeActive;
       final isCornerBoost = ball.cornerBoostTimer > 0 || isComboFever;
       final skinGlow = c.activeBallSkin.glowColor;
       final skinMain = c.activeBallSkin.mainColor;
@@ -4403,8 +4463,8 @@ class _GameWorldPainter extends CustomPainter {
             final deepGlow = isFireball
                 ? const Color(0xFFFF6D00)
                 : (isCornerBoost ? (isRainbowBall ? getCornerBoostColor(i, trailCount) : cbFlameDeep) : trailGlow);
-            final glowWidthMultiplier = c.stats.combo >= 5 ? 4.2 : 2.2;
-            final glowAlphaMultiplier = c.stats.combo >= 5 ? 0.38 : 0.18;
+            final glowWidthMultiplier = c.isBlazeActive ? 4.2 : 2.2;
+            final glowAlphaMultiplier = c.isBlazeActive ? 0.38 : 0.18;
             _stroke
               ..strokeWidth = (ball.radius * glowWidthMultiplier * taper).clamp(1.5, ball.radius * glowWidthMultiplier)
               ..color = _ca(deepGlow, glowAlphaMultiplier * taper);

@@ -39,10 +39,6 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
   bool get isCameraZoomed => camera.isZoomed;
   double get cameraZoom => camera.zoom;
 
-  double _startScale = 1.0;
-  Offset? _lastFocalPoint;
-  bool _hasMovedSignificantly = false;
-
   void toggleCameraZoom({Offset? focalPoint}) {
     camera.toggleZoom(focalWorldPoint: focalPoint);
     widget.onCameraZoomChanged?.call(camera.isZoomed, camera.targetZoom);
@@ -75,10 +71,8 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
   Offset? get fingerWorldPos => _fingerWorldPos;
 
   void setFingerMode(bool enabled) {
-    setState(() {
-      _isFingerMode = enabled;
-      if (!enabled) _fingerWorldPos = null;
-    });
+    _isFingerMode = enabled;
+    if (!enabled) _fingerWorldPos = null;
   }
 
   Offset _toWorldPos(Offset rawPos) {
@@ -953,75 +947,43 @@ class EcoTankBackgroundState extends State<EcoTankBackground> with SingleTickerP
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onDoubleTapDown: (details) {
+      onTapDown: (details) {
         if (!widget.interactive) return;
-        final worldPos = _toWorldPos(details.localPosition);
-        camera.toggleZoom(focalWorldPoint: worldPos);
-        widget.onCameraZoomChanged?.call(camera.isZoomed, camera.targetZoom);
-        AudioManager.instance.playSfx(GameSfx.click);
+        if (_isFingerMode) {
+          _onFingerDown(details.localPosition);
+        }
       },
       onTapUp: (details) {
         if (!widget.interactive) return;
-        if (_hasMovedSignificantly) return;
         if (_isFingerMode) {
           _onFingerUp();
         } else {
           _onTankTap(details.localPosition);
         }
       },
-      onScaleStart: (details) {
+      onPanDown: (details) {
         if (!widget.interactive) return;
-        _startScale = camera.zoom;
-        _lastFocalPoint = details.localFocalPoint;
-        _hasMovedSignificantly = false;
-        if (_isFingerMode && details.pointerCount == 1) {
-          _onFingerDown(details.localFocalPoint);
+        if (_isFingerMode) {
+          _onFingerDown(details.localPosition);
         }
       },
-      onScaleUpdate: (details) {
+      onPanUpdate: (details) {
         if (!widget.interactive) return;
-        final box = context.findRenderObject() as RenderBox?;
-        if (box == null || box.size.isEmpty) return;
-
-        if (details.pointerCount >= 2) {
-          // Pinch-to-zoom (two fingers)
-          final newTargetZoom = (_startScale * details.scale).clamp(1.0, 2.0);
-          camera.targetZoom = newTargetZoom;
-          if (newTargetZoom <= 1.05) {
-            camera.zoomOut();
-          } else {
-            camera.setTargetPan(camera.targetPan);
-          }
-          _hasMovedSignificantly = true;
-          widget.onCameraZoomChanged?.call(camera.isZoomed, camera.targetZoom);
-        } else if (details.pointerCount == 1) {
-          if (_isFingerMode) {
-            _onFingerMove(details.localFocalPoint);
-          } else if (camera.isZoomed && _lastFocalPoint != null) {
-            // Single finger drag to pan around zoomed tank
-            final delta = details.localFocalPoint - _lastFocalPoint!;
-            if (delta.distanceSquared > 16.0) {
-              _hasMovedSignificantly = true;
-            }
-            final scaleX = 410.0 / box.size.width;
-            final scaleY = 800.0 / box.size.height;
-            final worldDeltaX = (delta.dx * scaleX) / camera.zoom;
-            final worldDeltaY = (delta.dy * scaleY) / camera.zoom;
-            camera.setTargetPan(camera.targetPan + Offset(worldDeltaX, worldDeltaY));
-          }
+        if (_isFingerMode) {
+          _onFingerMove(details.localPosition);
         }
-        _lastFocalPoint = details.localFocalPoint;
       },
-      onScaleEnd: (details) {
+      onPanEnd: (details) {
         if (!widget.interactive) return;
         if (_isFingerMode) {
           _onFingerUp();
         }
-        if (camera.targetZoom < 1.06) {
-          camera.zoomOut();
-          widget.onCameraZoomChanged?.call(false, 1.0);
+      },
+      onPanCancel: () {
+        if (!widget.interactive) return;
+        if (_isFingerMode) {
+          _onFingerUp();
         }
-        _lastFocalPoint = null;
       },
       child: Stack(
         children: [
@@ -1610,7 +1572,7 @@ class _TankPainter extends CustomPainter {
 
     final img = AssetCache.instance.getFishImage(f.item.id);
     if (img != null) {
-      final fishScale = f.item.size * 0.14;
+      final fishScale = f.item.size * 0.115;
       canvas.scale(fishScale, fishScale);
 
       final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
@@ -1622,7 +1584,7 @@ class _TankPainter extends CustomPainter {
       canvas.drawImageRect(img, src, dst, _imgPaint);
       canvas.scale(1.0 / fishScale, 1.0 / fishScale);
     } else {
-      final fishScale = f.item.size * 0.7;
+      final fishScale = f.item.size * 0.58;
       canvas.scale(fishScale, fishScale);
       final bodyRect = Rect.fromCenter(center: Offset.zero, width: 26, height: 13);
       _bodyPaint.color = f.item.color.withValues(alpha: alpha);

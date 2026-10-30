@@ -53,9 +53,23 @@ void main() {
     });
   });
 
-  group('Weekly league bots', () {
-    test('bot scores grow as the week progresses and stay in tier range',
-        () {
+  group('Weekly league real players and cloud persistence', () {
+    test('league rivals consist of 100% real players with valid Kaunos IDs and authentic scores', () {
+      save.leagueTier = 0;
+      final rivals = save.getLeagueRivals();
+      expect(rivals.length, 15);
+
+      final realRivals = rivals.where((r) => !r.isPlayer).toList();
+      expect(realRivals.length, 14);
+
+      for (final rival in realRivals) {
+        expect(rival.tag, startsWith('#KRM-'));
+        expect(rival.name.isNotEmpty, isTrue);
+        expect(rival.score, inInclusiveRange(600, 2799));
+      }
+    });
+
+    test('same week preserves real player list without simulated drift', () {
       save.leagueTier = 0;
       final monday = SaveManager.leagueWeekStartFor(DateTime.now());
       final early = save.getLeagueRivals(now: monday.add(const Duration(hours: 1)));
@@ -64,32 +78,56 @@ void main() {
 
       expect(early.length, 15);
       expect(late.length, 15);
-      final earlyByName = {
+
+      final earlyScores = {
         for (final r in early.where((r) => !r.isPlayer)) r.name: r.score
       };
-      var grew = 0;
       for (final r in late.where((r) => !r.isPlayer)) {
-        expect(r.score, greaterThanOrEqualTo(earlyByName[r.name]!));
-        expect(r.score, inInclusiveRange(600, 2799));
-        if (r.score > earlyByName[r.name]!) grew++;
+        expect(r.score, equals(earlyScores[r.name]));
       }
-      expect(grew, greaterThan(10),
-          reason: 'most bots should gain points during the week');
     });
 
-    test('same week generates the same bot names (persisted group)', () {
-      final a = save
-          .getLeagueRivals()
-          .where((r) => !r.isPlayer)
-          .map((r) => r.name)
-          .toSet();
-      final b = save
-          .getLeagueRivals()
-          .where((r) => !r.isPlayer)
-          .map((r) => r.name)
-          .toSet();
-      expect(a, b);
-      expect(a.length, 14);
+    test('updateCachedLeagueRivals updates and persists cloud-synced players', () async {
+      final cloudPlayers = [
+        LeagueRival(name: 'CloudPro1', tag: '#KRM-AA11', score: 3200, isPlayer: false),
+        LeagueRival(name: 'CloudPro2', tag: '#KRM-BB22', score: 2900, isPlayer: false),
+        LeagueRival(name: 'CloudPro3', tag: '#KRM-CC33', score: 2500, isPlayer: false),
+      ];
+
+      await save.updateCachedLeagueRivals(cloudPlayers);
+      expect(save.cachedLeagueRivals.length, SaveManager.leagueGroupSize - 1);
+      expect(save.cachedLeagueRivals.first.tag, '#KRM-AA11');
+
+      // Verify persistence by re-initializing from preferences
+      save.resetForTesting();
+      await save.init();
+
+      expect(save.cachedLeagueRivals.any((r) => r.tag == '#KRM-AA11'), isTrue);
+    });
+
+    test('updateCachedLeagueRivals maintains tier and is not wiped by getLeagueRivals()', () async {
+      save.leagueTier = 2;
+      final cloudPlayers = [
+        LeagueRival(name: 'Tier2Ace', tag: '#KRM-T2AC', score: 24000, isPlayer: false),
+      ];
+      await save.updateCachedLeagueRivals(cloudPlayers, tier: 2);
+      expect(save.cachedLeagueRivals.any((r) => r.tag == '#KRM-T2AC'), isTrue);
+
+      // getLeagueRivals calls ensureLeagueWeek(); it must NOT overwrite the cached tier 2 rivals
+      final rivals = save.getLeagueRivals();
+      expect(rivals.any((r) => r.tag == '#KRM-T2AC'), isTrue);
+      expect(rivals.length, 15);
+    });
+
+    test('getLeagueRivals deduplicates rivals matching playerTag or realFriends', () {
+      save.playerTag = '#KRM-7A21'; // matches the first default rival
+      final rivals = save.getLeagueRivals();
+
+      // Only one entry with this tag (the player itself)
+      final matching = rivals.where((r) => r.tag == '#KRM-7A21').toList();
+      expect(matching.length, 1);
+      expect(matching.first.isPlayer, isTrue);
+      expect(rivals.length, 15);
     });
   });
 

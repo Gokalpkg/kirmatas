@@ -33,11 +33,11 @@ abstract final class BalanceConfig {
   /// Seconds before endgame anti-stall micro-steering nudges the ball toward the last 1-2 bricks.
   static const double endgameStallThresholdSeconds = 3.5;
 
-  /// Base coin drop probability per brick in Classic/Special mode (30%).
-  static const double classicCoinBaseDropRate = 0.30;
+  /// Base coin drop probability per brick in Classic/Special mode (12%).
+  static const double classicCoinBaseDropRate = 0.12;
 
-  /// Base coin drop probability per brick in Chaos mode (20%).
-  static const double chaosCoinBaseDropRate = 0.20;
+  /// Base coin drop probability per brick in Chaos mode (8%).
+  static const double chaosCoinBaseDropRate = 0.08;
 
   /// Base capsule power-up drop probability per brick (14%).
   static const double capsuleBaseDropRate = 0.14;

@@ -11,16 +11,36 @@ import '../models/sector_data.dart';
 
 class LeagueRival {
   final String name;
+  final String tag;
   final int score;
   final bool isPlayer;
   int rank;
 
   LeagueRival({
     required this.name,
+    this.tag = '',
     required this.score,
     required this.isPlayer,
     this.rank = 0,
   });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'tag': tag,
+        'score': score,
+        'isPlayer': isPlayer,
+        'rank': rank,
+      };
+
+  factory LeagueRival.fromJson(Map<String, dynamic> json) => LeagueRival(
+        name: (json['name'] as String?) ?? (json['n']?.toString() ?? ''),
+        tag: (json['tag'] as String?) ?? '',
+        score: (json['score'] as num?)?.toInt() ??
+            ((json['e'] ?? json['s']) as num?)?.toInt() ??
+            0,
+        isPlayer: (json['isPlayer'] as bool?) ?? false,
+        rank: (json['rank'] as num?)?.toInt() ?? 0,
+      );
 }
 
 /// A real player friend added via Friend Tag / Kaunos ID (#KRM-XXXX).
@@ -59,35 +79,6 @@ class RealFriend {
         lastSeen: json['lastSeen'] != null
             ? DateTime.fromMillisecondsSinceEpoch(json['lastSeen'] as int)
             : DateTime.now(),
-      );
-}
-
-/// One weekly-league bot: drifts from [startScore] on Monday to
-/// [endScore] by week end so the table stays alive all week.
-class _LeagueBot {
-  final String name;
-  final int startScore;
-  final int endScore;
-
-  const _LeagueBot({
-    required this.name,
-    required this.startScore,
-    required this.endScore,
-  });
-
-  int scoreAt(double weekProgress) =>
-      startScore + ((endScore - startScore) * weekProgress).round();
-
-  Map<String, dynamic> toJson() => {
-        'n': name,
-        's': startScore,
-        'e': endScore,
-      };
-
-  factory _LeagueBot.fromJson(Map<String, dynamic> json) => _LeagueBot(
-        name: json['n'].toString(),
-        startScore: (json['s'] as num?)?.toInt() ?? 0,
-        endScore: (json['e'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -656,19 +647,93 @@ class SaveManager extends ChangeNotifier {
   static const int leaguePromotionCutoff = 3;
   static const int leagueDemotionStart = 11;
 
-  static const List<int> _leagueMinScores = [600, 2500, 8000, 20000, 50000];
-  static const List<int> _leagueMaxScores = [2800, 9500, 24000, 55000, 130000];
-
-  static const List<String> _leagueRivalNames = [
-    'DemirBilek', 'PikselUsta', 'NeonFırtına', 'KozmikGezgin',
-    'YıldızAvcısı', 'GlitchKing', 'AuraBreaker', 'GölgeSavaşçı',
-    'NovaKıran', 'SiberPence', 'KuvarsGozu', 'EterYolcusu',
-    'FotonUstası', 'ZirveBekçisi'
-  ];
+  static const Map<int, List<({String name, String tag, int score})>> _defaultRealPlayersPerTier = {
+    0: [
+      (name: 'Batu', tag: '#KRM-7A21', score: 2450),
+      (name: 'Caner_TR', tag: '#KRM-3F8B', score: 2280),
+      (name: 'EceK', tag: '#KRM-91C4', score: 2110),
+      (name: 'Mert99', tag: '#KRM-5E02', score: 1960),
+      (name: 'Selin', tag: '#KRM-2B77', score: 1820),
+      (name: 'Kaan', tag: '#KRM-6D14', score: 1690),
+      (name: 'Zeynep', tag: '#KRM-4A93', score: 1540),
+      (name: 'Emre_X', tag: '#KRM-8C35', score: 1410),
+      (name: 'Burak', tag: '#KRM-1E68', score: 1290),
+      (name: 'Defne', tag: '#KRM-9F40', score: 1150),
+      (name: 'Onur', tag: '#KRM-3D19', score: 990),
+      (name: 'Melis', tag: '#KRM-7B82', score: 870),
+      (name: 'Arda', tag: '#KRM-5C61', score: 740),
+      (name: 'Yagmur', tag: '#KRM-8A04', score: 620),
+    ],
+    1: [
+      (name: 'Gorkem', tag: '#KRM-10B3', score: 9100),
+      (name: 'Aslihan', tag: '#KRM-44C9', score: 8520),
+      (name: 'Tolga', tag: '#KRM-29F1', score: 7980),
+      (name: 'Sarp', tag: '#KRM-81D2', score: 7450),
+      (name: 'Damla', tag: '#KRM-63E5', score: 6920),
+      (name: 'Cemre', tag: '#KRM-52A7', score: 6390),
+      (name: 'Baris', tag: '#KRM-77B4', score: 5860),
+      (name: 'Alperen', tag: '#KRM-38F6', score: 5310),
+      (name: 'Sinem', tag: '#KRM-90D8', score: 4790),
+      (name: 'Kerem', tag: '#KRM-15E3', score: 4250),
+      (name: 'Duygu', tag: '#KRM-47A1', score: 3810),
+      (name: 'Yigit', tag: '#KRM-68C2', score: 3340),
+      (name: 'Bilge', tag: '#KRM-89B9', score: 2920),
+      (name: 'Taylan', tag: '#KRM-23F0', score: 2550),
+    ],
+    2: [
+      (name: 'Volkan', tag: '#KRM-72D4', score: 23200),
+      (name: 'Irem_S', tag: '#KRM-95A1', score: 21800),
+      (name: 'Ozan', tag: '#KRM-33E8', score: 20400),
+      (name: 'Cagla', tag: '#KRM-58B7', score: 19100),
+      (name: 'Boran', tag: '#KRM-14F9', score: 17700),
+      (name: 'Gizem', tag: '#KRM-67C3', score: 16300),
+      (name: 'Tarik', tag: '#KRM-82D5', score: 14900),
+      (name: 'Ebru', tag: '#KRM-41A6', score: 13600),
+      (name: 'Umut', tag: '#KRM-79E2', score: 12400),
+      (name: 'Pelin', tag: '#KRM-26B8', score: 11200),
+      (name: 'Taner', tag: '#KRM-53F1', score: 10100),
+      (name: 'Serap', tag: '#KRM-98C4', score: 9200),
+      (name: 'Koray', tag: '#KRM-35D7', score: 8600),
+      (name: 'Berna', tag: '#KRM-61A9', score: 8100),
+    ],
+    3: [
+      (name: 'Cenk_Pro', tag: '#KRM-88F3', score: 53500),
+      (name: 'Tugba', tag: '#KRM-19D2', score: 50800),
+      (name: 'Harun', tag: '#KRM-74A8', score: 47900),
+      (name: 'Nazli', tag: '#KRM-36C1', score: 44800),
+      (name: 'Oktay', tag: '#KRM-92E7', score: 41700),
+      (name: 'Hande', tag: '#KRM-55B4', score: 38600),
+      (name: 'Doruk', tag: '#KRM-27F5', score: 35200),
+      (name: 'Sevgi', tag: '#KRM-69D9', score: 32100),
+      (name: 'Kadir', tag: '#KRM-43A2', score: 29400),
+      (name: 'Bengu', tag: '#KRM-81C6', score: 26800),
+      (name: 'Murat', tag: '#KRM-18E4', score: 24500),
+      (name: 'Eren', tag: '#KRM-73B1', score: 22700),
+      (name: 'Cansu', tag: '#KRM-59F8', score: 21200),
+      (name: 'Gokhan', tag: '#KRM-32D3', score: 20200),
+    ],
+    4: [
+      (name: 'Efsane_K', tag: '#KRM-99F9', score: 125000),
+      (name: 'ApexKaunos', tag: '#KRM-88D8', score: 118000),
+      (name: 'Vortex_TR', tag: '#KRM-77C7', score: 111000),
+      (name: 'SiberKurt', tag: '#KRM-66B6', score: 104000),
+      (name: 'TitanBatu', tag: '#KRM-55A5', score: 97000),
+      (name: 'Zenith99', tag: '#KRM-44F4', score: 91000),
+      (name: 'Hyperion', tag: '#KRM-33E3', score: 85000),
+      (name: 'NovaPrime', tag: '#KRM-22D2', score: 79000),
+      (name: 'OmegaX', tag: '#KRM-11C1', score: 73000),
+      (name: 'QuantumK', tag: '#KRM-90B0', score: 68000),
+      (name: 'Starlight', tag: '#KRM-81A9', score: 63000),
+      (name: 'Valkyrie', tag: '#KRM-72F8', score: 58000),
+      (name: 'Atlas_01', tag: '#KRM-63E7', score: 54000),
+      (name: 'Challenger', tag: '#KRM-54D6', score: 50500),
+    ],
+  };
 
   String leagueWeekId = '';
   int leagueRivalsTier = -1;
-  List<_LeagueBot> _leagueBots = [];
+  List<LeagueRival> _cachedLeagueRivals = [];
+  List<LeagueRival> get cachedLeagueRivals => List.unmodifiable(_cachedLeagueRivals);
 
   int leagueLastRank = 0;
   int leagueLastTierPlayed = 0;
@@ -737,52 +802,88 @@ class SaveManager extends ChangeNotifier {
   int leagueRewardGoldForRank(int rank) =>
       leagueBaseGoldForRank(rank) * (leagueTier + 1);
 
-  void _persistLeagueState() {
-    _prefs?.setString('leagueWeekId', leagueWeekId);
-    _prefs?.setInt('leagueRivalsTier', leagueRivalsTier);
-    _prefs?.setString(
+  Future<void> _persistLeagueState() async {
+    await _prefs?.setString('leagueWeekId', leagueWeekId);
+    await _prefs?.setInt('leagueRivalsTier', leagueRivalsTier);
+    await _prefs?.setString(
       'leagueRivalsJson',
-      jsonEncode(_leagueBots.map((b) => b.toJson()).toList()),
+      jsonEncode(_cachedLeagueRivals.map((b) => b.toJson()).toList()),
     );
-    _prefs?.setInt('leagueLastRank', leagueLastRank);
-    _prefs?.setInt('leagueLastTierPlayed', leagueLastTierPlayed);
-    _prefs?.setInt('leagueLastRewardGold', leagueLastRewardGold);
-    _prefs?.setInt('leagueLastRewardPearls', leagueLastRewardPearls);
-    _prefs?.setInt('leagueLastMovement', leagueLastMovement);
-    _prefs?.setBool('leagueLastResultSeen', leagueLastResultSeen);
+    await _prefs?.setInt('leagueLastRank', leagueLastRank);
+    await _prefs?.setInt('leagueLastTierPlayed', leagueLastTierPlayed);
+    await _prefs?.setInt('leagueLastRewardGold', leagueLastRewardGold);
+    await _prefs?.setInt('leagueLastRewardPearls', leagueLastRewardPearls);
+    await _prefs?.setInt('leagueLastMovement', leagueLastMovement);
+    await _prefs?.setBool('leagueLastResultSeen', leagueLastResultSeen);
   }
 
-  void _generateLeagueBots(String weekId) {
+  void _populateFallbackLeagueRivals() {
     final tierIdx = leagueTier.clamp(0, 4);
-    final rng = math.Random(weekId.hashCode ^ (tierIdx * 7919));
-    final names = List<String>.from(_leagueRivalNames)..shuffle(rng);
-    final minS = _leagueMinScores[tierIdx];
-    final maxS = _leagueMaxScores[tierIdx];
-    _leagueBots = [];
-    for (var i = 0; i < leagueGroupSize - 1; i++) {
-      final end = minS + (maxS - minS) * (0.25 + rng.nextDouble() * 0.72);
-      final start = minS + (end - minS) * (0.05 + rng.nextDouble() * 0.25);
-      _leagueBots.add(_LeagueBot(
-        name: names[i],
-        startScore: start.round(),
-        endScore: end.round(),
-      ));
-    }
+    final defaults = _defaultRealPlayersPerTier[tierIdx] ?? _defaultRealPlayersPerTier[0]!;
+    final myCleanTag = playerTag.replaceAll('#', '').toUpperCase();
+    _cachedLeagueRivals = [
+      for (final p in defaults)
+        if (p.tag.replaceAll('#', '').toUpperCase() != myCleanTag)
+          LeagueRival(
+            name: p.name,
+            tag: p.tag,
+            score: p.score,
+            isPlayer: false,
+          ),
+    ];
     leagueRivalsTier = tierIdx;
+    if (_cachedLeagueRivals.length < leagueGroupSize - 1) {
+      _padCachedLeagueRivals();
+    } else {
+      _persistLeagueState();
+    }
+  }
+
+  void _padCachedLeagueRivals() {
+    final tierIdx = (leagueRivalsTier >= 0 ? leagueRivalsTier : leagueTier).clamp(0, 4);
+    final defaults = _defaultRealPlayersPerTier[tierIdx] ?? _defaultRealPlayersPerTier[0]!;
+    final myCleanTag = playerTag.replaceAll('#', '').toUpperCase();
+    final existingTags = {
+      for (final r in _cachedLeagueRivals) r.tag.replaceAll('#', '').toUpperCase()
+    };
+    for (final p in defaults) {
+      final clean = p.tag.replaceAll('#', '').toUpperCase();
+      if (clean != myCleanTag && !existingTags.contains(clean)) {
+        _cachedLeagueRivals.add(LeagueRival(
+          name: p.name,
+          tag: p.tag,
+          score: p.score,
+          isPlayer: false,
+        ));
+        existingTags.add(clean);
+      }
+      if (_cachedLeagueRivals.length >= leagueGroupSize - 1) break;
+    }
     _persistLeagueState();
   }
 
+  /// Updates locally cached league rivals from Cloud Firestore and persists them.
+  Future<void> updateCachedLeagueRivals(List<LeagueRival> rivals, {int? tier}) async {
+    leagueRivalsTier = (tier ?? leagueTier).clamp(0, 4);
+    _cachedLeagueRivals = rivals.take(leagueGroupSize - 1).toList();
+    if (_cachedLeagueRivals.length < leagueGroupSize - 1) {
+      _padCachedLeagueRivals();
+    }
+    await _persistLeagueState();
+    notifyListeners();
+  }
+
   /// Settles the finished week: pays rewards and moves the player
-  /// between tiers based on the final rank (bots at end-of-week form).
+  /// between tiers based on the final rank.
   void _settleLeagueWeek() {
     final playerScore = _weeklyTournamentScore;
     var rank = 1;
-    final botSlots = (leagueGroupSize - 1 - realFriends.length).clamp(0, leagueGroupSize - 1);
+    final realSlots = (leagueGroupSize - 1 - realFriends.length).clamp(0, leagueGroupSize - 1);
     for (final friend in realFriends) {
       if (friend.weeklyScore > playerScore) rank++;
     }
-    for (final bot in _leagueBots.take(botSlots)) {
-      if (bot.endScore > playerScore) rank++;
+    for (final rival in _cachedLeagueRivals.take(realSlots)) {
+      if (rival.score > playerScore) rank++;
     }
     final playedTier =
         (leagueRivalsTier >= 0 ? leagueRivalsTier : leagueTier).clamp(0, 4);
@@ -811,21 +912,22 @@ class SaveManager extends ChangeNotifier {
   void ensureLeagueWeek({DateTime? now}) {
     final id = leagueWeekIdFor(leagueWeekStartFor(now ?? DateTime.now()));
     if (leagueWeekId == id) {
-      if (_leagueBots.length != leagueGroupSize - 1 ||
-          leagueRivalsTier != leagueTier) {
-        _generateLeagueBots(id);
+      if (_cachedLeagueRivals.isEmpty || leagueRivalsTier != leagueTier) {
+        _populateFallbackLeagueRivals();
+      } else if (_cachedLeagueRivals.length < leagueGroupSize - 1) {
+        _padCachedLeagueRivals();
       }
       return;
     }
     final hadPreviousWeek =
-        leagueWeekId.isNotEmpty && _leagueBots.length == leagueGroupSize - 1;
+        leagueWeekId.isNotEmpty && _cachedLeagueRivals.isNotEmpty;
     if (hadPreviousWeek) {
       _settleLeagueWeek();
       _weeklyTournamentScore = 0;
       _prefs?.setInt('weeklyTournamentScore', 0);
     }
     leagueWeekId = id;
-    _generateLeagueBots(id);
+    _populateFallbackLeagueRivals();
     _persistLeagueState();
     notifyListeners();
   }
@@ -839,14 +941,37 @@ class SaveManager extends ChangeNotifier {
 
   List<LeagueRival> getLeagueRivals({DateTime? now}) {
     ensureLeagueWeek(now: now);
-    final progress = leagueWeekProgress(now: now);
-    final botSlots = (leagueGroupSize - 1 - realFriends.length).clamp(0, leagueGroupSize - 1);
+    final myCleanTag = playerTag.replaceAll('#', '').toUpperCase();
+    final friendTags = {
+      for (final f in realFriends) f.tag.replaceAll('#', '').toUpperCase()
+    };
+    final availableCached = _cachedLeagueRivals.where((r) {
+      final clean = r.tag.replaceAll('#', '').toUpperCase();
+      return clean.isNotEmpty && clean != myCleanTag && !friendTags.contains(clean);
+    }).toList();
+
+    final realSlots = (leagueGroupSize - 1 - realFriends.length).clamp(0, leagueGroupSize - 1);
     final List<LeagueRival> list = [
       for (final f in realFriends)
-        LeagueRival(name: '${f.name} (${f.tag})', score: f.weeklyScore, isPlayer: false),
-      for (final b in _leagueBots.take(botSlots))
-        LeagueRival(name: b.name, score: b.scoreAt(progress), isPlayer: false),
-      LeagueRival(name: playerName, score: weeklyTournamentScore, isPlayer: true),
+        LeagueRival(
+          name: f.name,
+          tag: f.tag,
+          score: f.weeklyScore,
+          isPlayer: false,
+        ),
+      for (final r in availableCached.take(realSlots))
+        LeagueRival(
+          name: r.name,
+          tag: r.tag,
+          score: r.score,
+          isPlayer: false,
+        ),
+      LeagueRival(
+        name: playerName,
+        tag: playerTag,
+        score: weeklyTournamentScore,
+        isPlayer: true,
+      ),
     ];
     list.sort((a, b) {
       final byScore = b.score.compareTo(a.score);
@@ -878,6 +1003,7 @@ class SaveManager extends ChangeNotifier {
     pendingCratesQueue.clear();
     pendingCrate = null;
     selectedBoosts.clear();
+    _cachedLeagueRivals.clear();
   }
 
   Future<void> init() async {
@@ -1109,21 +1235,21 @@ class SaveManager extends ChangeNotifier {
     leagueLastRewardPearls = _prefs?.getInt('leagueLastRewardPearls') ?? 0;
     leagueLastMovement = _prefs?.getInt('leagueLastMovement') ?? 0;
     leagueLastResultSeen = _prefs?.getBool('leagueLastResultSeen') ?? true;
-    _leagueBots = [];
+    _cachedLeagueRivals = [];
     try {
-      final rawBots = _prefs?.getString('leagueRivalsJson');
-      if (rawBots != null && rawBots.isNotEmpty) {
-        final decoded = jsonDecode(rawBots);
+      final rawRivals = _prefs?.getString('leagueRivalsJson');
+      if (rawRivals != null && rawRivals.isNotEmpty) {
+        final decoded = jsonDecode(rawRivals);
         if (decoded is List) {
-          _leagueBots = decoded
+          _cachedLeagueRivals = decoded
               .whereType<Map>()
-              .map((e) => _LeagueBot.fromJson(
+              .map((e) => LeagueRival.fromJson(
                   e.map((k, v) => MapEntry(k.toString(), v))))
               .toList();
         }
       }
     } catch (_) {
-      _leagueBots = [];
+      _cachedLeagueRivals = [];
     }
 
     pendingCratesQueue.clear();

@@ -44,6 +44,7 @@ void main() async {
   unawaited(PlayGamesManager.instance.init());
   unawaited(CloudSocialManager.instance.syncProfileToCloud());
   unawaited(CloudSocialManager.instance.refreshFriendsFromCloud());
+  unawaited(CloudSocialManager.instance.fetchWeeklyLeagueRivals());
 
   MainMenuScreen.suppressBootPopups = false;
 

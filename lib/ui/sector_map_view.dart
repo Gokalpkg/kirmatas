@@ -309,10 +309,12 @@ class _SectorMapViewState extends State<SectorMapView> with TickerProviderStateM
         children: [
           // Dynamic animated colorful nebula background
           Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _nebulaController,
-              builder: (context, _) => CustomPaint(
-                painter: _CosmicSectorNebulaPainter(progress: _nebulaController.value),
+            child: RepaintBoundary(
+              child: AnimatedBuilder(
+                animation: _nebulaController,
+                builder: (context, _) => CustomPaint(
+                  painter: _CosmicSectorNebulaPainter(progress: _nebulaController.value),
+                ),
               ),
             ),
           ),
@@ -392,59 +394,70 @@ class _SectorMapViewState extends State<SectorMapView> with TickerProviderStateM
 
             // Sektör Yolu Listesi
             Expanded(
-              child: AnimatedBuilder(
-                animation: _pulseController,
-                builder: (context, _) {
-                  return ListView.builder(
-                    controller: _scrollController,
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                    itemCount: SectorData.allSectors.length + (highest > 238 ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index == SectorData.allSectors.length) {
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildPathConnector(isUnlocked: true),
-                            _buildPrestigeOmegaCard(
-                              prestigeTier: widget.save.prestigeTier,
-                              highestLevel: highest,
-                              pulse: _pulseController.value,
-                            ),
-                          ],
-                        );
-                      }
-
-                      final sector = SectorData.allSectors[index];
-                      final isUnlocked = sector.isUnlocked(highest);
-                      final isCompleted = sector.isCompleted(highest);
-                      final isCurrent = sector.isCurrent(highest);
-                      final isLast = index == SectorData.allSectors.length - 1 && highest <= 238;
-
-                      // Alternating left/center/right alignment to create a dynamic winding path
-                      final alignment = (index % 3 == 0)
-                          ? Alignment.centerLeft
-                          : (index % 3 == 1)
-                              ? Alignment.center
-                              : Alignment.centerRight;
-
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Align(
-                            alignment: alignment,
-                            child: _buildSectorCard(
-                              sector: sector,
-                              isUnlocked: isUnlocked,
-                              isCompleted: isCompleted,
-                              isCurrent: isCurrent,
-                              pulse: _pulseController.value,
-                            ),
+              child: ListView.builder(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                itemCount: SectorData.allSectors.length + (highest > 238 ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index == SectorData.allSectors.length) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildPathConnector(isUnlocked: true),
+                        AnimatedBuilder(
+                          animation: _pulseController,
+                          builder: (context, _) => _buildPrestigeOmegaCard(
+                            prestigeTier: widget.save.prestigeTier,
+                            highestLevel: highest,
+                            pulse: _pulseController.value,
                           ),
-                          if (!isLast) _buildPathConnector(isUnlocked: isUnlocked),
-                        ],
-                      );
-                    },
+                        ),
+                      ],
+                    );
+                  }
+
+                  final sector = SectorData.allSectors[index];
+                  final isUnlocked = sector.isUnlocked(highest);
+                  final isCompleted = sector.isCompleted(highest);
+                  final isCurrent = sector.isCurrent(highest);
+                  final isLast = index == SectorData.allSectors.length - 1 && highest <= 238;
+
+                  // Alternating left/center/right alignment to create a dynamic winding path
+                  final alignment = (index % 3 == 0)
+                      ? Alignment.centerLeft
+                      : (index % 3 == 1)
+                          ? Alignment.center
+                          : Alignment.centerRight;
+
+                  final cardWidget = isCurrent
+                      ? AnimatedBuilder(
+                          animation: _pulseController,
+                          builder: (context, _) => _buildSectorCard(
+                            sector: sector,
+                            isUnlocked: isUnlocked,
+                            isCompleted: isCompleted,
+                            isCurrent: isCurrent,
+                            pulse: _pulseController.value,
+                          ),
+                        )
+                      : _buildSectorCard(
+                          sector: sector,
+                          isUnlocked: isUnlocked,
+                          isCompleted: isCompleted,
+                          isCurrent: isCurrent,
+                          pulse: 0.0,
+                        );
+
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Align(
+                        alignment: alignment,
+                        child: cardWidget,
+                      ),
+                      if (!isLast) _buildPathConnector(isUnlocked: isUnlocked),
+                    ],
                   );
                 },
               ),

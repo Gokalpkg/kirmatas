@@ -1139,6 +1139,7 @@ class LevelDesign {
             isDynamite: isDynamite,
             isIce: isIce,
             isChest: isChest,
+            chestTier: isChest ? (world >= 4 ? 3 : (world == 3 ? 2 : (world == 2 ? 1 : 0))) : 0,
             minX: padding,
             maxX: screenWidth - padding,
             color: isChest ? const Color(0xFFFFD700) : ((hp > 1 && !isSteel && !isHeavySteel) ? color.withValues(alpha: 0.85) : color),
@@ -1417,6 +1418,7 @@ class LevelDesign {
         // Mystery Golden Treasure Chest in Chaos Mode!
         // When cracked: drops +5 to +8 extra balls and big gold jackpot!
         final chestHp = min(3, max(1, hp ~/ 2));
+        final chaosChestTier = (wave >= 30) ? 3 : ((wave >= 18) ? 2 : ((wave >= 8) ? 1 : 0));
         bricks.add(
           Brick(
             x: chaosMargin + c * (bw + chaosGap),
@@ -1426,6 +1428,7 @@ class LevelDesign {
             hp: chestHp,
             maxHp: chestHp,
             isChest: true,
+            chestTier: chaosChestTier,
             color: const Color(0xFFFFD700),
             points: 100,
           ),

@@ -698,7 +698,8 @@ class HudOverlay extends StatelessWidget {
                 ),
 
               // Pre-Match Tactical Booster Tray
-              if (controller.status == GameStatus.ready &&
+              if (controller.isMatchStart &&
+                  controller.status == GameStatus.ready &&
                   controller.currentMode != GameMode.chaos &&
                   controller.currentMode != GameMode.zen &&
                   !controller.awaitingChaosPerkSelection &&
@@ -821,9 +822,9 @@ class HudOverlay extends StatelessWidget {
   Widget _buildPreMatchBoosterTray(BuildContext context, GameController controller) {
     final save = SaveManager.instance;
     final boosts = [
-      (id: 'life', icon: Icons.favorite_rounded, label: '+1 Can', color: const Color(0xFFFF5252)),
-      (id: 'wide', icon: Icons.unfold_more_rounded, label: 'Geniş', color: const Color(0xFF40C4FF)),
-      (id: 'multi', icon: Icons.hub_rounded, label: 'Çift Top', color: const Color(0xFFFF9800)),
+      (id: 'life', icon: Icons.favorite_rounded, label: '+1 Can', color: const Color(0xFFFF5252), cost: 400),
+      (id: 'wide', icon: Icons.unfold_more_rounded, label: 'Geniş', color: const Color(0xFF40C4FF), cost: 550),
+      (id: 'multi', icon: Icons.hub_rounded, label: 'Çift Top', color: const Color(0xFFFF9800), cost: 750),
     ];
 
     return Positioned(
@@ -861,12 +862,23 @@ class HudOverlay extends StatelessWidget {
                             if (stock > 0) {
                               controller.activatePreMatchBoost(b.id);
                             } else {
+                              if (save.gold < b.cost) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Yetersiz altın! (${b.cost} Altın gerekir)'),
+                                      duration: const Duration(milliseconds: 1200),
+                                    ),
+                                  );
+                                }
+                                return;
+                              }
                               final ok = await controller.buyAndActivatePreMatchBoost(b.id);
                               if (!ok && context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Yetersiz altın! (100 Altın gerekir)'),
-                                    duration: Duration(milliseconds: 1200),
+                                  SnackBar(
+                                    content: Text('Yetersiz altın! (${b.cost} Altın gerekir)'),
+                                    duration: const Duration(milliseconds: 1200),
                                   ),
                                 );
                               }
@@ -913,7 +925,7 @@ class HudOverlay extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              isEquipped ? '✓' : (stock > 0 ? 'x$stock' : '100G'),
+                              isEquipped ? '✓' : (stock > 0 ? 'x$stock' : '${b.cost}G'),
                               style: TextStyle(
                                 color: isEquipped ? Colors.greenAccent : (stock > 0 ? Colors.white : const Color(0xFFFFD54F)),
                                 fontSize: 10,

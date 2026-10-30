@@ -38,6 +38,7 @@ class Brick {
   Color tuftColor;
   bool isBallPickup;
   bool isChest;
+  int chestTier;
   bool isPrimedDynamite = false;
   double primedTimer = 0.0;
   int chainExplosionDepth = 0;
@@ -77,6 +78,7 @@ class Brick {
     this.tuftColor = const Color(0xFFFF7043),
     this.isBallPickup = false,
     this.isChest = false,
+    this.chestTier = 0,
     this.jelly = 0.0,
     required this.color,
     this.points = 10,

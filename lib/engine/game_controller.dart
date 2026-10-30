@@ -626,10 +626,24 @@ class GameController extends ChangeNotifier {
     return true;
   }
 
+  bool isMatchStart = true;
+  int consecutivePaddleHits = 0;
+  bool get isBlazeActive => consecutivePaddleHits >= 3;
+
+  bool get allowsGoldReward =>
+      currentMode != GameMode.zen &&
+      currentMode != GameMode.descend &&
+      currentMode != GameMode.shapes;
+
   Future<bool> buyAndActivatePreMatchBoost(String id) async {
     final save = SaveManager.instance;
-    if (save.gold < 100) return false;
-    final ok = await save.spendGold(100);
+    final boost = BoostItem.allBoosts.firstWhere(
+      (b) => b.id == id,
+      orElse: () => BoostItem.allBoosts.first,
+    );
+    final cost = boost.cost;
+    if (save.gold < cost) return false;
+    final ok = await save.spendGold(cost);
     if (!ok) return false;
     await save.addBoostStock(id, 1);
     return activatePreMatchBoost(id);
@@ -760,6 +774,8 @@ class GameController extends ChangeNotifier {
       emergencyClutchUsedThisStage = false;
       chronoBulletTimeTimer = 0.0;
       usedPreMatchBoosts.clear();
+      isMatchStart = true;
+      consecutivePaddleHits = 0;
     }
 
     int startLives = mode == GameMode.zen ? 999 : 3;
@@ -911,6 +927,7 @@ class GameController extends ChangeNotifier {
     final relicWidthBonus = (save.hasPermanentRelic && save.activeRelicStyle == 'aegis') ? paddle.baseWidth * 0.08 : 0.0;
     paddle.width = paddle.baseWidth + fishBuffs.extraPaddleWidth + upgradeWidthBonus + relicWidthBonus;
     octopusClutchUsedThisStage = false;
+    consecutivePaddleHits = 0;
     paddle.x = (screenWidth - paddle.width) / 2;
     paddle.y = screenHeight - 110.0;
     paddle.isSticky = false;
@@ -1134,6 +1151,7 @@ class GameController extends ChangeNotifier {
     }
     if (status == GameStatus.ready) {
       status = GameStatus.playing;
+      isMatchStart = false;
     }
 
     bool anyLaunched = false;
@@ -1258,6 +1276,7 @@ class GameController extends ChangeNotifier {
     chaosRecallActive = false;
     balls.clear();
     status = GameStatus.playing;
+    isMatchStart = false;
     audio.playSfx(GameSfx.hitPaddle);
     notifyListeners();
   }
@@ -1302,13 +1321,15 @@ class GameController extends ChangeNotifier {
     chaosRecallActive = false;
     final remainingSolid = bricks.where((b) => b.isAlive && !b.isBallPickup).toList();
     if (remainingSolid.isEmpty) {
-      final baseGold = 12 + (stats.level * 2).clamp(0, 24);
-      final relicBonus = save.hasPermanentRelic ? max(1, (baseGold * 0.05).round()) : 0;
+      final baseGold = allowsGoldReward ? (1 + (stats.level ~/ 5).clamp(0, 3)) : 0;
+      final relicBonus = (allowsGoldReward && save.hasPermanentRelic) ? max(1, (baseGold * 0.05).round()) : 0;
       final luckLvl = save.getUpgradeLevel('u_luck');
-      final luckBonus = (baseGold * (luckLvl * 0.05)).round();
+      final luckBonus = allowsGoldReward ? (baseGold * (luckLvl * 0.05)).round() : 0;
       final levelGold = baseGold + relicBonus + luckBonus;
-      stats.goldCollected += levelGold;
-      save.addGold(levelGold);
+      if (levelGold > 0) {
+        stats.goldCollected += levelGold;
+        save.addGold(levelGold);
+      }
 
       stats.level++;
       stats.score += 300 * stats.level;
@@ -1575,6 +1596,7 @@ class GameController extends ChangeNotifier {
             bricks.every((b) => !b.isAlive || b.isSteel || (b.isTuft && b.tuftFilled));
         if (hasActiveMovingBall || allBallsLost || allBreakableCleared) {
           status = GameStatus.playing;
+          isMatchStart = false;
         }
       }
     }
@@ -3118,6 +3140,7 @@ class GameController extends ChangeNotifier {
           continue;
         }
         balls.removeAt(i);
+        consecutivePaddleHits = 0;
         continue;
       }
     }
@@ -3154,6 +3177,15 @@ class GameController extends ChangeNotifier {
         if (ball.x >= leftBoundary && ball.x <= rightBoundary) {
           return false; // Ball passes through the hollow center
         }
+      }
+
+      consecutivePaddleHits++;
+      if (consecutivePaddleHits == 3) {
+        particles.triggerShake(5.0, 0.25);
+        particles.spawnBurst(ball.x, paddle.y, const Color(0xFFFF3D00), count: 28, speed: 170.0);
+        particles.spawnShockwave(ball.x, paddle.y, const Color(0xFFFF9100), maxRadius: 80.0);
+        particles.spawnFloatingText(ball.x, paddle.y - 25, '🔥 ALEV ALEV! 🔥', const Color(0xFFFF6D00), isLarge: true);
+        audio.playSfx(GameSfx.cornerBoost);
       }
 
       if (ball.isDayBlessed) ball.isDayBlessed = false;
@@ -3639,6 +3671,29 @@ class GameController extends ChangeNotifier {
   }
 
   void _hitBrick(Brick b, Ball? ball, {bool isEcho = false}) {
+    if (lockedTargetBrick != null) {
+      if (b == lockedTargetBrick) {
+        lockedTargetBrick = null;
+        targetLockingBall = null;
+        targetLockTimer = 0.0;
+        // LOCK SADECE 1 TANE TUĞLA KIRSIN: Hedeflenen taşı doğrudan kırar ve kilit anında sonlanır
+        particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFF00E5FF), maxRadius: 46.0);
+        particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD54F), count: 14, speed: 140.0);
+        particles.triggerShake(4.0, 0.18);
+        audio.playSfx(GameSfx.bossHit);
+        if (!b.isSteel) {
+          b.hp = 0;
+          _destroyBrick(b, 0, isEcho);
+          return;
+        }
+      } else {
+        // Çarpışan herhangi bir ara taş (çelik, dinamit, donmuş, kaos dahil) kilidi derhal bozar
+        lockedTargetBrick = null;
+        targetLockingBall = null;
+        targetLockTimer = 0.0;
+      }
+    }
+
     if (b.isPrimedDynamite) {
       _primedDynamites.remove(b);
       b.isPrimedDynamite = false;
@@ -3769,10 +3824,12 @@ class GameController extends ChangeNotifier {
         final cx = b.x + b.width / 2;
         final cy = b.y + b.height / 2;
         particles.spawnBurst(cx, cy, const Color(0xFFFFD700), count: 8, speed: 100.0);
-        particles.spawnCoinOrbs(cx, cy, count: 1, totalValue: 3);
-        save.addGold(3);
-        stats.goldCollected += 3;
-        particles.spawnFloatingText(cx, b.y - 10, '+3 ', const Color(0xFFFFD54F));
+        if (allowsGoldReward) {
+          particles.spawnCoinOrbs(cx, cy, count: 1, totalValue: 1);
+          save.addGold(1);
+          stats.goldCollected += 1;
+          particles.spawnFloatingText(cx, b.y - 10, '+1 🟡', const Color(0xFFFFD54F));
+        }
         audio.playSfx(GameSfx.powerupBuff);
         b.triggerElasticSettle(impulse: 5.0);
       } else if (b.hp % 6 == 0) {
@@ -3782,19 +3839,6 @@ class GameController extends ChangeNotifier {
     }
 
     int dmg = 1;
-    if (b == lockedTargetBrick) {
-      lockedTargetBrick = null;
-      targetLockingBall = null;
-      targetLockTimer = 0.0;
-      // LOCK SADECE 1 TANE TUĞLA KIRSIN: Hedeflenen taşı doğrudan kırar ve kilit anında sonlanır
-      particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFF00E5FF), maxRadius: 46.0);
-      particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD54F), count: 14, speed: 140.0);
-      particles.triggerShake(4.0, 0.18);
-      audio.playSfx(GameSfx.bossHit);
-      b.hp = 0;
-      _destroyBrick(b, 0, isEcho);
-      return;
-    }
     if (activeCosmeticSynergy == CosmeticSynergy.iceCrystal &&
         (b.isIce || b.maxHp > 1 || b.isHeavySteel)) {
       dmg += activeCosmeticSynergy.extraIceArmoredDamage;
@@ -3849,14 +3893,16 @@ class GameController extends ChangeNotifier {
           }
         }
       } else if (b.isChest) {
-        // Tactile treasure leak on hit: sparks, 2 coin orbs, clink sfx & wobble
+        // Tactile treasure leak on hit: sparks, 1 coin orb, clink sfx & wobble
         final cx = b.x + b.width / 2;
         final cy = b.y + b.height / 2;
         particles.spawnBurst(cx, cy, const Color(0xFFFFD700), count: 12, speed: 120.0);
-        particles.spawnCoinOrbs(cx, cy, count: 2, totalValue: 5);
-        save.addGold(5);
-        stats.goldCollected += 5;
-        particles.spawnFloatingText(cx, b.y - 12, '+5 ', const Color(0xFFFFD54F));
+        if (allowsGoldReward) {
+          particles.spawnCoinOrbs(cx, cy, count: 1, totalValue: 1);
+          save.addGold(1);
+          stats.goldCollected += 1;
+          particles.spawnFloatingText(cx, b.y - 12, '+1 🟡', const Color(0xFFFFD54F));
+        }
         audio.playSfx(GameSfx.powerupBuff);
         b.triggerElasticSettle(impulse: 6.0);
       } else {
@@ -3947,30 +3993,32 @@ class GameController extends ChangeNotifier {
       particles.triggerShake(7.5, 0.25);
 
       if (currentMode == GameMode.chaos) {
-        // In Chaos Mode: Big Extra Balls Shower + Gold
-        final extraBalls = 5 + _rand.nextInt(4); // +5 to +8 balls!
+        // In Chaos Mode: Extra Balls Shower + Heavily Reduced Gold
+        final extraBalls = 3 + _rand.nextInt(3); // +3 to +5 balls
         chaosStock += extraBalls;
-        final goldWon = 150 + _rand.nextInt(101);
-        save.addGold(goldWon);
-        stats.goldCollected += goldWon;
-        GameEventBus().fire(GoldCollectedEvent(amount: goldWon, sourcePosition: Offset(cx, cy)));
-        particles.spawnCoinOrbs(cx, cy, count: 14, totalValue: goldWon, color: const Color(0xFFFFD54F));
+        final goldWon = allowsGoldReward ? (6 + _rand.nextInt(8)) : 0;
+        if (goldWon > 0) {
+          save.addGold(goldWon);
+          stats.goldCollected += goldWon;
+          GameEventBus().fire(GoldCollectedEvent(amount: goldWon, sourcePosition: Offset(cx, cy)));
+          particles.spawnCoinOrbs(cx, cy, count: 4, totalValue: goldWon, color: const Color(0xFFFFD54F));
+        }
         particles.spawnFloatingText(
           cx,
           b.y - 20,
-          'HAZİNE! +$extraBalls TOP & +$goldWon ALTIN',
+          goldWon > 0 ? 'HAZİNE! +$extraBalls TOP & +$goldWon ALTIN' : 'HAZİNE! +$extraBalls TOP',
           const Color(0xFFFFD700),
           isLarge: true,
         );
         particles.spawnShockwave(cx, cy, const Color(0xFFFFD700), maxRadius: 110.0);
         audio.playSfx(GameSfx.victory);
       } else {
-        // Dynamic Gold Calculation based on world progress & upgrades
+        // Dynamic Gold Calculation based on world progress & upgrades (heavily reduced economy)
         final world = ((stats.level - 1) ~/ 10) + 1;
-        final int baseGold = 180 + (world * 50) + _rand.nextInt(80);
+        final int baseGold = allowsGoldReward ? (35 + (world * 12) + _rand.nextInt(15)) : 0;
         int goldWon = baseGold;
-        if (stats.combo >= 5) {
-          goldWon += (stats.combo * 15);
+        if (allowsGoldReward && stats.combo >= 5) {
+          goldWon += (stats.combo * 2);
         }
         final goldLvl = save.getUpgradeLevel('u_gold');
         goldWon = (goldWon * (1.0 + goldLvl * 0.10)).round();
@@ -3988,20 +4036,24 @@ class GameController extends ChangeNotifier {
           final int pearlsWon = (world >= 4 && _rand.nextBool()) ? 2 : 1;
           save.addPearls(pearlsWon);
           final bonusGold = goldWon ~/ 2;
-          save.addGold(bonusGold);
-          stats.goldCollected += bonusGold;
-          GameEventBus().fire(GoldCollectedEvent(amount: bonusGold, sourcePosition: Offset(cx, cy)));
+          if (bonusGold > 0) {
+            save.addGold(bonusGold);
+            stats.goldCollected += bonusGold;
+            GameEventBus().fire(GoldCollectedEvent(amount: bonusGold, sourcePosition: Offset(cx, cy)));
+          }
 
           particles.spawnFloatingText(
             cx,
             b.y - 22,
-            '💎 $pearlsWon İNCİ BULDUN! (+$bonusGold ALTIN) 💎',
+            bonusGold > 0 ? '💎 $pearlsWon İNCİ BULDUN! (+$bonusGold ALTIN) 💎' : '💎 $pearlsWon İNCİ BULDUN! 💎',
             const Color(0xFF00E5FF),
             isLarge: true,
           );
           particles.spawnShockwave(cx, cy, const Color(0xFF00E5FF), maxRadius: 120.0);
           particles.spawnPearlCelebration(cx, cy);
-          particles.spawnCoinOrbs(cx, cy, count: 10, totalValue: bonusGold, color: const Color(0xFF00E5FF));
+          if (bonusGold > 0) {
+            particles.spawnCoinOrbs(cx, cy, count: 6, totalValue: bonusGold, color: const Color(0xFF00E5FF));
+          }
           audio.playSfx(GameSfx.victory);
         } else {
           final rewardRoll = _rand.nextDouble();
@@ -4018,9 +4070,11 @@ class GameController extends ChangeNotifier {
               rewardSubtitle: 'Oyun İçi Hazine',
               rarityIndex: dropCrate.tier.index,
             ));
-            save.addGold(goldWon);
-            stats.goldCollected += goldWon;
-            GameEventBus().fire(GoldCollectedEvent(amount: goldWon, sourcePosition: Offset(cx, cy)));
+            if (goldWon > 0) {
+              save.addGold(goldWon);
+              stats.goldCollected += goldWon;
+              GameEventBus().fire(GoldCollectedEvent(amount: goldWon, sourcePosition: Offset(cx, cy)));
+            }
 
             particles.spawnFloatingText(
               cx,
@@ -4029,49 +4083,59 @@ class GameController extends ChangeNotifier {
               const Color(0xFFE040FB),
               isLarge: true,
             );
-            particles.spawnFloatingText(
-              cx,
-              b.y - 4,
-              '+$goldWon ALTIN',
-              const Color(0xFFFFD700),
-              isLarge: true,
-            );
+            if (goldWon > 0) {
+              particles.spawnFloatingText(
+                cx,
+                b.y - 4,
+                '+$goldWon ALTIN',
+                const Color(0xFFFFD700),
+                isLarge: true,
+              );
+              particles.spawnCoinOrbs(cx, cy, count: 8, totalValue: goldWon, color: const Color(0xFFFFD54F));
+            }
             particles.spawnShockwave(cx, cy, const Color(0xFFE040FB), maxRadius: 110.0);
-            particles.spawnCoinOrbs(cx, cy, count: 16, totalValue: goldWon, color: const Color(0xFFFFD54F));
             audio.playSfx(GameSfx.victory);
           } else if (rewardRoll < 0.28) {
             // Aquarium Fish Food & Gold Bounty
             final foodCount = 5 + _rand.nextInt(4);
             save.addFishFood(foodCount);
-            save.addGold(goldWon);
-            stats.goldCollected += goldWon;
-            GameEventBus().fire(GoldCollectedEvent(amount: goldWon, sourcePosition: Offset(cx, cy)));
+            if (goldWon > 0) {
+              save.addGold(goldWon);
+              stats.goldCollected += goldWon;
+              GameEventBus().fire(GoldCollectedEvent(amount: goldWon, sourcePosition: Offset(cx, cy)));
+            }
 
             particles.spawnFloatingText(
               cx,
               b.y - 20,
-              '🐠 AKVARYUM HAZİNESİ! +$foodCount YEM & +$goldWon ALTIN 🐠',
+              goldWon > 0 ? '🐠 AKVARYUM HAZİNESİ! +$foodCount YEM & +$goldWon ALTIN 🐠' : '🐠 AKVARYUM HAZİNESİ! +$foodCount YEM 🐠',
               const Color(0xFF00E5FF),
               isLarge: true,
             );
             particles.spawnShockwave(cx, cy, const Color(0xFF00E5FF), maxRadius: 100.0);
-            particles.spawnCoinOrbs(cx, cy, count: 16, totalValue: goldWon, color: const Color(0xFFFFD54F));
+            if (goldWon > 0) {
+              particles.spawnCoinOrbs(cx, cy, count: 8, totalValue: goldWon, color: const Color(0xFFFFD54F));
+            }
             audio.playSfx(GameSfx.victory);
           } else {
             // Super Gold Jackpot
-            save.addGold(goldWon);
-            stats.goldCollected += goldWon;
-            GameEventBus().fire(GoldCollectedEvent(amount: goldWon, sourcePosition: Offset(cx, cy)));
+            if (goldWon > 0) {
+              save.addGold(goldWon);
+              stats.goldCollected += goldWon;
+              GameEventBus().fire(GoldCollectedEvent(amount: goldWon, sourcePosition: Offset(cx, cy)));
+            }
 
             particles.spawnFloatingText(
               cx,
               b.y - 18,
-              '🌟 BÜYÜK HAZİNE! +$goldWon ALTIN 🌟',
+              goldWon > 0 ? '🌟 BÜYÜK HAZİNE! +$goldWon ALTIN 🌟' : '🌟 BÜYÜK HAZİNE! 🌟',
               const Color(0xFFFFD700),
               isLarge: true,
             );
             particles.spawnShockwave(cx, cy, const Color(0xFFFFD700), maxRadius: 95.0);
-            particles.spawnCoinOrbs(cx, cy, count: 18, totalValue: goldWon, color: const Color(0xFFFFD54F));
+            if (goldWon > 0) {
+              particles.spawnCoinOrbs(cx, cy, count: 10, totalValue: goldWon, color: const Color(0xFFFFD54F));
+            }
             audio.playSfx(GameSfx.victory);
           }
         }
@@ -4153,12 +4217,14 @@ class GameController extends ChangeNotifier {
       _checkLiveNewRecordCelebration();
 
       if (b.isBoss) {
-        final bossGold = 75 + (stats.level ~/ 10) * 25;
-        stats.goldCollected += bossGold;
-        save.addGold(bossGold);
+        final bossGold = allowsGoldReward ? (16 + (stats.level ~/ 10) * 8) : 0;
+        if (bossGold > 0) {
+          stats.goldCollected += bossGold;
+          save.addGold(bossGold);
+        }
         save.addPearls(2);
         particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD700), maxRadius: 100.0);
-        particles.spawnFloatingText(b.x + b.width / 2, b.y - 16, '+$bossGold ALTIN! +2 İNCİ!', const Color(0xFFFFD700), isLarge: true);
+        particles.spawnFloatingText(b.x + b.width / 2, b.y - 16, bossGold > 0 ? '+$bossGold ALTIN! +2 İNCİ!' : '+2 İNCİ!', const Color(0xFFFFD700), isLarge: true);
         audio.playSfx(GameSfx.explosion);
       }
 
@@ -4183,9 +4249,9 @@ class GameController extends ChangeNotifier {
       // Coin drops in Chaos Mode scaled by u_luck and u_gold
       final luckLvl = save.getUpgradeLevel('u_luck');
       final dropRate = BalanceConfig.chaosCoinBaseDropRate + (luckLvl * BalanceConfig.luckUpgradeDropStep) + cosmicPearlLuckBonus;
-      if (!b.isChest && _rand.nextDouble() < dropRate) {
+      if (allowsGoldReward && !b.isChest && _rand.nextDouble() < dropRate) {
         final goldLvl = save.getUpgradeLevel('u_gold');
-        int coins = 1 + _rand.nextInt(3);
+        int coins = 1;
         coins = (coins * (1.0 + goldLvl * 0.10)).round();
         if (save.cosmicGoldMasteryLevel > 0) {
           coins = (coins * cosmicGoldRewardMultiplier).round();
@@ -4214,12 +4280,14 @@ class GameController extends ChangeNotifier {
       particles.spawnFloatingText(b.x + b.width / 2, b.y - 20, I18n.tr('boss_defeated'), const Color(0xFFFFD700), isLarge: true);
       stats.score += 500;
       // Boss kills pay out like a headline moment: gold shower + a pearl.
-      final bossGold = 50 + stats.level;
-      stats.goldCollected += bossGold;
-      save.addGold(bossGold);
+      final bossGold = allowsGoldReward ? (6 + (stats.level ~/ 4)) : 0;
+      if (bossGold > 0) {
+        stats.goldCollected += bossGold;
+        save.addGold(bossGold);
+        particles.spawnCoinOrbs(b.x + b.width / 2, b.y + b.height / 2, count: 4, totalValue: bossGold);
+      }
       save.addPearls(1);
-      particles.spawnCoinOrbs(b.x + b.width / 2, b.y + b.height / 2, count: 6, totalValue: bossGold);
-      particles.spawnFloatingText(b.x + b.width / 2, b.y - 38, '+$bossGold ALTIN! +1 İNCİ!', const Color(0xFFFFD700), isLarge: true);
+      particles.spawnFloatingText(b.x + b.width / 2, b.y - 38, bossGold > 0 ? '+$bossGold ALTIN! +1 İNCİ!' : '+1 İNCİ!', const Color(0xFFFFD700), isLarge: true);
       audio.playSfx(GameSfx.explosion);
     } else {
       particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, b.color, count: 16);
@@ -4309,10 +4377,10 @@ class GameController extends ChangeNotifier {
     final luckLvl = save.getUpgradeLevel('u_luck');
     final relicAlchemistBonus = (save.hasPermanentRelic && save.activeRelicStyle == 'alchemist') ? 0.15 : 0.0;
     final coinDropRate = BalanceConfig.classicCoinBaseDropRate + (luckLvl * BalanceConfig.luckUpgradeDropStep) + cosmicPearlLuckBonus + relicAlchemistBonus;
-    if (!b.isChest && _rand.nextDouble() < coinDropRate) {
+    if (allowsGoldReward && !b.isChest && _rand.nextDouble() < coinDropRate) {
       final goldLvl = save.getUpgradeLevel('u_gold');
-      int coins = 2 + _rand.nextInt(4);
-      if (stats.combo >= 5) coins += 2;
+      int coins = 1 + _rand.nextInt(2);
+      if (stats.combo >= 5) coins += 1;
       coins = (coins * (1.0 + goldLvl * 0.10)).round();
       if (save.cosmicGoldMasteryLevel > 0) {
         coins = (coins * cosmicGoldRewardMultiplier).round();
@@ -4320,10 +4388,12 @@ class GameController extends ChangeNotifier {
       if (activeCosmeticSynergy == CosmeticSynergy.cosmicLegendary) {
         coins = (coins * activeCosmeticSynergy.goldMultiplier).round();
       }
-      stats.goldCollected += coins;
-      save.addGold(coins);
-      particles.spawnFloatingText(b.x + b.width / 2, b.y, '+$coins ', const Color(0xFFFFD54F));
-      particles.spawnCoinOrbs(b.x + b.width / 2, b.y + b.height / 2, count: coins >= 8 ? 5 : 3, totalValue: coins);
+      if (coins > 0) {
+        stats.goldCollected += coins;
+        save.addGold(coins);
+        particles.spawnFloatingText(b.x + b.width / 2, b.y, '+$coins ', const Color(0xFFFFD54F));
+        particles.spawnCoinOrbs(b.x + b.width / 2, b.y + b.height / 2, count: coins >= 8 ? 5 : 3, totalValue: coins);
+      }
     }
   }
 
@@ -4707,6 +4777,81 @@ class GameController extends ChangeNotifier {
     return 1;
   }
 
+  Brick? _pickReachableTarget() {
+    final solidObstacles = bricks.where((b) => b.isAlive && !b.isBallPickup).toList();
+    final aliveBricks = solidObstacles.where((b) => !b.isSteel).toList();
+    if (aliveBricks.isEmpty) return null;
+
+    final ball = balls.firstWhere((b) => !b.isStuck, orElse: () => balls.first);
+    final bx = ball.x;
+    final by = ball.y;
+
+    bool isBlockedFromBelow(Brick candidate) {
+      for (final other in solidObstacles) {
+        if (other == candidate) continue;
+        if (other.y > candidate.y) {
+          final overlapLeft = max(candidate.x, other.x);
+          final overlapRight = min(candidate.x + candidate.width, other.x + other.width);
+          if (overlapRight - overlapLeft > 4.0) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    bool hasLineOfSight(Brick candidate) {
+      final tx = candidate.x + candidate.width / 2;
+      final ty = candidate.y + candidate.height / 2;
+      final rayDx = tx - bx;
+      final rayDy = ty - by;
+      final rayLen = sqrt(rayDx * rayDx + rayDy * rayDy);
+      if (rayLen < 8.0) return true;
+
+      final steps = (rayLen / 12.0).clamp(4, 30).toInt();
+      for (int i = 1; i < steps; i++) {
+        final t = i / steps;
+        final sx = bx + rayDx * t;
+        final sy = by + rayDy * t;
+        for (final other in solidObstacles) {
+          if (other == candidate) continue;
+          if (sx >= other.x - 2.0 && sx <= other.x + other.width + 2.0 &&
+              sy >= other.y - 2.0 && sy <= other.y + other.height + 2.0) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    final losCandidates = aliveBricks.where(hasLineOfSight).toList();
+    if (losCandidates.isNotEmpty) {
+      final bosses = losCandidates.where((b) => b.isBoss).toList();
+      if (bosses.isNotEmpty) return bosses.first;
+      losCandidates.sort((a, b) {
+        final da = (a.x + a.width / 2 - bx) * (a.x + a.width / 2 - bx) + (a.y + a.height / 2 - by) * (a.y + a.height / 2 - by);
+        final db = (b.x + b.width / 2 - bx) * (b.x + b.width / 2 - bx) + (b.y + b.height / 2 - by) * (b.y + b.height / 2 - by);
+        return da.compareTo(db);
+      });
+      return losCandidates.first;
+    }
+
+    final frontRow = aliveBricks.where((b) => !isBlockedFromBelow(b)).toList();
+    if (frontRow.isNotEmpty) {
+      final bosses = frontRow.where((b) => b.isBoss).toList();
+      if (bosses.isNotEmpty) return bosses.first;
+      frontRow.sort((a, b) {
+        final da = (a.x + a.width / 2 - bx) * (a.x + a.width / 2 - bx) + (a.y + a.height / 2 - by) * (a.y + a.height / 2 - by);
+        final db = (b.x + b.width / 2 - bx) * (b.x + b.width / 2 - bx) + (b.y + b.height / 2 - by) * (b.y + b.height / 2 - by);
+        return da.compareTo(db);
+      });
+      return frontRow.first;
+    }
+
+    aliveBricks.sort((a, b) => b.y.compareTo(a.y));
+    return aliveBricks.first;
+  }
+
   void applyPowerUp(PowerUpType type) {
     // Alev ve buz aynı anda alınamaz: biri aktifken diğeri yakalanırsa
     // kapsül boşa gitmez, çoklu topa dönüşür.
@@ -4733,9 +4878,11 @@ class GameController extends ChangeNotifier {
             particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, '+1 CAN', const Color(0xFFFF5252), isLarge: true);
             audio.playSfx(GameSfx.powerupBuff);
           } else {
-            stats.goldCollected += 50;
-            save.addGold(50);
-            particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, 'MAX CAN! +50 ALTIN', const Color(0xFFFFD700), isLarge: true);
+            if (allowsGoldReward) {
+              stats.goldCollected += 50;
+              save.addGold(50);
+              particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, 'MAX CAN! +50 ALTIN', const Color(0xFFFFD700), isLarge: true);
+            }
             audio.playSfx(GameSfx.powerupBuff);
           }
           break;
@@ -4771,10 +4918,8 @@ class GameController extends ChangeNotifier {
           }
           break;
         case PowerUpType.lock:
-          final aliveBricks = bricks.where((b) => b.isAlive && !b.isSteel).toList();
-          if (aliveBricks.isNotEmpty) {
-            final bosses = aliveBricks.where((b) => b.isBoss).toList();
-            final target = bosses.isNotEmpty ? bosses.first : aliveBricks[_rand.nextInt(aliveBricks.length)];
+          final target = _pickReachableTarget();
+          if (target != null) {
             lockedTargetBrick = target;
             targetLockTimer = 6.0;
             targetLockingBall = balls.firstWhere((b) => !b.isStuck, orElse: () => balls.first);
@@ -5126,6 +5271,7 @@ class GameController extends ChangeNotifier {
   }
 
   void _loseLife() {
+    consecutivePaddleHits = 0;
     if (levelTransitionTimer > 0 || status != GameStatus.playing) return;
     stats.lives--;
     checkLowLifeTransition();
@@ -5259,23 +5405,25 @@ class GameController extends ChangeNotifier {
         lastClearedLevelStars = earnedStars;
         save.saveLevelStars(stats.level, earnedStars);
         levelTransitionTimer = 1.6;
-        final baseGold = 25 + (stats.level * 5).clamp(0, 50);
-        final relicBonus = save.hasPermanentRelic ? max(1, (baseGold * 0.05).round()) : 0;
+        final baseGold = allowsGoldReward ? (25 + (stats.level * 5).clamp(0, 50)) : 0;
+        final relicBonus = (allowsGoldReward && save.hasPermanentRelic) ? max(1, (baseGold * 0.05).round()) : 0;
         final luckLvl = save.getUpgradeLevel('luck');
-        final luckBonus = (baseGold * (luckLvl * 0.05)).round();
+        final luckBonus = allowsGoldReward ? (baseGold * (luckLvl * 0.05)).round() : 0;
         final fishBuffs = FishSynergyBuffs.calculate(save);
         int levelGold = baseGold + relicBonus + luckBonus;
-        if (fishBuffs.goldMultiplier > 1.0) {
+        if (allowsGoldReward && fishBuffs.goldMultiplier > 1.0) {
           levelGold = (levelGold * fishBuffs.goldMultiplier).round();
         }
-        if (prestigeTier > 0) {
+        if (allowsGoldReward && prestigeTier > 0) {
           levelGold = (levelGold * prestigeGoldMultiplier).round();
         }
-        if (save.cosmicGoldMasteryLevel > 0) {
+        if (allowsGoldReward && save.cosmicGoldMasteryLevel > 0) {
           levelGold = (levelGold * cosmicGoldRewardMultiplier).round();
         }
-        stats.goldCollected += levelGold;
-        save.addGold(levelGold);
+        if (levelGold > 0) {
+          stats.goldCollected += levelGold;
+          save.addGold(levelGold);
+        }
         if (currentMode == GameMode.classic) {
           save.recordClassicLevelCleared(stats.level);
           if (save.isLeagueUnlocked) {
@@ -5323,7 +5471,9 @@ class GameController extends ChangeNotifier {
         particles.spawnBurst(screenWidth / 2, screenHeight * 0.38, const Color(0xFFFFD700), count: 24, speed: 200.0);
         particles.spawnShockwave(screenWidth / 2, screenHeight * 0.38, const Color(0xFFFFD700), maxRadius: 85.0);
         particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.40, '${I18n.tr('level').toUpperCase()} ${stats.level}!', const Color(0xFFFFD54F), isLarge: true);
-        particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.48, '+$levelGold  ${I18n.tr('level_bonus')}', const Color(0xFFFFD54F), isLarge: false);
+        if (levelGold > 0) {
+          particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.48, '+$levelGold  ${I18n.tr('level_bonus')}', const Color(0xFFFFD54F), isLarge: false);
+        }
         audio.playSfx(GameSfx.victory);
         notifyListeners();
       }
@@ -5344,12 +5494,14 @@ class GameController extends ChangeNotifier {
       save.clearChaosSession();
     }
     save.updateHighScore(currentMode, stats.score);
-    int victoryGold = 100;
-    if (save.cosmicGoldMasteryLevel > 0) {
+    int victoryGold = allowsGoldReward ? 100 : 0;
+    if (allowsGoldReward && save.cosmicGoldMasteryLevel > 0) {
       victoryGold = (victoryGold * cosmicGoldRewardMultiplier).round();
     }
-    save.addGold(victoryGold);
-    stats.goldCollected += victoryGold;
+    if (victoryGold > 0) {
+      save.addGold(victoryGold);
+      stats.goldCollected += victoryGold;
+    }
     save.recordAdOrWinQuest();
     audio.playSfx(GameSfx.victory);
   }
@@ -5464,7 +5616,7 @@ class GameController extends ChangeNotifier {
   }
 
   int rollEndGameGoldDice({int? forcedDice}) {
-    if (hasClaimedVictoryBonus || isChaosMode) return 0;
+    if (hasClaimedVictoryBonus || isChaosMode || !allowsGoldReward) return 0;
     hasClaimedVictoryBonus = true;
     final baseGold = endGameMultiplierBaseGold;
     final rolled = (forcedDice ?? (1 + _rand.nextInt(6))).clamp(1, 6);
