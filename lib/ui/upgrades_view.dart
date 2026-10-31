@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
@@ -18,6 +18,7 @@ class UpgradesView extends StatefulWidget {
 class _UpgradesViewState extends State<UpgradesView> {
   String? _justUpgradedId;
   int _upgradeSeq = 0;
+  bool _buyMaxMode = false;
 
   @override
   Widget build(BuildContext context) {
@@ -225,42 +226,78 @@ class _UpgradesViewState extends State<UpgradesView> {
                       ),
                     ],
                   ),
-                  if (save.calculateTotalSpentOnUpgrades() > 0)
-                    InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: () => _confirmResetUpgrades(context, save),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: const Color(0x33FF5252),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFFF5252)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.restart_alt_rounded, color: Color(0xFFFF5252), size: 14),
-                            const SizedBox(width: 4),
-                            Text(
-                              'SIFIRLA (+${save.calculateTotalSpentOnUpgrades()})',
-                              style: const TextStyle(
-                                color: Color(0xFFFF8A80),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
-                              ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          AudioManager.instance.playSfx(GameSfx.click);
+                          setState(() => _buyMaxMode = !_buyMaxMode);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _buyMaxMode ? const Color(0x33FFD54F) : const Color(0x2200E5FF),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: _buyMaxMode ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF),
                             ),
-                          ],
+                          ),
+                          child: Text(
+                            _buyMaxMode ? 'MOD: MAX' : 'MOD: 1x',
+                            style: TextStyle(
+                              color: _buyMaxMode ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      if (save.calculateTotalSpentOnUpgrades() > 0) ...[
+                        const SizedBox(width: 6),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () => _confirmResetUpgrades(context, save),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: const Color(0x33FF5252),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFFF5252)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.restart_alt_rounded, color: Color(0xFFFF5252), size: 14),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'SIFIRLA (+${save.calculateTotalSpentOnUpgrades()})',
+                                  style: const TextStyle(
+                                    color: Color(0xFFFF8A80),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
               ...StatUpgrade.all.map((stat) {
                 final currentLvl = save.getUpgradeLevel(stat.id);
                 final isMax = currentLvl >= stat.maxLevel;
-                final cost = stat.getCostForLevel(currentLvl);
-                final canAfford = !isMax && save.gold >= cost;
+                final singleCost = stat.getCostForLevel(currentLvl);
+                final maxCalc = _buyMaxMode ? save.calculateMaxAffordableUpgrades(stat.id) : (levels: 1, totalCost: singleCost);
+                final cost = _buyMaxMode ? maxCalc.totalCost : singleCost;
+                final canAfford = !isMax && (_buyMaxMode ? maxCalc.levels > 0 : save.gold >= singleCost);
+                final labelPrefix = (_buyMaxMode && maxCalc.levels > 1) ? '+${maxCalc.levels} • ' : '';
 
                 final justUpgraded = _justUpgradedId == stat.id;
                 return Container(
@@ -280,7 +317,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                         ? [
                             BoxShadow(
                               color: const Color(0xFFFFB300).withValues(alpha: 0.35),
-                              blurRadius: 16,
+                              blurRadius: 0,
                               spreadRadius: 1,
                             ),
                           ]
@@ -323,6 +360,25 @@ class _UpgradesViewState extends State<UpgradesView> {
                                     ),
                                   ),
                                 ),
+                                if (currentLvl >= 10) ...[
+                                  Container(
+                                    margin: const EdgeInsets.only(right: 4),
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0x33FFD54F),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: const Color(0xFFFFD54F)),
+                                    ),
+                                    child: Text(
+                                      currentLvl >= 25 ? '👑 L25' : '👑 L10',
+                                      style: const TextStyle(
+                                        color: Color(0xFFFFD54F),
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 TweenAnimationBuilder<double>(
                                   key: ValueKey('${stat.id}-$currentLvl'),
                                   tween: Tween<double>(begin: 1.45, end: 1.0),
@@ -372,30 +428,66 @@ class _UpgradesViewState extends State<UpgradesView> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            // 5-segment pip gauge
-                            Row(
-                              children: List.generate(stat.maxLevel, (index) {
-                                final isFilled = index < currentLvl;
-                                return Expanded(
-                                  child: Container(
-                                    height: 5,
-                                    margin: EdgeInsets.only(right: index < stat.maxLevel - 1 ? 4 : 0),
-                                    decoration: BoxDecoration(
-                                      color: isFilled ? stat.color : const Color(0xFF262C3D),
-                                      borderRadius: BorderRadius.circular(3),
-                                      boxShadow: isFilled
-                                          ? [
-                                              BoxShadow(
-                                                color: stat.color.withValues(alpha: 0.6),
-                                                blurRadius: 4,
-                                              ),
-                                            ]
-                                          : null,
+                            // Progression gauge: discrete pips for low caps, smooth bar for deep (100) levels
+                            if (stat.maxLevel <= 10)
+                              Row(
+                                children: List.generate(stat.maxLevel, (index) {
+                                  final isFilled = index < currentLvl;
+                                  return Expanded(
+                                    child: Container(
+                                      height: 5,
+                                      margin: EdgeInsets.only(right: index < stat.maxLevel - 1 ? 4 : 0),
+                                      decoration: BoxDecoration(
+                                        color: isFilled ? stat.color : const Color(0xFF262C3D),
+                                        borderRadius: BorderRadius.circular(3),
+                                        boxShadow: isFilled
+                                            ? [
+                                                BoxShadow(
+                                                  color: stat.color.withValues(alpha: 0.6),
+                                                  blurRadius: 0,
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
                                     ),
+                                  );
+                                }),
+                              )
+                            else
+                              Container(
+                                height: 5,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF262C3D),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(3),
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final progress = (currentLvl / stat.maxLevel).clamp(0.0, 1.0);
+                                      return Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Container(
+                                          width: constraints.maxWidth * progress,
+                                          height: 5,
+                                          decoration: BoxDecoration(
+                                            color: stat.color,
+                                            borderRadius: BorderRadius.circular(3),
+                                            boxShadow: currentLvl > 0
+                                                ? [
+                                                    BoxShadow(
+                                                      color: stat.color.withValues(alpha: 0.6),
+                                                      blurRadius: 0,
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
+                                        ),
+                                      );
+                                    },
                                   ),
-                                );
-                              }),
-                            ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -413,10 +505,15 @@ class _UpgradesViewState extends State<UpgradesView> {
                       else
                         _JuiceBuyButton(
                           cost: cost,
+                          labelPrefix: labelPrefix,
                           canAfford: canAfford,
                           onBuy: () async {
                             final before = save.getUpgradeLevel(stat.id);
-                            await save.buyStatUpgrade(stat.id, cost);
+                            if (_buyMaxMode) {
+                              await save.buyMaxStatUpgrade(stat.id);
+                            } else {
+                              await save.buyStatUpgrade(stat.id, singleCost);
+                            }
                             if (!mounted) return;
                             if (save.getUpgradeLevel(stat.id) > before) {
                               setState(() {
@@ -476,7 +573,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                   ),
                   boxShadow: [
                     if (save.hasPermanentRelic)
-                      const BoxShadow(color: Color(0x33FFD54F), blurRadius: 14, offset: Offset(0, 4)),
+                      const BoxShadow(color: Color(0x33FFD54F), blurRadius: 0, offset: Offset(0, 4)),
                   ],
                 ),
                 child: Column(
@@ -1210,11 +1307,13 @@ class _UpgradesViewState extends State<UpgradesView> {
 /// frame keeps a warm breathing aura for a moment.
 class _JuiceBuyButton extends StatefulWidget {
   final int cost;
+  final String labelPrefix;
   final bool canAfford;
   final Future<void> Function() onBuy;
 
   const _JuiceBuyButton({
     required this.cost,
+    this.labelPrefix = '',
     required this.canAfford,
     required this.onBuy,
   });
@@ -1276,7 +1375,7 @@ class _JuiceBuyButtonState extends State<_JuiceBuyButton> with SingleTickerProvi
                   ? [
                       BoxShadow(
                         color: const Color(0xFFFFB300).withValues(alpha: 0.45 + 0.2 * (0.5 + 0.5 * (1 - t))),
-                        blurRadius: 14,
+                        blurRadius: 0,
                         spreadRadius: 1,
                       ),
                     ]
@@ -1307,7 +1406,7 @@ class _JuiceBuyButtonState extends State<_JuiceBuyButton> with SingleTickerProvi
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '${widget.cost}',
+                    '${widget.labelPrefix}${widget.cost}',
                     style: const TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 12,

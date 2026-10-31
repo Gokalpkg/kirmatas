@@ -5,6 +5,7 @@ import '../engine/ad_manager.dart';
 import '../engine/asset_cache.dart';
 import '../engine/audio_manager.dart';
 import '../engine/game_controller.dart';
+import '../engine/particle_system.dart';
 import '../engine/i18n.dart';
 import '../models/brick.dart';
 import '../models/game_state.dart';
@@ -71,10 +72,13 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.hidden) {
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
       if (widget.controller.status == GameStatus.playing || widget.controller.status == GameStatus.ready) {
         widget.controller.pause();
       }
+      AudioManager.instance.appInForeground = false;
+      AudioManager.instance.stopAll();
     }
   }
 
@@ -241,11 +245,11 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
                                   color: c.activeSectorBlessing!.primaryColor.withValues(alpha: 0.8),
                                   width: 1.4,
                                 ),
-                                boxShadow: [
+                                boxShadow: const [
                                   BoxShadow(
-                                    color: c.activeSectorBlessing!.primaryColor.withValues(alpha: 0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
+                                    color: Color(0xFF020308),
+                                    blurRadius: 0,
+                                    offset: Offset(0, 3),
                                   ),
                                 ],
                               ),
@@ -635,8 +639,9 @@ class _GameWorldPainter extends CustomPainter {
     ..style = PaintingStyle.stroke;
   static final Paint _bgPaint = Paint()..style = PaintingStyle.fill;
   static final Paint _paddlePaint = Paint()..style = PaintingStyle.fill;
-  static final Paint _imgPaint = Paint()..filterQuality = FilterQuality.medium;
+  static final Paint _imgPaint = Paint()..filterQuality = FilterQuality.none;
   static final Path _crackPath = Path();
+  static final Path _pipPath = Path();
   static final Path _tempPath = Path();
   static final TextPainter _tp = TextPainter(textDirection: TextDirection.ltr);
 
@@ -649,6 +654,21 @@ class _GameWorldPainter extends CustomPainter {
   static final Map<int, Shader> _brickShaders = {};
   static final Map<int, Shader> _bgShaders = {};
   static final Map<int, Color> _hslDerivedColors = {};
+
+  static void _enforceCacheLimits() {
+    while (_brickShaders.length > 128) {
+      _brickShaders.remove(_brickShaders.keys.first);
+    }
+    while (_bgShaders.length > 128) {
+      _bgShaders.remove(_bgShaders.keys.first);
+    }
+    while (_skinShaders.length > 128) {
+      _skinShaders.remove(_skinShaders.keys.first);
+    }
+    while (_hslDerivedColors.length > 256) {
+      _hslDerivedColors.remove(_hslDerivedColors.keys.first);
+    }
+  }
 
   static Color _ca(Color color, double alpha) {
     final bucket = (alpha * 32).round().clamp(0, 32);
@@ -696,6 +716,7 @@ class _GameWorldPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    _enforceCacheLimits();
     final shake = c.particles.getShakeOffset();
     canvas.save();
     canvas.translate(shake.dx, shake.dy);
@@ -1469,6 +1490,17 @@ class _GameWorldPainter extends CustomPainter {
           canvas.drawCircle(Offset(-halfW * 0.15, -halfH * 0.3), 1.2, _fill);
         }
 
+        // 1. Heavy Armor Corner Brackets (for 3+ HP reinforced bricks)
+        if (b.maxHp >= 3 && !b.isSteel && !b.isHeavySteel && !b.isBoss && !b.isChest && !b.isDynamite && !b.isIce && !b.isTuft) {
+          _drawHeavyArmorBrackets(canvas, halfW, halfH);
+        }
+
+        // 2. Tactile Crystal Durability Pips (Diamond Energy Cores)
+        // High-end, authentic arcade visual indicator showing remaining hits
+        if (b.maxHp >= 2 && !b.isSteel && !b.isHeavySteel && !b.isBoss && !b.isChest && !b.isDynamite && !b.isIce && !b.isTuft && c.currentMode != GameMode.chaos) {
+          _drawDurabilityPips(canvas, b, halfW, halfH);
+        }
+
         if (b.isFrozen) {
           _drawFrozenOverlay(canvas, rect, rrect, halfW, halfH, c.activeIceVariant);
         }
@@ -1494,6 +1526,115 @@ class _GameWorldPainter extends CustomPainter {
 
       canvas.restore();
     }
+  }
+
+  void _drawHeavyArmorBrackets(Canvas canvas, double halfW, double halfH) {
+    _fill.shader = null;
+    _fill.maskFilter = null;
+    _fill.style = PaintingStyle.fill;
+    _fill.isAntiAlias = false;
+
+    const bracketSize = 5.0;
+    const bracketThickness = 1.6;
+
+    // Golden Armor Brackets (4 Corners)
+    _fill.color = const Color(0xFFFFD54F);
+    // Top-Left
+    canvas.drawRect(Rect.fromLTWH(-halfW, -halfH, bracketSize, bracketThickness), _fill);
+    canvas.drawRect(Rect.fromLTWH(-halfW, -halfH, bracketThickness, bracketSize), _fill);
+    // Top-Right
+    canvas.drawRect(Rect.fromLTWH(halfW - bracketSize, -halfH, bracketSize, bracketThickness), _fill);
+    canvas.drawRect(Rect.fromLTWH(halfW - bracketThickness, -halfH, bracketThickness, bracketSize), _fill);
+    // Bottom-Left
+    canvas.drawRect(Rect.fromLTWH(-halfW, halfH - bracketThickness, bracketSize, bracketThickness), _fill);
+    canvas.drawRect(Rect.fromLTWH(-halfW, halfH - bracketSize, bracketThickness, bracketSize), _fill);
+    // Bottom-Right
+    canvas.drawRect(Rect.fromLTWH(halfW - bracketSize, halfH - bracketThickness, bracketSize, bracketThickness), _fill);
+    canvas.drawRect(Rect.fromLTWH(halfW - bracketThickness, halfH - bracketSize, bracketThickness, bracketSize), _fill);
+
+    // Inner Specular Rivet Studs (1.4px)
+    _fill.color = const Color(0xFFFFF9C4);
+    canvas.drawRect(Rect.fromLTWH(-halfW + 1.2, -halfH + 1.2, 1.4, 1.4), _fill);
+    canvas.drawRect(Rect.fromLTWH(halfW - 2.6, -halfH + 1.2, 1.4, 1.4), _fill);
+    canvas.drawRect(Rect.fromLTWH(-halfW + 1.2, halfH - 2.6, 1.4, 1.4), _fill);
+    canvas.drawRect(Rect.fromLTWH(halfW - 2.6, halfH - 2.6, 1.4, 1.4), _fill);
+    _fill.isAntiAlias = true;
+  }
+
+  void _drawDurabilityPips(Canvas canvas, Brick b, double halfW, double halfH) {
+    final totalPips = b.maxHp;
+    if (totalPips < 2) return;
+
+    final spacing = (totalPips <= 3) ? 9.5 : (totalPips <= 4 ? 7.6 : 6.0);
+    final pipRadius = (totalPips <= 3) ? 3.3 : 2.5;
+    final startPipX = -(totalPips - 1) * spacing / 2.0;
+    const pipY = 0.0;
+
+    for (int i = 0; i < totalPips; i++) {
+      final px = startPipX + i * spacing;
+      final isAlive = i < b.hp;
+
+      _pipPath.reset();
+      _pipPath.moveTo(px, pipY - pipRadius);
+      _pipPath.lineTo(px + pipRadius, pipY);
+      _pipPath.lineTo(px, pipY + pipRadius);
+      _pipPath.lineTo(px - pipRadius, pipY);
+      _pipPath.close();
+
+      if (isAlive) {
+        // Active Energy Diamond
+        // 1. Crisp dark contour shadow
+        _stroke
+          ..isAntiAlias = false
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.3
+          ..color = const Color(0xDD0B1021);
+        canvas.drawPath(_pipPath, _stroke);
+
+        // 2. Crystal Core Fill
+        final Color pipColor;
+        if (b.hp == 1) {
+          pipColor = const Color(0xFFFF5252); // Critical alert coral red
+        } else if (b.maxHp >= 3) {
+          pipColor = const Color(0xFFFFD54F); // Golden Amber Crystal
+        } else {
+          pipColor = const Color(0xFF00E5FF); // Luminous Cyber Cyan
+        }
+
+        _fill
+          ..style = PaintingStyle.fill
+          ..shader = null
+          ..maskFilter = null
+          ..color = pipColor;
+        canvas.drawPath(_pipPath, _fill);
+
+        // 3. Facet Specular Glint (white gleam)
+        _fill.color = Colors.white;
+        canvas.drawRect(Rect.fromLTWH(px - 0.7, pipY - 0.7, 1.4, 1.4), _fill);
+      } else {
+        // Depleted / Shattered Socket (Indicates a lost hit point)
+        _fill
+          ..style = PaintingStyle.fill
+          ..shader = null
+          ..maskFilter = null
+          ..color = const Color(0xBB080B14);
+        canvas.drawPath(_pipPath, _fill);
+
+        _stroke
+          ..isAntiAlias = false
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0
+          ..color = const Color(0x44FFFFFF);
+        canvas.drawPath(_pipPath, _stroke);
+
+        // Micro fracture inside socket
+        _stroke
+          ..color = const Color(0x88000000)
+          ..strokeWidth = 1.0;
+        canvas.drawLine(Offset(px - 1.4, pipY - 1.4), Offset(px + 1.4, pipY + 1.4), _stroke);
+      }
+    }
+    _stroke.isAntiAlias = true;
   }
 
   void _addChamferRect(Path path, double x, double y, double w, double h, double c) {
@@ -5906,13 +6047,13 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawFeverEdges(Canvas canvas, Size size) {
-    // Cinematic organic fever warmth: natural breathing vignette without hard borders or abrupt cutoffs
-    final pulse = 0.75 + sin(time * 5.5) * 0.25;
+    // Ultra-subtle, unobtrusive warm fever breathing glow (toned down significantly per user feedback)
+    final pulse = 0.65 + sin(time * 3.2) * 0.35;
     final w = size.width;
     final h = size.height;
     final rect = Offset.zero & size;
 
-    // 1. Smooth omnidirectional radial crimson vignette
+    // 1. Very faint outer perimeter radial vignette (center 72% remains completely clear)
     _fill
       ..style = PaintingStyle.fill
       ..shader = RadialGradient(
@@ -5920,61 +6061,38 @@ class _GameWorldPainter extends CustomPainter {
         radius: 1.05,
         colors: [
           Colors.transparent,
-          const Color(0x05FF3D00),
-          Color.lerp(const Color(0x18FF1744), const Color(0x28FF3D00), pulse)!,
-          Color.lerp(const Color(0x32D50000), const Color(0x48FF1744), pulse)!,
-          Color.lerp(const Color(0x50880E4F), const Color(0x65B71C1C), pulse)!,
+          Colors.transparent,
+          Color.lerp(const Color(0x04FF3D00), const Color(0x08FF1744), pulse)!,
+          Color.lerp(const Color(0x0CFF1744), const Color(0x14FF3D00), pulse)!,
         ],
-        stops: const [0.28, 0.52, 0.74, 0.90, 1.0],
+        stops: const [0.0, 0.72, 0.90, 1.0],
       ).createShader(rect);
     canvas.drawRect(rect, _fill);
 
-    // 2. Soft atmospheric top & bottom perimeter glows (blends seamlessly on tall phone screens)
-    final topH = h * 0.16;
+    // 2. Whisper-soft narrow top & bottom edge rim
+    final edgeH = h * 0.045;
     _fill.shader = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        Color.lerp(const Color(0x40D50000), const Color(0x55FF1744), pulse)!,
+        Color.lerp(const Color(0x0AFF1744), const Color(0x14FF3D00), pulse)!,
         Colors.transparent,
       ],
       stops: const [0.0, 1.0],
-    ).createShader(Rect.fromLTWH(0, 0, w, topH));
-    canvas.drawRect(Rect.fromLTWH(0, 0, w, topH), _fill);
+    ).createShader(Rect.fromLTWH(0, 0, w, edgeH));
+    canvas.drawRect(Rect.fromLTWH(0, 0, w, edgeH), _fill);
 
-    final botH = h * 0.16;
     _fill.shader = LinearGradient(
       begin: Alignment.bottomCenter,
       end: Alignment.topCenter,
       colors: [
-        Color.lerp(const Color(0x45D50000), const Color(0x60FF1744), pulse)!,
+        Color.lerp(const Color(0x0AFF1744), const Color(0x14FF3D00), pulse)!,
         Colors.transparent,
       ],
       stops: const [0.0, 1.0],
-    ).createShader(Rect.fromLTWH(0, h - botH, w, botH));
-    canvas.drawRect(Rect.fromLTWH(0, h - botH, w, botH), _fill);
+    ).createShader(Rect.fromLTWH(0, h - edgeH, w, edgeH));
+    canvas.drawRect(Rect.fromLTWH(0, h - edgeH, w, edgeH), _fill);
 
-    // 3. Soft lateral side vignettes (left & right)
-    final sideW = w * 0.12;
-    _fill.shader = LinearGradient(
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-      colors: [
-        Color.lerp(const Color(0x35D50000), const Color(0x45FF3D00), pulse)!,
-        Colors.transparent,
-      ],
-    ).createShader(Rect.fromLTWH(0, 0, sideW, h));
-    canvas.drawRect(Rect.fromLTWH(0, 0, sideW, h), _fill);
-
-    _fill.shader = LinearGradient(
-      begin: Alignment.centerRight,
-      end: Alignment.centerLeft,
-      colors: [
-        Color.lerp(const Color(0x35D50000), const Color(0x45FF3D00), pulse)!,
-        Colors.transparent,
-      ],
-    ).createShader(Rect.fromLTWH(w - sideW, 0, sideW, h));
-    canvas.drawRect(Rect.fromLTWH(w - sideW, 0, sideW, h), _fill);
     _fill.shader = null;
   }
 
@@ -6024,7 +6142,144 @@ class _GameWorldPainter extends CustomPainter {
         ),
       );
       _tp.layout();
-      _tp.paint(canvas, Offset(f.x - _tp.width / 2, f.y));
+      final textLeft = f.x - _tp.width / 2;
+      final textY = f.y;
+      _tp.paint(canvas, Offset(textLeft, textY));
+
+      // Draw companion pixel art icons on left & right flanks (replacing emoji with pure retro pixelart)
+      if (f.iconType == FloatingIconType.flame) {
+        final iconY = textY + _tp.height / 2;
+        final iconDist = _tp.width / 2 + 13.0;
+        final scale = f.isLarge ? 1.0 : 0.75;
+        _drawPixelFlame(canvas, f.x - iconDist, iconY, alpha, scale, time);
+        _drawPixelFlame(canvas, f.x + iconDist, iconY, alpha, scale, time);
+      } else if (f.iconType == FloatingIconType.bolt) {
+        final iconY = textY + _tp.height / 2;
+        final iconDist = _tp.width / 2 + 12.0;
+        final scale = f.isLarge ? 1.0 : 0.75;
+        _drawPixelBolt(canvas, f.x - iconDist, iconY, alpha, scale);
+        _drawPixelBolt(canvas, f.x + iconDist, iconY, alpha, scale);
+      }
+    }
+
+    _drawConfetti(canvas);
+  }
+
+  void _drawPixelFlame(Canvas canvas, double cx, double cy, double alpha, double scale, double time) {
+    if (alpha <= 0.01) return;
+    final flicker = (sin(time * 26.0) > 0.0) ? 1 : 0;
+    final ps = (2.0 * scale).roundToDouble().clamp(1.0, 4.0);
+
+    // 8x10 pixel flame matrix (stepped crisp pixel art)
+    // 0 = none, 1 = crimson edge, 2 = orange flame body, 3 = bright white/gold hot core
+    final matrix = [
+      [0, 0, 0, flicker == 0 ? 1 : 0, flicker == 1 ? 1 : 0, 0, 0, 0],
+      [0, 0, 1, 1, 1, 0, 0, 0],
+      [0, 1, 2, 2, 2, 1, 0, 0],
+      [0, 1, 2, 3, 2, 1, 0, 1],
+      [1, 2, 3, 3, 3, 2, 1, 1],
+      [1, 2, 3, 3, 3, 2, 2, 1],
+      [1, 2, 2, 3, 3, 2, 2, 1],
+      [0, 1, 2, 2, 2, 2, 1, 0],
+      [0, 0, 1, 2, 2, 1, 0, 0],
+      [0, 0, 0, 1, 1, 0, 0, 0],
+    ];
+
+    final totalW = 8 * ps;
+    final totalH = 10 * ps;
+    final startX = (cx - totalW / 2).roundToDouble();
+    final startY = (cy - totalH / 2).roundToDouble();
+
+    final cRed = _ca(const Color(0xFFFF1744), alpha);
+    final cOrange = _ca(const Color(0xFFFF9100), alpha);
+    final cCore = _ca(const Color(0xFFFFF9C4), alpha);
+
+    for (int r = 0; r < matrix.length; r++) {
+      for (int c = 0; c < matrix[r].length; c++) {
+        final val = matrix[r][c];
+        if (val == 0) continue;
+        _fill
+          ..shader = null
+          ..maskFilter = null
+          ..color = val == 1 ? cRed : (val == 2 ? cOrange : cCore);
+        canvas.drawRect(
+          Rect.fromLTWH(startX + c * ps, startY + r * ps, ps, ps),
+          _fill,
+        );
+      }
+    }
+  }
+
+  void _drawPixelBolt(Canvas canvas, double cx, double cy, double alpha, double scale) {
+    if (alpha <= 0.01) return;
+    final ps = (2.0 * scale).roundToDouble().clamp(1.0, 4.0);
+
+    // 7x9 pixel lightning bolt matrix
+    // 0 = none, 1 = gold outline, 2 = bright white energy core
+    const matrix = [
+      [0, 0, 0, 1, 1, 0, 0],
+      [0, 0, 1, 2, 1, 0, 0],
+      [0, 1, 2, 2, 1, 0, 0],
+      [1, 2, 2, 2, 2, 1, 0],
+      [0, 0, 0, 1, 2, 1, 0],
+      [0, 0, 1, 2, 1, 0, 0],
+      [0, 1, 2, 1, 0, 0, 0],
+      [0, 1, 1, 0, 0, 0, 0],
+      [0, 1, 0, 0, 0, 0, 0],
+    ];
+
+    final totalW = 7 * ps;
+    final totalH = 9 * ps;
+    final startX = (cx - totalW / 2).roundToDouble();
+    final startY = (cy - totalH / 2).roundToDouble();
+
+    final cGold = _ca(const Color(0xFFFFD700), alpha);
+    final cWhite = _ca(Colors.white, alpha);
+
+    for (int r = 0; r < matrix.length; r++) {
+      for (int c = 0; c < matrix[r].length; c++) {
+        final val = matrix[r][c];
+        if (val == 0) continue;
+        _fill
+          ..shader = null
+          ..maskFilter = null
+          ..color = val == 1 ? cGold : cWhite;
+        canvas.drawRect(
+          Rect.fromLTWH(startX + c * ps, startY + r * ps, ps, ps),
+          _fill,
+        );
+      }
+    }
+  }
+
+  void _drawConfetti(Canvas canvas) {
+    if (c.particles.confetti.isEmpty) return;
+    for (final p in c.particles.confetti) {
+      final alpha = (p.life / p.maxLife).clamp(0.0, 1.0);
+      if (alpha <= 0.01) continue;
+
+      canvas.save();
+      canvas.translate(p.x.roundToDouble(), p.y.roundToDouble());
+      canvas.rotate(p.rotation);
+
+      // 3D paper flutter simulation via cosine scaling
+      final flipScale = cos(p.wobblePhase).abs().clamp(0.18, 1.0);
+      final hw = (p.width / 2).roundToDouble();
+      final hh = (p.height * flipScale / 2).roundToDouble();
+
+      _fill
+        ..shader = null
+        ..maskFilter = null
+        ..color = _ca(p.color, alpha);
+      canvas.drawRect(Rect.fromLTRB(-hw, -hh, hw, hh), _fill);
+
+      // Subtle top/left crisp pixel gleam
+      if (hw >= 2.0 && hh >= 1.5) {
+        _fill.color = _ca(Colors.white, alpha * 0.7);
+        canvas.drawRect(Rect.fromLTWH(-hw, -hh, hw, 1.0), _fill);
+      }
+
+      canvas.restore();
     }
   }
 
@@ -6409,10 +6664,10 @@ class _GameWorldPainter extends CustomPainter {
 
     // 3 Sequential Dropping Golden Stars ("PAT - PAT - PAT")
     final earnedStars = c.lastClearedLevelStars.clamp(1, 3);
-    final starCenterY = bannerRect.top + 58.0;
+    final starCenterY = bannerRect.top + 48.0;
     final starOffsets = [
       Offset(size.width / 2 - 44.0, starCenterY),
-      Offset(size.width / 2, starCenterY - 5.0),
+      Offset(size.width / 2, starCenterY - 4.0),
       Offset(size.width / 2 + 44.0, starCenterY),
     ];
     final starDelays = [0.18, 0.38, 0.58];
@@ -6426,6 +6681,30 @@ class _GameWorldPainter extends CustomPainter {
       final bounceScale = starProgress < 1.0 ? (1.0 + sin(starProgress * pi) * 0.45) : 1.0;
       final isEarned = (s + 1) <= earnedStars;
       _drawCelebrationStar(canvas, starOffsets[s], bounceScale, isEarned, alpha);
+    }
+
+    // Star Explanation Subtitle ("★ KUSURSUZ (TAM CAN) ★" / "★ GÜZEL OYUN (2 CAN) ★" / "★ HAYATTA KALINDI (1 CAN) ★")
+    if (progress > 0.45) {
+      final subAlpha = ((progress - 0.45) / 0.20).clamp(0.0, 1.0) * alpha;
+      final String starSubtitleKey = earnedStars == 3
+          ? 'stars_3_subtitle'
+          : (earnedStars == 2 ? 'stars_2_subtitle' : 'stars_1_subtitle');
+      _tp.text = TextSpan(
+        text: I18n.tr(starSubtitleKey),
+        style: TextStyle(
+          fontFamily: 'Rajdhani',
+          fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
+          color: _ca(earnedStars == 3 ? const Color(0xFF00E5FF) : const Color(0xFFFFD54F), subAlpha),
+          fontSize: 11.5,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.6,
+          shadows: const [
+            Shadow(color: Colors.black, offset: Offset(0, 1.5), blurRadius: 3.0),
+          ],
+        ),
+      );
+      _tp.layout();
+      _tp.paint(canvas, Offset((size.width - _tp.width) / 2, bannerRect.top + 73.0));
     }
   }
 

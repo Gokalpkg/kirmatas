@@ -39,6 +39,7 @@ class Brick {
   bool isBallPickup;
   bool isChest;
   int chestTier;
+  bool isGoldPinata;
   bool isPrimedDynamite = false;
   double primedTimer = 0.0;
   int chainExplosionDepth = 0;
@@ -79,6 +80,7 @@ class Brick {
     this.isBallPickup = false,
     this.isChest = false,
     this.chestTier = 0,
+    this.isGoldPinata = false,
     this.jelly = 0.0,
     required this.color,
     this.points = 10,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../engine/ad_manager.dart';
@@ -35,7 +36,7 @@ class MainMenuScreen extends StatefulWidget {
   State<MainMenuScreen> createState() => _MainMenuScreenState();
 }
 
-class _MainMenuScreenState extends State<MainMenuScreen> {
+class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProviderStateMixin {
   final SaveManager _save = SaveManager.instance;
   GameController? _activeGame;
   bool _levelAdBusy = false;
@@ -46,6 +47,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   static bool _hasAutoShownWheelThisSession = false;
   final GlobalKey _wheelButtonKey = GlobalKey();
   final GlobalKey _playButtonKey = GlobalKey();
+  final GlobalKey<KaunosMagneticHeroButtonState> _heroButtonKey = GlobalKey<KaunosMagneticHeroButtonState>();
   final GlobalKey _upgradesNavKey = GlobalKey();
   final GlobalKey _aquariumNavKey = GlobalKey();
   bool _showTourOverlay = false;
@@ -54,9 +56,20 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   late final PageController _pageController;
   int _currentPage = 1;
 
+  late final AnimationController _dockShakeController;
+  int? _shakingNavIndex;
+
   @override
   void initState() {
     super.initState();
+    _dockShakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 360),
+    )..addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        setState(() => _shakingNavIndex = null);
+      }
+    });
     _pageController = PageController(initialPage: 1);
     _cooldownRefreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && _activeGame == null && AdManager.instance.remainingCooldownSeconds > 0) {
@@ -92,6 +105,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
   @override
   void dispose() {
+    _dockShakeController.dispose();
     _autoWheelTimer?.cancel();
     _pageController.dispose();
     _cooldownRefreshTimer?.cancel();
@@ -268,17 +282,29 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     }
   }
 
+  void _onLockedDockTapped(int navIndex, String message) {
+    HapticFeedback.lightImpact();
+    _showLockedFeedback(message);
+    _heroButtonKey.currentState?.triggerFocus();
+    if (mounted) {
+      setState(() {
+        _shakingNavIndex = navIndex;
+      });
+      _dockShakeController.forward(from: 0.0);
+    }
+  }
+
   void _goToPage(int page) {
     if (page == 0 && !_save.isShopUnlocked) {
-      _showLockedFeedback('Bu özellik Bölüm 2 seviyesinde açılır.');
+      _onLockedDockTapped(0, 'Bu özellik Bölüm 2 seviyesinde açılır.');
       return;
     }
     if (page == 2 && !_save.isAquariumUnlocked) {
-      _showLockedFeedback('Bu özellik Bölüm 5 seviyesinde açılır.');
+      _onLockedDockTapped(2, 'Bu özellik Bölüm 5 seviyesinde açılır.');
       return;
     }
     if (page == 3 && !_save.isWorkshopUnlocked) {
-      _showLockedFeedback('Bu özellik Bölüm 3 seviyesinde açılır.');
+      _onLockedDockTapped(3, 'Bu özellik Bölüm 3 seviyesinde açılır.');
       return;
     }
     if (page == 0) _save.markUnlockSeen('shop');
@@ -430,6 +456,30 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold),
               ),
             ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                final success = await RemoveAdsBilling.instance.restorePurchasesManually();
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      success
+                          ? (SaveManager.instance.adsRemoved
+                              ? 'Satın alımlarınız geri yüklendi!'
+                              : 'Satın alımlar sorgulandı. Aktif bir satın alım bulunursa otomatik etkinleştirilecektir.')
+                          : 'Geri yükleme başlatılamadı. Mağaza bağlantısını kontrol edin.',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    backgroundColor: const Color(0xFF161A29),
+                  ),
+                );
+              },
+              child: const Text(
+                'Geri Yükle',
+                style: TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold),
+              ),
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF00E5FF),
@@ -521,10 +571,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   void _launchGame(GameMode mode, {bool isResume = false, int? explicitStartLevel}) {
     AudioManager.instance.isBgmAllowed = false;
     AudioManager.instance.pauseBgm();
+    final media = MediaQuery.sizeOf(context);
     setState(() {
       _activeGame?.statusVersion.removeListener(_onActiveGameTick);
       _activeGame?.dispose();
-      _activeGame = GameController()..startNewGame(mode, isResume: isResume, explicitStartLevel: explicitStartLevel);
+      final game = GameController();
+      if (media.width > 50 && media.height > 50) {
+        game.setDimensions(media.width, media.height);
+      }
+      game.startNewGame(mode, isResume: isResume, explicitStartLevel: explicitStartLevel);
+      _activeGame = game;
       _activeGame!.statusVersion.addListener(_onActiveGameTick);
     });
   }
@@ -532,10 +588,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   void _launchDailyBlitz() {
     AudioManager.instance.isBgmAllowed = false;
     AudioManager.instance.pauseBgm();
+    final media = MediaQuery.sizeOf(context);
     setState(() {
       _activeGame?.statusVersion.removeListener(_onActiveGameTick);
       _activeGame?.dispose();
-      _activeGame = GameController()..startDailyBlitz();
+      final game = GameController();
+      if (media.width > 50 && media.height > 50) {
+        game.setDimensions(media.width, media.height);
+      }
+      game.startDailyBlitz();
+      _activeGame = game;
       _activeGame!.statusVersion.addListener(_onActiveGameTick);
     });
   }
@@ -1227,149 +1289,151 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                           // HERO CLASSIC CARD
                           _buildClassicHeroCard(),
 
-                          const SizedBox(height: 3),
+                          if (_save.highestLevel >= 3) ...[
+                            const SizedBox(height: 3),
 
-                          _buildChaosHeroCard(),
+                            _buildChaosHeroCard(),
 
-                          const SizedBox(height: 3),
+                            const SizedBox(height: 3),
 
-                          // DYNAMIC "ETKİNLİKLER & LİG" CARD
-                          _buildEventsLeagueCard(),
+                            // DYNAMIC "ETKİNLİKLER & LİG" CARD
+                            _buildEventsLeagueCard(),
 
-                          const SizedBox(height: 3),
+                            const SizedBox(height: 3),
 
-                          // Quiet roadmap of what unlocks next
-                          _buildUnlockRoadmap(),
+                            // Quiet roadmap of what unlocks next
+                            _buildUnlockRoadmap(),
 
-                          // COLLAPSIBLE ARCADE MODES BUTTON
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () {
-                              setState(() {
-                                _showArcadeModes = !_showArcadeModes;
-                              });
-                            },
-                            child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: const Color(0x33101320),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.white12),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    _showArcadeModes ? Icons.grid_view_rounded : Icons.sports_esports_rounded,
-                                    color: const Color(0xFFFFD54F),
-                                    size: 18,
+                            // COLLAPSIBLE ARCADE MODES BUTTON
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () {
+                                setState(() {
+                                  _showArcadeModes = !_showArcadeModes;
+                                });
+                              },
+                              child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0x33101320),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.white12),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      _showArcadeModes ? Icons.grid_view_rounded : Icons.sports_esports_rounded,
+                                      color: const Color(0xFFFFD54F),
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          _showArcadeModes ? I18n.tr('other_modes_hide') : I18n.tr('other_modes_show'),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5,
+                                          ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      _showArcadeModes ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                      color: Colors.white54,
+                                      size: 18,
+                                    ),
+                                  ],
                                   ),
-                                  const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        _showArcadeModes ? I18n.tr('other_modes_hide') : I18n.tr('other_modes_show'),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.5,
-                                        ),
+                                ),
+                              ),
+                            ),
+
+                            if (_showArcadeModes) ...[
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildArcadeMiniCard(
+                                      mode: GameMode.zen,
+                                      title: I18n.tr('zen'),
+                                      desc: I18n.tr('zen_desc'),
+                                      icon: Icons.spa_rounded,
+                                      // Zen shares the main adventure's sunset tone.
+                                      color1: KaunosPalette.terracottaPrimary,
+                                      color2: KaunosPalette.classicSunsetTop,
+                                      badge: !_save.isLeagueUnlocked
+                                          ? 'Bölüm 7'
+                                          : (_save.isUnlockNew('zen', _save.isLeagueUnlocked) ? 'YENİ!' : null),
+                                      dimmed: !_save.isLeagueUnlocked,
+                                      onTap: () {
+                                        if (!_save.isLeagueUnlocked) {
+                                          _showLockedFeedback('Bu özellik Bölüm 7 seviyesinde açılır.');
+                                          return;
+                                        }
+                                        _save.markUnlockSeen('zen');
+                                        _launchGame(GameMode.zen);
+                                      },
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Icon(
-                                    _showArcadeModes ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                                    color: Colors.white54,
-                                    size: 18,
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: _buildArcadeMiniCard(
+                                      mode: GameMode.descend,
+                                      title: I18n.tr('descend'),
+                                      desc: I18n.tr('descend_desc'),
+                                      icon: Icons.keyboard_double_arrow_down_rounded,
+                                      // Deep-teal jade family, like the chaos hero.
+                                      color1: const Color(0xFF2E6E7E),
+                                      color2: const Color(0xFF0E2A33),
+                                      onTap: () => _launchGame(GameMode.descend),
+                                    ),
                                   ),
                                 ],
-                                ),
                               ),
-                            ),
-                          ),
-
-                          if (_showArcadeModes) ...[
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildArcadeMiniCard(
-                                    mode: GameMode.zen,
-                                    title: I18n.tr('zen'),
-                                    desc: I18n.tr('zen_desc'),
-                                    icon: Icons.spa_rounded,
-                                    // Zen shares the main adventure's sunset tone.
-                                    color1: KaunosPalette.terracottaPrimary,
-                                    color2: KaunosPalette.classicSunsetTop,
-                                    badge: !_save.isLeagueUnlocked
-                                        ? 'Bölüm 7'
-                                        : (_save.isUnlockNew('zen', _save.isLeagueUnlocked) ? 'YENİ!' : null),
-                                    dimmed: !_save.isLeagueUnlocked,
-                                    onTap: () {
-                                      if (!_save.isLeagueUnlocked) {
-                                        _showLockedFeedback('Bu özellik Bölüm 7 seviyesinde açılır.');
-                                        return;
-                                      }
-                                      _save.markUnlockSeen('zen');
-                                      _launchGame(GameMode.zen);
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: _buildArcadeMiniCard(
-                                    mode: GameMode.descend,
-                                    title: I18n.tr('descend'),
-                                    desc: I18n.tr('descend_desc'),
-                                    icon: Icons.keyboard_double_arrow_down_rounded,
-                                    // Deep-teal jade family, like the chaos hero.
-                                    color1: const Color(0xFF2E6E7E),
-                                    color2: const Color(0xFF0E2A33),
-                                    onTap: () => _launchGame(GameMode.descend),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            _buildArcadeMiniCard(
-                                    mode: GameMode.shapes,
-                              title: '${I18n.tr('shapes').toUpperCase()} • 38 FİGÜR',
-                              desc: 'Rastgele piksel figürler, özel desenler ve yüksek tempo',
-                              icon: Icons.palette_rounded,
-                              // Warm amber-bronze, sunset family (no more pink).
-                              color1: const Color(0xFFD97706),
-                              color2: const Color(0xFF92400E),
-                                    onTap: () => _launchGame(GameMode.shapes),
-                                  ),
-                            const SizedBox(height: 10),
-                            _buildArcadeMiniCard(
-                                    mode: GameMode.daily,
-                              title: 'GÜNÜN OPERASYONU • GÜNLÜK MÜCADELE',
-                              desc: _save.isDailyBlitzCompletedToday
-                                  ? 'Bugünkü görev tamamlandı! 250 Altın + 3 İnci + 1 Parça alındı.'
-                                  : 'Özel günlük tohumlu bölüm: 250 Altın + 3 İnci + 1 Parça',
-                              icon: Icons.bolt_rounded,
-                              color1: const Color(0xFFFF9100),
-                              color2: const Color(0xFFBF360C),
-                              badge: !_save.isLeagueUnlocked
-                                  ? 'Bölüm 7'
-                                  : (_save.isUnlockNew('daily', _save.isLeagueUnlocked)
-                                      ? 'YENİ!'
-                                      : (_save.isDailyBlitzCompletedToday ? 'TAMAMLANDI' : '250G + 3İ')),
-                              dimmed: !_save.isLeagueUnlocked,
-                              onTap: () {
-                                if (!_save.isLeagueUnlocked) {
-                                  _showLockedFeedback('Günün Operasyonu Bölüm 7 seviyesinde açılır.');
-                                  return;
-                                }
-                                _save.markUnlockSeen('daily');
-                                _launchDailyBlitz();
-                              },
-                            ),
+                              const SizedBox(height: 10),
+                              _buildArcadeMiniCard(
+                                      mode: GameMode.shapes,
+                                title: '${I18n.tr('shapes').toUpperCase()} • 38 FİGÜR',
+                                desc: 'Rastgele piksel figürler, özel desenler ve yüksek tempo',
+                                icon: Icons.palette_rounded,
+                                // Warm amber-bronze, sunset family (no more pink).
+                                color1: const Color(0xFFD97706),
+                                color2: const Color(0xFF92400E),
+                                      onTap: () => _launchGame(GameMode.shapes),
+                                    ),
+                              const SizedBox(height: 10),
+                              _buildArcadeMiniCard(
+                                      mode: GameMode.daily,
+                                title: 'GÜNÜN OPERASYONU • GÜNLÜK MÜCADELE',
+                                desc: _save.isDailyBlitzCompletedToday
+                                    ? 'Bugünkü görev tamamlandı! 250 Altın + 3 İnci + 1 Parça alındı.'
+                                    : 'Özel günlük tohumlu bölüm: 250 Altın + 3 İnci + 1 Parça',
+                                icon: Icons.bolt_rounded,
+                                color1: const Color(0xFFFF9100),
+                                color2: const Color(0xFFBF360C),
+                                badge: !_save.isLeagueUnlocked
+                                    ? 'Bölüm 7'
+                                    : (_save.isUnlockNew('daily', _save.isLeagueUnlocked)
+                                        ? 'YENİ!'
+                                        : (_save.isDailyBlitzCompletedToday ? 'TAMAMLANDI' : '250G + 3İ')),
+                                dimmed: !_save.isLeagueUnlocked,
+                                onTap: () {
+                                  if (!_save.isLeagueUnlocked) {
+                                    _showLockedFeedback('Günün Operasyonu Bölüm 7 seviyesinde açılır.');
+                                    return;
+                                  }
+                                  _save.markUnlockSeen('daily');
+                                  _launchDailyBlitz();
+                                },
+                              ),
+                            ],
                           ],
 
                           const SizedBox(height: 14),
@@ -1508,9 +1572,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       children: [
               Expanded(
                 child: _buildNavButton(
+                  navIndex: 0,
                   emblem: const KaunosEmblem.pearl(size: 20),
                   icon: Icons.storefront_rounded,
-                          label: I18n.tr('shop'),
+                  label: I18n.tr('shop'),
                   badge: !_save.isShopUnlocked
                       ? 'Bölüm 2'
                       : (_save.isUnlockNew('shop', _save.isShopUnlocked) ? 'YENİ!' : null),
@@ -1521,6 +1586,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 child: KeyedSubtree(
                   key: _aquariumNavKey,
                   child: _buildNavButton(
+                    navIndex: 2,
                     emblem: const KaunosEmblem.astrolabe(
                       size: 20,
                       ringColor: Color(0xFF38BDF8),
@@ -1545,6 +1611,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 child: KeyedSubtree(
                   key: _upgradesNavKey,
                   child: _buildNavButton(
+                    navIndex: 3,
                     emblem: const KaunosEmblem.anvil(size: 20, steelColor: KaunosPalette.goldHighlight),
                     icon: Icons.auto_awesome_rounded,
                           label: I18n.tr('upgrades'),
@@ -1874,8 +1941,19 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   }
 
   Widget _buildClassicHeroCard() {
+    if (_save.highestLevel < 3) {
+      return Container(
+        key: _playButtonKey,
+        margin: const EdgeInsets.only(bottom: 6),
+        child: KaunosMagneticHeroButton(
+          key: _heroButtonKey,
+          level: _save.highestLevel,
+          onTap: () => _startOrPromptResume(GameMode.classic),
+        ),
+      );
+    }
+
     final best = _save.getHighScore(GameMode.classic);
-    final isNewPlayer = _save.highestLevel < 2;
 
     return Container(
       key: _playButtonKey,
@@ -1892,8 +1970,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           end: Alignment.bottomRight,
         ),
         border: Border.all(
-          color: isNewPlayer ? KaunosPalette.goldHighlight : KaunosPalette.terracottaBorder,
-          width: isNewPlayer ? 2.0 : 1.4,
+          color: KaunosPalette.terracottaBorder,
+          width: 1.4,
         ),
         boxShadow: [
           // 1.3 Physical bottom depth: 5px zero-blur extruded bevel shadow
@@ -1911,8 +1989,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           ),
           // Ambient warm terracotta glow
           BoxShadow(
-            color: const Color(0xFF96381B).withValues(alpha: isNewPlayer ? 0.45 : 0.28),
-            blurRadius: isNewPlayer ? 20 : 14,
+            color: const Color(0xFF96381B).withValues(alpha: 0.28),
+            blurRadius: 14,
             offset: const Offset(0, 8),
           ),
         ],
@@ -1935,30 +2013,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         runSpacing: 3,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          if (isNewPlayer)
-                          Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF00E676), Color(0xFF00C853)],
-                                ),
-                              borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFFE8F5E9), width: 1.0),
-                                boxShadow: const [
-                                  BoxShadow(color: Color(0x6600E676), blurRadius: 6, offset: Offset(0, 1)),
-                                ],
-                              ),
-                              child: const Text(
-                                'MACERAYA BAŞLA!',
-                                style: TextStyle(
-                                  color: Color(0xFF051B11),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.5,
-                                  fontFamily: 'Rajdhani',
-                                ),
-                              ),
-                            ),
                           // Açıklama yazısı: koyu plaka yok — başlığın hemen üstünde
                           // hafif gölgeli, 3B hissi veren düz beyaz yazı.
                           Padding(
@@ -1978,27 +2032,42 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                               ),
                             ),
                           ),
-                          if (_save.hasSavedGame(GameMode.classic))
-                            GestureDetector(
-                              onTap: () => _showContinueDialog(GameMode.classic),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xDD00E5FF),
-                                  borderRadius: BorderRadius.circular(10),
+                          GestureDetector(
+                            onTap: () {
+                              if (_save.hasSavedGame(GameMode.classic)) {
+                                _showContinueDialog(GameMode.classic);
+                              } else {
+                                _startOrPromptResume(GameMode.classic);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _save.hasSavedGame(GameMode.classic)
+                                    ? const Color(0xDD00E5FF)
+                                    : KaunosPalette.obsidianGlassElevated,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: _save.hasSavedGame(GameMode.classic)
+                                      ? const Color(0xFF84FFFF)
+                                      : KaunosPalette.goldHighlight.withValues(alpha: 0.8),
+                                  width: 1.0,
                                 ),
-                                child: Text(
-                                  'DEVAM: BÖLÜM ${_save.classicSavedLevel} ↺',
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.5,
-                                    fontFamily: 'Rajdhani',
-                                  ),
+                              ),
+                              child: Text(
+                                'DEVAM ET: BÖLÜM ${_save.hasSavedGame(GameMode.classic) ? _save.classicSavedLevel : _save.highestLevel}${_save.hasSavedGame(GameMode.classic) ? ' ↺' : ''}',
+                                style: TextStyle(
+                                  color: _save.hasSavedGame(GameMode.classic)
+                                      ? Colors.black
+                                      : KaunosPalette.goldHighlight,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                  fontFamily: 'Rajdhani',
                                 ),
                               ),
                             ),
+                          ),
                           GestureDetector(
                             onTap: _openSectorMap,
                             child: Container(
@@ -2843,13 +2912,14 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   }
 
   Widget _buildNavButton({
+    int? navIndex,
     Widget? emblem,
     IconData? icon,
     required String label,
     required VoidCallback onTap,
     String? badge,
   }) {
-    return KaunosJuicyInteractive(
+    final Widget button = KaunosJuicyInteractive(
       borderRadius: 16,
       waveColor: KaunosPalette.crystalBorderStarlight,
       onTap: onTap,
@@ -2967,6 +3037,25 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         ),
       ),
     );
+
+    if (navIndex != null) {
+      return AnimatedBuilder(
+        animation: _dockShakeController,
+        builder: (context, child) {
+          if (_shakingNavIndex == navIndex && _dockShakeController.isAnimating) {
+            final t = _dockShakeController.value;
+            final shake = math.sin(t * math.pi * 6) * 5 * (1.0 - t);
+            return Transform.translate(
+              offset: Offset(shake, 0),
+              child: child,
+            );
+          }
+          return child!;
+        },
+        child: button,
+      );
+    }
+    return button;
   }
 
   ScrollPhysics _buildPagePhysics() {

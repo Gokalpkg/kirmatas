@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
+import '../models/cosmetics.dart';
 import '../models/game_state.dart';
 import '../storage/save_manager.dart';
 import '../engine/ad_manager.dart';
@@ -85,7 +89,8 @@ class PauseGameOverOverlay extends StatelessWidget {
                               ? const Color(0xFFFFD54F)
                               : (isGameOver ? const Color(0xFFFF5252) : Colors.black))
                           .withValues(alpha: 0.35),
-                      blurRadius: 36,
+                      blurRadius: 0,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
@@ -255,6 +260,84 @@ class PauseGameOverOverlay extends StatelessWidget {
                             ),
                           ],
                         ),
+                      ),
+                      // Next Upgrade Pinch-Point Hook (Yasa 2 / FAZ 4.1)
+                      Builder(
+                        builder: (context) {
+                          StatUpgrade? cheapestStat;
+                          int cheapestCost = 999999999;
+                          for (final s in StatUpgrade.all) {
+                            final lvl = save.getUpgradeLevel(s.id);
+                            if (lvl < s.maxLevel) {
+                              final c = s.getCostForLevel(lvl);
+                              if (c < cheapestCost) {
+                                cheapestCost = c;
+                                cheapestStat = s;
+                              }
+                            }
+                          }
+                          if (cheapestStat == null) return const SizedBox.shrink();
+                          final progress = (save.gold / cheapestCost).clamp(0.0, 1.0);
+                          final pct = (progress * 100).round();
+                          final canBuyNow = save.gold >= cheapestCost;
+                          return Container(
+                            margin: const EdgeInsets.only(top: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF141829),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: canBuyNow ? const Color(0xFF69F0AE) : const Color(0x66FFD54F),
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        canBuyNow
+                                            ? 'YÜKSELTME HAZIR: ${I18n.tr(cheapestStat.nameKey)}'
+                                            : 'HEDEF: ${I18n.tr(cheapestStat.nameKey)} (%$pct)',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: canBuyNow ? const Color(0xFF69F0AE) : const Color(0xFFFFD54F),
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '${save.gold}/$cheapestCost',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 5),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(3),
+                                  child: LinearProgressIndicator(
+                                    value: progress,
+                                    minHeight: 5,
+                                    backgroundColor: const Color(0xFF262C3D),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      canBuyNow ? const Color(0xFF69F0AE) : const Color(0xFFFFD54F),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                       // League & Win Streak Live Status Card
                       if (save.isLeagueUnlocked) ...[
@@ -492,6 +575,16 @@ class PauseGameOverOverlay extends StatelessWidget {
                       const SizedBox(height: 10),
                     ],
 
+                    if (isGameOver) ...[
+                      _PulsingRematchButton(onPressed: onRestart),
+                      const SizedBox(height: 10),
+                    ],
+
+                    if (isVictory) ...[
+                      _buildVictoryNextButton(onRestart),
+                      const SizedBox(height: 10),
+                    ],
+
                     if (isPaused) ...[
                       KaunosPressGlow(
                         borderRadius: 16,
@@ -509,29 +602,23 @@ class PauseGameOverOverlay extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                    ],
-
-                    // Secondary action: Restart
-                    KaunosPressGlow(
-                      borderRadius: 16,
-                      waveColor: const Color(0xFFFFD54F),
-                      child: ElevatedButton.icon(
-                        onPressed: onRestart,
-                        icon: const Icon(Icons.replay),
-                        label: Text(
-                          isGameOver && controller.currentMode == GameMode.classic
-                              ? I18n.tr('continue_band').replaceAll('{level}', '${controller.classicCheckpointLevel}')
-                              : I18n.tr('restart'),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFFD54F),
-                          foregroundColor: Colors.black,
-                          minimumSize: const Size.fromHeight(48),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      KaunosPressGlow(
+                        borderRadius: 16,
+                        waveColor: const Color(0xFFFFD54F),
+                        child: ElevatedButton.icon(
+                          onPressed: onRestart,
+                          icon: const Icon(Icons.replay),
+                          label: Text(I18n.tr('restart')),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFFD54F),
+                            foregroundColor: Colors.black,
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
+                      const SizedBox(height: 10),
+                    ],
 
                     // Additional streak protect option if revive was also available
                     if (isGameOver && controller.canRevive && controller.streakBeforeGameOver >= 2) ...[
@@ -793,6 +880,91 @@ class PauseGameOverOverlay extends StatelessWidget {
           ),
         ),
       ),
+      ),
+    );
+  }
+
+  Widget _buildVictoryNextButton(VoidCallback onPressed) {
+    return KaunosPressGlow(
+      borderRadius: 20,
+      waveColor: const Color(0xFF00E676),
+      child: Container(
+        height: 56,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFF00E676), // Neon emerald green
+              Color(0xFF69F0AE), // Mint highlight
+              Color(0xFFFFD54F), // Gold neon
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(
+            color: const Color(0xFFE8F5E9),
+            width: 2.0,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0xFF072B10),
+              offset: Offset(0, 4),
+              blurRadius: 0,
+            ),
+            BoxShadow(
+              color: Color(0x60FFFFFF),
+              offset: Offset(0, 1.5),
+              blurRadius: 0,
+            ),
+            BoxShadow(
+              color: Color(0x6600E676),
+              blurRadius: 18,
+              spreadRadius: 2,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () {
+              HapticFeedback.heavyImpact();
+              onPressed();
+            },
+            child: const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'SONRAKİ BÖLÜM ➔',
+                        style: TextStyle(
+                          fontFamily: 'Rajdhani',
+                          fontWeight: FontWeight.w900,
+                          fontSize: 19,
+                          letterSpacing: 1.0,
+                          color: Color(0xFF031E0A),
+                          shadows: [
+                            Shadow(
+                              color: Color(0x60FFFFFF),
+                              offset: Offset(0, 1),
+                              blurRadius: 0,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1593,5 +1765,151 @@ class _RollingNumberState extends State<_RollingNumber> with SingleTickerProvide
     );
   }
 }
+
+/// 62px amber-yellow pulsing rematch reaction button.
+class _PulsingRematchButton extends StatefulWidget {
+  final VoidCallback onPressed;
+
+  const _PulsingRematchButton({required this.onPressed});
+
+  @override
+  State<_PulsingRematchButton> createState() => _PulsingRematchButtonState();
+}
+
+class _PulsingRematchButtonState extends State<_PulsingRematchButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    final inTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    if (!inTest) {
+      _pulseController.repeat(reverse: true);
+    } else {
+      _pulseController.value = 1.0;
+    }
+    _pulseAnimation = CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOutSine,
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        final pulse = _pulseAnimation.value;
+        return Transform.scale(
+          scale: 1.0 + 0.025 * pulse,
+          child: KaunosPressGlow(
+            borderRadius: 20,
+            waveColor: const Color(0xFFFFD54F),
+            child: Container(
+              height: 62,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFFFFB300), // Amber gold
+                    Color(0xFFFFA000), // Rich amber
+                    Color(0xFFFF8F00), // Deep amber
+                    Color(0xFFF57C00), // Warm orange
+                  ],
+                  stops: [0.0, 0.35, 0.7, 1.0],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(
+                  color: KaunosPalette.goldHighlight,
+                  width: 2.0,
+                ),
+                boxShadow: [
+                  const BoxShadow(
+                    color: Color(0xFF451A03),
+                    offset: Offset(0, 4),
+                    blurRadius: 0,
+                  ),
+                  const BoxShadow(
+                    color: Color(0x60FFFFFF),
+                    offset: Offset(0, 1.5),
+                    blurRadius: 0,
+                    spreadRadius: -0.5,
+                  ),
+                  BoxShadow(
+                    color: const Color(0xFFFF9800).withValues(alpha: 0.35 + 0.35 * pulse),
+                    blurRadius: 12 + 10 * pulse,
+                    spreadRadius: 1 + 2 * pulse,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () {
+                    HapticFeedback.heavyImpact();
+                    widget.onPressed();
+                  },
+                  child: const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.replay,
+                              size: 26,
+                              color: Color(0xFF261003),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'BİR EL DAHA! (RÖVANŞ)',
+                              style: TextStyle(
+                                fontFamily: 'Rajdhani',
+                                fontWeight: FontWeight.w900,
+                                fontSize: 18.5,
+                                letterSpacing: 0.8,
+                                color: Color(0xFF261003),
+                                shadows: [
+                                  Shadow(
+                                    color: Color(0x60FFFFFF),
+                                    offset: Offset(0, 1),
+                                    blurRadius: 0,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 
 

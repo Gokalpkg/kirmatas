@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:vibration/vibration.dart';
 import '../models/game_state.dart';
 import '../storage/save_manager.dart';
@@ -16,7 +17,7 @@ enum GameSfx {
   cornerBoost, bossHit, wallBounce8, ballLost
 }
 
-class AudioManager {
+class AudioManager with WidgetsBindingObserver {
   static final AudioManager instance = AudioManager._internal();
   AudioManager._internal() {
     _bgmLead = _bgmA;
@@ -27,6 +28,25 @@ class AudioManager {
     }
     _bindBgm(_bgmA);
     _bindBgm(_bgmB);
+    try {
+      WidgetsBinding.instance.addObserver(this);
+    } catch (_) {}
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final buried = state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached;
+    appInForeground = !buried;
+    if (buried) {
+      stopAll();
+    } else if (state == AppLifecycleState.resumed) {
+      if (isBgmAllowed && SaveManager.instance.bgmVolume > 0) {
+        resumeBgm();
+      }
+    }
   }
 
   final Map<String, List<AudioPlayer>> _pools = {};
@@ -36,6 +56,7 @@ class AudioManager {
   final Map<AudioPlayer, double> _playerRate = {};
   final Map<GameSfx, int> _lastSfxAt = {};
   int _lastBrickAt = 0;
+  int _lastGlobalSfxAt = 0;
   final AudioPlayer _bgmA = AudioPlayer();
   final AudioPlayer _bgmB = AudioPlayer();
   late AudioPlayer _bgmLead;
@@ -57,7 +78,6 @@ class AudioManager {
   bool _appInForeground = true;
   bool get appInForeground => _appInForeground;
   set appInForeground(bool value) {
-    if (_appInForeground == value) return;
     _appInForeground = value;
     if (!_appInForeground) {
       _bgmSessionStart = null;
@@ -168,7 +188,7 @@ class AudioManager {
           stayAwake: false,
           contentType: AndroidContentType.sonification,
           usageType: AndroidUsageType.game,
-          audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+          audioFocus: AndroidAudioFocus.gain,
         ),
         iOS: AudioContextIOS(
           category: AVAudioSessionCategory.ambient,
@@ -331,8 +351,8 @@ class AudioManager {
       _bgmB.setVolume(0);
       _bgmLead.setVolume(0);
       _bgmNext.setVolume(0);
-      await _bgmA.pause();
-      await _bgmB.pause();
+      await _bgmA.stop();
+      await _bgmB.stop();
     } catch (_) {}
     for (final pool in _pools.values) {
       for (final p in pool) {
@@ -363,8 +383,10 @@ class AudioManager {
       }
       _bgmLead.setVolume(0);
       _bgmNext.setVolume(0);
-      await _bgmLead.pause();
-      await _bgmNext.pause();
+      _bgmA.setVolume(0);
+      _bgmB.setVolume(0);
+      await _bgmA.stop();
+      await _bgmB.stop();
     } catch (_) {}
   }
 
@@ -394,6 +416,10 @@ class AudioManager {
   }
 
   void updateBgmVolume() {
+    if (!appInForeground || !isBgmAllowed) {
+      pauseBgm();
+      return;
+    }
     final vol = SaveManager.instance.bgmVolume;
     if (vol <= 0) {
       pauseBgm();
@@ -556,20 +582,34 @@ class AudioManager {
 
     final now = DateTime.now().millisecondsSinceEpoch;
     final lastSame = _lastSfxAt[sfx] ?? 0;
-    // Concurrency limiter for brick audio to eliminate harsh audio clipping during multiball storms
-    if ((sfx == GameSfx.hitBrick || sfx == GameSfx.breakBrick) && combo < 6) {
-      if (now - _lastBrickAt < 48) {
+
+    // Global mikrosaniye koruması: 28ms içinde birden fazla ağır SFX aynı anda patlayıp
+    // ses donanımı çıkışını ve dijital dalga biçimini doygunluğa (crackle/gıcırdama) uğratmasın
+    final isImpactSfx = sfx == GameSfx.hitBrick || sfx == GameSfx.breakBrick || sfx == GameSfx.hitWall || sfx == GameSfx.hitPaddle;
+    if (isImpactSfx && now - _lastGlobalSfxAt < 28) {
+      _maybeVibrate(sfx, now);
+      return;
+    }
+
+    // Tuğla vuruş/kırılış ses sınırlayıcısı: combo seviyesinden bağımsız daima en az 50ms aralık
+    // tutularak çoklu top fırtınalarında Android AudioTrack cızırtısı/gıcırdaması kesin olarak önlenir
+    if (sfx == GameSfx.hitBrick || sfx == GameSfx.breakBrick) {
+      if (now - _lastBrickAt < 50) {
         _maybeVibrate(sfx, now);
         return;
       }
       _lastBrickAt = now;
     }
-    // Throttle identical SFX to 42ms to prevent Android AudioPlayer platform channel queue saturation
-    if (now - lastSame < 42) {
+
+    // Birebir aynı SFX'ler için 45ms minimum aralık
+    if (now - lastSame < 45) {
       _maybeVibrate(sfx, now);
       return;
     }
     _lastSfxAt[sfx] = now;
+    if (isImpactSfx) {
+      _lastGlobalSfxAt = now;
+    }
 
     final volLevel = SaveManager.instance.sfxVolume;
     if (volLevel > 0) {
@@ -584,7 +624,8 @@ class AudioManager {
       final pool = _pools[soundKey];
       final asset = _poolAssets[soundKey] ?? 'audio/custom_bounce.wav';
       if (pool != null && pool.isNotEmpty) {
-        final volume = (volLevel / 8.0) * categoryMultiplier * gain;
+        // Master gain clamping: maksimum ses seviyesi 0.70 ile sınırlandırılarak dijital clipping önlenir
+        final volume = ((volLevel / 8.0) * categoryMultiplier * gain).clamp(0.0, 0.70);
         int idx = _poolIndices[soundKey] ?? 0;
         final p = pool[idx];
         _poolIndices[soundKey] = (idx + 1) % pool.length;
@@ -593,7 +634,7 @@ class AudioManager {
         _playToken[p] = token;
         _restart(p, asset, volume, token, playbackRate: effectiveRate);
 
-        // Mix subtle low-end bass hit under high-pitched brick breaks
+        // Mix subtle low-end bass hit under high-pitched brick breaks (0.85 rate prevents resampler distortion)
         if (sfx == GameSfx.breakBrick && (combo >= 4 || effectiveRate >= 1.25) && _pools.containsKey('bounce')) {
           final bPool = _pools['bounce'];
           if (bPool != null && bPool.isNotEmpty) {
@@ -601,7 +642,7 @@ class AudioManager {
             final bAsset = _poolAssets['bounce'] ?? 'audio/custom_bounce.wav';
             final bToken = (_playToken[bPlayer] ?? 0) + 1;
             _playToken[bPlayer] = bToken;
-            _restart(bPlayer, bAsset, volume * 0.35, bToken, playbackRate: 0.55);
+            _restart(bPlayer, bAsset, (volume * 0.22).clamp(0.0, 0.35), bToken, playbackRate: 0.85);
           }
         }
       }
@@ -611,12 +652,13 @@ class AudioManager {
   }
 
   Future<void> _restart(AudioPlayer player, String asset, double volume, int token, {double playbackRate = 1.0}) async {
+    if (!appInForeground) return;
     try {
       await player.stop();
     } catch (_) {}
-    if (_playToken[player] != token) return;
+    if (!appInForeground || _playToken[player] != token) return;
     try {
-      final targetRate = (playbackRate - 1.0).abs() > 0.02 ? playbackRate.clamp(0.5, 2.0) : 1.0;
+      final targetRate = (playbackRate - 1.0).abs() > 0.02 ? playbackRate.clamp(0.75, 1.85) : 1.0;
       final currentRate = _playerRate[player] ?? 1.0;
       if (currentRate != targetRate) {
         _playerRate[player] = targetRate;

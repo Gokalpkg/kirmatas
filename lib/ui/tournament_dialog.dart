@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../engine/audio_manager.dart';
@@ -2032,9 +2034,11 @@ class _TournamentDialogState extends State<TournamentDialog> {
               _buildPlayerTagHeroCard(save, isCompact),
               const SizedBox(height: 10),
 
-              // Google Play Games Friends Banner
-              _buildPlayGamesLeaderboardBanner(context, isCompact),
-              const SizedBox(height: 12),
+              // Google Play Games Friends Banner (Android only)
+              if (!kIsWeb && Platform.isAndroid) ...[
+                _buildPlayGamesLeaderboardBanner(context, isCompact),
+                const SizedBox(height: 12),
+              ],
 
               // Section Header
               Row(

@@ -45,6 +45,7 @@ class CrateOpeningDialog extends StatefulWidget {
       await showDialog(
         context: context,
         barrierDismissible: false,
+        barrierColor: const Color(0xEC05070F), // Step 1: Dark vignette lock
         builder: (_) => CrateOpeningDialog(
           crate: crate,
           categoryCrate: categoryCrate,
@@ -93,6 +94,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   bool _impactTriggered = false;
   bool _openThumpFired = false;
   bool _openJingleFired = false;
+  bool _isHitStopFreeze = false;
   Timer? _autoOpenTimer;
 
   int _tapCount = 0; // 0 (start), 1, 2, 3 (open)
@@ -340,7 +342,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
     _pillarController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1100),
+      duration: const Duration(milliseconds: 2500),
     );
 
     _cardFlipController = AnimationController(
@@ -401,7 +403,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
     _bouncingLootController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 2500), // Step 3: 2.5s Loot Piñata fountain
     );
 
     if (widget.pendingCrate != null) {
@@ -583,12 +585,13 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   }
 
   Future<void> _skipToReveal() async {
-    if (_opened || _vaultLocked) return;
+    if (_vaultLocked) return;
     _autoOpenTimer?.cancel();
     _autoOpenTimer = null;
     _tapCount = 3;
     _isShaking = false;
     _isOpening = false;
+    _isHitStopFreeze = false;
     _currentRarity = _rewardRarity;
 
     _shakeController.stop();
@@ -596,14 +599,32 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     _cardFlipController.value = 1.0;
     _revealController.value = 1.0;
     _starsPopController.value = 1.0;
+    _shineSweepController.forward(from: 0.0);
 
-    await SaveManager.instance.claimPendingCrate();
+    if (!_opened) {
+      await SaveManager.instance.claimPendingCrate();
+    }
     if (!mounted) return;
     AudioManager.instance.playSfx(GameSfx.victory);
     HapticFeedback.mediumImpact();
     setState(() {
       _opened = true;
     });
+  }
+
+  /// Step 4 Audio: Escalating 16-bit synth arpeggio fanfare synced to item ascent.
+  void _play16BitSynthArpeggioFanfare() {
+    const notes = <double>[1.0, 1.125, 1.26, 1.50, 1.78, 2.0];
+    for (int i = 0; i < notes.length; i++) {
+      Future.delayed(Duration(milliseconds: i * 95), () {
+        if (!mounted) return;
+        AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: notes[i]);
+        if (i.isEven) {
+          AudioManager.instance.playSfx(GameSfx.bubble, playbackRate: notes[i] * 1.15);
+        }
+        HapticFeedback.selectionClick();
+      });
+    }
   }
 
   Future<void> _openChestSequence() async {
@@ -627,18 +648,35 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         HapticFeedback.heavyImpact();
       }
 
-      // Step 1: Make chests shake before it opens (anticipation rattle tremor)
-      _shakeController.duration = const Duration(milliseconds: 280);
+      // Step 1 (Gerilim & Sıkışma): Slide chest to bottom-center, apply escalating
+      // pixel-snapped tremor (±2px to ±6px) with rising pitch rumble and rapid machine-gun haptic ticks.
+      _shakeController.duration = const Duration(milliseconds: 360);
+      int lastRumbleTick = -1;
+      void onTremorTick() {
+        final step = (_shakeController.value * 6).floor();
+        if (step != lastRumbleTick && step >= 0 && step < 6) {
+          lastRumbleTick = step;
+          AudioManager.instance.playSfx(GameSfx.hitBrick, playbackRate: 0.75 + step * 0.14);
+          HapticFeedback.selectionClick();
+        }
+      }
+      _shakeController.addListener(onTremorTick);
       await _shakeController.forward(from: 0.0);
+      _shakeController.removeListener(onTremorTick);
       if (!mounted) return;
 
-      // Step 2: Snap - squash it down then pop the lid so it bounces!
+      // Step 1 (60ms Hit-Stop Freeze): Compress chest downward (squash) for a 60ms hit-stop freeze!
+      setState(() => _isHitStopFreeze = true);
       _squashController.forward(from: 0.0);
-      // Step 3 Sound: Creak as stone/metal hinges strain under mechanical compression
       AudioManager.instance.playSfx(GameSfx.steel, playbackRate: 0.65);
-      HapticFeedback.mediumImpact();
+      HapticFeedback.heavyImpact();
+      await Future.delayed(const Duration(milliseconds: 60));
+      if (!mounted) return;
+      setState(() => _isHitStopFreeze = false);
 
-      // Step 4 & 5: Fire opening visual effects (pillar of light, flash, pop dust, and bouncing loot)
+      // Step 2 (Işık Sütunu & Patlama) & Step 3 (Hazine Fıskiyesi / Loot Piñata 2.5s):
+      // Snap lid open with a 2-frame pure white screen flash, erupt vertical stepped pixel light beam
+      // (palette-cycling gold/cyan/magenta) with heavy ±8px screen shake, and spew 2.5s pixel loot fountain!
       _shockwaveController.forward(from: 0.0);
       _pillarController.forward(from: 0.0);
       _flashController.forward(from: 0.0);
@@ -665,8 +703,8 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         _cardFlipController.forward(from: 0.0);
         _revealController.forward(from: 0.0);
 
-        // Stage 1: Arcane rising charge sound on card emergence
-        AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 0.95);
+        // Step 4: Escalating 16-bit synth arpeggio fanfare synced to item ascent
+        _play16BitSynthArpeggioFanfare();
       } else {
         await SaveManager.instance.claimPendingCrate();
       }
@@ -759,7 +797,11 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       }
       roll -= entry.value;
     }
+    if (save.cratePityCounter >= 14) {
+      rolledRarity = Rarity.legendary;
+    }
     _rewardRarity = rolledRarity;
+    save.updateCratePity(wasLegendary: _rewardRarity == Rarity.legendary);
 
     // The Octopus Treasure skips the roll: the octopus itself is
     // guaranteed (single source: octopusVaultRewardFish).
@@ -890,6 +932,10 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       }
       roll -= entry.value;
     }
+    if (save.cratePityCounter >= 14) {
+      rolledRarity = Rarity.legendary;
+    }
+    save.updateCratePity(wasLegendary: rolledRarity == Rarity.legendary);
 
     String rewardType = 'ball';
     String rewardId = '';
@@ -1173,14 +1219,24 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         ]),
         builder: (context, _) {
           final activeColor = _opened ? _rewardRarity.primaryColor : _currentPrimaryColor;
-          return Stack(
+          // Step 2: Heavy ±8px pixel-snapped screen shake on light pillar eruption
+          final screenShakeX = (_pillarController.isAnimating && _pillarController.value < 0.45)
+              ? (sin(_pillarController.value * pi * 36.0) * 8.0 * (1.0 - _pillarController.value / 0.45)).roundToDouble()
+              : 0.0;
+          final screenShakeY = (_pillarController.isAnimating && _pillarController.value < 0.45)
+              ? (cos(_pillarController.value * pi * 28.0) * 6.0 * (1.0 - _pillarController.value / 0.45)).roundToDouble()
+              : 0.0;
+
+          return Transform.translate(
+            offset: Offset(screenShakeX, screenShakeY),
+            child: Stack(
             clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
-              // Dialog Main Shell (Any tap on the dialog triggers opening)
+              // Dialog Main Shell (Single-tap instant skip/fast-forward for 100-hour veterans)
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: _opened ? null : _handleChestTap,
+                onTap: _opened ? (_cardFlipController.isAnimating ? _skipToReveal : null) : _handleChestTap,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
                 decoration: BoxDecoration(
@@ -1199,8 +1255,8 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.60),
-                      blurRadius: 18,
+                      color: Colors.black.withValues(alpha: 0.75),
+                      blurRadius: 0,
                       offset: const Offset(0, 6),
                     ),
                   ],
@@ -1230,7 +1286,8 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                 boxShadow: [
                                   BoxShadow(
                                     color: activeColor.withValues(alpha: 0.38),
-                                    blurRadius: 14,
+                                    blurRadius: 0,
+                                    offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
@@ -1245,7 +1302,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                               ),
                             ),
                           ),
-                          if (!_opened && !_vaultLocked)
+                          if ((!_opened || _cardFlipController.isAnimating) && !_vaultLocked)
                             Align(
                               alignment: Alignment.centerRight,
                               child: GestureDetector(
@@ -1459,18 +1516,34 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                       ]),
                                       builder: (context, _) {
                                         final squash = _squashAnimation.value;
-                                        final scaleX = (1.0 + squash * 0.18) * _chestScale;
-                                        final scaleY = (1.0 - squash * 0.18) * _chestScale;
-                                        // Step 1: High frequency anticipation tremor shake before opening
-                                        final shakeMult = _isOpening ? (5.5 + 3.5 * _shakeController.value) : (3.5 + _tapCount * 1.5);
-                                        final shakeFreq = _isOpening ? 22.0 : 10.0;
+                                        // Step 1: 60ms Hit-Stop Freeze locks deep downward compression
+                                        final scaleX = _isHitStopFreeze
+                                            ? (1.24 * _chestScale)
+                                            : (1.0 + squash * 0.22) * _chestScale;
+                                        final scaleY = _isHitStopFreeze
+                                            ? (0.76 * _chestScale)
+                                            : (1.0 - squash * 0.22) * _chestScale;
+
+                                        // Step 1: Slide chest toward bottom-center & escalating pixel-snapped tremor (±2px to ±6px)
+                                        final slideDownY = (_isOpening || _tapCount > 0)
+                                            ? (_tapCount * 5.0 + (_isOpening ? 10.0 : 0.0)).roundToDouble()
+                                            : 0.0;
+                                        final tremorMag = 2.0 + 4.0 * (_isOpening ? _shakeController.value : (_tapCount / 3.0));
+                                        final shakeFreq = _isOpening ? 24.0 : 12.0;
+                                        final dx = (_shakeController.isAnimating && !_isHitStopFreeze)
+                                            ? (sin(_shakeController.value * pi * shakeFreq) * tremorMag).roundToDouble()
+                                            : 0.0;
+                                        final dy = slideDownY +
+                                            (_isHitStopFreeze
+                                                ? 6.0
+                                                : (sin(_auraController.value * 2 * pi) * 2.0 + squash * 5.0).roundToDouble());
+
                                         return Transform.translate(
-                                          offset: Offset(
-                                            sin(_shakeController.value * pi * shakeFreq) * shakeMult,
-                                            sin(_auraController.value * 2 * pi) * 2.8 + squash * 4.0,
-                                          ),
+                                          offset: Offset(dx, dy),
                                           child: Transform.rotate(
-                                            angle: sin(_shakeController.value * pi * shakeFreq) * (0.08 + _tapCount * 0.03) * (1.0 - _shakeController.value),
+                                            angle: _isHitStopFreeze
+                                                ? 0.0
+                                                : sin(_shakeController.value * pi * shakeFreq) * (0.06 + _tapCount * 0.02) * (1.0 - _shakeController.value),
                                             child: Transform.scale(
                                               scaleX: scaleX,
                                               scaleY: scaleY,
@@ -1514,7 +1587,8 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                     boxShadow: [
                                       BoxShadow(
                                         color: activeColor.withValues(alpha: 0.35),
-                                        blurRadius: 12,
+                                        blurRadius: 0,
+                                        offset: const Offset(0, 2),
                                       ),
                                     ],
                                   ),
@@ -1544,12 +1618,44 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                         ),
                       )
 
-                    // OPENED REWARD SCENE (Holographic Card & Celebration)
+                    // OPENED REWARD SCENE (Vampire Survivors Jackpot Light Pillar, 2.5s Loot Piñata & Item Ascent)
                     else
                       Stack(
                         clipBehavior: Clip.none,
                         alignment: Alignment.center,
                         children: [
+                          // Step 2: Massive Vertical Stepped Pixel Light Beam (palette-cycling gold/cyan/magenta) straight to top edge
+                          if (_pillarController.isAnimating)
+                            Positioned(
+                              top: -60,
+                              child: AnimatedBuilder(
+                                animation: _pillarController,
+                                builder: (context, _) => CustomPaint(
+                                  size: const Size(220, 320),
+                                  painter: _CratePillarLightPainter(
+                                    progress: _pillarController.value,
+                                    color: _rewardRarity.primaryColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                          // Step 3: 2.5s Continuous Pixel Loot Piñata Fountain (square coins, gems, stars + gravity/bounce/ghost trails)
+                          if (_bouncingLootController.isAnimating)
+                            Positioned(
+                              top: -30,
+                              child: AnimatedBuilder(
+                                animation: _bouncingLootController,
+                                builder: (context, _) => CustomPaint(
+                                  size: const Size(280, 240),
+                                  painter: _BouncingLootPainter(
+                                    progress: _bouncingLootController.value,
+                                    color: _rewardRarity.primaryColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+
                           // Step 4b. Volumetric Light Rays Fountain (behind everything)
                           Positioned(
                             top: -45,
@@ -1632,7 +1738,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  // Step 2 & 5: 3D Flip Card Container with Float, Vibration, Freeze-Frame & Elastic Snap Landing
+                                  // Step 4 & Step 5: Float rare item slowly up center of light beam -> slam with elasticOut overshoot
                                   AnimatedBuilder(
                                     animation: Listenable.merge([
                                       _cardFlipController,
@@ -1651,31 +1757,34 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                       double scale = 1.0;
 
                                       if (t < 0.46) {
-                                        // Step 1: Float card up, violent vibration during inward energy suction
+                                        // Step 4: Float the rare item slowly up the center of the light beam to center-screen
                                         final p = (t / 0.46).clamp(0.0, 1.0);
-                                        translateY = -32.0 * sin(p * pi * 0.5);
-                                        vibeX = sin(t * 85.0) * (3.5 * p);
-                                        vibeY = cos(t * 75.0) * (2.5 * p);
+                                        final smoothAscent = Curves.easeOutCubic.transform(p);
+                                        translateY = (68.0 * (1.0 - smoothAscent) - 24.0 * smoothAscent).roundToDouble();
+                                        vibeX = (sin(t * 72.0) * (2.5 * p)).roundToDouble();
+                                        vibeY = (cos(t * 64.0) * (2.0 * p)).roundToDouble();
                                         angle = (1.0 - Curves.easeInQuad.transform(p)) * (pi * 0.5);
+                                        scale = 0.72 + 0.34 * smoothAscent;
                                       } else if (t <= 0.52) {
-                                        // Step 2: Brief dramatic freeze-frame suspension apex
-                                        translateY = -32.0;
-                                        vibeX = sin(t * 120.0) * 0.8;
+                                        // Brief dramatic freeze-frame suspension apex at top of beam
+                                        translateY = -24.0;
+                                        vibeX = (sin(t * 120.0) * 1.0).roundToDouble();
                                         angle = 0.06 * sin((t - 0.46) / 0.06 * pi);
+                                        scale = 1.06;
                                       } else {
-                                        // Step 2 & 3: Bouncy elastic snap landing from apex to zero
+                                        // Step 5: Slam the item card/title into view with elasticOut overshoot
                                         final p = ((t - 0.52) / 0.48).clamp(0.0, 1.0);
                                         final elastic = Curves.elasticOut.transform(p);
-                                        translateY = -32.0 * (1.0 - elastic);
+                                        translateY = (-24.0 * (1.0 - elastic)).roundToDouble();
                                         angle = (1.0 - elastic) * 0.15;
-                                        scale = 0.92 + 0.08 * elastic;
+                                        scale = 0.88 + 0.12 * elastic;
                                       }
 
                                       // Kart yerleştikten sonra havada süzülmeye devam eder:
                                       // yavaş nefes alan bir Y dönüşü + dikey salınım.
                                       if (t >= 1.0) {
                                         final auraT = _auraController.value * 2 * pi;
-                                        translateY += sin(auraT) * 3.2 - 4.0;
+                                        translateY += (sin(auraT) * 3.0 - 4.0).roundToDouble();
                                         angle += sin(auraT * 0.5) * 0.42;
                                       }
 
@@ -1712,11 +1821,11 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                           child: Stack(
                                             alignment: Alignment.center,
                                             children: [
-                                              // Rotating background rune aura inside card
+                                              // Step 4: Rotating 8-directional pixel sparkles and stepped radial shockwaves
                                               Transform.rotate(
                                                 angle: _auraController.value * 2 * pi,
                                                 child: CustomPaint(
-                                                  size: const Size(116, 116),
+                                                  size: const Size(124, 124),
                                                   painter: _CardRuneAuraPainter(
                                                     color: _rewardRarity.primaryColor,
                                                   ),
@@ -1726,7 +1835,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                               Center(
                                                 child: _buildRewardIcon(),
                                               ),
-                                              // Step 4a: Prismatic Rainbow Sheen sweep across art
+                                              // Step 5: 45-degree pixel gleam sweep across the frame
                                               if (_shineSweepController.value > 0.0 && _shineSweepController.value < 1.0)
                                                 Positioned.fill(
                                                   child: ClipRRect(
@@ -2074,6 +2183,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                   ),
                 ),
             ],
+          ),
           );
         },
       ),

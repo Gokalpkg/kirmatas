@@ -81,7 +81,9 @@ class _KirmatasAppState extends State<KirmatasApp> with WidgetsBindingObserver {
     if (buried) {
       AudioManager.instance.stopAll();
     } else if (state == AppLifecycleState.resumed) {
-      AudioManager.instance.resumeBgm();
+      if (AudioManager.instance.isBgmAllowed && SaveManager.instance.bgmVolume > 0) {
+        AudioManager.instance.resumeBgm();
+      }
     }
   }
 

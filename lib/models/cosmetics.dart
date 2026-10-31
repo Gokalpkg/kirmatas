@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/balance_config.dart';
 import '../engine/i18n.dart';
 
 enum Rarity {
@@ -1030,6 +1031,7 @@ class StatUpgrade {
   final IconData icon;
   final Color color;
   final List<int> costs;
+  final int maxLevel;
 
   const StatUpgrade({
     required this.id,
@@ -1037,14 +1039,17 @@ class StatUpgrade {
     required this.descKey,
     required this.icon,
     required this.color,
-    this.costs = const [600, 1500, 3000, 5500, 9500],
+    this.costs = const [1200, 3000, 6000, 11000, 19000],
+    this.maxLevel = 100,
   });
 
-  int get maxLevel => costs.length;
-
   int getCostForLevel(int currentLevel) {
+    if (currentLevel < 0) return 0;
     if (currentLevel >= maxLevel) return 0;
-    return costs[currentLevel];
+    if (costs.isNotEmpty && currentLevel < costs.length) {
+      return costs[currentLevel];
+    }
+    return BalanceConfig.upgradeCost(currentLevel);
   }
 
   static const List<StatUpgrade> all = [
@@ -1054,7 +1059,7 @@ class StatUpgrade {
       descKey: 'upgrade_paddle_width_desc',
       icon: Icons.straighten_rounded,
       color: Color(0xFF00E5FF),
-      costs: [600, 1500, 3000, 5500, 9500],
+      costs: [1800, 4500, 9000, 16500, 28000],
     ),
     StatUpgrade(
       id: 'crit_damage',
@@ -1062,7 +1067,7 @@ class StatUpgrade {
       descKey: 'upgrade_crit_desc',
       icon: Icons.electric_bolt_rounded,
       color: Color(0xFFFF5252),
-      costs: [800, 1800, 3500, 6500, 11000],
+      costs: [1600, 3600, 7000, 13000, 22000],
     ),
     StatUpgrade(
       id: 'magnet',
@@ -1070,7 +1075,7 @@ class StatUpgrade {
       descKey: 'magnet_desc',
       icon: Icons.all_inclusive_rounded,
       color: Color(0xFFE040FB),
-      costs: [500, 1200, 2500, 4800, 8500],
+      costs: [1500, 3600, 7500, 14400, 25000],
     ),
     StatUpgrade(
       id: 'luck',
@@ -1078,7 +1083,7 @@ class StatUpgrade {
       descKey: 'luck_desc',
       icon: Icons.stars_rounded,
       color: Color(0xFFFFD54F),
-      costs: [700, 1600, 3200, 6000, 10000],
+      costs: [1400, 3200, 6400, 12000, 20000],
     ),
     StatUpgrade(
       id: 'battery',
@@ -1086,7 +1091,15 @@ class StatUpgrade {
       descKey: 'battery_desc',
       icon: Icons.battery_charging_full_rounded,
       color: Color(0xFF69F0AE),
-      costs: [500, 1200, 2400, 4500, 8000],
+      costs: [1000, 2400, 4800, 9000, 16000],
+    ),
+    StatUpgrade(
+      id: 'u_gold',
+      nameKey: 'upgrade_gold',
+      descKey: 'upgrade_gold_desc',
+      icon: Icons.monetization_on_rounded,
+      color: Color(0xFFFFB300),
+      costs: [1600, 3800, 8000, 16000, 30000],
     ),
   ];
 }

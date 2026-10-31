@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kirmatas/config/balance_config.dart';
 import 'package:kirmatas/engine/i18n.dart';
 import 'package:kirmatas/models/ball.dart';
 import 'package:kirmatas/models/black_hole.dart';
@@ -104,7 +105,8 @@ void main() {
 
       // Step 5: Verify high score update and gold reward
       expect(SaveManager.instance.getHighScore(GameMode.classic), greaterThanOrEqualTo(75000));
-      expect(SaveManager.instance.gold, equals(initialGold + 100));
+      final expectedVictoryGold = BalanceConfig.levelClearGold(238) * (gc.stats.lives >= gc.stats.maxLives ? 2 : 1);
+      expect(SaveManager.instance.gold, equals(initialGold + expectedVictoryGold));
 
       // Step 6: Verify transition timer does not decrement while in victory
       gc.update(0.5);

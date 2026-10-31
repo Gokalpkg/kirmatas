@@ -64,6 +64,7 @@ class Paddle {
   });
 
   Rect get rect => Rect.fromLTWH(x, y, width, height);
+  double get centerX => x + width / 2;
 
   void update(double dt) {
     velocityX = (x - prevX) / (dt > 0.0001 ? dt : 0.016);

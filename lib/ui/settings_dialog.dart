@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
+import '../engine/remove_ads_billing.dart';
 import '../storage/save_manager.dart';
 import 'kaunos_ui.dart';
 import 'stats_dialog.dart';
@@ -44,7 +45,7 @@ class SettingsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: save,
+      listenable: Listenable.merge([save, RemoveAdsBilling.instance]),
       builder: (context, _) {
         return AlertDialog(
           backgroundColor: const Color(0xF2101320),
@@ -262,7 +263,166 @@ class SettingsDialog extends StatelessWidget {
 
                   const SizedBox(height: 10),
 
-                  // Privacy Policy trigger button (Google Play Compliance)
+                  // Remove Ads / Ads Removed Card
+                  if (save.adsRemoved)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0x2200E676),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color(0xFF00E676).withValues(alpha: 0.6),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: Color(0xFF69F0AE), size: 18),
+                          SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              'REKLAMLAR KALDIRILDI',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Color(0xFF69F0AE),
+                                fontFamily: 'Rajdhani',
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13.0,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () async {
+                        final opened = await RemoveAdsBilling.instance.buy();
+                        if (!opened && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(I18n.tr('remove_ads_unavailable')),
+                              backgroundColor: const Color(0xFF161A29),
+                            ),
+                          );
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 16),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0B2B38), Color(0xFF05161E)],
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0xFF00E5FF).withValues(alpha: 0.7),
+                            width: 1.2,
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x3300E5FF),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.block_rounded, color: Color(0xFF00E5FF), size: 18),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                'REKLAMLARI KALDIR (${RemoveAdsBilling.instance.priceLabel})',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFF00E5FF),
+                                  fontFamily: 'Rajdhani',
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13.0,
+                                  letterSpacing: 0.6,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 10),
+
+                  // Restore Purchases trigger button (App Store Guideline compliance)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () async {
+                      final success = await RemoveAdsBilling.instance.restorePurchasesManually();
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            success
+                                ? (save.adsRemoved
+                                    ? 'Satın alımlarınız geri yüklendi!'
+                                    : 'Satın alımlar sorgulandı. Aktif bir satın alım bulunursa otomatik etkinleştirilecektir.')
+                                : 'Geri yükleme başlatılamadı. Mağaza bağlantısını kontrol edin.',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          backgroundColor: const Color(0xFF161A29),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(
+                              color: success ? const Color(0xFF00E5FF) : Colors.redAccent,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0x22FFFFFF),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white24,
+                          width: 1.0,
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.restore_rounded, color: Colors.white70, size: 18),
+                          SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              'SATIN ALIMLARI GERİ YÜKLE',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontFamily: 'Rajdhani',
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12.0,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Privacy Policy trigger button
                   InkWell(
                     borderRadius: BorderRadius.circular(14),
                     onTap: () {
@@ -529,16 +689,16 @@ class SettingsDialog extends StatelessWidget {
                   'Uygulama: Kırmataş (com.kaunos.kirmatas)\n'
                   'Yürürlük Tarihi: Ekim 2026\n\n'
                   '1. Veri Toplama ve Kullanımı:\n'
-                  'Kırmataş oyunu, adınız, adresiniz veya telefon numaranız gibi doğrudan kişisel kimlik bilgilerinizi toplamaz. Oyun içi ilerlemeniz (bölümler, altın, inci, balıklar) cihazınızda yerel olarak saklanır. İsteğe bağlı olarak Google Play Games üzerinden bulut kaydı yapılabilir.\n\n'
+                  'Kırmataş oyunu, adınız, adresiniz veya telefon numaranız gibi doğrudan kişisel kimlik bilgilerinizi toplamaz. Oyun içi ilerlemeniz (bölümler, altın, inci, balıklar) cihazınızda yerel olarak saklanır. İsteğe bağlı olarak bulut servisleri (Google Play Games / Game Center) üzerinden yedekleme yapılabilir.\n\n'
                   '2. Entegre Edilen Üçüncü Taraf Hizmetleri:\n'
-                  'Oyun deneyimini sunabilmek, kilitlenmeleri çözmek ve ödüllü reklam sunmak amacıyla aşağıdaki güvenilir Google servisleri kullanılmaktadır:\n'
-                  '• Google Play Games Services (Liderlik tablosu, başarımlar ve bulut kayıtları)\n'
-                  '• Google AdMob (Ödüllü ve geçiş reklamları - Android Advertising ID kullanabilir)\n'
+                  'Oyun deneyimini sunabilmek, kilitlenmeleri çözmek ve ödüllü reklam sunmak amacıyla aşağıdaki güvenilir servisler kullanılmaktadır:\n'
+                  '• Oyun Hizmetleri (Google Play Games / Game Center - Liderlik tablosu, başarımlar ve bulut kayıtları)\n'
+                  '• Google AdMob (Ödüllü ve geçiş reklamları - Cihaz reklam kimliğini kullanabilir)\n'
                   '• Firebase Analytics (Anonim oyun performansı ve bölüm istatistikleri)\n'
                   '• Firebase Crashlytics (Kilitlenme ve hata teşhisi raporları)\n'
-                  '• Google Play In-App Billing (Güvenli uygulama içi satın alımlar)\n\n'
+                  '• Uygulama İçi Satın Alma Hizmetleri (Google Play In-App Billing / Apple StoreKit - Güvenli uygulama içi satın alımlar)\n\n'
                   '3. Reklamlar ve Reklam Kimliği:\n'
-                  'AdMob servisleri, dolandırıcılığı önlemek ve uygun reklamları gösterebilmek için cihazınızın Reklam Kimliğini (AAID) kullanabilir. Dilediğiniz zaman cihazınızın "Ayarlar > Google > Reklamlar" menüsünden reklam kimliğinizi sıfırlayabilir veya kişiselleştirmeyi kapatabilirsiniz.\n\n'
+                  'AdMob servisleri, dolandırıcılığı önlemek ve uygun reklamları gösterebilmek için cihazınızın Reklam Kimliğini (AAID/IDFA) kullanabilir. Dilediğiniz zaman cihazınızın gizlilik ayarlarından reklam kişiselleştirmesini yönetebilirsiniz.\n\n'
                   '4. Çocukların Gizliliği:\n'
                   'Uygulamamız 13 yaşın altındaki çocuklardan bilerek herhangi bir kişisel veri talep etmez.\n\n'
                   '5. Veri Güvenliği ve Silme Talebi:\n'

@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -72,8 +74,6 @@
 	<string>ca-app-pub-9694275729123906~2311223088</string>
 	<key>GADDelayAppMeasurementInit</key>
 	<false/>
-	<key>NSUserTrackingUsageDescription</key>
-	<string>Bu tanımlayıcı, size özel ve kişiselleştirilmiş reklam deneyimi sunmak amacıyla kullanılır.</string>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>

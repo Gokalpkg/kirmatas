@@ -204,6 +204,22 @@ class GameController extends ChangeNotifier {
   double chaosAimX = 180;
   double chaosAimY = 240;
   double chaosSpeedMultiplier = 1.0;
+  double userSpeedMultiplier = 1.0;
+  double vacuumStormTimer = 0.0;
+
+  /// Cycles user fast-forward speed multiplier (1.0x -> 2.0x -> 4.0x -> 1.0x)
+  /// so veteran players never wait on slow final balls.
+  void cycleFastForwardSpeed() {
+    if (userSpeedMultiplier < 1.5) {
+      userSpeedMultiplier = 2.0;
+    } else if (userSpeedMultiplier < 3.0) {
+      userSpeedMultiplier = 4.0;
+    } else {
+      userSpeedMultiplier = 1.0;
+    }
+    _syncHud();
+    notifyListeners();
+  }
   bool chaosRecallActive = false;
   final List<ChaosPerkType> offeredChaosPerks = [];
   final List<ChaosPerkType> activeChaosPerks = [];
@@ -294,6 +310,8 @@ class GameController extends ChangeNotifier {
 
   late Paddle paddle;
   final List<Ball> balls = [];
+  final List<Ball> _pendingBallsToAdd = [];
+  bool _isUpdatingBalls = false;
   List<Brick> bricks = [];
   final List<Brick> _primedDynamites = [];
   final List<FallingCapsule> capsules = [];
@@ -365,6 +383,10 @@ class GameController extends ChangeNotifier {
 
   /// Track how many hearts have dropped during the current level
   int levelHeartsDropped = 0;
+
+  /// Capsule pity timer: counts consecutive broken bricks without a capsule drop.
+  /// After 10 consecutive misses, the 11th broken brick guarantees a positive capsule.
+  int capsulePityCounter = 0;
 
   /// Overdrive homing is disabled in normal gameplay so ball trajectory follows purely physics.
   bool enableOverdriveHoming = false;
@@ -494,14 +516,36 @@ class GameController extends ChangeNotifier {
   }
 
   void setDimensions(double width, double height) {
-    if ((screenWidth - width).abs() < 1 && (screenHeight - height).abs() < 1) return;
+    if ((screenWidth - width).abs() < 0.5 && (screenHeight - height).abs() < 0.5) return;
+    final double oldWidth = screenWidth;
     screenWidth = width;
     screenHeight = height;
     paddle.y = screenHeight - 110.0;
     if (status == GameStatus.ready) {
+      if (bricks.isNotEmpty) {
+        loadLevelBricks();
+      }
+      paddle.x = (screenWidth - paddle.width) / 2;
       for (final ball in balls) {
         if (ball.isStuck) {
+          ball.x = paddle.centerX;
           ball.y = paddle.y - ball.radius - 2.0;
+        }
+      }
+    } else if (oldWidth > 0 && (oldWidth - width).abs() >= 1.0 && bricks.isNotEmpty) {
+      final scaleX = width / oldWidth;
+      for (final b in bricks) {
+        b.x *= scaleX;
+        b.width *= scaleX;
+        b.minX = 16.0;
+        b.maxX = width - 16.0;
+      }
+      paddle.x = (paddle.x * scaleX).clamp(16.0, width - 16.0 - paddle.width);
+      for (final ball in balls) {
+        if (ball.isStuck) {
+          ball.x = paddle.centerX;
+        } else {
+          ball.x *= scaleX;
         }
       }
     }
@@ -512,6 +556,7 @@ class GameController extends ChangeNotifier {
     statusVersion.dispose();
     frameTick.dispose();
     balls.clear();
+    _pendingBallsToAdd.clear();
     bricks.clear();
     capsules.clear();
     projectiles.clear();
@@ -739,6 +784,7 @@ class GameController extends ChangeNotifier {
     levelBricksBroken = 0;
     earlyActionDropGranted = false;
     levelHeartsDropped = 0;
+    capsulePityCounter = 0;
     if (!isResume) {
       fishSaveUsedThisRun = false;
     }
@@ -892,6 +938,7 @@ class GameController extends ChangeNotifier {
 
   void _haltBackgroundGameplay() {
     balls.clear();
+    _pendingBallsToAdd.clear();
     projectiles.clear();
     capsules.clear();
     isDiceRolling = false;
@@ -918,6 +965,15 @@ class GameController extends ChangeNotifier {
 
   @visibleForTesting
   void testChargeDiceFromGlass(Brick b) => _chargeDiceFromGlass(b);
+
+  @visibleForTesting
+  void addPendingBallForTest(Ball b) => _pendingBallsToAdd.add(b);
+
+  @visibleForTesting
+  bool checkBallPaddleCollisionForTest(Ball b) => _checkBallPaddleCollision(b);
+
+  @visibleForTesting
+  void flushPendingBallsForTest() => _flushPendingBalls();
 
   void resetPaddleAndBall() {
     // Step 7: Aquarium Synergy - Passive buffs based on unlocked fish in Eco-Tank
@@ -948,6 +1004,7 @@ class GameController extends ChangeNotifier {
     projectiles.clear();
 
     balls.clear();
+    _pendingBallsToAdd.clear();
     if (currentMode == GameMode.chaos) {
       _layoutChaosPile();
     } else {
@@ -976,10 +1033,23 @@ class GameController extends ChangeNotifier {
     levelBricksBroken = 0;
     earlyActionDropGranted = false;
     levelHeartsDropped = 0;
+    capsulePityCounter = 0;
     _lastBrickHitTimer = 0.0;
     switch (currentMode) {
       case GameMode.classic:
         bricks = LevelDesign.buildClassicLevel(stats.level, screenWidth, screenHeight);
+        // MEKANİK FAZ 2.2: Spawn 1 Gold Piñata Brick every 3rd level (or 35% chance on level >= 3)
+        if (stats.level >= 3 && (stats.level % 3 == 0 || _rand.nextDouble() < 0.35)) {
+          final candidates = bricks.where((b) =>
+              b.isAlive && !b.isSteel && !b.isHeavySteel && !b.isBoss && !b.isChest && !b.isDynamite && !b.isIce && !b.isTuft).toList();
+          if (candidates.isNotEmpty) {
+            final pinata = candidates[_rand.nextInt(candidates.length)];
+            pinata.isGoldPinata = true;
+            pinata.hp = max(pinata.hp, 5);
+            pinata.maxHp = pinata.hp;
+            pinata.color = const Color(0xFFFFD700);
+          }
+        }
         if (prestigeTier > 0) {
           for (final b in bricks) {
             if (!b.isSteel && !b.isDynamite && !b.isIce && !b.isTuft) {
@@ -1275,6 +1345,7 @@ class GameController extends ChangeNotifier {
     chaosSpeedMultiplier = 1.0;
     chaosRecallActive = false;
     balls.clear();
+    _pendingBallsToAdd.clear();
     status = GameStatus.playing;
     isMatchStart = false;
     audio.playSfx(GameSfx.hitPaddle);
@@ -1283,6 +1354,7 @@ class GameController extends ChangeNotifier {
 
   void _layoutChaosPile() {
     balls.clear();
+    _pendingBallsToAdd.clear();
     // Kaos modunda hedeflerken/başlangıçta üst üste yığılmış toplar yerine tek bir net top gösterilir
     if (chaosStock > 0) {
       balls.add(
@@ -1346,8 +1418,15 @@ class GameController extends ChangeNotifier {
       _layoutChaosPile();
       particles.spawnShockwave(screenWidth * 0.5, screenHeight * 0.4, const Color(0xFFFFD700), maxRadius: 90.0);
       particles.spawnBurst(screenWidth * 0.5, screenHeight * 0.4, const Color(0xFF00E5FF), count: 30, speed: 200.0);
-      particles.spawnFloatingText(screenWidth * 0.5, screenHeight * 0.38, '⚡ TAM SÜPÜRME! (BOARD CLEAR)', const Color(0xFFFFD700), isLarge: true);
-      particles.spawnFloatingText(screenWidth * 0.5, screenHeight * 0.46, '+$levelGold 🪙 ${I18n.tr('level_bonus')} • $chaosStock TOP HAZIR!', const Color(0xFF00E5FF), isLarge: false);
+      particles.spawnFloatingText(
+        screenWidth * 0.5,
+        screenHeight * 0.38,
+        'TAM SÜPÜRME! (BOARD CLEAR)',
+        const Color(0xFFFFD700),
+        isLarge: true,
+        iconType: FloatingIconType.bolt,
+      );
+      particles.spawnFloatingText(screenWidth * 0.5, screenHeight * 0.46, '+$levelGold ${I18n.tr('level_bonus')} • $chaosStock TOP HAZIR!', const Color(0xFF00E5FF), isLarge: false);
       audio.playSfx(GameSfx.victory);
       notifyListeners();
       return;
@@ -1508,6 +1587,23 @@ class GameController extends ChangeNotifier {
   }
 
   void update(double dt) {
+    if (userSpeedMultiplier > 1.0 && status == GameStatus.playing) {
+      dt = (dt * userSpeedMultiplier).clamp(0.0, 0.12);
+    }
+    if (vacuumStormTimer > 0) {
+      vacuumStormTimer = max(0.0, vacuumStormTimer - dt);
+      final targetX = paddle.x + paddle.width / 2;
+      final targetY = paddle.y;
+      for (final cap in capsules) {
+        final dx = targetX - cap.x;
+        final dy = targetY - cap.y;
+        final dist = sqrt(dx * dx + dy * dy);
+        if (dist > 4.0) {
+          cap.x += (dx / dist) * 420.0 * dt;
+          cap.y += (dy / dist) * 420.0 * dt;
+        }
+      }
+    }
     gameTime += dt;
     if (status == GameStatus.playing) {
       _currentLevelDuration += dt;
@@ -1623,6 +1719,7 @@ class GameController extends ChangeNotifier {
           particles.shockwaves.isNotEmpty ||
           particles.floatingTexts.isNotEmpty ||
           particles.shards.isNotEmpty ||
+          particles.confetti.isNotEmpty ||
           bossWarningTimer > 0 ||
           levelTransitionTimer > 0 ||
           reviveFlashTimer > 0 ||
@@ -1712,6 +1809,7 @@ class GameController extends ChangeNotifier {
     _checkGameProgress();
     frameTick.ping();
     _syncHud();
+    _flushPendingBalls();
   }
 
   int _hudSig = 0;
@@ -2563,6 +2661,36 @@ class GameController extends ChangeNotifier {
     }
   }
 
+  /// Atomically flushes pending balls into the active [balls] collection.
+  /// Enforces screen boundary clamps, paddle anti-penetration positioning,
+  /// and minimum speed normalization to isolate ball cloning mutations.
+  void _flushPendingBalls() {
+    if (_pendingBallsToAdd.isEmpty) return;
+    final minSpeed = getBaseBallSpeed();
+    for (final b in _pendingBallsToAdd) {
+      // 1. Boundary clamp
+      b.x = b.x.clamp(b.radius + 1.0, screenWidth - b.radius - 1.0);
+
+      // 2. Paddle anti-penetration safeguard: spawn safely right above paddle
+      if (!b.isStuck && paddle.rect.top > 0) {
+        if (b.y + b.radius >= paddle.y && b.y - b.radius <= paddle.y + paddle.height) {
+          b.y = paddle.y - b.radius - 2.0;
+          if (b.vy > 0) b.vy = -b.vy.abs();
+        }
+      }
+
+      // 3. Minimum speed guarantee
+      if (!b.isStuck) {
+        if (b.speed < minSpeed) {
+          b.setSpeed(minSpeed);
+        }
+      }
+
+      balls.add(b);
+    }
+    _pendingBallsToAdd.clear();
+  }
+
   void _updateBalls(double dt) {
     // Overdrive Homing & Fail-safe Lightning (Disabled by default so ball moves purely by physics)
     if (enableOverdriveHoming) {
@@ -2626,7 +2754,9 @@ class GameController extends ChangeNotifier {
       }
     }
 
-    for (int i = balls.length - 1; i >= 0; i--) {
+    _isUpdatingBalls = true;
+    try {
+      for (int i = balls.length - 1; i >= 0; i--) {
       final ball = balls[i];
       if (ball.isStuck) {
         if (status == GameStatus.playing) {
@@ -3057,7 +3187,7 @@ class GameController extends ChangeNotifier {
                 if (b.hp <= 0) b.isAlive = false;
                 particles.spawnShockwave(ball.x, 36.0, const Color(0xFFFFD700), maxRadius: 32.0);
                 particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD700), count: 8, speed: 100.0);
-                particles.spawnFloatingText(ball.x, 50.0, '✨ AROWANA LAZERİ!', const Color(0xFFFFD700));
+                particles.spawnFloatingText(ball.x, 50.0, 'AROWANA LAZERİ!', const Color(0xFFFFD700));
                 audio.playSfx(GameSfx.laser);
                 break;
               }
@@ -3122,7 +3252,7 @@ class GameController extends ChangeNotifier {
           particles.triggerShake(6.0, 0.32);
           particles.spawnShockwave(ball.x, paddle.y + 10.0, const Color(0xFFE040FB), maxRadius: 95.0);
           particles.spawnBurst(ball.x, paddle.y + 10.0, const Color(0xFFEA80FC), count: 24, speed: 170.0);
-          particles.spawnFloatingText(ball.x.clamp(80.0, screenWidth - 80.0), paddle.y - 35.0, '🐙 AHTAPOT KURTARIŞI!', const Color(0xFFE040FB), isLarge: true);
+          particles.spawnFloatingText(ball.x.clamp(80.0, screenWidth - 80.0), paddle.y - 35.0, 'AHTAPOT KURTARIŞI!', const Color(0xFFE040FB), isLarge: true);
           audio.playSfx(GameSfx.victory);
           continue;
         }
@@ -3144,6 +3274,10 @@ class GameController extends ChangeNotifier {
         continue;
       }
     }
+  } finally {
+    _isUpdatingBalls = false;
+    _flushPendingBalls();
+  }
 
     if (currentMode == GameMode.chaos) {
       // Topların hepsinin aşağı inmesi beklensin:
@@ -3152,6 +3286,7 @@ class GameController extends ChangeNotifier {
       final volleyDone = status == GameStatus.playing && chaosToLaunch == 0 && chaosReturned > 0;
       if (volleyDone && (balls.isEmpty || chaosTurnTime > 28.0)) {
         balls.clear();
+        _pendingBallsToAdd.clear();
         _chaosAdvanceTurn();
       }
       return;
@@ -3184,7 +3319,14 @@ class GameController extends ChangeNotifier {
         particles.triggerShake(5.0, 0.25);
         particles.spawnBurst(ball.x, paddle.y, const Color(0xFFFF3D00), count: 28, speed: 170.0);
         particles.spawnShockwave(ball.x, paddle.y, const Color(0xFFFF9100), maxRadius: 80.0);
-        particles.spawnFloatingText(ball.x, paddle.y - 25, '🔥 ALEV ALEV! 🔥', const Color(0xFFFF6D00), isLarge: true);
+        particles.spawnFloatingText(
+          ball.x,
+          paddle.y - 25,
+          'ALEV ALEV!',
+          const Color(0xFFFF6D00),
+          isLarge: true,
+          iconType: FloatingIconType.flame,
+        );
         audio.playSfx(GameSfx.cornerBoost);
       }
 
@@ -3329,10 +3471,42 @@ class GameController extends ChangeNotifier {
             'SÜPER KÖŞE VURUŞU!',
             const Color(0xFFFFD700),
             isLarge: true,
+            iconType: FloatingIconType.flame,
           );
         }
 
-        // Outer clutch edge save: slow-mo, neon shockwave & epic floating text!
+        // Outer clutch edge save & Overdrive Açı Bahsi (Push-Your-Luck Edge Risk Motoru):
+        final isOverdriveEdge = hitOffset.abs() >= BalanceConfig.overdriveEdgeThreshold;
+        if (isOverdriveEdge) {
+          ball.overdriveStreak = (ball.overdriveStreak + 1).clamp(1, BalanceConfig.overdriveMaxStreak);
+          final boostFactor = 1.0 + (ball.overdriveStreak * BalanceConfig.overdriveSpeedStep);
+          ball.setSpeed(min(ball.speed * boostFactor, 680.0));
+          if (ball.overdriveStreak == 2) {
+            stats.combo += 3;
+            particles.spawnFloatingText(
+              ball.x,
+              pr.top - 28,
+              'OVERDRIVE x2! +3 KOMBO',
+              const Color(0xFFFFD54F),
+              isLarge: true,
+              iconType: FloatingIconType.bolt,
+            );
+          } else if (ball.overdriveStreak >= 3) {
+            ball.isPierce = true;
+            ball.fireballPierceCount = max(ball.fireballPierceCount, 3);
+            particles.spawnFloatingText(
+              ball.x,
+              pr.top - 30,
+              'OVERDRIVE MAX! DELİCİ GÜLLE',
+              const Color(0xFFFFD700),
+              isLarge: true,
+              iconType: FloatingIconType.flame,
+            );
+          }
+        } else {
+          ball.overdriveStreak = 0;
+        }
+
         final isClutchSave = hitOffset.abs() >= 0.88;
         if (isClutchSave) {
           stats.score += 150;
@@ -3347,9 +3521,10 @@ class GameController extends ChangeNotifier {
             particles.spawnFloatingText(
               ball.x,
               pr.top - 20,
-              '🔥 SON ANDA! +150 🔥',
+              'SON ANDA! +150',
               const Color(0xFF00E5FF),
               isLarge: true,
+              iconType: FloatingIconType.flame,
             );
             audio.playSfx(GameSfx.cornerBoost);
             audio.playSfx(GameSfx.powerupBuff, playbackRate: 0.8);
@@ -3372,6 +3547,7 @@ class GameController extends ChangeNotifier {
         }
       } else {
         ball.cornerHitCount = 0; // Reset consecutive hits
+        ball.overdriveStreak = 0;
         particles.spawnShockwave(ball.x, pr.top, activePaddleSkin.glowColor, maxRadius: 32.0);
         audio.playSfx(GameSfx.hitPaddle);
 
@@ -3393,16 +3569,26 @@ class GameController extends ChangeNotifier {
       }
 
       // Prismatic Splitter: chance to duplicate ball when lone ball hits paddle
-      if (activeSectorBlessing?.type == SectorBlessingType.prismaticSplitter && balls.length == 1) {
+      if (activeSectorBlessing?.type == SectorBlessingType.prismaticSplitter &&
+          (balls.length + _pendingBallsToAdd.length) == 1) {
         if (_rand.nextDouble() < 0.22) {
           final clone = Ball(
             x: ball.x,
-            y: ball.y - 4,
-            vx: -ball.vx * 0.85,
-            vy: ball.vy * 0.9,
-            radius: 6.0,
+            y: paddle.y - ball.radius - 2.0,
+            vx: (-ball.vx * 0.85).clamp(-500.0, 500.0),
+            vy: -ball.vy.abs(),
+            radius: ball.radius,
+            isFireball: ball.isFireball,
+            isBomb: ball.isBomb,
+            isPierce: ball.isPierce,
+            isFrost: ball.isFrost,
+            isShrapnel: ball.isShrapnel,
           );
-          balls.add(clone);
+          final minSpeed = getBaseBallSpeed();
+          if (clone.speed < minSpeed) {
+            clone.setSpeed(minSpeed);
+          }
+          _pendingBallsToAdd.add(clone);
           particles.spawnBurst(ball.x, pr.top, const Color(0xFFE040FB), count: 14, speed: 120.0);
           particles.spawnFloatingText(ball.x, pr.top - 24, I18n.tr('blessing_prismatic_title'), const Color(0xFFE040FB));
           audio.playSfx(GameSfx.powerupBuff);
@@ -3475,7 +3661,15 @@ class GameController extends ChangeNotifier {
             // Soldan dikişe giriş engelleme:
             if (bx + r >= overlapLeft && bx - r <= overlapLeft + 8.0 && ball.vx > 0) {
               _hitBrick(targetBrick, ball);
-              if (!ball.isFireball && !ball.isPierce) {
+              if (ball.isFireball || ball.isPierce) {
+                ball.fireballPierceCount--;
+                if (ball.fireballPierceCount <= 0) {
+                  ball.isFireball = false;
+                  ball.isPierce = false;
+                  activePowerUps.removeWhere((p) => p.type == PowerUpType.fireball || p.type == PowerUpType.pierce);
+                  particles.spawnBurst(ball.x, ball.y, const Color(0xFFFF9100), count: 12, speed: 90.0);
+                }
+              } else {
                 ball.vx = -ball.vx.abs();
                 ball.x = overlapLeft - r - 0.1;
                 ball.triggerSquash(pi);
@@ -3485,7 +3679,15 @@ class GameController extends ChangeNotifier {
             // Sağdan dikişe giriş engelleme:
             if (bx - r <= overlapRight && bx + r >= overlapRight - 8.0 && ball.vx < 0) {
               _hitBrick(targetBrick, ball);
-              if (!ball.isFireball && !ball.isPierce) {
+              if (ball.isFireball || ball.isPierce) {
+                ball.fireballPierceCount--;
+                if (ball.fireballPierceCount <= 0) {
+                  ball.isFireball = false;
+                  ball.isPierce = false;
+                  activePowerUps.removeWhere((p) => p.type == PowerUpType.fireball || p.type == PowerUpType.pierce);
+                  particles.spawnBurst(ball.x, ball.y, const Color(0xFFFF9100), count: 12, speed: 90.0);
+                }
+              } else {
                 ball.vx = ball.vx.abs();
                 ball.x = overlapRight + r + 0.1;
                 ball.triggerSquash(0);
@@ -3495,7 +3697,15 @@ class GameController extends ChangeNotifier {
             // Aşırı hız vb. nedeniyle dikişin içine sızmış topu güvenli dış tarafa tahliye etme:
             if (bx >= overlapLeft && bx <= overlapRight) {
               _hitBrick(targetBrick, ball);
-              if (!ball.isFireball && !ball.isPierce) {
+              if (ball.isFireball || ball.isPierce) {
+                ball.fireballPierceCount--;
+                if (ball.fireballPierceCount <= 0) {
+                  ball.isFireball = false;
+                  ball.isPierce = false;
+                  activePowerUps.removeWhere((p) => p.type == PowerUpType.fireball || p.type == PowerUpType.pierce);
+                  particles.spawnBurst(ball.x, ball.y, const Color(0xFFFF9100), count: 12, speed: 90.0);
+                }
+              } else {
                 if (ball.vx >= 0) {
                   ball.vx = -ball.vx.abs();
                   ball.x = overlapLeft - r - 0.1;
@@ -3634,11 +3844,11 @@ class GameController extends ChangeNotifier {
         }
         if (ball.isFrost || activePowerUps.any((p) => p.type == PowerUpType.frost)) {
           if (b.isIce) {
-            // Frost striking a true ice brick flash-freezes a huge 2x area!
-            _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 210.0, freezeAll: true);
-            particles.spawnFloatingText(b.x + b.width / 2, b.y - 12, 'BÜYÜK BUZ PATLAMASI!', const Color(0xFF80D8FF), isLarge: true);
+            // Frost striking a true ice brick flash-freezes localized adjacent area!
+            _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 80.0, freezeAll: true);
+            particles.spawnFloatingText(b.x + b.width / 2, b.y - 12, 'BUZ PATLAMASI!', const Color(0xFF80D8FF), isLarge: true);
           } else {
-            _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 95.0);
+            _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 55.0);
           }
           // Buz yeteneği tek vuruşluk: 1 vuruştan sonra biter!
           ball.isFrost = false;
@@ -3733,6 +3943,39 @@ class GameController extends ChangeNotifier {
       particles.spawnFloatingText(b.x + b.width / 2, b.y, I18n.tr('ice_shattered'), const Color(0xFF80D8FF));
       audio.playSfx(GameSfx.breakBrick, combo: stats.combo);
       final frostHit = (ball?.isFrost ?? false) || activePowerUps.any((p) => p.type == PowerUpType.frost);
+      final thermalHit = (ball?.isFireball ?? false) || (ball?.isBomb ?? false);
+      if (thermalHit) {
+        // MEKANİK FAZ 1.2: Tag & Trigger Sinerji 1 — Termal Şok ([ICE] + [FIRE] = Mega Shatter)
+        b.isFrozen = false;
+        b.hp = 0;
+        final cx = b.x + b.width / 2;
+        final cy = b.y + b.height / 2;
+        particles.spawnShockwave(cx, cy, const Color(0xFF80D8FF), maxRadius: 65.0);
+        particles.spawnFloatingText(
+          cx,
+          b.y - 16,
+          'TERMAL ŞOK!',
+          const Color(0xFF80D8FF),
+          isLarge: true,
+          iconType: FloatingIconType.bolt,
+        );
+        _destroyBrick(b, 0, isEcho);
+        int shatteredNeighbors = 0;
+        for (final nb in bricks) {
+          if (!nb.isAlive || nb.isSteel || nb == b || shatteredNeighbors >= 2) continue;
+          final dx = (nb.x + nb.width / 2) - cx;
+          final dy = (nb.y + nb.height / 2) - cy;
+          if (sqrt(dx * dx + dy * dy) <= 65.0) {
+            shatteredNeighbors++;
+            nb.hp -= 1;
+            particles.spawnBurst(nb.x + nb.width / 2, nb.y + nb.height / 2, const Color(0xFF80D8FF), count: 8);
+            if (nb.hp <= 0) {
+              _destroyBrick(nb, 1, true);
+            }
+          }
+        }
+        return;
+      }
       if (frostHit) {
         _shatterFrozenChain(b);
       } else {
@@ -3828,7 +4071,7 @@ class GameController extends ChangeNotifier {
           particles.spawnCoinOrbs(cx, cy, count: 1, totalValue: 1);
           save.addGold(1);
           stats.goldCollected += 1;
-          particles.spawnFloatingText(cx, b.y - 10, '+1 🟡', const Color(0xFFFFD54F));
+          particles.spawnFloatingText(cx, b.y - 10, '+1 ALTIN', const Color(0xFFFFD54F));
         }
         audio.playSfx(GameSfx.powerupBuff);
         b.triggerElasticSettle(impulse: 5.0);
@@ -3851,8 +4094,38 @@ class GameController extends ChangeNotifier {
       dmg += 1;
       if (cosmicBonus > 0 && _rand.nextDouble() < cosmicBonus) dmg += 1;
       particles.spawnFloatingText(b.x + b.width / 2, b.y - 8, 'KRİTİK!', const Color(0xFFFF5252));
+      // MEKANİK FAZ 3.2: Milestone L10 Crit Splash Perk
+      if (critLvl >= 10 || save.getUpgradeLevel('u_crit') >= 10) {
+        final splashTargets = bricks.where((nb) => nb.isAlive && !nb.isSteel && nb != b && (nb.x - b.x).abs() <= 90 && (nb.y - b.y).abs() <= 60).take(2).toList();
+        for (final st in splashTargets) {
+          st.hp -= 1;
+          particles.spawnBurst(st.x + st.width / 2, st.y + st.height / 2, const Color(0xFFFF5252), count: 5);
+          if (st.hp <= 0) {
+            _destroyBrick(st, 1, true);
+          }
+        }
+      }
     } else if (cosmicBonus > 0 && _rand.nextDouble() < cosmicBonus) {
       dmg += 1;
+    }
+
+    // Overdrive Açı Bahsi bonus gold on brick hit
+    if (ball != null && ball.overdriveStreak > 0 && allowsGoldReward) {
+      final odGold = ball.overdriveStreak >= 3 ? 5 : 2;
+      save.addGold(odGold);
+      stats.goldCollected += odGold;
+      particles.spawnCoinOrbs(b.x + b.width / 2, b.y + b.height / 2, count: 2, totalValue: odGold);
+    }
+
+    // Altın Piñata Tuğlası hit leak
+    if (b.isGoldPinata && allowsGoldReward) {
+      final cx = b.x + b.width / 2;
+      final cy = b.y + b.height / 2;
+      const hitGold = BalanceConfig.goldPinataHitGold;
+      save.addGold(hitGold);
+      stats.goldCollected += hitGold;
+      particles.spawnCoinOrbs(cx, cy, count: 3, totalValue: hitGold);
+      particles.spawnFloatingText(cx, b.y - 10, '+$hitGold 🪙', const Color(0xFFFFD700));
     }
     b.hp -= dmg;
     b.jelly = 0.8;
@@ -3881,7 +4154,9 @@ class GameController extends ChangeNotifier {
         _bossHitsCounter++;
         // Boss milestone & hit capsule drops
         if (_bossHitsCounter % 5 == 0 || b.hp == (b.maxHp * 0.75).round() || b.hp == (b.maxHp * 0.50).round() || b.hp == (b.maxHp * 0.25).round()) {
-          _rollCapsuleDrop(b.x + b.width / 2, b.y + b.height + 8.0, force: true);
+          if (_rollCapsuleDrop(b.x + b.width / 2, b.y + b.height + 8.0, force: true)) {
+            capsulePityCounter = 0;
+          }
         }
         if (b.isEnraged) {
           particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFF1744), count: 8, speed: 100.0);
@@ -3901,7 +4176,7 @@ class GameController extends ChangeNotifier {
           particles.spawnCoinOrbs(cx, cy, count: 1, totalValue: 1);
           save.addGold(1);
           stats.goldCollected += 1;
-          particles.spawnFloatingText(cx, b.y - 12, '+1 🟡', const Color(0xFFFFD54F));
+          particles.spawnFloatingText(cx, b.y - 12, '+1 ALTIN', const Color(0xFFFFD54F));
         }
         audio.playSfx(GameSfx.powerupBuff);
         b.triggerElasticSettle(impulse: 6.0);
@@ -4045,7 +4320,7 @@ class GameController extends ChangeNotifier {
           particles.spawnFloatingText(
             cx,
             b.y - 22,
-            bonusGold > 0 ? '💎 $pearlsWon İNCİ BULDUN! (+$bonusGold ALTIN) 💎' : '💎 $pearlsWon İNCİ BULDUN! 💎',
+            bonusGold > 0 ? '$pearlsWon İNCİ BULDUN! (+$bonusGold ALTIN)' : '$pearlsWon İNCİ BULDUN!',
             const Color(0xFF00E5FF),
             isLarge: true,
           );
@@ -4079,7 +4354,7 @@ class GameController extends ChangeNotifier {
             particles.spawnFloatingText(
               cx,
               b.y - 24,
-              '🎁 GİZEMLİ SANDIK KAZANDIN! 🎁',
+              'GİZEMLİ SANDIK KAZANDIN!',
               const Color(0xFFE040FB),
               isLarge: true,
             );
@@ -4108,7 +4383,7 @@ class GameController extends ChangeNotifier {
             particles.spawnFloatingText(
               cx,
               b.y - 20,
-              goldWon > 0 ? '🐠 AKVARYUM HAZİNESİ! +$foodCount YEM & +$goldWon ALTIN 🐠' : '🐠 AKVARYUM HAZİNESİ! +$foodCount YEM 🐠',
+              goldWon > 0 ? 'AKVARYUM HAZİNESİ! +$foodCount YEM & +$goldWon ALTIN' : 'AKVARYUM HAZİNESİ! +$foodCount YEM',
               const Color(0xFF00E5FF),
               isLarge: true,
             );
@@ -4128,7 +4403,7 @@ class GameController extends ChangeNotifier {
             particles.spawnFloatingText(
               cx,
               b.y - 18,
-              goldWon > 0 ? '🌟 BÜYÜK HAZİNE! +$goldWon ALTIN 🌟' : '🌟 BÜYÜK HAZİNE! 🌟',
+              goldWon > 0 ? 'BÜYÜK HAZİNE! +$goldWon ALTIN' : 'BÜYÜK HAZİNE!',
               const Color(0xFFFFD700),
               isLarge: true,
             );
@@ -4167,19 +4442,45 @@ class GameController extends ChangeNotifier {
     // Step 3: Bloklar etrafa küçük, sert keskin piksel parçacıkları (pixel chunks) halinde zıplayarak dağılır
     particles.spawnBrickShards(b.x, b.y, b.width, b.height, b.color, count: b.isBoss ? 16 : 6);
 
-    // Step 5: Kalan komşu ve aynı satırdaki bloklar yerine zıplayarak (elastic overshoot) oturur
-    // ONLY enabled for jelly & jelibon block styles
-    if (isJellyOrJelibonStyle) {
-      for (final other in bricks) {
-        if (!other.isAlive || other == b) continue;
-        final dy = (other.y - b.y).abs();
-        final dx = (other.x - b.x).abs();
-        if (dy < 26.0 || (dx < 75.0 && dy < 75.0)) {
-          final dist = sqrt(dx * dx + dy * dy);
-          final impulse = max(1.5, 5.2 - (dist / 24.0));
-          other.triggerElasticSettle(impulse: impulse);
-        }
+    // Step 5: Kalan komşu ve aynı satırdaki TÜM bloklar yerine zıplayarak (elastic overshoot) oturur (Evrensel Step 5!)
+    for (final other in bricks) {
+      if (!other.isAlive || other == b) continue;
+      final dy = (other.y - b.y).abs();
+      final dx = (other.x - b.x).abs();
+      if (dy < 26.0 || (dx < 75.0 && dy < 75.0)) {
+        final dist = sqrt(dx * dx + dy * dy);
+        final baseImpulse = isJellyOrJelibonStyle ? 5.2 : 4.5;
+        final impulse = max(1.5, baseImpulse - (dist / 24.0));
+        other.triggerElasticSettle(impulse: impulse);
       }
+    }
+
+    // MEKANİK FAZ 1.2: Tag & Trigger Sinerji 2 — Elektro-Manyetik Vakum ([ELEC] + [WEALTH])
+    if ((b.isSteel || b.isHeavySteel || b.maxHp >= 3) && (paddle.hasLaser || stats.isFever)) {
+      vacuumStormTimer = 3.0;
+      particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFF00E5FF), maxRadius: 95.0);
+    }
+
+    // MEKANİK FAZ 2.2: Altın Piñata Tuğlası Patlaması (+60 Altın +1 İnci)
+    if (b.isGoldPinata && allowsGoldReward) {
+      final cx = b.x + b.width / 2;
+      final cy = b.y + b.height / 2;
+      const pinataGold = BalanceConfig.goldPinataDestroyGold;
+      const pinataPearls = BalanceConfig.goldPinataDestroyPearls;
+      save.addGold(pinataGold);
+      stats.goldCollected += pinataGold;
+      save.addPearls(pinataPearls);
+      GameEventBus().fire(GoldCollectedEvent(amount: pinataGold, sourcePosition: Offset(cx, cy)));
+      particles.spawnCoinOrbs(cx, cy, count: 10, totalValue: pinataGold);
+      particles.spawnShockwave(cx, cy, const Color(0xFFFFD700), maxRadius: 115.0);
+      particles.spawnFloatingText(
+        cx,
+        b.y - 20,
+        '🪅 ALTIN PIÑATA! +$pinataGold ALTIN +$pinataPearls İNCİ 🪅',
+        const Color(0xFFFFD700),
+        isLarge: true,
+      );
+      audio.playSfx(GameSfx.victory);
     }
 
     // Decoupled Game Event Bus dispatch
@@ -4253,12 +4554,14 @@ class GameController extends ChangeNotifier {
         final goldLvl = save.getUpgradeLevel('u_gold');
         int coins = 1;
         coins = (coins * (1.0 + goldLvl * 0.10)).round();
+        coins = (coins * BalanceConfig.comboGoldMultiplier(stats.combo)).round();
         if (save.cosmicGoldMasteryLevel > 0) {
           coins = (coins * cosmicGoldRewardMultiplier).round();
         }
         if (activeCosmeticSynergy == CosmeticSynergy.cosmicLegendary) {
           coins = (coins * activeCosmeticSynergy.goldMultiplier).round();
         }
+        coins = max(1, coins);
         if (coins > 0) {
           stats.goldCollected += coins;
           save.addGold(coins);
@@ -4368,9 +4671,22 @@ class GameController extends ChangeNotifier {
       }
     }
 
-    // Roll powerup drop
-    if (!actionDropped) {
-      _rollCapsuleDrop(b.x + b.width / 2, b.y + b.height / 2);
+    // Roll powerup drop with bad-luck protection pity timer
+    if (actionDropped) {
+      capsulePityCounter = 0;
+    } else {
+      final bool pityTriggered = capsulePityCounter >= 10;
+      final bool dropped = _rollCapsuleDrop(
+        b.x + b.width / 2,
+        b.y + b.height / 2,
+        force: pityTriggered,
+        forceBuff: pityTriggered,
+      );
+      if (dropped) {
+        capsulePityCounter = 0;
+      } else {
+        capsulePityCounter++;
+      }
     }
 
     // Balanced coin gain: 30% drop rate, 2-5 coins + combo bonus
@@ -4382,12 +4698,14 @@ class GameController extends ChangeNotifier {
       int coins = 1 + _rand.nextInt(2);
       if (stats.combo >= 5) coins += 1;
       coins = (coins * (1.0 + goldLvl * 0.10)).round();
+      coins = (coins * BalanceConfig.comboGoldMultiplier(stats.combo)).round();
       if (save.cosmicGoldMasteryLevel > 0) {
         coins = (coins * cosmicGoldRewardMultiplier).round();
       }
       if (activeCosmeticSynergy == CosmeticSynergy.cosmicLegendary) {
         coins = (coins * activeCosmeticSynergy.goldMultiplier).round();
       }
+      coins = max(1, coins);
       if (coins > 0) {
         stats.goldCollected += coins;
         save.addGold(coins);
@@ -4668,27 +4986,27 @@ class GameController extends ChangeNotifier {
     }
   }
 
-  void _rollCapsuleDrop(double x, double y, {bool force = false}) {
+  bool _rollCapsuleDrop(double x, double y, {bool force = false, bool forceBuff = false}) {
     // At most 2 active power-ups while several balls are in play
     // (mirrors the cap enforced in applyPowerUp), otherwise 3.
     final activeCap = balls.length > 1 ? 2 : 3;
-    if (activePowerUps.length >= activeCap && !force) return;
+    if (activePowerUps.length >= activeCap && !force) return false;
     if (isChaosMode && !force) {
       // Chaos breaks bricks in bulk, so capsules are serialized: one in the
       // air at a time, then a cooldown before the next can even roll.
-      if (_chaosCapsuleCooldown > 0) return;
-      if (capsules.isNotEmpty) return;
+      if (_chaosCapsuleCooldown > 0) return false;
+      if (capsules.isNotEmpty) return false;
     }
     final luckLevel = save.getUpgradeLevel('u_luck');
     var dropChance = BalanceConfig.capsuleBaseDropRate + luckLevel * BalanceConfig.luckUpgradeDropStep + cosmicPearlLuckBonus;
     if (isChaosMode) dropChance *= 0.5; // Bulk breaks: half rate per brick.
-    if (!force && _rand.nextDouble() > dropChance) return;
+    if (!force && _rand.nextDouble() > dropChance) return false;
 
     final allTypes = PowerUpType.values;
     // Luck tilts towards buffs (exclude mirror and pierce; multi allowed with healthy ~4% rate)
     PowerUpType chosen;
-    if (_rand.nextDouble() < 0.78 + luckLevel * 0.05) {
-      var buffs = allTypes.where((t) => t.kind == PowerUpKind.buff && t != PowerUpType.mirror && t != PowerUpType.pierce && t != PowerUpType.drone).toList();
+    if (forceBuff || _rand.nextDouble() < 0.78 + luckLevel * 0.05) {
+      var buffs = allTypes.where((t) => t.kind == PowerUpKind.buff && t != PowerUpType.mirror && t != PowerUpType.pierce && t != PowerUpType.drone && t != PowerUpType.food).toList();
       if (currentMode == GameMode.classic && stats.level < 4) {
         buffs = buffs.where((t) => t != PowerUpType.vortex).toList();
       }
@@ -4710,7 +5028,7 @@ class GameController extends ChangeNotifier {
       if (frostInPlay) {
         buffs = buffs.where((t) => t != PowerUpType.fireball).toList();
       }
-      if (buffs.isEmpty) return;
+      if (buffs.isEmpty) return false;
       chosen = buffs[_rand.nextInt(buffs.length)];
 
       // Nadir dörtlü (Çoklu Top, Ateş, Roket, Buz): seçilirlerse %75
@@ -4745,12 +5063,6 @@ class GameController extends ChangeNotifier {
         final unspawned = buffs.where((t) => !capsules.any((c) => c.type == t)).toList();
         if (unspawned.isNotEmpty) chosen = unspawned[_rand.nextInt(unspawned.length)];
       }
-
-      // Symbiotic Aquarium loop: Bricks drop fish food to directly fuel Eco-Tank
-      final fishBuffs = FishSynergyBuffs.calculate(save);
-      if (_rand.nextDouble() < (0.08 + fishBuffs.foodDropBonus)) {
-        chosen = PowerUpType.food;
-      }
     } else {
       final debuffs = allTypes.where((t) => t.kind == PowerUpKind.debuff).toList();
       chosen = debuffs[_rand.nextInt(debuffs.length)];
@@ -4763,6 +5075,7 @@ class GameController extends ChangeNotifier {
     capsules.add(FallingCapsule(x: x, y: y, type: chosen));
     if (isChaosMode) _chaosCapsuleCooldown = chaosCapsuleCooldownSeconds;
     showOnceTip('capsule', I18n.tr('tip_capsule'));
+    return true;
   }
 
   /// 1–3 çoğu zaman. 4, 5 ve 6 seyrek. Üst sınır 6.
@@ -4888,7 +5201,7 @@ class GameController extends ChangeNotifier {
           break;
         case PowerUpType.food:
           save.addFishFood(1);
-          particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, '+1 YEM 🐟', const Color(0xFFFFB300), isLarge: true);
+          particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, '+1 YEM', const Color(0xFFFFB300), isLarge: true);
           audio.playSfx(GameSfx.powerupBuff);
           break;
         case PowerUpType.mirror:
@@ -4900,7 +5213,7 @@ class GameController extends ChangeNotifier {
             final hasFrost = activePowerUps.any((p) => p.type == PowerUpType.frost) || first.isFrost;
             final hasShrapnel = activePowerUps.any((p) => p.type == PowerUpType.shrapnel) || first.isShrapnel;
             final isInitialStuck = status == GameStatus.ready || first.isStuck;
-            balls.add(Ball(
+            final mirrorBall = Ball(
               x: isInitialStuck ? paddle.x + paddle.width * 0.25 : (screenWidth - first.x).clamp(20.0, screenWidth - 20.0),
               y: isInitialStuck ? paddle.y - first.radius - 2.0 : first.y,
               vx: isInitialStuck ? 0.0 : -first.vx,
@@ -4914,7 +5227,11 @@ class GameController extends ChangeNotifier {
               isPierce: hasPierce,
               isFrost: hasFrost,
               isShrapnel: hasShrapnel,
-            ));
+            );
+            _pendingBallsToAdd.add(mirrorBall);
+            if (!_isUpdatingBalls) {
+              _flushPendingBalls();
+            }
           }
           break;
         case PowerUpType.lock:
@@ -5011,7 +5328,7 @@ class GameController extends ChangeNotifier {
         for (final b in balls) {
           b.isFireball = true;
           b.isPierce = true;
-          b.fireballPierceCount = 12; // 12 tuğla delme hakkı
+          b.fireballPierceCount = 4; // 4 tuğla delme hakkı (dengeli, aşırı silme engellendi)
           b.fireballPaddleBounces = 0; // 3 raket sekme dayanıklılığı
         }
         break;
@@ -5186,10 +5503,10 @@ class GameController extends ChangeNotifier {
     final splitVy = fishBuffs.hasTetraSwarm ? -spd * 0.81 : -spd * 0.7;
     if (fishBuffs.hasTetraSwarm) {
       particles.spawnBurst(first.x, first.y, const Color(0xFF00E5FF), count: 12, speed: 130.0);
-      particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 30.0, '🐟 TETRA SÜRÜSÜ!', const Color(0xFF00E5FF));
+      particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 30.0, 'TETRA SÜRÜSÜ!', const Color(0xFF00E5FF));
     }
 
-    balls.add(
+    _pendingBallsToAdd.add(
       Ball(
         x: isInitialStuck ? paddle.x + paddle.width * 0.35 : first.x,
         y: isInitialStuck ? paddle.y - first.radius - 2.0 : first.y,
@@ -5205,7 +5522,7 @@ class GameController extends ChangeNotifier {
         isShrapnel: hasShrapnel,
       ),
     );
-    balls.add(
+    _pendingBallsToAdd.add(
       Ball(
         x: isInitialStuck ? paddle.x + paddle.width * 0.65 : first.x,
         y: isInitialStuck ? paddle.y - first.radius - 2.0 : first.y,
@@ -5221,6 +5538,9 @@ class GameController extends ChangeNotifier {
         isShrapnel: hasShrapnel,
       ),
     );
+    if (!_isUpdatingBalls) {
+      _flushPendingBalls();
+    }
   }
 
   void triggerUlti() {
@@ -5405,7 +5725,8 @@ class GameController extends ChangeNotifier {
         lastClearedLevelStars = earnedStars;
         save.saveLevelStars(stats.level, earnedStars);
         levelTransitionTimer = 1.6;
-        final baseGold = allowsGoldReward ? (25 + (stats.level * 5).clamp(0, 50)) : 0;
+        particles.spawnLevelClearConfetti(earnedStars, screenWidth, screenHeight);
+        final baseGold = allowsGoldReward ? BalanceConfig.levelClearGold(stats.level) : 0;
         final relicBonus = (allowsGoldReward && save.hasPermanentRelic) ? max(1, (baseGold * 0.05).round()) : 0;
         final luckLvl = save.getUpgradeLevel('luck');
         final luckBonus = allowsGoldReward ? (baseGold * (luckLvl * 0.05)).round() : 0;
@@ -5423,6 +5744,35 @@ class GameController extends ChangeNotifier {
         if (levelGold > 0) {
           stats.goldCollected += levelGold;
           save.addGold(levelGold);
+        }
+        final interestGold = allowsGoldReward ? BalanceConfig.calculateInterest(save.gold) : 0;
+        if (interestGold > 0) {
+          save.addGold(interestGold);
+          GameEventBus().fire(
+            GoldCollectedEvent(
+              amount: interestGold,
+              sourcePosition: Offset(screenWidth / 2, screenHeight * 0.53),
+            ),
+          );
+        }
+        // MEKANİK FAZ 2.2: Kusursuz Hız Bonusu (Speed-Par <= 25s with full lives)
+        if (allowsGoldReward && _currentLevelDuration > 0.1 && _currentLevelDuration <= BalanceConfig.speedParDurationSeconds && stats.lives >= stats.maxLives) {
+          const speedBonus = BalanceConfig.speedParBonusGold;
+          save.addGold(speedBonus);
+          stats.goldCollected += speedBonus;
+          GameEventBus().fire(
+            GoldCollectedEvent(
+              amount: speedBonus,
+              sourcePosition: Offset(screenWidth / 2, screenHeight * 0.46),
+            ),
+          );
+          particles.spawnFloatingText(
+            screenWidth / 2,
+            screenHeight * 0.46,
+            'KUSURSUZ HIZ: +$speedBonus ALTIN',
+            const Color(0xFF00E5FF),
+            isLarge: true,
+          );
         }
         if (currentMode == GameMode.classic) {
           save.recordClassicLevelCleared(stats.level);
@@ -5474,6 +5824,9 @@ class GameController extends ChangeNotifier {
         if (levelGold > 0) {
           particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.48, '+$levelGold  ${I18n.tr('level_bonus')}', const Color(0xFFFFD54F), isLarge: false);
         }
+        if (interestGold > 0) {
+          particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.53, '+$interestGold ${I18n.tr('interest')}', const Color(0xFFFFD54F), isLarge: false);
+        }
         audio.playSfx(GameSfx.victory);
         notifyListeners();
       }
@@ -5483,6 +5836,17 @@ class GameController extends ChangeNotifier {
   void _onVictory() {
     _haltBackgroundGameplay();
     status = GameStatus.victory;
+    final int earnedStars;
+    if (stats.lives >= stats.maxLives) {
+      earnedStars = 3;
+    } else if (stats.lives >= 2) {
+      earnedStars = 2;
+    } else {
+      earnedStars = 1;
+    }
+    lastClearedLevelStars = earnedStars;
+    save.saveLevelStars(stats.level, earnedStars);
+    particles.spawnLevelClearConfetti(earnedStars, screenWidth, screenHeight);
     AchievementManager.instance.onLevelCompleted(
       levelNumber: stats.level,
       noDamage: stats.lives >= stats.maxLives,
@@ -5494,7 +5858,9 @@ class GameController extends ChangeNotifier {
       save.clearChaosSession();
     }
     save.updateHighScore(currentMode, stats.score);
-    int victoryGold = allowsGoldReward ? 100 : 0;
+    int victoryGold = allowsGoldReward
+        ? (BalanceConfig.levelClearGold(stats.level) * (stats.lives >= stats.maxLives ? 2 : 1))
+        : 0;
     if (allowsGoldReward && save.cosmicGoldMasteryLevel > 0) {
       victoryGold = (victoryGold * cosmicGoldRewardMultiplier).round();
     }
@@ -5512,9 +5878,14 @@ class GameController extends ChangeNotifier {
     if (status == GameStatus.playing || status == GameStatus.ready) {
       _statusBeforePause = status;
       status = GameStatus.paused;
-      audio.isBgmAllowed = true;
-      audio.playDuck = 1.0;
-      audio.updateBgmVolume();
+      if (audio.appInForeground) {
+        audio.isBgmAllowed = true;
+        audio.playDuck = 1.0;
+        audio.updateBgmVolume();
+      } else {
+        audio.isBgmAllowed = false;
+        audio.stopAll();
+      }
       notifyListeners();
     }
   }

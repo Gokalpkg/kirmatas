@@ -659,6 +659,8 @@ class LevelDesign {
         return [5, 6, 7][cycleIndex % 3]; // CastleFortress, Honeycomb, PillarsOfHercules
       case 4:
         return [8, 9, 10, 11][cycleIndex % 4]; // SymmetricTotem, AlienInvader, DoubleHelix, Arrowhead
+      case 5:
+        return [12, 13, 14, 15][cycleIndex % 4]; // StarOfDestiny, PrecisionSlit, IronCurtain, DualConvoys
       case 6:
         return [13, 14, 15][cycleIndex % 3]; // PrecisionSlit, IronCurtain, DualConvoys
       case 7:
@@ -667,19 +669,34 @@ class LevelDesign {
         return [20, 21, 22, 23][cycleIndex % 4]; // TargetBullseye, TwinTowers, SkullFortress, ShieldAndCrown
       case 9:
         return [24, 25, 26, 27, 28][cycleIndex % 5]; // SwordOfJustice, Hourglass, HeartOfStone, QuantumMatrix, Eclipse
+      case 0:
       default:
-        return 0;
+        return [16, 20, 24, 27][cycleIndex % 4]; // BunkerVault, TargetBullseye, SwordOfJustice, QuantumMatrix
     }
   }
 
   static bool _getArchetypeCell(int archetype, int r, int c, int rows, int cols, int level) {
+    // Tavan köşe emniyet kilidi: r == 0 iken dış sütunlar (c == 0 ve c == cols - 1) daima dolu olmalı,
+    // topun tuğlaların arkasındaki tavan boşluğuna kaçması fiziksel olarak engellenir.
+    if (r == 0 && (c == 0 || c == cols - 1)) {
+      return true;
+    }
+
+    // İlk dünyada (seviye 1-35) yan kenar sütunları daima dolu tutularak sağ ve sol
+    // kısımlarda açık koridor/yarık oluşması ve topun kaçması tamamen engellenir.
+    if (level <= 35 && (c == 0 || c == cols - 1)) {
+      return true;
+    }
+
     switch (archetype) {
-      case 0: // Checkerboard
+      case 0: // Checkerboard — dış sütunlar sağlam tutularak yan koridor açığı engellenir
+        if (c == 0 || c == cols - 1) return true;
         return (r + c) % 2 == 0;
-      case 1: // DominoChain — both side edges stay in the chain
+      case 1: // DominoChain — her iki yan kenar zincirde kalır
+        if (c == 0 || c == cols - 1) return true;
         final fromEdge = min(c, cols - 1 - c);
         if (r % 2 == 0) return fromEdge % 2 == 0;
-        return fromEdge % 2 == 1 && c != 0 && c != cols - 1;
+        return fromEdge % 2 == 1;
       case 2: // DiamondMine — centered so both side edges and both tips exist
         final midR = (rows - 1) / 2.0;
         final midC = (cols - 1) / 2.0;
@@ -710,7 +727,8 @@ class LevelDesign {
       case 7: // PillarsOfHercules — both side columns stay solid
         if (c == 0 || c == cols - 1 || r == 0 || r == rows - 1) return true;
         return min(c, cols - 1 - c) % 3 != 1;
-      case 8: // SymmetricTotem
+      case 8: // SymmetricTotem — yan sütunlar kapalı tutulur, sağ/sol açık oluşmaz
+        if (c == 0 || c == cols - 1) return true;
         final dc = (c - (cols - 1) / 2.0).abs();
         final dr = (r - (rows - 1) / 2.0).abs();
         return (dc + dr <= (rows + cols) * 0.38) && !(r % 2 == 1 && dc < 0.6);
@@ -853,7 +871,9 @@ class LevelDesign {
     final List<Brick> bricks = [];
     final bool isBossLevel = isBossLevelNumber(level);
     final world = getWorldIndex(level);
-    const padding = 16.0;
+    // 8.0px padding ensures gap between side walls and outer bricks is narrower than
+    // ball diameter (14.0px), completely preventing ball from squeezing up the side edges.
+    const padding = 8.0;
 
     if (isBossLevel) {
       final isMajorBoss = (level % 25 == 0 || level == 100 || level == 200);
@@ -1000,6 +1020,8 @@ class LevelDesign {
 
     const gap = 5.0;
     final bw = (screenWidth - (padding * 2) - gap * (cols - 1)) / cols;
+    final totalW = cols * bw + gap * (cols - 1);
+    final startX = (screenWidth - totalW) / 2.0;
     const bh = 22.0;
     // Enforce safe clearance between lowest brick level and paddle (at screenHeight - 110.0)
     final maxAllowedRows = max(4, ((screenHeight - 295.0 - baseTopMargin) / (bh + gap)).floor());
@@ -1007,6 +1029,36 @@ class LevelDesign {
     final step = level % 10;
     final archetype = _selectArchetype(level, world, step);
     final palette = getWorldPalette(world);
+
+    // Mystery Golden Chest Brick placement:
+    // Nadir ödül mekaniği: Her el çıkmaz, tam her 5 bölümde bir (bölüm 4, 9, 14, 19, 24...), el başına tam 1 sandık!
+    final bool isChestLevel = level >= 4 && (level % 5 == 4) && !isBossLevel;
+    int chestRow = -1;
+    int chestCol = -1;
+    if (isChestLevel) {
+      final preferredRow = min(rows - 2, max(1, (level * 2) % rows));
+      // First try preferred row
+      for (int c = 1; c < cols - 1; c++) {
+        if (_getArchetypeCell(archetype, preferredRow, c, rows, cols, level)) {
+          chestRow = preferredRow;
+          chestCol = c;
+          break;
+        }
+      }
+      // Fallback to any valid cell in rows 1..rows-2
+      if (chestRow == -1) {
+        for (int r = 1; r < rows - 1; r++) {
+          for (int c = 1; c < cols - 1; c++) {
+            if (_getArchetypeCell(archetype, r, c, rows, cols, level)) {
+              chestRow = r;
+              chestCol = c;
+              break;
+            }
+          }
+          if (chestRow != -1) break;
+        }
+      }
+    }
 
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
@@ -1065,18 +1117,7 @@ class LevelDesign {
           }
         }
 
-        // Mystery Golden Chest Brick placement:
-        // Guaranteed tactical Golden Chest per level from level 2 onwards!
-        bool isChest = false;
-        final targetChestCol = (level * 3 + 1) % cols;
-        final targetChestRow = min(2, (level * 2) % rows);
-        if (!isSteel && !isHeavySteel && !isDynamite && !isIce) {
-          if (level >= 2 && r == targetChestRow && c == targetChestCol) {
-            isChest = true;
-          } else if ((r * 19 + c * 31 + level * 11) % 41 == 0) {
-            isChest = true;
-          }
-        }
+        final bool isChest = (r == chestRow && c == chestCol) && !isSteel && !isHeavySteel && !isDynamite && !isIce;
 
         // HP Scaling
         int hp = 1;
@@ -1114,13 +1155,22 @@ class LevelDesign {
           }
         }
 
-        final color = isSteel
-            ? const Color(0xFF78909C)
-            : isHeavySteel
-                ? const Color(0xFF37474F)
-                : palette[(r + c + (level ~/ 10)) % palette.length];
+        final Color brickColor;
+        if (isSteel) {
+          brickColor = const Color(0xFF78909C);
+        } else if (isHeavySteel) {
+          brickColor = const Color(0xFF37474F);
+        } else if (isChest) {
+          brickColor = const Color(0xFFFFD700);
+        } else if (hp >= 3) {
+          // Zırhlı Kraliyet Ametisti (Heavy Armored Amethyst)
+          // 3+ vuruşluk tuğlaları sıradan 1 vuruşluk tuğlalardan anında ayıran prestijli zırh rengi
+          brickColor = const Color(0xFF5E35B1);
+        } else {
+          brickColor = palette[(r + c + (level ~/ 10)) % palette.length];
+        }
 
-        final brickX = padding + c * (bw + gap);
+        final brickX = startX + c * (bw + gap);
         final brickY = baseTopMargin + r * (bh + gap);
         final moverDirection = (r % 2 == 0) ? 1.0 : -1.0;
 
@@ -1140,9 +1190,9 @@ class LevelDesign {
             isIce: isIce,
             isChest: isChest,
             chestTier: isChest ? (world >= 4 ? 3 : (world == 3 ? 2 : (world == 2 ? 1 : 0))) : 0,
-            minX: padding,
-            maxX: screenWidth - padding,
-            color: isChest ? const Color(0xFFFFD700) : ((hp > 1 && !isSteel && !isHeavySteel) ? color.withValues(alpha: 0.85) : color),
+            minX: startX,
+            maxX: screenWidth - startX,
+            color: brickColor,
             points: (isSteel || isHeavySteel) ? 0 : (isChest ? 100 : 25 * hp),
           ),
         );
@@ -1154,7 +1204,7 @@ class LevelDesign {
     if (breakableCount < 6) {
       final safeRow = rows ~/ 2;
       for (int c = 0; c < cols; c++) {
-        final brickX = padding + c * (bw + gap);
+        final brickX = startX + c * (bw + gap);
         final brickY = baseTopMargin + safeRow * (bh + gap);
         bricks.add(
           Brick(
@@ -1164,8 +1214,8 @@ class LevelDesign {
             height: bh,
             hp: 1,
             maxHp: 1,
-            minX: padding,
-            maxX: screenWidth - padding,
+            minX: startX,
+            maxX: screenWidth - startX,
             color: palette[c % palette.length],
             points: 25,
           ),
@@ -1175,12 +1225,12 @@ class LevelDesign {
 
     // Ensure all bricks are safely clamped within screen width
     for (final b in bricks) {
-      if (b.x < padding) b.x = padding;
-      if (b.x + b.width > screenWidth - padding) {
-        b.x = screenWidth - padding - b.width;
+      if (b.x < startX) b.x = startX;
+      if (b.x + b.width > screenWidth - startX) {
+        b.x = screenWidth - startX - b.width;
       }
-      b.minX = padding;
-      b.maxX = screenWidth - padding;
+      b.minX = startX;
+      b.maxX = screenWidth - startX;
     }
 
     _applyDecadeSignature(bricks, level);
@@ -1414,8 +1464,9 @@ class LevelDesign {
             points: 15,
           ),
         );
-      } else if (specialRoll < 0.26) {
+      } else if (wave >= 4 && specialRoll >= 0.20 && specialRoll < 0.215) {
         // Mystery Golden Treasure Chest in Chaos Mode!
+        // Nadir ödül mekaniği: ~1.5% şans (wave >= 4)
         // When cracked: drops +5 to +8 extra balls and big gold jackpot!
         final chestHp = min(3, max(1, hp ~/ 2));
         final chaosChestTier = (wave >= 30) ? 3 : ((wave >= 18) ? 2 : ((wave >= 8) ? 1 : 0));

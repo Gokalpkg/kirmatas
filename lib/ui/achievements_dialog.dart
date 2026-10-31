@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../engine/achievement_manager.dart';
@@ -251,54 +253,55 @@ class _AchievementsDialogState extends State<AchievementsDialog> {
                   ],
                 ),
               ),
-              // Play Games Sync / Show Button
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _syncing ? null : _onPlayGamesAction,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _games.signedIn
-                          ? const Color(0x3300E676)
-                          : const Color(0x2E00E5FF),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
+              // Play Games Sync / Show Button (Android only)
+              if (!kIsWeb && Platform.isAndroid)
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _syncing ? null : _onPlayGamesAction,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
                         color: _games.signedIn
-                            ? const Color(0xFF00E676)
-                            : const Color(0xFF00E5FF),
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _games.signedIn
-                              ? Icons.cloud_done_rounded
-                              : Icons.play_arrow_rounded,
+                            ? const Color(0x3300E676)
+                            : const Color(0x2E00E5FF),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
                           color: _games.signedIn
-                              ? const Color(0xFF69F0AE)
+                              ? const Color(0xFF00E676)
                               : const Color(0xFF00E5FF),
-                          size: 16,
+                          width: 1.0,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _games.signedIn ? 'Play Games' : 'Giriş Yap',
-                          style: TextStyle(
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _games.signedIn
+                                ? Icons.cloud_done_rounded
+                                : Icons.play_arrow_rounded,
                             color: _games.signedIn
                                 ? const Color(0xFF69F0AE)
                                 : const Color(0xFF00E5FF),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
+                            size: 16,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          Text(
+                            _games.signedIn ? 'Play Games' : 'Giriş Yap',
+                            style: TextStyle(
+                              color: _games.signedIn
+                                  ? const Color(0xFF69F0AE)
+                                  : const Color(0xFF00E5FF),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 8),

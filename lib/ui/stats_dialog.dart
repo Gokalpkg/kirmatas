@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../engine/play_games_manager.dart';
@@ -226,8 +228,10 @@ class _StatsDialogState extends State<StatsDialog> {
                         ),
                       ),
                   ],
-                  const SizedBox(height: 18),
-                  _playGamesCard(),
+                  if (!kIsWeb && Platform.isAndroid) ...[
+                    const SizedBox(height: 18),
+                    _playGamesCard(),
+                  ],
                 ],
               ),
             ),

@@ -8,6 +8,7 @@ import '../storage/save_manager.dart';
 import 'chest_widget.dart';
 import 'crate_opening_dialog.dart';
 import 'kaunos_ui.dart';
+import 'pixel_art.dart';
 
 class WheelReward {
   final String label;
@@ -15,6 +16,7 @@ class WheelReward {
   final String? labelKey;
   final String? subtitleKey;
   final IconData icon;
+  final String pixelIcon;
   final Color primaryColor;
   final Color secondaryColor;
   final void Function(BuildContext context, SaveManager save) onClaim;
@@ -25,6 +27,7 @@ class WheelReward {
     this.labelKey,
     this.subtitleKey,
     required this.icon,
+    required this.pixelIcon,
     required this.primaryColor,
     required this.secondaryColor,
     required this.onClaim,
@@ -142,6 +145,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       subtitle: 'JACKPOT!',
       subtitleKey: 'grand_prize',
       icon: Icons.diamond,
+      pixelIcon: 'diamond',
       primaryColor: const Color(0xFFFFD700),
       secondaryColor: const Color(0xFFFF8F00),
       onClaim: (context, save) => save.addGold(500),
@@ -152,6 +156,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       subtitle: 'Gizemli Sandık',
       subtitleKey: 'random_crate',
       icon: Icons.inventory_2_rounded,
+      pixelIcon: 'chest',
       primaryColor: const Color(0xFFFFB300),
       secondaryColor: const Color(0xFFFF6F00),
       onClaim: (context, save) async {
@@ -177,6 +182,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       subtitle: '+1 Shard',
       subtitleKey: 'shards',
       icon: Icons.hexagon,
+      pixelIcon: 'shard',
       primaryColor: const Color(0xFF00E5FF),
       secondaryColor: const Color(0xFF00B0FF),
       onClaim: (context, save) {
@@ -191,6 +197,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       subtitle: 'Büyük Ödül',
       subtitleKey: 'grand_prize',
       icon: Icons.monetization_on,
+      pixelIcon: 'coin',
       primaryColor: const Color(0xFFFF9100),
       secondaryColor: const Color(0xFFFF6D00),
       onClaim: (context, save) => save.addGold(250),
@@ -200,6 +207,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       subtitle: 'Altın',
       subtitleKey: 'gold',
       icon: Icons.stars,
+      pixelIcon: 'coin',
       primaryColor: const Color(0xFFFFD54F),
       secondaryColor: const Color(0xFFFFB300),
       onClaim: (context, save) => save.addGold(150),
@@ -210,6 +218,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       subtitle: 'Can Boostu',
       subtitleKey: 'life_boost_title',
       icon: Icons.favorite,
+      pixelIcon: 'heart',
       primaryColor: const Color(0xFFFF1744),
       secondaryColor: const Color(0xFFD50000),
       onClaim: (context, save) => save.addBoostStock('life', 1),
@@ -219,6 +228,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       subtitle: 'Altın',
       subtitleKey: 'gold',
       icon: Icons.toll,
+      pixelIcon: 'coin',
       primaryColor: const Color(0xFF26A69A),
       secondaryColor: const Color(0xFF00897B),
       onClaim: (context, save) => save.addGold(100),
@@ -228,6 +238,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       subtitle: 'Altın',
       subtitleKey: 'gold',
       icon: Icons.monetization_on,
+      pixelIcon: 'coin',
       primaryColor: const Color(0xFFAB47BC),
       secondaryColor: const Color(0xFF8E24AA),
       onClaim: (context, save) => save.addGold(75),
@@ -238,6 +249,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       subtitle: 'İnci',
       subtitleKey: 'pearls',
       icon: Icons.circle,
+      pixelIcon: 'pearl',
       primaryColor: const Color(0xFFF48FB1),
       secondaryColor: const Color(0xFFEC407A),
       onClaim: (context, save) => save.addPearls(1),
@@ -248,6 +260,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
       subtitle: 'Balık Yemi',
       subtitleKey: 'fish_food',
       icon: Icons.set_meal_rounded,
+      pixelIcon: 'fish',
       primaryColor: const Color(0xFFAED581),
       secondaryColor: const Color(0xFF7CB342),
       onClaim: (context, save) => save.addFishFood(4),
@@ -558,10 +571,11 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     String? customLabel,
     String? customSubtitle,
     IconData? customIcon,
+    String? customPixelIcon,
   }) {
     final displayLabel = customLabel ?? reward.displayLabel;
     final displaySubtitle = customSubtitle ?? reward.displaySubtitle;
-    final displayIcon = customIcon ?? reward.icon;
+    final pixelIconName = customPixelIcon ?? reward.pixelIcon;
     final isChest = reward.label == 'KASA' || reward.labelKey == 'vault_title';
 
     // The big catches get a full spectacle; small ones stay casual.
@@ -609,19 +623,23 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
               time: animValue * 2 * pi,
             )
           : Container(
-              width: 92,
-              height: 92,
+              width: 96,
+              height: 96,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [reward.primaryColor.withValues(alpha: 0.95), reward.primaryColor.withValues(alpha: 0.45)],
+                borderRadius: BorderRadius.circular(24),
+                gradient: LinearGradient(
+                  colors: [reward.primaryColor.withValues(alpha: 0.35), const Color(0xFF0D111E)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                border: Border.all(color: Colors.white70, width: 1.6),
+                border: Border.all(color: reward.primaryColor, width: 2.2),
                 boxShadow: [
-                  BoxShadow(color: reward.primaryColor.withValues(alpha: 0.65), blurRadius: 18),
+                  BoxShadow(color: reward.primaryColor.withValues(alpha: 0.6), blurRadius: 18),
                 ],
               ),
-              child: Icon(displayIcon, color: Colors.white, size: 46),
+              child: Center(
+                child: PixelIcon(pixelIconName, size: 54),
+              ),
             ),
       footnote: isChest
           ? 'Tebrikler! Sandığın hemen ücretsiz açılmaya hazır.'
@@ -849,23 +867,40 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
 
                         // Center Pin Hub
                         Container(
-                          width: 50,
-                          height: 50,
+                          width: 56,
+                          height: 56,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: const RadialGradient(
-                              colors: [Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFFF8F00)],
+                              colors: [Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFFF8F00), Color(0xFF1B0B00)],
+                              stops: [0.0, 0.45, 0.85, 1.0],
                             ),
+                            border: Border.all(color: const Color(0xFFFFF9C4), width: 2.0),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.6),
-                                blurRadius: 8,
+                                color: Colors.black.withValues(alpha: 0.75),
+                                blurRadius: 10,
                                 offset: const Offset(0, 3),
+                              ),
+                              BoxShadow(
+                                color: const Color(0xFFFF8F00).withValues(alpha: 0.5),
+                                blurRadius: 12,
                               ),
                             ],
                           ),
-                          child: const Center(
-                            child: Icon(Icons.touch_app_rounded, color: Color(0xFF3E2723), size: 24),
+                          child: Center(
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: const Color(0xFF120B04),
+                                border: Border.all(color: const Color(0xFFFFD54F), width: 1.5),
+                              ),
+                              child: const Center(
+                                child: PixelIcon('star', size: 18),
+                              ),
+                            ),
                           ),
                         ),
 
@@ -932,29 +967,36 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                   ),
                   child: Material(
                     color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(22),
-                      onTap: isLoading ? null : _onWatchAdAndSpin,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (isLoading) ...[
-                              const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                _isSpinning ? I18n.tr('wheel_spinning') : I18n.tr('ad_preparing'),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 14,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(22),
+                        onTap: _isSpinning
+                            ? () {
+                                // Instant Wheel Resolve (FAZ 4.2 QoL): skip spin animation to final result
+                                if (_spinController.isAnimating) {
+                                  _spinController.forward(from: 0.98);
+                                }
+                              }
+                            : (isLoading ? null : _onWatchAdAndSpin),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (isLoading) ...[
+                                const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                                 ),
-                              ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  _isSpinning ? 'ANINDA SONUÇ (GEÇ)' : I18n.tr('ad_preparing'),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 14,
+                                  ),
+                                ),
                             ] else if (!canSpin) ...[
                               const Icon(Icons.timer_outlined, color: Colors.white54, size: 20),
                               const SizedBox(width: 10),
@@ -1101,28 +1143,22 @@ class _WheelPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 8;
+    final radius = size.width / 2 - 10;
     final sectorAngle = (2 * pi) / rewards.length;
 
-    // Outer Rim
-    final rimPaint = Paint()
-      ..color = const Color(0xFFFFD54F)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 7;
-    canvas.drawCircle(center, radius + 4, rimPaint);
+    final circleRect = Rect.fromCircle(center: center, radius: radius);
 
+    // 1. Draw Sector Slices
     final sectorPaint = Paint()..style = PaintingStyle.fill;
     final dividerPaint = Paint()
-      ..color = const Color(0x80FFFFFF)
-      ..strokeWidth = 2;
-
-    final circleRect = Rect.fromCircle(center: center, radius: radius);
+      ..color = const Color(0xFF0F1524)
+      ..strokeWidth = 2.5
+      ..isAntiAlias = false;
 
     for (int i = 0; i < rewards.length; i++) {
       final reward = rewards[i];
       final startAngle = i * sectorAngle;
 
-      // Draw Sector with cached shader
       final shaderKey = Object.hash(reward.primaryColor.toARGB32(), reward.secondaryColor.toARGB32(), radius.round());
       sectorPaint.shader = _sectorShaders.putIfAbsent(shaderKey, () {
         return LinearGradient(
@@ -1143,30 +1179,38 @@ class _WheelPainter extends CustomPainter {
       if (highlightIndex == i) {
         final flashPaint = Paint()
           ..style = PaintingStyle.fill
-          ..color = const Color(0xAAFFFFFF);
+          ..color = const Color(0xBBFFFFFF);
         canvas.drawArc(circleRect, startAngle, sectorAngle, true, flashPaint);
         final flashStroke = Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 3.5
+          ..strokeWidth = 4.0
           ..color = const Color(0xFFFFD600);
         canvas.drawArc(circleRect, startAngle, sectorAngle, true, flashStroke);
       }
 
-      // Draw Divider
+      // Draw Sector Dividers
       final divX = center.dx + cos(startAngle) * radius;
       final divY = center.dy + sin(startAngle) * radius;
       canvas.drawLine(center, Offset(divX, divY), dividerPaint);
 
-      // Draw Sector Label & Icon with cached TextPainter
+      // Draw Sector Pixel Art Icon and Label
       final midAngle = startAngle + sectorAngle / 2;
-      final textRadius = radius * 0.68;
-      final tx = center.dx + cos(midAngle) * textRadius;
-      final ty = center.dy + sin(midAngle) * textRadius;
+      final midRadius = radius * 0.62;
+      final tx = center.dx + cos(midAngle) * midRadius;
+      final ty = center.dy + sin(midAngle) * midRadius;
 
       canvas.save();
       canvas.translate(tx, ty);
       canvas.rotate(midAngle + pi / 2);
 
+      // 1. Draw sharp pixel icon above label (radially outwards = negative Y)
+      PixelArt.paintIcon(
+        canvas,
+        Rect.fromCenter(center: const Offset(0, -14), width: 18, height: 18),
+        reward.pixelIcon,
+      );
+
+      // 2. Draw high-contrast Rajdhani arcade label
       final labelText = reward.displayLabel;
       final tp = _textPainters.putIfAbsent(labelText, () {
         final textSpan = TextSpan(
@@ -1175,11 +1219,11 @@ class _WheelPainter extends CustomPainter {
             fontFamily: 'Rajdhani',
             color: Colors.white,
             fontWeight: FontWeight.w900,
-            fontSize: rewards.length > 8 ? 11.0 : 12.5,
-            letterSpacing: 0.6,
+            fontSize: rewards.length > 8 ? 11.5 : 13.0,
+            letterSpacing: 0.8,
             shadows: const [
-              Shadow(color: Colors.black, blurRadius: 6, offset: Offset(0, 1.5)),
-              Shadow(color: Colors.black87, blurRadius: 2, offset: Offset(0, 0.5)),
+              Shadow(color: Color(0xFF000000), blurRadius: 4, offset: Offset(0, 1.5)),
+              Shadow(color: Color(0xFF000000), blurRadius: 1, offset: Offset(0, 0.5)),
             ],
           ),
         );
@@ -1189,8 +1233,45 @@ class _WheelPainter extends CustomPainter {
         )..layout();
       });
 
-      tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+      tp.paint(canvas, Offset(-tp.width / 2, 4));
       canvas.restore();
+    }
+
+    // 2. Outer Rim Arcade Bezel
+    // Deep obsidian backing ring
+    final rimBase = Paint()
+      ..color = const Color(0xFF0C101E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 14;
+    canvas.drawCircle(center, radius + 5, rimBase);
+
+    // Inner bright stepped gold rim
+    final rimInnerGold = Paint()
+      ..color = const Color(0xFFFFD54F)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+    canvas.drawCircle(center, radius - 0.5, rimInnerGold);
+
+    // Outer rich amber border
+    final rimOuterAmber = Paint()
+      ..color = const Color(0xFFFF8F00)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawCircle(center, radius + 10, rimOuterAmber);
+
+    // 3. Brass Arcade Pegs/Rivets at sector boundaries
+    final pegDark = Paint()..color = const Color(0xFF261D00)..style = PaintingStyle.fill..isAntiAlias = false;
+    final pegBrass = Paint()..color = const Color(0xFFFFD54F)..style = PaintingStyle.fill..isAntiAlias = false;
+    final pegGlint = Paint()..color = Colors.white..style = PaintingStyle.fill..isAntiAlias = false;
+
+    for (int i = 0; i < rewards.length; i++) {
+      final startAngle = i * sectorAngle;
+      final px = center.dx + cos(startAngle) * (radius + 5);
+      final py = center.dy + sin(startAngle) * (radius + 5);
+
+      canvas.drawRect(Rect.fromCenter(center: Offset(px, py), width: 7, height: 7), pegDark);
+      canvas.drawRect(Rect.fromCenter(center: Offset(px, py), width: 5, height: 5), pegBrass);
+      canvas.drawRect(Rect.fromLTWH(px - 2, py - 2, 2, 2), pegGlint);
     }
   }
 
@@ -1201,23 +1282,65 @@ class _WheelPainter extends CustomPainter {
 class _PointerArrowPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFFF1744)
-      ..style = PaintingStyle.fill;
+    final w = size.width;
+    final h = size.height;
 
-    final shadowPaint = Paint()
-      ..color = const Color(0xFFB71C1C)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+    // Dark outline / arcade bezel
+    final borderPaint = Paint()
+      ..color = const Color(0xFF2B0006)
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = false;
 
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width / 2, size.height)
+    // Outer stepped dagger shape (pointing downwards)
+    final basePath = Path()
+      ..moveTo(2, 0)
+      ..lineTo(w - 2, 0)
+      ..lineTo(w - 2, h * 0.45)
+      ..lineTo(w * 0.72, h * 0.45)
+      ..lineTo(w * 0.72, h * 0.70)
+      ..lineTo(w * 0.58, h * 0.70)
+      ..lineTo(w * 0.50, h)
+      ..lineTo(w * 0.42, h * 0.70)
+      ..lineTo(w * 0.28, h * 0.70)
+      ..lineTo(w * 0.28, h * 0.45)
+      ..lineTo(2, h * 0.45)
       ..close();
+    canvas.drawPath(basePath, borderPaint);
 
-    canvas.drawPath(path, paint);
-    canvas.drawPath(path, shadowPaint);
+    // Inner fiery ruby blade
+    final rubyPaint = Paint()
+      ..color = const Color(0xFFFF1744)
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = false;
+
+    final rubyPath = Path()
+      ..moveTo(4, 2)
+      ..lineTo(w - 4, 2)
+      ..lineTo(w - 4, h * 0.42)
+      ..lineTo(w * 0.70, h * 0.42)
+      ..lineTo(w * 0.70, h * 0.68)
+      ..lineTo(w * 0.56, h * 0.68)
+      ..lineTo(w * 0.50, h - 2)
+      ..lineTo(w * 0.44, h * 0.68)
+      ..lineTo(w * 0.30, h * 0.68)
+      ..lineTo(w * 0.30, h * 0.42)
+      ..lineTo(4, h * 0.42)
+      ..close();
+    canvas.drawPath(rubyPath, rubyPaint);
+
+    // Center gold specular ridge
+    final goldPaint = Paint()
+      ..color = const Color(0xFFFFD54F)
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = false;
+    canvas.drawRect(Rect.fromLTWH(w / 2 - 1.5, 4, 3, h * 0.55), goldPaint);
+
+    // Top mounting brass rivet
+    final rivetPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = false;
+    canvas.drawRect(Rect.fromLTWH(w / 2 - 2, 2, 4, 3), rivetPaint);
   }
 
   @override

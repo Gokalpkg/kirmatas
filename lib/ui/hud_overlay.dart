@@ -55,7 +55,7 @@ class HudOverlay extends StatelessWidget {
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(color: const Color(0x4D80D8FF)),
                       boxShadow: const [
-                        BoxShadow(color: Color(0x66000000), blurRadius: 16, offset: Offset(0, 4)),
+                        BoxShadow(color: Color(0x66000000), blurRadius: 0, offset: Offset(0, 4)),
                       ],
                     ),
                     child: Row(
@@ -280,6 +280,44 @@ class HudOverlay extends StatelessWidget {
                         ),
 
                         const SizedBox(width: 6),
+
+                        // 1x / 2x / 4x Fast-Forward Speed Pill (FAZ 3.3 / FAZ 4.4 QoL)
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () {
+                              AudioManager.instance.triggerHaptic(() async => AudioManager.instance.playSfx(GameSfx.click));
+                              controller.cycleFastForwardSpeed();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: controller.userSpeedMultiplier > 1.0
+                                    ? const Color(0x44FFD54F)
+                                    : const Color(0x2BFFFFFF),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: controller.userSpeedMultiplier > 1.0
+                                      ? const Color(0xFFFFD54F)
+                                      : Colors.white24,
+                                ),
+                              ),
+                              child: Text(
+                                '${controller.userSpeedMultiplier.round()}x',
+                                style: TextStyle(
+                                  color: controller.userSpeedMultiplier > 1.0
+                                      ? const Color(0xFFFFD54F)
+                                      : Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 4),
 
                         // Pause Button
                         Material(
@@ -700,6 +738,7 @@ class HudOverlay extends StatelessWidget {
               // Pre-Match Tactical Booster Tray
               if (controller.isMatchStart &&
                   controller.status == GameStatus.ready &&
+                  controller.stats.level > 2 &&
                   controller.currentMode != GameMode.chaos &&
                   controller.currentMode != GameMode.zen &&
                   !controller.awaitingChaosPerkSelection &&
@@ -820,6 +859,9 @@ class HudOverlay extends StatelessWidget {
   }
 
   Widget _buildPreMatchBoosterTray(BuildContext context, GameController controller) {
+    if (controller.stats.level <= 2) {
+      return const SizedBox.shrink();
+    }
     final save = SaveManager.instance;
     final boosts = [
       (id: 'life', icon: Icons.favorite_rounded, label: '+1 Can', color: const Color(0xFFFF5252), cost: 400),
@@ -842,9 +884,11 @@ class HudOverlay extends StatelessWidget {
               BoxShadow(color: Colors.black54, blurRadius: 10, offset: Offset(0, 4)),
             ],
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: boosts.map((b) {
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: boosts.map((b) {
               final stock = save.boostStocks[b.id] ?? 0;
               final isEquipped = controller.usedPreMatchBoosts.contains(b.id) ||
                   (b.id == 'wide' && controller.activePowerUps.any((p) => p.type == PowerUpType.wide)) ||
@@ -940,6 +984,7 @@ class HudOverlay extends StatelessWidget {
                 ),
               );
             }).toList(),
+            ),
           ),
         ),
       ),

@@ -3,6 +3,7 @@ import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
 import '../storage/save_manager.dart';
 import 'kaunos_ui.dart';
+import 'pixel_art.dart';
 
 class DailyLoginDialog extends StatefulWidget {
   const DailyLoginDialog({super.key});
@@ -73,26 +74,45 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
       headline: doubled ? '2X KATLANDI!' : 'GÜNLÜK ÖDÜL!',
       spectacle: doubled,
       visualBuilder: (_) => Container(
-        width: 92,
-        height: 92,
+        width: 96,
+        height: 96,
         decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const RadialGradient(
-            colors: [Color(0xFFFFF9C4), Color(0xFFFFB300)],
+          borderRadius: BorderRadius.circular(24),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2E1C00), Color(0xFF140E00)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          border: Border.all(color: Colors.white70, width: 1.6),
+          border: Border.all(color: const Color(0xFFFFD54F), width: 2.2),
           boxShadow: [
-            BoxShadow(color: KaunosPalette.goldPrimary.withValues(alpha: 0.65), blurRadius: 18),
+            BoxShadow(color: const Color(0xFFFF8F00).withValues(alpha: 0.6), blurRadius: 20),
           ],
         ),
-        child: const Icon(Icons.card_giftcard_rounded, color: Color(0xFF4E2C00), size: 46),
+        child: const Center(
+          child: PixelIcon('chest', size: 52),
+        ),
       ),
       lines: [
-        KaunosRewardLine(icon: Icons.monetization_on, color: KaunosPalette.goldBorder, text: '+$gold Altın'),
+        KaunosRewardLine(
+          pixelIcon: 'coin',
+          icon: Icons.monetization_on,
+          color: KaunosPalette.goldBorder,
+          text: '+$gold Altın',
+        ),
         if (food > 0)
-          KaunosRewardLine(icon: Icons.set_meal, color: const Color(0xFF4FC3F7), text: '+$food Balık Yemi'),
+          KaunosRewardLine(
+            pixelIcon: 'fish',
+            icon: Icons.set_meal,
+            color: const Color(0xFF4FC3F7),
+            text: '+$food Balık Yemi',
+          ),
         if (result['bonusItem'] != null)
-          const KaunosRewardLine(icon: Icons.diamond_rounded, color: Color(0xFFE040FB), text: 'Özel Parça Kazandın!'),
+          const KaunosRewardLine(
+            pixelIcon: 'shard',
+            icon: Icons.diamond_rounded,
+            color: Color(0xFFE040FB),
+            text: 'Özel Parça Kazandın!',
+          ),
       ],
       footnote: doubled ? '2X ödülün tamamı hesabına geçti!' : 'Seriyi bozma, yarın yine gel!',
       buttonLabel: 'HARİKA!',
@@ -170,7 +190,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                       Expanded(
                         child: Row(
                           children: [
-                            const Icon(Icons.calendar_month, color: Color(0xFFFFD54F), size: 26),
+                            const PixelIcon('star', size: 24),
                             const SizedBox(width: 8),
                             Expanded(
                               child: FittedBox(
@@ -179,8 +199,9 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                                 child: const Text(
                                   'GÜNLÜK GİRİŞ ÖDÜLÜ',
                                   style: TextStyle(
+                                    fontFamily: 'Rajdhani',
                                     color: Colors.white,
-                                    fontSize: 18,
+                                    fontSize: 20,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 0.8,
                                   ),
@@ -198,7 +219,12 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                   const SizedBox(height: 6),
                   const Text(
                     'Her gün oyuna gir, seriyi bozma ve büyük ödülleri topla!',
-                    style: TextStyle(color: Colors.white60, fontSize: 12),
+                    style: TextStyle(
+                      fontFamily: 'Rajdhani',
+                      color: Colors.white70,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 const SizedBox(height: 16),
@@ -252,8 +278,8 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                     builder: (context) {
                       final baseGold = _save.getBaseGoldForDailyDay(currentDay);
                       final isComplementing = !canClaimBase; // already claimed base, now getting remaining 1x
-                      final buttonGoldText = isComplementing ? '+$baseGold ' : '${baseGold * 2} ';
-                      final buttonTitle = isComplementing ? ' 2X ÖDÜL AL: $buttonGoldText' : ' 2X KATLA & AL: $buttonGoldText';
+                      final buttonGoldText = isComplementing ? '+$baseGold ALTIN' : '${baseGold * 2} ALTIN';
+                      final buttonTitle = isComplementing ? '2X ÖDÜL AL: $buttonGoldText' : '2X KATLA & AL: $buttonGoldText';
                       final buttonSubtitle = isComplementing
                           ? 'Kısa Video İzle, Bugünkü Ödülü 2X\'e Tamamla!' : 'Kısa Video İzle, Bugünkü Ödülü 2\'ye Katla!';
 
@@ -271,10 +297,10 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                                   end: Alignment.bottomRight,
                                 ),
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: const Color(0xFFFFF9C4), width: 1.5),
+                                border: Border.all(color: const Color(0xFFFFF9C4), width: 1.8),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFFF8F00).withValues(alpha: 0.5),
+                                    color: const Color(0xFFFF8F00).withValues(alpha: 0.55),
                                     blurRadius: 18,
                                     offset: const Offset(0, 4),
                                   ),
@@ -306,21 +332,28 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                                               Text(
                                                 buttonTitle,
                                                 style: const TextStyle(
+                                                  fontFamily: 'Rajdhani',
                                                   color: Color(0xFF2E1C00),
                                                   fontWeight: FontWeight.w900,
-                                                  fontSize: 16,
-                                                  letterSpacing: 0.3,
+                                                  fontSize: 17,
+                                                  letterSpacing: 0.5,
                                                 ),
                                               ),
                                               const SizedBox(width: 6),
                                               Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                                                 decoration: BoxDecoration(
                                                   color: const Color(0xFFD50000),
                                                   borderRadius: BorderRadius.circular(6),
                                                 ),
-                                                child: const Text( '+2X',
-                                                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900),
+                                                child: const Text(
+                                                  '2X',
+                                                  style: TextStyle(
+                                                    fontFamily: 'Rajdhani',
+                                                    color: Colors.white,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w900,
+                                                  ),
                                                 ),
                                               ),
                                             ],
@@ -330,8 +363,9 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                                         Text(
                                           buttonSubtitle,
                                           style: const TextStyle(
+                                            fontFamily: 'Rajdhani',
                                             color: Color(0xFF3E2723),
-                                            fontSize: 11,
+                                            fontSize: 12,
                                             fontWeight: FontWeight.w800,
                                           ),
                                         ),
@@ -381,56 +415,51 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
     final isToday = (dayNum == currentDay && canClaimBase);
 
     String rewardText = '';
-    IconData icon = Icons.monetization_on;
-    Color iconColor = const Color(0xFFFFD54F);
+    String pixelIcon = 'coin';
 
     switch (dayNum) {
       case 1:
-        rewardText = '50 ';
+        rewardText = '50 ALTIN';
+        pixelIcon = 'coin';
         break;
       case 2:
-        rewardText = '100 + 2';
-        icon = Icons.set_meal;
-        iconColor = const Color(0xFF4FC3F7);
+        rewardText = '100 ALTIN\n+ 2 YEM';
+        pixelIcon = 'fish';
         break;
       case 3:
-        rewardText = '150 + ';
-        icon = Icons.sports_volleyball;
-        iconColor = const Color(0xFFFF80AB);
+        rewardText = '150 ALTIN\n+ 1 PARÇA';
+        pixelIcon = 'shard';
         break;
       case 4:
-        rewardText = '200 + ️';
-        icon = Icons.favorite;
-        iconColor = const Color(0xFFFF5252);
+        rewardText = '200 ALTIN\n+ 1 CAN';
+        pixelIcon = 'heart';
         break;
       case 5:
-        rewardText = '300 + ️';
-        icon = Icons.view_stream;
-        iconColor = const Color(0xFF00E5FF);
+        rewardText = '300 ALTIN\n+ 1 İNCİ';
+        pixelIcon = 'pearl';
         break;
       case 6:
-        rewardText = '400 + 3';
-        icon = Icons.set_meal;
-        iconColor = const Color(0xFF69F0AE);
+        rewardText = '400 ALTIN\n+ 3 YEM';
+        pixelIcon = 'fish';
         break;
     }
 
     final cardContent = Container(
       decoration: BoxDecoration(
         color: isToday
-            ? const Color(0xFF261D00)
-            : (isPast ? const Color(0x331E2438) : const Color(0xFF161A28)),
+            ? const Color(0xFF2E1C00)
+            : (isPast ? const Color(0x33004D20) : const Color(0xFF161A28)),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isToday
               ? const Color(0xFFFFD54F)
-              : (isPast ? const Color(0x3369F0AE) : Colors.white12),
+              : (isPast ? const Color(0x6600E676) : Colors.white12),
           width: isToday ? 2.0 : 1.0,
         ),
         boxShadow: isToday
             ? [
                 BoxShadow(
-                  color: const Color(0xFFFFD54F).withValues(alpha: 0.35),
+                  color: const Color(0xFFFFD54F).withValues(alpha: 0.4),
                   blurRadius: 10,
                   spreadRadius: 1,
                 ),
@@ -447,39 +476,53 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text( '$dayNum. GÜN',
+                  Text(
+                    '$dayNum. GÜN',
                     style: TextStyle(
+                      fontFamily: 'Rajdhani',
                       color: isToday ? const Color(0xFFFFD54F) : Colors.white54,
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                   if (isToday) ...[
                     const SizedBox(width: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFF8F00),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text('AL', style: TextStyle(color: Colors.black, fontSize: 8, fontWeight: FontWeight.w900)),
+                      child: const Text(
+                        'AL',
+                        style: TextStyle(
+                          fontFamily: 'Rajdhani',
+                          color: Colors.black,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                     ),
                   ],
                 ],
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 5),
             if (isPast)
-              const Icon(Icons.check_circle, color: Color(0xFF69F0AE), size: 22)
+              const PixelIcon('check', size: 22)
             else
-              Icon(icon, color: iconColor, size: 22),
+              PixelIcon(pixelIcon, size: 24),
             const SizedBox(height: 4),
             Text(
               isPast ? 'Alındı' : rewardText,
               style: TextStyle(
-                color: isPast ? const Color(0xFF69F0AE) : (isToday ? const Color(0xFFFFD54F) : Colors.white),
+                fontFamily: 'Rajdhani',
+                color: isPast
+                    ? const Color(0xFF69F0AE)
+                    : (isToday ? const Color(0xFFFFD54F) : Colors.white),
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
+                height: 1.15,
               ),
               textAlign: TextAlign.center,
             ),
@@ -516,12 +559,12 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isToday ? const Color(0xFFFFF9C4) : const Color(0xFFFFD54F),
-          width: 1.5,
+          width: 1.8,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF8F00).withValues(alpha: isToday ? 0.4 : 0.2),
-            blurRadius: 12,
+            color: const Color(0xFFFF8F00).withValues(alpha: isToday ? 0.45 : 0.25),
+            blurRadius: 14,
             offset: const Offset(0, 3),
           ),
         ],
@@ -529,16 +572,13 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
               color: isToday ? Colors.black26 : const Color(0x33FFD54F),
               shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFFFD54F), width: 1.2),
             ),
-            child: Icon(
-              Icons.stars,
-              color: isToday ? Colors.white : const Color(0xFFFFD54F),
-              size: 26,
-            ),
+            child: const PixelIcon('trophy', size: 28),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -550,23 +590,31 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                   alignment: Alignment.centerLeft,
                   child: Row(
                     children: [
-                      Text( '7. GÜN BÜYÜK ÖDÜL',
+                      Text(
+                        '7. GÜN BÜYÜK ÖDÜL',
                         style: TextStyle(
+                          fontFamily: 'Rajdhani',
                           color: isToday ? Colors.white : const Color(0xFFFFD54F),
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.5,
                         ),
                       ),
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                         decoration: BoxDecoration(
                           color: Colors.redAccent,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text( 'EFSANEVİ',
-                          style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
+                        child: const Text(
+                          'EFSANEVİ',
+                          style: TextStyle(
+                            fontFamily: 'Rajdhani',
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
                     ],
@@ -575,8 +623,10 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                 const SizedBox(height: 2),
                 Text(
                   isPast
-                      ? ' Tamamlandı' : ' 600 Altın + 2x Efsanevi Kozmetik Parçası!',
+                      ? 'Tamamlandı'
+                      : '600 Altın + 2x Efsanevi Kozmetik Parçası!',
                   style: TextStyle(
+                    fontFamily: 'Rajdhani',
                     color: isToday ? const Color(0xFFFFFDE7) : Colors.white70,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -586,7 +636,7 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
             ),
           ),
           if (isPast)
-            const Icon(Icons.check_circle, color: Color(0xFF69F0AE), size: 22)
+            const PixelIcon('check', size: 22)
           else if (isToday)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -595,8 +645,14 @@ class _DailyLoginDialogState extends State<DailyLoginDialog> with SingleTickerPr
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
               ),
-              child: const Text( 'AL ',
-                style: TextStyle(color: Color(0xFFE65100), fontWeight: FontWeight.w900, fontSize: 11),
+              child: const Text(
+                'AL',
+                style: TextStyle(
+                  fontFamily: 'Rajdhani',
+                  color: Color(0xFFE65100),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                ),
               ),
             ),
         ],

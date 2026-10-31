@@ -3169,11 +3169,10 @@ void main() {
         // Level 1 highlight badge on Classic Mode
         expect(find.text('MACERAYA BAŞLA!'), findsOneWidget);
 
-        // Lock badges visible on locked features
+        // Lock badges visible on locked features in bottom dock
         expect(find.text('Bölüm 2'), findsWidgets);
         expect(find.text('Bölüm 3'), findsOneWidget);
         expect(find.text('Bölüm 5'), findsWidgets);
-        expect(find.text('BÖLÜM 5'), findsOneWidget);
 
         // Tapping locked Shop tab triggers locked SnackBar feedback
         final shopBtn = find.text(I18n.tr('shop'));

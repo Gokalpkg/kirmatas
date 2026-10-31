@@ -293,7 +293,7 @@ void main() {
           'MainMenuScreen renders with zero overflow on ${vpEntry.key} @ ${scale}x (Locked State)',
           (tester) async {
             final save = SaveManager.instance;
-            save.highestLevel = 1;
+            save.highestLevel = 3; // Progressive disclosure reveals locked league (< 7)
             save.totalGold = 0;
             save.hasCompletedMainMenuTour = true;
 
@@ -401,7 +401,7 @@ void main() {
       addTearDown(() => tester.view.resetPhysicalSize());
 
       final save = SaveManager.instance;
-      save.highestLevel = 2; // Locked (< 7)
+      save.highestLevel = 3; // Progressive disclosure reveals locked league (< 7)
       save.hasCompletedMainMenuTour = true;
 
       await tester.pumpWidget(

@@ -1,9 +1,13 @@
+import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../engine/audio_manager.dart';
+import 'pixel_art.dart';
 
 /// Centralized design tokens for the 75% 1.1 "Kozmik Kristal & Gözlemevi" +
 /// 25% 1.3 "3D Kristal & Dövme Altın/Bevel" hybrid visual identity of Kırmataş.
@@ -1025,6 +1029,9 @@ class _RollingNumberTextState extends State<RollingNumberText> with SingleTicker
 /// 4. Snappy tactile pop on press & warm rewarding chime on release
 /// 5. Radial particle burst shower of glowing energy sparks
 /// 6. Optional high-stakes radial energy meter & kinetic screen shake
+/// Alias for retro-pixel button specifications.
+typedef KaunosPixelButton = KaunosTactileButton;
+
 class KaunosTactileButton extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
@@ -2765,8 +2772,14 @@ class KaunosRewardLine {
   final IconData icon;
   final Color color;
   final String text;
+  final String? pixelIcon;
 
-  const KaunosRewardLine({required this.icon, required this.color, required this.text});
+  const KaunosRewardLine({
+    required this.icon,
+    required this.color,
+    required this.text,
+    this.pixelIcon,
+  });
 }
 
 /// The game's shared prize celebration: an obsidian crystal panel in
@@ -2955,8 +2968,11 @@ class _KaunosRewardRevealDialogState extends State<_KaunosRewardRevealDialog>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(line.icon, color: line.color, size: 19),
-                    const SizedBox(width: 7),
+                    if (line.pixelIcon != null)
+                      PixelIcon(line.pixelIcon!, size: 20)
+                    else
+                      Icon(line.icon, color: line.color, size: 19),
+                    const SizedBox(width: 8),
                     Flexible(
                       child: Text(
                         line.text,
@@ -3090,6 +3106,470 @@ class _KaunosCloseButtonState extends State<KaunosCloseButton> {
               size: 20,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// FTUE & Magnetic Re-Entry primary Hero Button.
+///
+/// Features:
+/// - Exact 88px height and full-width layout.
+/// - Rhythmic sinusoidal breathing glow (`Curves.easeInOutSine`).
+/// - Idle Sonar Pulse (expanding double ring sonar wave if screen is idle for 2 seconds).
+/// - Tactile feedback via `HapticFeedback.heavyImpact()` and elastic bounce on tap.
+/// - Top micro-badge: "HAZIRSAN DOKUN"
+/// - Main title: Level 1-2 "MACERAYA BAŞLA!" (Rajdhani w900, gold embossed) or "DEVAM ET: BÖLÜM X"
+/// - Subtitle/slogan: "Dokun ve Tuğlaları Parçala!"
+/// - Right end: 58px bright neon Play icon.
+class KaunosMagneticHeroButton extends StatefulWidget {
+  final VoidCallback? onTap;
+  final int level;
+  final String? title;
+  final String? subtitle;
+  final String? badge;
+
+  const KaunosMagneticHeroButton({
+    super.key,
+    this.onTap,
+    this.level = 1,
+    this.title,
+    this.subtitle,
+    this.badge,
+  });
+
+  @override
+  State<KaunosMagneticHeroButton> createState() => KaunosMagneticHeroButtonState();
+}
+
+class KaunosMagneticHeroButtonState extends State<KaunosMagneticHeroButton>
+    with TickerProviderStateMixin {
+  late final AnimationController _glowController;
+  late final Animation<double> _glowAnimation;
+
+  late final AnimationController _sonarController;
+  late final AnimationController _bounceController;
+  late final Animation<double> _bounceAnimation;
+
+  Timer? _idleTimer;
+  bool _isIdle = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final inTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    // 1. Sinusoidal breathing glow (Curves.easeInOutSine)
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    );
+    if (!inTest) {
+      _glowController.repeat(reverse: true);
+    } else {
+      _glowController.value = 1.0;
+    }
+    _glowAnimation = CurvedAnimation(
+      parent: _glowController,
+      curve: Curves.easeInOutSine,
+    );
+
+    // 2. Double-ring expanding sonar pulse
+    _sonarController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+
+    // 3. Elastic bounce controller
+    _bounceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+    _bounceAnimation = Tween<double>(begin: 1.0, end: 0.94).animate(
+      CurvedAnimation(parent: _bounceController, curve: Curves.easeInOutQuad),
+    );
+
+    _startIdleTimer();
+  }
+
+  void _startIdleTimer() {
+    _idleTimer?.cancel();
+    _idleTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => _isIdle = true);
+        final inTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+        if (!inTest) {
+          _sonarController.repeat();
+        } else {
+          _sonarController.forward(from: 0.0);
+        }
+      }
+    });
+  }
+
+  void _resetIdleTimer() {
+    if (_isIdle) {
+      if (mounted) {
+        setState(() => _isIdle = false);
+      }
+      _sonarController.stop();
+      _sonarController.reset();
+    }
+    _startIdleTimer();
+  }
+
+  /// Programmatic trigger to focus user attention on the hero button
+  /// (e.g. when user taps locked navigation tabs).
+  void triggerFocus() {
+    if (!mounted) return;
+    HapticFeedback.heavyImpact();
+    setState(() => _isIdle = true);
+    final inTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    _sonarController.forward(from: 0.0).then((_) {
+      if (mounted && _isIdle && !inTest) {
+        _sonarController.repeat();
+      }
+    });
+    // Elastic spring bounce
+    _bounceController.forward().then((_) {
+      if (mounted) _bounceController.reverse();
+    });
+  }
+
+  @override
+  void dispose() {
+    _idleTimer?.cancel();
+    _glowController.dispose();
+    _sonarController.dispose();
+    _bounceController.dispose();
+    super.dispose();
+  }
+
+  void _handleTapDown(TapDownDetails _) {
+    _bounceController.forward();
+  }
+
+  void _handleTapUp(TapUpDetails _) {
+    _bounceController.reverse();
+  }
+
+  void _handleTapCancel() {
+    _bounceController.reverse();
+  }
+
+  void _handleTap() {
+    _resetIdleTimer();
+    HapticFeedback.heavyImpact();
+    AudioManager.instance.playSfx(GameSfx.click);
+    widget.onTap?.call();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final titleText = widget.title ??
+        (widget.level < 3 ? 'MACERAYA BAŞLA!' : 'DEVAM ET: BÖLÜM ${widget.level}');
+    final badgeText = widget.badge ?? 'HAZIRSAN DOKUN';
+    final subtitleText = widget.subtitle ?? 'Dokun ve Tuğlaları Parçala!';
+
+    return MouseRegion(
+      onHover: (_) => _resetIdleTimer(),
+      child: GestureDetector(
+        onTapDown: _handleTapDown,
+        onTapUp: _handleTapUp,
+        onTapCancel: _handleTapCancel,
+        onTap: _handleTap,
+        child: AnimatedBuilder(
+          animation: Listenable.merge([_glowAnimation, _bounceAnimation, _sonarController]),
+          builder: (context, child) {
+            final glowVal = _glowAnimation.value;
+            final bounceVal = _bounceAnimation.value;
+            final sonarVal = _sonarController.value;
+
+            return Transform.scale(
+              scale: bounceVal,
+              child: SizedBox(
+                height: 88,
+                width: double.infinity,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    // Double ring Idle Sonar Pulse (if idle for >= 2s)
+                    if (_isIdle) ...[
+                      // Outer Sonar Ring 1
+                      Positioned(
+                        left: -16 * sonarVal,
+                        right: -16 * sonarVal,
+                        top: -12 * sonarVal,
+                        bottom: -12 * sonarVal,
+                        child: IgnorePointer(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(22 + 8 * sonarVal),
+                              border: Border.all(
+                                color: KaunosPalette.goldHighlight.withValues(
+                                  alpha: (1.0 - sonarVal).clamp(0.0, 0.75),
+                                ),
+                                width: 2.0 * (1.0 - sonarVal * 0.5),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Outer Sonar Ring 2 (Staggered by 0.5 phase)
+                      () {
+                        final wave2 = (sonarVal + 0.5) % 1.0;
+                        return Positioned(
+                          left: -24 * wave2,
+                          right: -24 * wave2,
+                          top: -18 * wave2,
+                          bottom: -18 * wave2,
+                          child: IgnorePointer(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(22 + 12 * wave2),
+                                border: Border.all(
+                                  color: const Color(0xFFFF9100).withValues(
+                                    alpha: (1.0 - wave2).clamp(0.0, 0.55),
+                                  ),
+                                  width: 1.8 * (1.0 - wave2 * 0.5),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }(),
+                    ],
+
+                    // Main Button Body
+                    Positioned.fill(
+                      child: Container(
+                        height: 88,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(22),
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFFFFB300), // Vibrant amber gold
+                              Color(0xFFF57C00), // Deep energetic orange
+                              Color(0xFFD84315), // Warm terracotta sunset
+                              Color(0xFF8D2B0C), // Physical depth shadow
+                            ],
+                            stops: [0.0, 0.35, 0.75, 1.0],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          border: Border.all(
+                            color: KaunosPalette.goldHighlight,
+                            width: 2.0,
+                          ),
+                          boxShadow: [
+                            // 3D extruded physical bottom lip
+                            const BoxShadow(
+                              color: Color(0xFF381005),
+                              offset: Offset(0, 5),
+                              blurRadius: 0,
+                            ),
+                            // Top inner specular rim
+                            const BoxShadow(
+                              color: Color(0x60FFFFFF),
+                              offset: Offset(0, 1.5),
+                              blurRadius: 0,
+                              spreadRadius: -0.5,
+                            ),
+                            // Rhythmic sinusoidal breathing glow (Curves.easeInOutSine)
+                            BoxShadow(
+                              color: const Color(0xFFFF9800).withValues(
+                                alpha: 0.35 + 0.40 * glowVal,
+                              ),
+                              blurRadius: 14 + 14 * glowVal,
+                              spreadRadius: 1 + 3 * glowVal,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          child: Row(
+                            children: [
+                              // Left: Badges & Main Title & Slogan
+                              Expanded(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Top Micro-badge: "HAZIRSAN DOKUN"
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xD01C0D02),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: KaunosPalette.goldBorder,
+                                            width: 1.0,
+                                          ),
+                                          boxShadow: const [
+                                            BoxShadow(
+                                              color: Color(0x60000000),
+                                              offset: Offset(0, 1),
+                                              blurRadius: 2,
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Container(
+                                              width: 6,
+                                              height: 6,
+                                              decoration: const BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: Color(0xFF00E676),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Color(0xAA00E676),
+                                                    blurRadius: 4,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 5),
+                                            Text(
+                                              badgeText,
+                                              style: const TextStyle(
+                                                fontFamily: 'Rajdhani',
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 9.5,
+                                                letterSpacing: 0.8,
+                                                height: 1.0,
+                                                color: KaunosPalette.goldHighlight,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    // Main Title (Rajdhani w900, Altın Kabartmalı)
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        titleText,
+                                        maxLines: 1,
+                                        style: const TextStyle(
+                                          fontFamily: 'Rajdhani',
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 21,
+                                          letterSpacing: 0.8,
+                                          height: 1.1,
+                                          color: KaunosPalette.silkCream,
+                                          shadows: [
+                                            // Physical bottom extruded bevel
+                                            Shadow(
+                                              color: Color(0xFF451A03),
+                                              offset: Offset(0, 2.5),
+                                              blurRadius: 0,
+                                            ),
+                                            // Top rim specular reflection
+                                            Shadow(
+                                              color: Color(0xFFFFF9E6),
+                                              offset: Offset(0, -1),
+                                              blurRadius: 0,
+                                            ),
+                                            // Amber ambient bloom
+                                            Shadow(
+                                              color: Color(0xFFF59E0B),
+                                              offset: Offset(0, 0),
+                                              blurRadius: 8,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    // Subtitle / Slogan
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        subtitleText,
+                                        maxLines: 1,
+                                        style: TextStyle(
+                                          fontFamily: 'Rajdhani',
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 11.5,
+                                          letterSpacing: 0.4,
+                                          color: Colors.white.withValues(alpha: 0.9),
+                                          shadows: const [
+                                            Shadow(
+                                              color: Color(0xCC000000),
+                                              offset: Offset(0, 1),
+                                              blurRadius: 2,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Right End: 58px Bright Neon Play Icon
+                              Container(
+                                width: 58,
+                                height: 58,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFFFFF9C4), // White gold highlight
+                                      Color(0xFFFFD54F), // Bright gold
+                                      Color(0xFFFF8F00), // Deep amber
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2.2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFFFD54F).withValues(
+                                        alpha: 0.65 + 0.25 * glowVal,
+                                      ),
+                                      blurRadius: 14 + 6 * glowVal,
+                                      spreadRadius: 2,
+                                    ),
+                                    const BoxShadow(
+                                      color: Color(0xFF2E1303),
+                                      offset: Offset(0, 4),
+                                      blurRadius: 0,
+                                    ),
+                                  ],
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.play_arrow_rounded,
+                                    size: 38,
+                                    color: Color(0xFF1F0D02),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

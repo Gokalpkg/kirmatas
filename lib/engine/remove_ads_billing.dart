@@ -41,11 +41,32 @@ class RemoveAdsBilling extends ChangeNotifier {
         debugPrint('[Billing] Found product: ${product?.id}, price: ${product?.price}');
       }
       notifyListeners();
-      await _iap.restorePurchases();
     } catch (e, st) {
       debugPrint('[Billing] Error during billing init: $e\n$st');
     }
   }
+
+  /// Triggers a manual purchase restoration requested by the user.
+  /// Must NOT be called automatically on app launch to satisfy Apple App Store StoreKit guidelines.
+  Future<bool> restorePurchasesManually() async {
+    try {
+      if (!available) {
+        available = await _iap.isAvailable();
+      }
+      if (!available) {
+        debugPrint('[Billing] Cannot restore: billing service not available');
+        return false;
+      }
+      debugPrint('[Billing] Restoring purchases manually...');
+      await _iap.restorePurchases();
+      return true;
+    } catch (e, st) {
+      debugPrint('[Billing] Error restoring purchases: $e\n$st');
+      return false;
+    }
+  }
+
+  Future<bool> restorePurchases() => restorePurchasesManually();
 
   Future<bool> buy() async {
     if (SaveManager.instance.adsRemoved) return true;

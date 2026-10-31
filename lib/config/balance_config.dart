@@ -33,11 +33,11 @@ abstract final class BalanceConfig {
   /// Seconds before endgame anti-stall micro-steering nudges the ball toward the last 1-2 bricks.
   static const double endgameStallThresholdSeconds = 3.5;
 
-  /// Base coin drop probability per brick in Classic/Special mode (12%).
-  static const double classicCoinBaseDropRate = 0.12;
+  /// Base coin drop probability per brick in Classic/Special mode (7%).
+  static const double classicCoinBaseDropRate = 0.07;
 
-  /// Base coin drop probability per brick in Chaos mode (8%).
-  static const double chaosCoinBaseDropRate = 0.08;
+  /// Base coin drop probability per brick in Chaos mode (4.5%).
+  static const double chaosCoinBaseDropRate = 0.045;
 
   /// Base capsule power-up drop probability per brick (14%).
   static const double capsuleBaseDropRate = 0.14;
@@ -50,29 +50,32 @@ abstract final class BalanceConfig {
   // ===========================================================================
 
   /// Target base gold earned per 60-second active gameplay session in early game.
-  static const int targetSessionGoldEarly = 120;
+  static const int targetSessionGoldEarly = 75;
 
   /// Target base gold earned per 60-second active gameplay session in late game.
-  static const int targetSessionGoldLate = 450;
+  static const int targetSessionGoldLate = 280;
 
   /// Base cost for core stat upgrades (e.g., paddle width, ball damage, magnet).
-  static const int upgradeBaseCost = 50;
+  static const int upgradeBaseCost = 100;
 
-  /// Exponential progression factor for core stat upgrades (1.18x per level).
-  /// Guarantees Level 10 costs ~247, Level 20 costs ~1,293, Level 50 costs ~174,000.
+  /// Sub-polynomial progression factor kept for backward compatibility reference.
   static const double upgradeCostExponent = 1.18;
 
-  /// Computes the exact gold cost required to upgrade a stat from [currentLevel].
-  static int upgradeCost(int currentLevel, {int baseCost = upgradeBaseCost, double exponent = upgradeCostExponent}) {
+  /// Computes the exact gold cost required to upgrade a stat from [currentLevel]
+  /// using the sub-polynomial balanced formula:
+  /// `upgradeCost(L) = (100 * (1 + 0.20 * L + 0.03 * math.pow(L, 1.85))).round()`
+  ///
+  /// Prevents exponential walls while maintaining satisfying progression across all levels.
+  static int upgradeCost(int currentLevel, {int baseCost = upgradeBaseCost, double? exponent}) {
     if (currentLevel <= 0) return baseCost;
-    return (baseCost * math.pow(exponent, currentLevel)).round();
+    return (baseCost * (1.0 + 0.20 * currentLevel + 0.03 * math.pow(currentLevel, 1.85))).round();
   }
 
   /// Base gold reward when clearing a level.
   static int levelClearGold(int levelNumber) {
-    if (levelNumber <= 0) return 50;
-    // Linear + sub-quadratic curve: early levels reward quick wins, deep levels reward mastery.
-    return 50 + (levelNumber * 12) + (math.pow(levelNumber, 1.25)).round();
+    if (levelNumber <= 0) return 30;
+    // Sıkılaştırılmış ve hak edilmiş ödül eğrisi:
+    return 30 + (levelNumber * 7) + (math.pow(levelNumber, 1.15)).round();
   }
 
   /// Base gold awarded for destroying a regular solid brick.
@@ -99,4 +102,54 @@ abstract final class BalanceConfig {
     if (comboCount < 16) return 2.0;
     return 3.0; // Max fever frenzy multiplier
   }
+
+  // ===========================================================================
+  // INTEREST VAULT & COMBO GOLD MULTIPLIERS
+  // ===========================================================================
+
+  /// Computes interest earnings from the Interest Vault based on [currentGold].
+  /// +15 gold for every 250 gold held, capped at a maximum of +120 gold per level clear.
+  static int calculateInterest(int currentGold) {
+    if (currentGold <= 0) return 0;
+    final interest = (currentGold ~/ 250) * 15;
+    return interest.clamp(0, 120);
+  }
+
+  /// Combo gold multiplier curve applied to coin drops from destroyed bricks:
+  /// combo < 5: 1.0x, combo < 10: 1.5x, combo < 20: 2.0x, combo >= 20: 3.0x (Fever).
+  static double comboGoldMultiplier(int comboCount) {
+    if (comboCount < 5) return 1.0;
+    if (comboCount < 10) return 1.5;
+    if (comboCount < 20) return 2.0;
+    return 3.0;
+  }
+
+  // ===========================================================================
+  // OVERDRIVE EDGE RISK, GOLD PIÑATA & SPEED-PAR ANCHORS
+  // ===========================================================================
+
+  /// Outer paddle edge threshold (85%) triggering Overdrive risk-reward streak.
+  static const double overdriveEdgeThreshold = 0.85;
+
+  /// Speed boost per Overdrive streak tier (+15% per tier).
+  static const double overdriveSpeedStep = 0.15;
+
+  /// Maximum Overdrive streak tier (Tier 3 unlocks piercing gold bullet).
+  static const int overdriveMaxStreak = 3;
+
+  /// Target par duration in seconds for flawless speed-clear bonus.
+  static const double speedParDurationSeconds = 25.0;
+
+  /// Bonus gold awarded when clearing a level within [speedParDurationSeconds] without losing a life.
+  static const int speedParBonusGold = 100;
+
+  /// Gold orbs dropped per hit on a Gold Piñata brick.
+  static const int goldPinataHitGold = 3;
+
+  /// Bonus gold burst when shattering a Gold Piñata brick.
+  static const int goldPinataDestroyGold = 60;
+
+  /// Bonus pearls awarded when shattering a Gold Piñata brick.
+  static const int goldPinataDestroyPearls = 1;
 }
+

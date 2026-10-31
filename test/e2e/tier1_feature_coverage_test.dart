@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kirmatas/config/balance_config.dart';
 import 'package:kirmatas/engine/i18n.dart';
 import 'package:kirmatas/models/ball.dart';
 import 'package:kirmatas/models/black_hole.dart';
@@ -332,7 +333,7 @@ void main() {
         expect(SaveManager.instance.hasSavedGame(GameMode.classic), isFalse);
       });
 
-      test('F1.5_T1_04: Clearing level 238 awards +100 victory gold reward and updates high score', () {
+      test('F1.5_T1_04: Clearing level 238 awards dynamic victory gold reward and updates high score', () {
         final gc = createTestController(mode: GameMode.classic);
         final initialGold = SaveManager.instance.gold;
         gc.stats.level = 238;
@@ -342,7 +343,8 @@ void main() {
         clearAllBreakableBricks(gc);
         gc.update(0.016);
 
-        expect(SaveManager.instance.gold, equals(initialGold + 100));
+        final expectedVictoryGold = BalanceConfig.levelClearGold(238) * (gc.stats.lives >= gc.stats.maxLives ? 2 : 1);
+        expect(SaveManager.instance.gold, equals(initialGold + expectedVictoryGold));
         expect(SaveManager.instance.getHighScore(GameMode.classic), equals(99999));
       });
 

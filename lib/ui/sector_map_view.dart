@@ -47,18 +47,24 @@ class _SectorMapViewState extends State<SectorMapView> with TickerProviderStateM
 
   void _scrollToCurrentSector() {
     final highest = widget.save.metricHighestClassicLevel;
-    final currentSector = SectorData.getSectorForLevel(highest);
-    final index = currentSector.sectorIndex - 1; // 0..13
-
     if (_scrollController.hasClients) {
-      // Her sektör kartı yaklaşık 130 piksel
-      final targetOffset = (index * 130.0 - 150.0).clamp(
+      if (highest > 238) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 700),
+          curve: Curves.easeOutCubic,
+        );
+        return;
+      }
+      final currentSector = SectorData.getSectorForLevel(highest);
+      final index = (currentSector.sectorIndex - 1).clamp(0, SectorData.allSectors.length - 1);
+      final targetOffset = (index * 128.0 - 120.0).clamp(
         0.0,
         _scrollController.position.maxScrollExtent,
       );
       _scrollController.animateTo(
         targetOffset,
-        duration: const Duration(milliseconds: 600),
+        duration: const Duration(milliseconds: 650),
         curve: Curves.easeOutCubic,
       );
     }
@@ -392,28 +398,26 @@ class _SectorMapViewState extends State<SectorMapView> with TickerProviderStateM
               ),
             ),
 
-            // Sektör Yolu Listesi
+            // Sektör Yolu Listesi (Aşağıdan Yukarıya Tırmanış: Abis'ten Uzaya ve Kaunos Tapınağı'na)
             Expanded(
               child: ListView.builder(
                 controller: _scrollController,
+                reverse: true, // En aşağıdan (Karanlık Abis / Başlangıç) başla, yukarı doğru tırman
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
                 itemCount: SectorData.allSectors.length + (highest > 238 ? 1 : 0),
                 itemBuilder: (context, index) {
+                  final totalItems = SectorData.allSectors.length + (highest > 238 ? 1 : 0);
+
                   if (index == SectorData.allSectors.length) {
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildPathConnector(isUnlocked: true),
-                        AnimatedBuilder(
-                          animation: _pulseController,
-                          builder: (context, _) => _buildPrestigeOmegaCard(
-                            prestigeTier: widget.save.prestigeTier,
-                            highestLevel: highest,
-                            pulse: _pulseController.value,
-                          ),
-                        ),
-                      ],
+                    // En tepedeki Prestij Sektör Omega
+                    return AnimatedBuilder(
+                      animation: _pulseController,
+                      builder: (context, _) => _buildPrestigeOmegaCard(
+                        prestigeTier: widget.save.prestigeTier,
+                        highestLevel: highest,
+                        pulse: _pulseController.value,
+                      ),
                     );
                   }
 
@@ -421,9 +425,12 @@ class _SectorMapViewState extends State<SectorMapView> with TickerProviderStateM
                   final isUnlocked = sector.isUnlocked(highest);
                   final isCompleted = sector.isCompleted(highest);
                   final isCurrent = sector.isCurrent(highest);
-                  final isLast = index == SectorData.allSectors.length - 1 && highest <= 238;
+                  final hasNextAbove = index < totalItems - 1;
+                  final isNextUnlocked = (index + 1 < SectorData.allSectors.length)
+                      ? SectorData.allSectors[index + 1].isUnlocked(highest)
+                      : (highest > 238);
 
-                  // Alternating left/center/right alignment to create a dynamic winding path
+                  // Alternating left/center/right alignment to create a dynamic winding path climbing up
                   final alignment = (index % 3 == 0)
                       ? Alignment.centerLeft
                       : (index % 3 == 1)
@@ -452,11 +459,11 @@ class _SectorMapViewState extends State<SectorMapView> with TickerProviderStateM
                   return Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (hasNextAbove) _buildPathConnector(isUnlocked: isNextUnlocked),
                       Align(
                         alignment: alignment,
                         child: cardWidget,
                       ),
-                      if (!isLast) _buildPathConnector(isUnlocked: isUnlocked),
                     ],
                   );
                 },
@@ -769,72 +776,80 @@ class _CosmicSectorNebulaPainter extends CustomPainter {
     final h = size.height;
     final t = progress * 2 * math.pi;
 
-    // Deep cosmic space gradient base
+    // Vertical Ascent gradient:
+    // Top: Cosmic Kaunos Temple (Deep Gold & Celestial Void Violet)
+    // Upper Mid: High space & Orbit
+    // Lower Mid: Emerald Sky & Mountain shores
+    // Bottom: Deep Midnight Ocean Abyss (Genesis / Abyssal trench)
     const baseGradient = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        Color(0xFF090D1C),
-        Color(0xFF060812),
-        Color(0xFF080714),
+        Color(0xFF140727), // Top: Kaunos Temple & Cosmic Zenith
+        Color(0xFF090D1E), // High Space: Orbit & Nebulae
+        Color(0xFF04121A), // Mid: Emerald Valley & Stratosphere
+        Color(0xFF010814), // Bottom: Dark Abyssal Waters
       ],
+      stops: [0.0, 0.35, 0.70, 1.0],
     );
     canvas.drawRect(Offset.zero & size, Paint()..shader = baseGradient.createShader(Offset.zero & size));
 
-    // Dynamic swirling colorful nebula clouds (Violet / Magenta, Cyan / Teal, Golden Amber)
-    // 1. Violet-Purple Nebula Bloom (top-left drifting)
-    final cx1 = w * (0.30 + 0.15 * math.sin(t));
-    final cy1 = h * (0.22 + 0.08 * math.cos(t));
+    // Dynamic swirling colorful nebula blooms reflecting elevation:
+    // 1. Top Bloom: Kaunos Sanctum Golden Amber & Royal Crimson (drifting around top)
+    final cx1 = w * (0.35 + 0.15 * math.sin(t));
+    final cy1 = h * (0.15 + 0.05 * math.cos(t));
     final r1 = w * (0.75 + 0.10 * math.sin(t * 1.5));
     final paint1 = Paint()
       ..shader = RadialGradient(
         colors: const [
-          Color(0x667C4DFF),
-          Color(0x33B388FF),
+          Color(0x55FFB300),
+          Color(0x28FF1744),
           Color(0x00000000),
         ],
         stops: const [0.0, 0.45, 1.0],
       ).createShader(Rect.fromCircle(center: Offset(cx1, cy1), radius: r1));
     canvas.drawCircle(Offset(cx1, cy1), r1, paint1);
 
-    // 2. Neon Cyan-Teal Aurora Bloom (mid-right drifting)
+    // 2. Cosmic Void Purple/Violet (mid-upper space)
     final cx2 = w * (0.75 - 0.18 * math.cos(t * 0.8));
-    final cy2 = h * (0.55 + 0.12 * math.sin(t * 0.8));
+    final cy2 = h * (0.42 + 0.08 * math.sin(t * 0.8));
     final r2 = w * (0.70 + 0.12 * math.cos(t));
     final paint2 = Paint()
       ..shader = RadialGradient(
         colors: const [
-          Color(0x5500E5FF),
-          Color(0x2218FFFF),
+          Color(0x447C4DFF),
+          Color(0x22E040FB),
           Color(0x00000000),
         ],
         stops: const [0.0, 0.40, 1.0],
       ).createShader(Rect.fromCircle(center: Offset(cx2, cy2), radius: r2));
     canvas.drawCircle(Offset(cx2, cy2), r2, paint2);
 
-    // 3. Cosmic Amber & Rose Aurora Bloom (bottom drifting)
-    final cx3 = w * (0.45 + 0.20 * math.sin(t * 1.2));
-    final cy3 = h * (0.82 - 0.08 * math.cos(t * 1.2));
+    // 3. Bottom Bloom: Abyssal Aqua & Bioluminescent Marine Cyan (deep ocean)
+    final cx3 = w * (0.50 + 0.18 * math.sin(t * 1.2));
+    final cy3 = h * (0.85 - 0.06 * math.cos(t * 1.2));
     final r3 = w * (0.80 + 0.10 * math.sin(t * 0.9));
     final paint3 = Paint()
       ..shader = RadialGradient(
         colors: const [
-          Color(0x44FF6D00),
-          Color(0x22FF1744),
+          Color(0x5500B4D8),
+          Color(0x220077B6),
           Color(0x00000000),
         ],
-        stops: const [0.0, 0.35, 1.0],
+        stops: const [0.0, 0.40, 1.0],
       ).createShader(Rect.fromCircle(center: Offset(cx3, cy3), radius: r3));
     canvas.drawCircle(Offset(cx3, cy3), r3, paint3);
 
-    // Twinkling stars
+    // Twinkling stars (space at top) and bioluminescent floating particles (ocean at bottom)
     final starPaint = Paint()..color = Colors.white;
-    for (int i = 0; i < 36; i++) {
+    for (int i = 0; i < 40; i++) {
       final sx = ((i * 137.508) % w);
       final sy = ((i * 293.123) % h);
       final twinkle = 0.3 + 0.7 * (math.sin(t * 2.0 + i * 1.7)).abs();
-      final radius = (i % 5 == 0) ? 1.5 : ((i % 3 == 0) ? 1.1 : 0.7);
-      starPaint.color = Colors.white.withValues(alpha: (0.15 + 0.55 * twinkle).clamp(0.0, 0.85));
+      final radius = (i % 5 == 0) ? 1.6 : ((i % 3 == 0) ? 1.1 : 0.7);
+      final isOceanMote = sy > h * 0.65;
+      final clr = isOceanMote ? const Color(0xFF80D8FF) : Colors.white;
+      starPaint.color = clr.withValues(alpha: (0.15 + 0.60 * twinkle).clamp(0.0, 0.9));
       canvas.drawCircle(Offset(sx, sy), radius, starPaint);
     }
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:kirmatas/config/balance_config.dart';
 import 'package:kirmatas/storage/save_manager.dart';
 import 'package:kirmatas/engine/game_controller.dart';
 import 'package:kirmatas/models/game_state.dart';
@@ -352,7 +353,7 @@ void main() {
         );
 
         // Victory gold bonus on Apex Level 238 victory:
-        // With level 0 mastery: victoryGold = 100
+        // Dynamic formula: BalanceConfig.levelClearGold(level) * flawlessMultiplier
         save.cosmicGoldMasteryLevel = 0;
         final gcVic0 = GameController();
         gcVic0.setDimensions(360, 640);
@@ -364,9 +365,10 @@ void main() {
         gcVic0.bricks = [dummyCleared3];
         gcVic0.update(0.016);
         expect(gcVic0.status, GameStatus.victory);
-        expect(gcVic0.stats.goldCollected, 100);
+        final baseVicGold = BalanceConfig.levelClearGold(238) * (gcVic0.stats.lives >= gcVic0.stats.maxLives ? 2 : 1);
+        expect(gcVic0.stats.goldCollected, baseVicGold);
 
-        // With level 50 mastery: victoryGold = 100 * 2.0 = 200
+        // With level 50 mastery (+100% -> 2x)
         save.cosmicGoldMasteryLevel = 50;
         final gcVic50 = GameController();
         gcVic50.setDimensions(360, 640);
@@ -378,7 +380,7 @@ void main() {
         gcVic50.bricks = [dummyCleared4];
         gcVic50.update(0.016);
         expect(gcVic50.status, GameStatus.victory);
-        expect(gcVic50.stats.goldCollected, 200);
+        expect(gcVic50.stats.goldCollected, (baseVicGold * gcVic50.cosmicGoldRewardMultiplier).round());
       });
 
       test('Cosmic Pearl Mastery accelerates Ulti charge on outer tip clutch saves', () {

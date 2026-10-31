@@ -1,10 +1,80 @@
+import 'dart:collection';
 import 'dart:math';
 import 'package:flutter/material.dart';
 
 class TrailPoint {
   final Offset position;
   final double time;
-  TrailPoint(this.position, this.time);
+  const TrailPoint(this.position, this.time);
+}
+
+/// Fixed-capacity O(1) circular ring buffer implementing [List<TrailPoint>]
+/// so prepending at index 0 (`insert(0, point)`) and trimming (`removeLast()`)
+/// execute in constant time without O(N) array shifting in 100-ball Chaos mode.
+class FixedTrailRingBuffer extends ListBase<TrailPoint> {
+  static const int _capacity = 128; // Power of 2 for bitmasking
+  static const int _mask = _capacity - 1;
+  static const TrailPoint _zero = TrailPoint(Offset.zero, 0.0);
+
+  final List<TrailPoint> _buffer = List<TrailPoint>.filled(_capacity, _zero, growable: false);
+  int _head = 0;
+  int _length = 0;
+
+  @override
+  int get length => _length;
+
+  @override
+  set length(int newLength) {
+    if (newLength < 0) newLength = 0;
+    if (newLength > _capacity) newLength = _capacity;
+    _length = newLength;
+  }
+
+  @override
+  TrailPoint operator [](int index) {
+    return _buffer[(_head + index) & _mask];
+  }
+
+  @override
+  void operator []=(int index, TrailPoint value) {
+    _buffer[(_head + index) & _mask] = value;
+  }
+
+  /// O(1) front insertion used on every physics frame.
+  void pushFront(TrailPoint point, int maxCap) {
+    _head = (_head - 1) & _mask;
+    _buffer[_head] = point;
+    final effectiveCap = maxCap < _capacity ? maxCap : _capacity;
+    if (_length < effectiveCap) {
+      _length++;
+    } else {
+      _length = effectiveCap;
+    }
+  }
+
+  @override
+  void insert(int index, TrailPoint element) {
+    if (index == 0) {
+      _head = (_head - 1) & _mask;
+      _buffer[_head] = element;
+      if (_length < _capacity) _length++;
+      return;
+    }
+    super.insert(index, element);
+  }
+
+  @override
+  TrailPoint removeLast() {
+    if (_length == 0) return _zero;
+    _length--;
+    return _buffer[(_head + _length) & _mask];
+  }
+
+  @override
+  void clear() {
+    _length = 0;
+    _head = 0;
+  }
 }
 
 class Ball {
@@ -15,7 +85,7 @@ class Ball {
   double radius;
   bool isStuck;
   double stuckOffsetX;
-  final List<TrailPoint> trail = [];
+  final FixedTrailRingBuffer trail = FixedTrailRingBuffer();
   bool isFireball;
   int fireballPierceCount = 0;
   int fireballPaddleBounces = 0;
@@ -31,6 +101,7 @@ class Ball {
   double cornerBoostTimer;
   double megaTimer = 0.0;
   int cornerHitCount = 0;
+  int overdriveStreak = 0;
   bool isPurple = false;
   double anomalyCooldown = 0.0;
   int sideWallBounceCount = 0;
@@ -63,7 +134,7 @@ class Ball {
     this.cornerBoostTimer = 0.0,
     this.megaTimer = 0.0,
   }) : isStuck = isStuck ?? (vx == 0.0 && vy == 0.0),
-       fireballPierceCount = fireballPierceCount ?? ((isFireball || isPierce) ? 12 : 0);
+       fireballPierceCount = fireballPierceCount ?? ((isFireball || isPierce) ? 4 : 0);
 
   double get effectiveRadius => megaTimer > 0 ? (radius * 1.85).clamp(13.0, 16.0) : radius;
 
@@ -116,13 +187,10 @@ class Ball {
       y += vy * dt;
 
       if (recordTrail) {
-        trail.insert(0, TrailPoint(Offset(x, y), dt));
         final cap = cornerBoostTimer > 0
             ? 120
             : (isFireball ? (trailLength + 16) : trailLength);
-        while (trail.length > cap) {
-          trail.removeLast();
-        }
+        trail.pushFront(TrailPoint(Offset(x, y), dt), cap);
       }
     }
   }

@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/game_state.dart';
 import '../models/cosmetics.dart';
 import '../models/sector_data.dart';
+import '../config/balance_config.dart';
 
 class LeagueRival {
   final String name;
@@ -304,6 +305,7 @@ class SaveManager extends ChangeNotifier {
   int statFishFedTotal = 0;
   int statWheelSpins = 0;
   int statBossesDefeated = 0;
+  int cratePityCounter = 0;
   Set<String> unlockedAchievements = {};
   Map<String, int> achievementSteps = {};
 
@@ -1100,6 +1102,7 @@ class SaveManager extends ChangeNotifier {
     statFishFedTotal = _prefs?.getInt('statFishFedTotal') ?? 0;
     statWheelSpins = _prefs?.getInt('statWheelSpins') ?? 0;
     statBossesDefeated = _prefs?.getInt('statBossesDefeated') ?? 0;
+    cratePityCounter = _prefs?.getInt('cratePityCounter') ?? 0;
     unlockedAchievements = (_prefs?.getStringList('unlockedAchievements') ?? []).toSet();
     final stepsJson = _prefs?.getString('achievementSteps');
     if (stepsJson != null) {
@@ -1644,11 +1647,17 @@ class SaveManager extends ChangeNotifier {
     return upgrades[id] ?? 0;
   }
 
-  Future<bool> buyStatUpgrade(String id, int cost) async {
+  Future<bool> buyStatUpgrade(String id, [int? cost]) async {
     final cur = getUpgradeLevel(id);
-    if (cur >= 5) return false;
-    if (gold < cost) return false;
-    final ok = await spendGold(cost);
+    final stat = StatUpgrade.all.cast<StatUpgrade?>().firstWhere(
+      (s) => s?.id == id || (id == 'gold_multiplier' && s?.id == 'u_gold') || (id == 'u_gold' && s?.id == 'gold_multiplier') || (id == 'u_crit' && s?.id == 'crit_damage') || (id == 'u_luck' && s?.id == 'luck'),
+      orElse: () => null,
+    );
+    final maxLvl = stat?.maxLevel ?? 100;
+    final effectiveCost = cost ?? (stat != null ? stat.getCostForLevel(cur) : BalanceConfig.upgradeCost(cur));
+    if (cur >= maxLvl) return false;
+    if (gold < effectiveCost) return false;
+    final ok = await spendGold(effectiveCost);
     if (!ok) return false;
     upgrades[id] = cur + 1;
     await _prefs?.setString('upgrades', jsonEncode(upgrades));
@@ -1657,9 +1666,84 @@ class SaveManager extends ChangeNotifier {
     AchievementManager.instance.onSkillUpgraded(
       skillId: id,
       newLevel: cur + 1,
-      isMax: cur + 1 >= 5,
+      isMax: cur + 1 >= maxLvl,
     );
     return true;
+  }
+
+  /// Calculates how many levels of [id] the player can afford right now,
+  /// along with the cumulative gold cost (returns at least 1 level's cost if 0 affordable).
+  ({int levels, int totalCost}) calculateMaxAffordableUpgrades(String id) {
+    final cur = getUpgradeLevel(id);
+    final stat = StatUpgrade.all.cast<StatUpgrade?>().firstWhere(
+      (s) =>
+          s?.id == id ||
+          (id == 'gold_multiplier' && s?.id == 'u_gold') ||
+          (id == 'u_gold' && s?.id == 'gold_multiplier') ||
+          (id == 'u_crit' && s?.id == 'crit_damage') ||
+          (id == 'u_luck' && s?.id == 'luck'),
+      orElse: () => null,
+    );
+    final maxLvl = stat?.maxLevel ?? 100;
+    if (cur >= maxLvl) return (levels: 0, totalCost: 0);
+
+    int levels = 0;
+    int totalCost = 0;
+    int simLvl = cur;
+    while (simLvl < maxLvl) {
+      final stepCost = stat != null ? stat.getCostForLevel(simLvl) : BalanceConfig.upgradeCost(simLvl);
+      if (totalCost + stepCost > gold) break;
+      totalCost += stepCost;
+      levels++;
+      simLvl++;
+    }
+    if (levels == 0) {
+      final nextCost = stat != null ? stat.getCostForLevel(cur) : BalanceConfig.upgradeCost(cur);
+      return (levels: 0, totalCost: nextCost);
+    }
+    return (levels: levels, totalCost: totalCost);
+  }
+
+  /// Buys the maximum affordable levels of [id] in a single atomic transaction (FAZ 4.3 QoL).
+  Future<int> buyMaxStatUpgrade(String id) async {
+    final cur = getUpgradeLevel(id);
+    final stat = StatUpgrade.all.cast<StatUpgrade?>().firstWhere(
+      (s) =>
+          s?.id == id ||
+          (id == 'gold_multiplier' && s?.id == 'u_gold') ||
+          (id == 'u_gold' && s?.id == 'gold_multiplier') ||
+          (id == 'u_crit' && s?.id == 'crit_damage') ||
+          (id == 'u_luck' && s?.id == 'luck'),
+      orElse: () => null,
+    );
+    final maxLvl = stat?.maxLevel ?? 100;
+    final calc = calculateMaxAffordableUpgrades(id);
+    if (calc.levels <= 0 || calc.totalCost <= 0) return 0;
+
+    final ok = await spendGold(calc.totalCost);
+    if (!ok) return 0;
+
+    final newLevel = (cur + calc.levels).clamp(0, maxLvl);
+    upgrades[id] = newLevel;
+    await _prefs?.setString('upgrades', jsonEncode(upgrades));
+    AnalyticsManager.instance.logStatUpgraded(id, newLevel);
+    notifyListeners();
+    AchievementManager.instance.onSkillUpgraded(
+      skillId: id,
+      newLevel: newLevel,
+      isMax: newLevel >= maxLvl,
+    );
+    return calc.levels;
+  }
+
+  /// Updates crate pity counter (Yasa 6 / FAZ 4.1): guarantees Legendary on 15th crate if 14 non-legendary opened.
+  Future<void> updateCratePity({required bool wasLegendary}) async {
+    if (wasLegendary) {
+      cratePityCounter = 0;
+    } else {
+      cratePityCounter++;
+    }
+    await _prefs?.setInt('cratePityCounter', cratePityCounter);
   }
 
   Future<void> upgradeSkill(String id) async {
@@ -1674,8 +1758,8 @@ class SaveManager extends ChangeNotifier {
     int total = 0;
     for (final stat in StatUpgrade.all) {
       final lvl = getUpgradeLevel(stat.id);
-      for (int i = 0; i < lvl && i < stat.costs.length; i++) {
-        total += stat.costs[i];
+      for (int i = 0; i < lvl; i++) {
+        total += stat.getCostForLevel(i);
       }
     }
     return total;

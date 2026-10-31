@@ -56,12 +56,19 @@ class Shockwave {
   }
 }
 
+enum FloatingIconType {
+  none,
+  flame,
+  bolt,
+}
+
 class FloatingText {
   double x;
   double y;
   final String text;
   final Color color;
   final bool isLarge;
+  final FloatingIconType iconType;
   double life;
   final double maxLife;
 
@@ -71,6 +78,7 @@ class FloatingText {
     required this.text,
     required this.color,
     this.isLarge = false,
+    this.iconType = FloatingIconType.none,
     this.maxLife = 0.75,
   }) : life = maxLife;
 
@@ -193,6 +201,50 @@ class PixelShockwave {
   }
 }
 
+/// Crisp square/rectangular confetti paper for celebratory level completion
+class ConfettiParticle {
+  double x;
+  double y;
+  double vx;
+  double vy;
+  double width;
+  double height;
+  double rotation;
+  double vRot;
+  double wobblePhase;
+  double wobbleSpeed;
+  Color color;
+  double life;
+  final double maxLife;
+
+  ConfettiParticle({
+    required this.x,
+    required this.y,
+    required this.vx,
+    required this.vy,
+    required this.width,
+    required this.height,
+    required this.rotation,
+    required this.vRot,
+    required this.wobblePhase,
+    required this.wobbleSpeed,
+    required this.color,
+    required this.maxLife,
+  }) : life = maxLife;
+
+  bool get isDead => life <= 0;
+
+  void update(double dt) {
+    wobblePhase += wobbleSpeed * dt;
+    x += (vx + sin(wobblePhase) * 35.0) * dt;
+    y += vy * dt;
+    vy += 300.0 * dt; // Gentle celebratory gravity
+    vx *= 0.985;
+    rotation += vRot * dt;
+    life -= dt;
+  }
+}
+
 /// A collectible coin/energy orb: bursts outward, bounces on its floor,
 /// glows for a beat, then flies to the HUD counter on a curved path.
 class CoinOrb {
@@ -285,6 +337,7 @@ class ParticleSystem {
   final List<BrickShard> shards = [];
   final List<ChestLidParticle> chestLids = [];
   final List<CoinOrb> coinOrbs = [];
+  final List<ConfettiParticle> confetti = [];
   final Random _rand = Random();
 
   void spawnChestLid(double x, double y, double width, double height) {
@@ -387,6 +440,96 @@ class ParticleSystem {
   static const int maxShockwaves = 6;
   static const int maxFloatingTexts = 10;
   static const int maxShards = 24;
+  static const int maxConfetti = 90;
+
+  /// Spawns celebratory pixel confetti motes scaled by star rating:
+  /// - 3 Stars: 48 particles (büyük coşkulu çift kule konfeti)
+  /// - 2 Stars: 22 particles (daha az konfeti)
+  /// - 1 Star:  8 particles (çok az konfeti)
+  void spawnLevelClearConfetti(int stars, double screenWidth, double screenHeight) {
+    const palette = [
+      Color(0xFFFFD54F), // Gold
+      Color(0xFF00E5FF), // Cyan
+      Color(0xFFFF4081), // Pink / Rose
+      Color(0xFF00E676), // Emerald
+      Color(0xFFFF9100), // Amber
+      Color(0xFFB388FF), // Purple
+      Color(0xFFFFFFFF), // White
+    ];
+
+    final int count;
+    if (stars >= 3) {
+      count = 48;
+    } else if (stars == 2) {
+      count = 22;
+    } else {
+      count = 8;
+    }
+
+    if (confetti.length + count > maxConfetti) {
+      final overflow = (confetti.length + count) - maxConfetti;
+      confetti.removeRange(0, min(overflow, confetti.length));
+    }
+
+    final bannerY = screenHeight * 0.36;
+
+    for (int i = 0; i < count; i++) {
+      final double originX;
+      final double originY;
+      final double vx;
+      final double vy;
+
+      if (stars >= 3) {
+        // Dual corner + center cannons for 3 stars
+        final cannon = i % 3;
+        if (cannon == 0) {
+          originX = screenWidth * 0.15;
+          originY = bannerY + 20.0;
+          vx = 60.0 + _rand.nextDouble() * 160.0;
+          vy = -260.0 - _rand.nextDouble() * 180.0;
+        } else if (cannon == 1) {
+          originX = screenWidth * 0.85;
+          originY = bannerY + 20.0;
+          vx = -60.0 - _rand.nextDouble() * 160.0;
+          vy = -260.0 - _rand.nextDouble() * 180.0;
+        } else {
+          originX = screenWidth * 0.50 + (_rand.nextDouble() - 0.5) * 80.0;
+          originY = bannerY;
+          vx = (_rand.nextDouble() - 0.5) * 200.0;
+          vy = -220.0 - _rand.nextDouble() * 160.0;
+        }
+      } else if (stars == 2) {
+        // Banner center-spread for 2 stars
+        originX = screenWidth * 0.50 + (_rand.nextDouble() - 0.5) * 120.0;
+        originY = bannerY + 10.0;
+        vx = (_rand.nextDouble() - 0.5) * 180.0;
+        vy = -180.0 - _rand.nextDouble() * 150.0;
+      } else {
+        // Modest little puff for 1 star
+        originX = screenWidth * 0.50 + (_rand.nextDouble() - 0.5) * 60.0;
+        originY = bannerY + 10.0;
+        vx = (_rand.nextDouble() - 0.5) * 90.0;
+        vy = -120.0 - _rand.nextDouble() * 100.0;
+      }
+
+      confetti.add(
+        ConfettiParticle(
+          x: originX,
+          y: originY,
+          vx: vx,
+          vy: vy,
+          width: 4.5 + _rand.nextDouble() * 3.0,
+          height: 3.5 + _rand.nextDouble() * 2.5,
+          rotation: _rand.nextDouble() * 2 * pi,
+          vRot: (_rand.nextDouble() - 0.5) * 8.0,
+          wobblePhase: _rand.nextDouble() * 2 * pi,
+          wobbleSpeed: 4.0 + _rand.nextDouble() * 6.0,
+          color: palette[_rand.nextInt(palette.length)],
+          maxLife: 1.5 + _rand.nextDouble() * 0.8,
+        ),
+      );
+    }
+  }
 
   void spawnBurst(double x, double y, Color color, {int count = 10, double speed = 150.0}) {
     final toAdd = min(count, maxParticles - particles.length + 8);
@@ -455,12 +598,26 @@ class ParticleSystem {
     );
   }
 
-  void spawnFloatingText(double x, double y, String text, Color color, {bool isLarge = false}) {
+  void spawnFloatingText(
+    double x,
+    double y,
+    String text,
+    Color color, {
+    bool isLarge = false,
+    FloatingIconType iconType = FloatingIconType.none,
+  }) {
     if (floatingTexts.length >= maxFloatingTexts) {
       floatingTexts.removeAt(0);
     }
     floatingTexts.add(
-      FloatingText(x: x, y: y, text: text, color: color, isLarge: isLarge),
+      FloatingText(
+        x: x,
+        y: y,
+        text: text,
+        color: color,
+        isLarge: isLarge,
+        iconType: iconType,
+      ),
     );
   }
 
@@ -555,6 +712,11 @@ class ParticleSystem {
       chestLids[i].update(dt);
     }
     chestLids.removeWhere((l) => l.isDead);
+
+    for (int i = 0; i < confetti.length; i++) {
+      confetti[i].update(dt);
+    }
+    confetti.removeWhere((c) => c.isDead);
   }
 
   void clear() {
@@ -565,6 +727,7 @@ class ParticleSystem {
     shards.clear();
     chestLids.clear();
     coinOrbs.clear();
+    confetti.clear();
     shakeTimeLeft = 0.0;
     shakeDuration = 0.0;
   }
