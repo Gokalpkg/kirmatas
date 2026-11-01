@@ -35,8 +35,6 @@ jobs:
             openssl pkcs8 -topk8 -nocrypt -in "$KEY_FILE" -out "$KEY_FILE.pkcs8" && mv "$KEY_FILE.pkcs8" "$KEY_FILE"
           fi
           cp "$KEY_FILE" "/Users/runner/.private_keys/AuthKey_${KEY_ID}.p8"
-          head -n 1 "$KEY_FILE"
-          tail -n 1 "$KEY_FILE"
 
       - name: Set up temporary Keychain
         run: |
@@ -81,10 +79,7 @@ jobs:
         env:
           APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
         run: |
-          xcrun altool --upload-app \
-            --type ios \
-            --file build/ios/ipa/*.ipa \
-            --apiKey "$APPSTORE_KEY_ID" \
-            --apiIssuer "$APPSTORE_ISSUER_ID" \
-            --verbose
+          cd ios
+          bundle exec fastlane upload_testflight || fastlane upload_testflight
