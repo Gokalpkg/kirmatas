@@ -23,11 +23,15 @@ jobs:
           cache: true
 
       - name: Install Apple Private Key for altool
+        env:
+          KEY_CONTENT: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+          KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          KEY_FILE: /Users/runner/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPSTORE_KEY_ID }}.p8
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
-          KEY_FILE=~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPSTORE_KEY_ID }}.p8
-          echo "${{ secrets.APPSTORE_PRIVATE_KEY }}" > $KEY_FILE
-          openssl ec -in $KEY_FILE -out $KEY_FILE 2>/dev/null || true
+          python3 -c "import os; c = os.environ['KEY_CONTENT'].replace('\\n', '\n').replace(r'\n', '\n').strip() + '\n'; open(os.environ['KEY_FILE'], 'w').write(c)"
+          openssl ec -in $KEY_FILE -out $KEY_FILE
+          head -n 1 $KEY_FILE
 
       - name: Set up temporary Keychain
         run: |
