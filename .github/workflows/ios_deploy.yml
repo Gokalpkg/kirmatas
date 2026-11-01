@@ -29,6 +29,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          mkdir -p build/ios/SourcePackages
           flutter pub get
 
       - name: Build iOS App (Archive)
