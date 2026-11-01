@@ -29,8 +29,41 @@ jobs:
           KEY_FILE: /Users/runner/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPSTORE_KEY_ID }}.p8
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
-          python3 -c "import os; c = os.environ['KEY_CONTENT'].replace('\\n', '\n').replace(r'\n', '\n').strip() + '\n'; open(os.environ['KEY_FILE'], 'w').write(c)"
-          openssl ec -in $KEY_FILE -out $KEY_FILE
+          python3 -c "
+import os, base64, sys
+raw = os.environ.get('KEY_CONTENT', '').replace('\\\\n', '\n').replace(r'\n', '\n').strip()
+key_file = os.environ['KEY_FILE']
+print(f'DEBUG: length={len(raw)}, starts={repr(raw[:30])}, ends={repr(raw[-30:])}')
+if not raw:
+    print('ERROR: KEY_CONTENT is empty')
+    sys.exit(1)
+if '-----BEGIN' in raw:
+    s = raw.find('-----BEGIN')
+    e = raw.find('-----', raw.rfind('-----END')) + 5
+    with open(key_file, 'w') as f:
+        f.write(raw[s:e].strip() + '\n')
+else:
+    try:
+        decoded = base64.b64decode(raw)
+        if b'-----BEGIN' in decoded:
+            with open(key_file, 'wb') as f:
+                f.write(decoded)
+        else:
+            with open(key_file, 'w') as f:
+                f.write('-----BEGIN PRIVATE KEY-----\n' + raw + '\n-----END PRIVATE KEY-----\n')
+    except Exception as exc:
+        print('Decode error:', exc)
+        with open(key_file, 'w') as f:
+            f.write(raw + '\n')
+"
+          if openssl ec -in $KEY_FILE -out $KEY_FILE 2>/dev/null; then
+            echo "Converted PEM to SEC1 EC format successfully"
+          elif openssl ec -inform DER -in $KEY_FILE -out $KEY_FILE 2>/dev/null; then
+            echo "Converted DER to SEC1 EC format successfully"
+          else
+            echo "OpenSSL ec conversion warning - showing header:"
+            head -n 2 $KEY_FILE
+          fi
           head -n 1 $KEY_FILE
 
       - name: Set up temporary Keychain
