@@ -1,3 +1,6 @@
 #include "Generated.xcconfig"
-CODE_SIGN_STYLE = Automatic
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = Apple Distribution
+CODE_SIGN_IDENTITY[sdk=iphoneos*] = Apple Distribution
+PROVISIONING_PROFILE_SPECIFIER = com.kaunos.kirmatas AppStore
 DEVELOPMENT_TEAM = J7436DNY3K
