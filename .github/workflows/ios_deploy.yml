@@ -27,11 +27,16 @@ jobs:
           KEY_CONTENT: ${{ secrets.APPSTORE_PRIVATE_KEY }}
           KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
         run: |
-          mkdir -p ~/.appstoreconnect/private_keys
+          mkdir -p ~/.appstoreconnect/private_keys ~/.private_keys
           KEY_FILE="/Users/runner/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
           export KEY_FILE
           ruby -e 'File.write(ENV["KEY_FILE"], ENV["KEY_CONTENT"].to_s.gsub("\\n", "\n").strip + "\n")'
-          openssl ec -in "$KEY_FILE" -out "$KEY_FILE" 2>/dev/null || true
+          if grep -q "BEGIN EC PRIVATE KEY" "$KEY_FILE"; then
+            openssl pkcs8 -topk8 -nocrypt -in "$KEY_FILE" -out "$KEY_FILE.pkcs8" && mv "$KEY_FILE.pkcs8" "$KEY_FILE"
+          fi
+          cp "$KEY_FILE" "/Users/runner/.private_keys/AuthKey_${KEY_ID}.p8"
+          head -n 1 "$KEY_FILE"
+          tail -n 1 "$KEY_FILE"
 
       - name: Set up temporary Keychain
         run: |
@@ -81,4 +86,5 @@ jobs:
             --type ios \
             --file build/ios/ipa/*.ipa \
             --apiKey "$APPSTORE_KEY_ID" \
-            --apiIssuer "$APPSTORE_ISSUER_ID"
+            --apiIssuer "$APPSTORE_ISSUER_ID" \
+            --verbose
