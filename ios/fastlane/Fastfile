@@ -12,12 +12,6 @@ platform :ios do
       in_house: false
     )
 
-    get_certificates(
-      api_key: api_key,
-      keychain_path: ENV['KEYCHAIN_PATH'],
-      keychain_password: ENV['KEYCHAIN_PASSWORD']
-    )
-
     get_provisioning_profile(
       api_key: api_key,
       app_identifier: "com.kaunos.kirmatas",
