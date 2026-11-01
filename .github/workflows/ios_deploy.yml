@@ -19,25 +19,23 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: "stable"
           cache: true
 
       - name: Install Apple Private Key for altool
         env:
           KEY_CONTENT: ${{ secrets.APPSTORE_PRIVATE_KEY }}
           KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
-          KEY_FILE: /Users/runner/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPSTORE_KEY_ID }}.p8
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
-          ruby -e '
-            key = ENV["KEY_CONTENT"].to_s.gsub("\\n", "\n").strip
-            puts "DEBUG: length=#{key.length}, starts=#{key[0..25].inspect}, ends=#{key[-25..-1].inspect}"
-            File.write(ENV["KEY_FILE"], key + "\n")
-          '
-          openssl ec -in $KEY_FILE -out $KEY_FILE 2>/dev/null || true
-          head -n 2 $KEY_FILE
+          KEY_FILE="/Users/runner/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
+          ruby -e 'File.write(ENV["KEY_FILE"], ENV["KEY_CONTENT"].gsub("\\n", "\n").strip + "\n")'
+          openssl ec -in "$KEY_FILE" -out "$KEY_FILE" 2>/dev/null || true
 
-      - name: Set up temporary Keychain
+      - name: Set up temporary Keychain and Import Certificate
+        env:
+          P12_BASE64: ${{ secrets.P12_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
         run: |
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
           KEYCHAIN_PASSWORD="temp_runner_password_123"
@@ -46,10 +44,15 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security list-keychains -d user -s $KEYCHAIN_PATH $(security list-keychains -d user | tr -d '"')
           security default-keychain -s $KEYCHAIN_PATH
+
+          echo "$P12_BASE64" | base64 --decode > $RUNNER_TEMP/cert.p12
+          security import $RUNNER_TEMP/cert.p12 -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
           echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
 
-      - name: Prepare Signing Certificates & Profiles via Fastlane
+      - name: Prepare Provisioning Profile via Fastlane
         env:
           APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
@@ -82,16 +85,3 @@ jobs:
             --file build/ios/ipa/*.ipa \
             --apiKey "$APPSTORE_KEY_ID" \
             --apiIssuer "$APPSTORE_ISSUER_ID"
-
-      - name: Export Certificate Backup (.p12)
-        if: always()
-        run: |
-          security export -k "$KEYCHAIN_PATH" -t all -f pkcs12 -P "123456" -o $RUNNER_TEMP/Kirmatas_Distribution.p12 || true
-
-      - name: Upload Certificate Artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: distribution-certificate-backup
-          path: ${{ runner.temp }}/Kirmatas_Distribution.p12
-          if-no-files-found: ignore
