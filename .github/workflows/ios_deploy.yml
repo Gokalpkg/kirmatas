@@ -37,7 +37,8 @@ jobs:
           APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
         run: |
-          flutter build ipa --release --build-number=${{ github.run_number + 102 }}
+          BUILD_NUMBER=$(( ${{ github.run_number }} + 102 ))
+          flutter build ipa --release --build-number=$BUILD_NUMBER
 
       - name: Upload to App Store Connect / TestFlight
         env:
