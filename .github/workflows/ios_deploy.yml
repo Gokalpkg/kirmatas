@@ -29,16 +29,13 @@ jobs:
           KEY_FILE: /Users/runner/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPSTORE_KEY_ID }}.p8
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
-          python3 -c "exec(\"import os, base64, sys\nraw = os.environ.get('KEY_CONTENT', '').replace('\\\\n', '\\n').strip()\nkf = os.environ['KEY_FILE']\nprint(f'DEBUG: length={len(raw)}, starts={repr(raw[:25])}, ends={repr(raw[-25:])}')\nif not raw:\n    print('ERROR: KEY_CONTENT is empty')\n    sys.exit(1)\nif '-----BEGIN' in raw:\n    s = raw.find('-----BEGIN')\n    e = raw.find('-----', raw.rfind('-----END')) + 5\n    open(kf, 'w').write(raw[s:e].strip() + '\\n')\nelse:\n    try:\n        d = base64.b64decode(raw)\n        if b'-----BEGIN' in d:\n            open(kf, 'wb').write(d)\n        else:\n            open(kf, 'w').write('-----BEGIN PRIVATE KEY-----\\n' + raw + '\\n-----END PRIVATE KEY-----\\n')\n    except Exception as exc:\n        print('Decode error:', exc)\n        open(kf, 'w').write(raw + '\\n')\")"
-          if openssl ec -in $KEY_FILE -out $KEY_FILE 2>/dev/null; then
-            echo "Converted PEM to SEC1 EC format successfully"
-          elif openssl ec -inform DER -in $KEY_FILE -out $KEY_FILE 2>/dev/null; then
-            echo "Converted DER to SEC1 EC format successfully"
-          else
-            echo "OpenSSL ec conversion warning - showing header:"
-            head -n 2 $KEY_FILE
-          fi
-          head -n 1 $KEY_FILE
+          ruby -e '
+            key = ENV["KEY_CONTENT"].to_s.gsub("\\n", "\n").strip
+            puts "DEBUG: length=#{key.length}, starts=#{key[0..25].inspect}, ends=#{key[-25..-1].inspect}"
+            File.write(ENV["KEY_FILE"], key + "\n")
+          '
+          openssl ec -in $KEY_FILE -out $KEY_FILE 2>/dev/null || true
+          head -n 2 $KEY_FILE
 
       - name: Set up temporary Keychain
         run: |
