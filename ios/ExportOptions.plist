@@ -7,7 +7,12 @@
     <key>teamID</key>
     <string>J7436DNY3K</string>
     <key>signingStyle</key>
-    <string>automatic</string>
+    <string>manual</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.kaunos.kirmatas</key>
+        <string>com.kaunos.kirmatas AppStore</string>
+    </dict>
     <key>stripSwiftSymbols</key>
     <true/>
     <key>uploadSymbols</key>
