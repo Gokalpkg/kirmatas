@@ -14,7 +14,6 @@ platform :ios do
 
     get_certificates(
       api_key: api_key,
-      type: "distribution",
       keychain_path: ENV['KEYCHAIN_PATH'],
       keychain_password: ENV['KEYCHAIN_PASSWORD']
     )
