@@ -12,9 +12,14 @@ platform :ios do
       in_house: false
     )
 
+    keychain_p = ENV['KEYCHAIN_PATH'] || "#{Dir.home}/Library/Keychains/login.keychain-db"
+    keychain_pw = ENV['KEYCHAIN_PASSWORD'] || ""
+
     get_certificates(
       api_key: api_key,
-      force: false
+      force: false,
+      keychain_path: keychain_p,
+      keychain_password: keychain_pw
     )
 
     get_provisioning_profile(
