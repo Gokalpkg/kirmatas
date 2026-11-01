@@ -29,7 +29,8 @@ jobs:
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
           KEY_FILE="/Users/runner/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
-          ruby -e 'File.write(ENV["KEY_FILE"], ENV["KEY_CONTENT"].gsub("\\n", "\n").strip + "\n")'
+          export KEY_FILE
+          ruby -e 'File.write(ENV["KEY_FILE"], ENV["KEY_CONTENT"].to_s.gsub("\\n", "\n").strip + "\n")'
           openssl ec -in "$KEY_FILE" -out "$KEY_FILE" 2>/dev/null || true
 
       - name: Set up temporary Keychain and Import Certificate
