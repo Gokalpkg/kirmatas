@@ -1,6 +1,4 @@
-# Trigger Run 40 with fresh Fastlane CI API key
 name: Deploy iOS to TestFlight
-
 
 on:
   workflow_dispatch:
@@ -8,25 +6,21 @@ on:
     branches:
       - main
 
-
 jobs:
   deploy-ios:
     name: Build & Upload to TestFlight
     runs-on: macos-15
     timeout-minutes: 45
 
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: "stable"
           cache: true
-
 
       - name: Install Apple Private Key for altool
         env:
@@ -40,3 +34,52 @@ jobs:
           if grep -q "BEGIN EC PRIVATE KEY" "$KEY_FILE"; then
             openssl pkcs8 -topk8 -nocrypt -in "$KEY_FILE" -out "$KEY_FILE.pkcs8" && mv "$KEY_FILE.pkcs8" "$KEY_FILE"
           fi
+          cp "$KEY_FILE" "/Users/runner/.private_keys/AuthKey_${KEY_ID}.p8"
+
+      - name: Set up temporary Keychain
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD="temp_runner_password_123"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychains -d user -s $KEYCHAIN_PATH $(security list-keychains -d user | tr -d '"')
+          security default-keychain -s $KEYCHAIN_PATH
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
+
+      - name: Prepare Provisioning Profile via Fastlane
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cd ios
+          bundle exec fastlane prepare_signing || fastlane prepare_signing
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" || true
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+      - name: Install Dependencies
+        run: |
+          mkdir -p build/ios/SourcePackages
+          flutter pub get
+
+      - name: Build iOS App (Archive)
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+        run: |
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" || true
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          BUILD_NUMBER=$(( ${{ github.run_number }} + 102 ))
+          flutter build ipa --release --build-number=$BUILD_NUMBER --export-options-plist=ios/ExportOptions.plist
+
+      - name: Upload to App Store Connect / TestFlight
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        run: |
+          cd ios
+          bundle exec fastlane upload_testflight || fastlane upload_testflight
