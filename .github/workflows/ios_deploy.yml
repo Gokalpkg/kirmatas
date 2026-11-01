@@ -22,10 +22,32 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Install Apple Private Key
+      - name: Install Apple Private Key for altool
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
           echo "${{ secrets.APPSTORE_PRIVATE_KEY }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPSTORE_KEY_ID }}.p8
+
+      - name: Set up temporary Keychain
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD="temp_runner_password_123"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychains -d user -s $KEYCHAIN_PATH $(security list-keychains -d user | tr -d '"')
+          security default-keychain -s $KEYCHAIN_PATH
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
+
+      - name: Prepare Signing Certificates & Profiles via Fastlane
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cd ios
+          bundle exec fastlane prepare_signing || fastlane prepare_signing
 
       - name: Install Dependencies
         run: |
@@ -38,7 +60,7 @@ jobs:
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
         run: |
           BUILD_NUMBER=$(( ${{ github.run_number }} + 102 ))
-          flutter build ipa --release --build-number=$BUILD_NUMBER
+          flutter build ipa --release --build-number=$BUILD_NUMBER --export-options-plist=ios/ExportOptions.plist
 
       - name: Upload to App Store Connect / TestFlight
         env:
@@ -50,3 +72,16 @@ jobs:
             --file build/ios/ipa/*.ipa \
             --apiKey "$APPSTORE_KEY_ID" \
             --apiIssuer "$APPSTORE_ISSUER_ID"
+
+      - name: Export Certificate Backup (.p12)
+        if: always()
+        run: |
+          security export -k "$KEYCHAIN_PATH" -t all -f pkcs12 -P "123456" -o $RUNNER_TEMP/Kirmatas_Distribution.p12 || true
+
+      - name: Upload Certificate Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: distribution-certificate-backup
+          path: ${{ runner.temp }}/Kirmatas_Distribution.p12
+          if-no-files-found: ignore
