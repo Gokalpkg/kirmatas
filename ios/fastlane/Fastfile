@@ -12,12 +12,18 @@ platform :ios do
       in_house: false
     )
 
+    get_certificates(
+      api_key: api_key,
+      force: true
+    )
+
     get_provisioning_profile(
       api_key: api_key,
       app_identifier: "com.kaunos.kirmatas",
       adhoc: false,
       output_path: "#{Dir.home}/Library/MobileDevice/Provisioning Profiles",
-      filename: "Kirmatas_AppStore.mobileprovision"
+      filename: "Kirmatas_AppStore.mobileprovision",
+      force: true
     )
   end
 end
