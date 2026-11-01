@@ -183,6 +183,7 @@
 					};
 					97C146ED1CF9000F007C117D = {
 						CreatedOnToolsVersion = 7.3.1;
+						DevelopmentTeam = J7436DNY3K;
 						LastSwiftMigration = 1100;
 					};
 				};
@@ -376,6 +377,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				DEVELOPMENT_TEAM = J7436DNY3K;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kaunos.kirmatas;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -555,6 +557,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				DEVELOPMENT_TEAM = J7436DNY3K;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kaunos.kirmatas;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -577,6 +580,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				DEVELOPMENT_TEAM = J7436DNY3K;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kaunos.kirmatas;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
