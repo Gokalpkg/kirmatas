@@ -5750,6 +5750,7 @@ class GameController extends ChangeNotifier {
     // Real global ranking: push the fresh best to Play Games (no-op
     // while signed out or leaderboards are not created yet).
     PlayGamesManager.instance.submitBestScores(save);
+    PlayGamesManager.instance.autoSaveToCloud(save);
     audio.playSfx(GameSfx.gameOver);
   }
 
@@ -5968,6 +5969,8 @@ class GameController extends ChangeNotifier {
       stats.goldCollected += victoryGold;
     }
     save.recordAdOrWinQuest();
+    PlayGamesManager.instance.submitBestScores(save);
+    PlayGamesManager.instance.autoSaveToCloud(save);
     audio.playSfx(GameSfx.victory);
   }
 

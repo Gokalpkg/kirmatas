@@ -6,6 +6,7 @@ import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
 import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
+import '../engine/play_games_manager.dart';
 import '../engine/remove_ads_billing.dart';
 import '../models/game_state.dart';
 import '../storage/save_manager.dart';
@@ -78,6 +79,31 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (MainMenuScreen.suppressBootPopups) return;
+      if (PlayGamesManager.instance.wasCloudRestored && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.cloud_done_rounded, color: Color(0xFF00E5FF), size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Bulut kaydın otomatik geri yüklendi! (${PlayGamesManager.instance.playerName ?? "Bağlandı"})',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF10192A),
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(color: Color(0xFF00E5FF), width: 1.2),
+            ),
+          ),
+        );
+      }
       if (_save.pendingCrate != null && mounted && _activeGame == null) {
         CrateOpeningDialog.show(
           context,

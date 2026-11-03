@@ -80,6 +80,7 @@ class _KirmatasAppState extends State<KirmatasApp> with WidgetsBindingObserver {
     AudioManager.instance.appInForeground = !buried;
     if (buried) {
       AudioManager.instance.stopAll();
+      unawaited(PlayGamesManager.instance.autoSaveToCloud());
     } else if (state == AppLifecycleState.resumed) {
       if (AudioManager.instance.isBgmAllowed && SaveManager.instance.bgmVolume > 0) {
         AudioManager.instance.resumeBgm();
