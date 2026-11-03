@@ -1464,9 +1464,9 @@ class LevelDesign {
             points: 15,
           ),
         );
-      } else if (wave >= 4 && specialRoll >= 0.20 && specialRoll < 0.215) {
+      } else if (wave >= 4 && specialRoll >= 0.20 && specialRoll < 0.201) {
         // Mystery Golden Treasure Chest in Chaos Mode!
-        // Nadir ödül mekaniği: ~1.5% şans (wave >= 4)
+        // Nadir ödül mekaniği: Tam binde 1 (%0.1) şans (wave >= 4)
         // When cracked: drops +5 to +8 extra balls and big gold jackpot!
         final chestHp = min(3, max(1, hp ~/ 2));
         final chaosChestTier = (wave >= 30) ? 3 : ((wave >= 18) ? 2 : ((wave >= 8) ? 1 : 0));

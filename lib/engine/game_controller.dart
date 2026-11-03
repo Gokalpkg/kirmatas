@@ -206,6 +206,18 @@ class GameController extends ChangeNotifier {
   double chaosSpeedMultiplier = 1.0;
   double userSpeedMultiplier = 1.0;
   double vacuumStormTimer = 0.0;
+  double speedBoostTimer = 0.0;
+  static const double speedBoostDuration = 2.8;
+
+  bool get isSpeedBoostActive => speedBoostTimer > 0.0;
+
+  /// Triggers 2.8-second 2x speed boost from HUD button
+  void triggerSpeedBoost([double duration = speedBoostDuration]) {
+    speedBoostTimer = duration;
+    userSpeedMultiplier = 2.0;
+    _syncHud();
+    notifyListeners();
+  }
 
   /// Cycles user fast-forward speed multiplier (1.0x -> 2.0x -> 4.0x -> 1.0x)
   /// so veteran players never wait on slow final balls.
@@ -1587,6 +1599,13 @@ class GameController extends ChangeNotifier {
   }
 
   void update(double dt) {
+    if (speedBoostTimer > 0) {
+      speedBoostTimer = max(0.0, speedBoostTimer - dt);
+      if (speedBoostTimer == 0.0) {
+        userSpeedMultiplier = 1.0;
+        _syncHud();
+      }
+    }
     if (userSpeedMultiplier > 1.0 && status == GameStatus.playing) {
       dt = (dt * userSpeedMultiplier).clamp(0.0, 0.12);
     }
@@ -3978,8 +3997,29 @@ class GameController extends ChangeNotifier {
       }
       if (frostHit) {
         _shatterFrozenChain(b);
+      } else if (currentMode == GameMode.chaos) {
+        // MEKANİK: Kaos modunda donmuş bloğa çarpan top onu ANINDA parçalar!
+        b.isFrozen = false;
+        b.hp = 0;
+        final cx = b.x + b.width / 2;
+        final cy = b.y + b.height / 2;
+        particles.spawnShockwave(cx, cy, const Color(0xFF00E5FF), maxRadius: 55.0);
+        particles.spawnBurst(cx, cy, const Color(0xFF80D8FF), count: 22, speed: 210.0);
+        particles.spawnFloatingText(
+          cx,
+          b.y - 14,
+          'BUZ PARÇALANDI!',
+          const Color(0xFF80D8FF),
+          isLarge: true,
+          iconType: FloatingIconType.bolt,
+        );
+        _destroyBrick(b, 0, isEcho);
       } else {
         b.isFrozen = false;
+        b.hp -= 1;
+        if (b.hp <= 0) {
+          _destroyBrick(b, 0, isEcho);
+        }
       }
       return;
     }
@@ -4570,6 +4610,36 @@ class GameController extends ChangeNotifier {
         }
       }
 
+      if (b.isDynamite && !b.isFrozen) {
+        final fireballInPlay = balls.any((ball) => ball.isFireball) || activePowerUps.any((p) => p.type == PowerUpType.fireball);
+        final double bombRadius = fireballInPlay ? 180.0 : 130.0;
+        particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFF9100), maxRadius: bombRadius + 15.0);
+        particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD54F), maxRadius: bombRadius * 0.7);
+        particles.spawnFloatingText(
+          b.x + b.width / 2,
+          b.y - 14,
+          'MEGA BOMBA!',
+          const Color(0xFFFF9100),
+          isLarge: true,
+        );
+        particles.triggerShake(7.0, 0.32);
+        _explodeArea(
+          b.x + b.width / 2,
+          b.y + b.height / 2,
+          radius: bombRadius,
+          chainDepth: max(chainDepth, b.chainExplosionDepth),
+        );
+      } else if (b.isIce) {
+        _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 125.0, freezeAll: true);
+        particles.spawnFloatingText(
+          b.x + b.width / 2,
+          b.y - 14,
+          'BUZ DONDURMA!',
+          const Color(0xFF80D8FF),
+          isLarge: true,
+        );
+      }
+
       if (!bricks.any((br) => br.isAlive && !br.isBallPickup)) {
         _chaosAllSolidBroken = true;
       }
@@ -4619,25 +4689,41 @@ class GameController extends ChangeNotifier {
     }
 
     if (b.isDynamite && !b.isFrozen) {
-      final frostInPlay = balls.any((ball) => ball.isFrost) || activePowerUps.any((p) => p.type == PowerUpType.frost);
-      if (!frostInPlay) {
-        // Under a fireball, dynamite blows twice as wide with a growing ring.
-        final fireballInPlay = balls.any((ball) => ball.isFireball) || activePowerUps.any((p) => p.type == PowerUpType.fireball);
-        if (fireballInPlay) {
-          particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFF9100), maxRadius: 165.0);
-          particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD54F), maxRadius: 110.0);
-          particles.spawnFloatingText(b.x + b.width / 2, b.y - 14, '2X MEGA PATLAMA!', const Color(0xFFFF9100), isLarge: true);
-          particles.triggerShake(6.5, 0.32);
-        }
-        _explodeArea(
+      final fireballInPlay = balls.any((ball) => ball.isFireball) || activePowerUps.any((p) => p.type == PowerUpType.fireball);
+      final double bombRadius = currentMode == GameMode.chaos
+          ? (fireballInPlay ? 180.0 : 130.0)
+          : (fireballInPlay ? 160.0 : 80.0);
+      if (fireballInPlay || currentMode == GameMode.chaos) {
+        particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFF9100), maxRadius: bombRadius + 15.0);
+        particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD54F), maxRadius: bombRadius * 0.7);
+        particles.spawnFloatingText(
           b.x + b.width / 2,
-          b.y + b.height / 2,
-          radius: fireballInPlay ? 160.0 : 80.0,
-          chainDepth: max(chainDepth, b.chainExplosionDepth),
+          b.y - 14,
+          currentMode == GameMode.chaos ? 'MEGA BOMBA!' : '2X MEGA PATLAMA!',
+          const Color(0xFFFF9100),
+          isLarge: true,
         );
+        particles.triggerShake(currentMode == GameMode.chaos ? 7.0 : 6.5, 0.32);
       }
+      _explodeArea(
+        b.x + b.width / 2,
+        b.y + b.height / 2,
+        radius: bombRadius,
+        chainDepth: max(chainDepth, b.chainExplosionDepth),
+      );
     } else if (b.isIce) {
-      _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 90.0);
+      if (currentMode == GameMode.chaos) {
+        _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 125.0, freezeAll: true);
+        particles.spawnFloatingText(
+          b.x + b.width / 2,
+          b.y - 14,
+          'BUZ DONDURMA!',
+          const Color(0xFF80D8FF),
+          isLarge: true,
+        );
+      } else {
+        _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 90.0);
+      }
     }
 
     // R4: Guaranteed Action Capsule Drop in Levels 1–5
@@ -4813,13 +4899,22 @@ class GameController extends ChangeNotifier {
       final dist = sqrt((bx - cx) * (bx - cx) + (by - cy) * (by - cy));
       if (dist <= effectiveRadius) {
         if (b.isFrozen) {
-          // TNT explosions shatter only the ice of frozen bricks! The brick itself survives!
-          b.isFrozen = false;
-          b.triggerWhiteFlash(0.035);
-          b.triggerElasticSettle(impulse: 5.5);
-          particles.spawnBurst(bx, by, const Color(0xFF80D8FF), count: 18, speed: 190.0);
-          particles.spawnShockwave(bx, by, const Color(0xFF00E5FF), maxRadius: 30.0);
-          audio.playSfx(GameSfx.breakBrick, combo: stats.combo);
+          if (currentMode == GameMode.chaos) {
+            // Kaos modunda patlama donmuş bloğu tuzla buz eder!
+            b.isFrozen = false;
+            b.hp = 0;
+            particles.spawnBurst(bx, by, const Color(0xFF80D8FF), count: 20, speed: 220.0);
+            particles.spawnShockwave(bx, by, const Color(0xFF00E5FF), maxRadius: 40.0);
+            _destroyBrick(b, chainDepth);
+          } else {
+            // TNT explosions shatter only the ice of frozen bricks! The brick itself survives!
+            b.isFrozen = false;
+            b.triggerWhiteFlash(0.035);
+            b.triggerElasticSettle(impulse: 5.5);
+            particles.spawnBurst(bx, by, const Color(0xFF80D8FF), count: 18, speed: 190.0);
+            particles.spawnShockwave(bx, by, const Color(0xFF00E5FF), maxRadius: 30.0);
+            audio.playSfx(GameSfx.breakBrick, combo: stats.combo);
+          }
         } else if (b.isDynamite && !b.isFrozen) {
           // Cascading domino chain reaction!
           if (!b.isPrimedDynamite) {
@@ -4831,6 +4926,10 @@ class GameController extends ChangeNotifier {
             _primedDynamites.add(b);
           }
         } else {
+          if (currentMode == GameMode.chaos) {
+            // Kaos modunda bomba vurduğu bloğu tamamen yok eder
+            b.hp = 0;
+          }
           _destroyBrick(b, chainDepth);
         }
       } else if (dist <= effectiveRadius + 48.0) {

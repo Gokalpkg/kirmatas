@@ -279,44 +279,6 @@ class HudOverlay extends StatelessWidget {
                           ),
                         ),
 
-                        const SizedBox(width: 6),
-
-                        // 1x / 2x / 4x Fast-Forward Speed Pill (FAZ 3.3 / FAZ 4.4 QoL)
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(14),
-                            onTap: () {
-                              AudioManager.instance.triggerHaptic(() async => AudioManager.instance.playSfx(GameSfx.click));
-                              controller.cycleFastForwardSpeed();
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: controller.userSpeedMultiplier > 1.0
-                                    ? const Color(0x44FFD54F)
-                                    : const Color(0x2BFFFFFF),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: controller.userSpeedMultiplier > 1.0
-                                      ? const Color(0xFFFFD54F)
-                                      : Colors.white24,
-                                ),
-                              ),
-                              child: Text(
-                                '${controller.userSpeedMultiplier.round()}x',
-                                style: TextStyle(
-                                  color: controller.userSpeedMultiplier > 1.0
-                                      ? const Color(0xFFFFD54F)
-                                      : Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-
                         const SizedBox(width: 4),
 
                         // Pause Button
@@ -851,10 +813,90 @@ class HudOverlay extends StatelessWidget {
                     ],
                   ),
                 ),
+
+              // Left Dedicated 2.8s Speed Boost Button ("2")
+              if (controller.status == GameStatus.playing)
+                Positioned(
+                  left: 14,
+                  bottom: 120,
+                  child: _buildSpeedBoostButton(controller),
+                ),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSpeedBoostButton(GameController controller) {
+    final isActive = controller.isSpeedBoostActive;
+    return GestureDetector(
+      onTap: () {
+        AudioManager.instance.triggerHaptic(() async => AudioManager.instance.playSfx(GameSfx.click));
+        controller.triggerSpeedBoost(2.8);
+      },
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: isActive
+              ? const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
+                )
+              : const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xCC1A1F38), Color(0xCC0D1120)],
+                ),
+          border: Border.all(
+            color: isActive ? const Color(0xFFFFF176) : Colors.white24,
+            width: isActive ? 2.0 : 1.2,
+          ),
+          boxShadow: [
+            if (isActive)
+              BoxShadow(
+                color: const Color(0xFFFFB300).withValues(alpha: 0.6),
+                blurRadius: 14,
+                spreadRadius: 2,
+              )
+            else
+              const BoxShadow(
+                color: Colors.black45,
+                blurRadius: 6,
+                offset: Offset(0, 2),
+              ),
+          ],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (isActive)
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: CircularProgressIndicator(
+                  value: (controller.speedBoostTimer / 2.8).clamp(0.0, 1.0),
+                  strokeWidth: 2.5,
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                  backgroundColor: Colors.transparent,
+                ),
+              ),
+            Text(
+              '2',
+              style: TextStyle(
+                fontFamily: 'Rajdhani',
+                fontWeight: FontWeight.w900,
+                fontSize: 22,
+                color: isActive ? const Color(0xFF1A1F38) : Colors.white,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

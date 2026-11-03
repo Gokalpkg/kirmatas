@@ -47,9 +47,8 @@ void main() {
       expect(content.contains('NSUserTrackingUsageDescription'), isFalse);
     });
 
-    testWidgets('SettingsDialog renders Remove Ads and Restore Purchases buttons', (tester) async {
+    testWidgets('SettingsDialog does not render Remove Ads or Restore Purchases buttons when disabled', (tester) async {
       final save = SaveManager.instance;
-      expect(save.adsRemoved, isFalse);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -60,32 +59,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Check for Remove Ads button
-      expect(find.textContaining('REKLAMLARI KALDIR'), findsOneWidget);
-
-      // Check for Restore Purchases button
-      expect(find.text('SATIN ALIMLARI GERİ YÜKLE'), findsOneWidget);
-    });
-
-    testWidgets('SettingsDialog renders Ads Removed status when adsRemoved is true', (tester) async {
-      final save = SaveManager.instance;
-      await save.grantRemoveAds();
-      expect(save.adsRemoved, isTrue);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SettingsDialog(save: save),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Check for REKLAMLAR KALDIRILDI status badge
-      expect(find.text('REKLAMLAR KALDIRILDI'), findsOneWidget);
-
-      // Restore Purchases button must still be accessible
-      expect(find.text('SATIN ALIMLARI GERİ YÜKLE'), findsOneWidget);
+      // Check that Remove Ads and Restore Purchases are cleanly removed
+      expect(find.textContaining('REKLAMLARI KALDIR'), findsNothing);
+      expect(find.text('SATIN ALIMLARI GERİ YÜKLE'), findsNothing);
+      expect(find.text('REKLAMLAR KALDIRILDI'), findsNothing);
     });
   });
 }

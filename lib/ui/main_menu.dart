@@ -371,12 +371,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
   }
 
   void _maybeOfferRemoveAds() {
-    if (!mounted || _offerBusy || _levelAdBusy) return;
-    if (!SaveManager.instance.shouldOfferRemoveAds) return;
-    final game = _activeGame;
-    if (game != null && game.status != GameStatus.ready && game.status != GameStatus.victory) return;
-    _offerBusy = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showRemoveAdsOffer());
+    // Reklamları Kaldır teklif penceresi kaldırıldı.
+    return;
   }
 
   Future<void> _showRemoveAdsOffer() async {
