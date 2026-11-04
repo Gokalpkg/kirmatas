@@ -105,7 +105,6 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
             if (c.levelTransitionTimer > 0) {
               _canLaunchOnUp = false;
               _touchStartLevel = null;
-              c.skipLevelTransition();
               return;
             }
             _touchStartLevel = c.stats.level;
