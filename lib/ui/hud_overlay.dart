@@ -833,68 +833,38 @@ class HudOverlay extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         AudioManager.instance.triggerHaptic(() async => AudioManager.instance.playSfx(GameSfx.click));
-        controller.triggerSpeedBoost(2.8);
+        controller.toggleSpeedBoost();
       },
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         width: 46,
         height: 46,
         decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: isActive
-              ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-                )
-              : const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xCC1A1F38), Color(0xCC0D1120)],
-                ),
+          color: isActive ? const Color(0xFFFFB300) : const Color(0xFF1E1B4B),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isActive ? const Color(0xFFFFF176) : Colors.white24,
-            width: isActive ? 2.0 : 1.2,
+            color: isActive ? const Color(0xFFFFF176) : const Color(0xFF475569),
+            width: isActive ? 2.5 : 1.5,
           ),
           boxShadow: [
-            if (isActive)
-              BoxShadow(
-                color: const Color(0xFFFFB300).withValues(alpha: 0.6),
-                blurRadius: 14,
-                spreadRadius: 2,
-              )
-            else
-              const BoxShadow(
-                color: Colors.black45,
-                blurRadius: 6,
-                offset: Offset(0, 2),
-              ),
-          ],
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            if (isActive)
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: CircularProgressIndicator(
-                  value: (controller.speedBoostTimer / 2.8).clamp(0.0, 1.0),
-                  strokeWidth: 2.5,
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                  backgroundColor: Colors.transparent,
-                ),
-              ),
-            Text(
-              '2',
-              style: TextStyle(
-                fontFamily: 'Rajdhani',
-                fontWeight: FontWeight.w900,
-                fontSize: 22,
-                color: isActive ? const Color(0xFF1A1F38) : Colors.white,
-                letterSpacing: 0.5,
-              ),
+            BoxShadow(
+              color: isActive ? const Color(0xFFB45309) : const Color(0xFF0F172A),
+              offset: const Offset(0, 3.5),
+              blurRadius: 0,
             ),
           ],
+        ),
+        child: Center(
+          child: Text(
+            '2',
+            style: TextStyle(
+              fontFamily: 'Rajdhani',
+              fontWeight: FontWeight.w900,
+              fontSize: 24,
+              color: isActive ? const Color(0xFF181425) : const Color(0xFFE2E8F0),
+              letterSpacing: 0.5,
+            ),
+          ),
         ),
       ),
     );

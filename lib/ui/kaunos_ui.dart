@@ -2857,6 +2857,10 @@ class _KaunosRewardRevealDialogState extends State<_KaunosRewardRevealDialog>
   void initState() {
     super.initState();
     _anim = AnimationController(vsync: this, duration: const Duration(seconds: 16))..repeat();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AudioManager.instance.playSfx(GameSfx.victory);
+      HapticFeedback.mediumImpact();
+    });
   }
 
   @override
@@ -3001,21 +3005,33 @@ class _KaunosRewardRevealDialogState extends State<_KaunosRewardRevealDialog>
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
-              child: KaunosPressGlow(
-                borderRadius: 16,
-                waveColor: accent,
-                child: ElevatedButton(
-                  onPressed: widget.onDone,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: accent,
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    elevation: 0,
+              child: GestureDetector(
+                onTap: widget.onDone,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0xFF0F172A),
+                        offset: Offset(0, 4),
+                        blurRadius: 0,
+                      ),
+                    ],
                   ),
-                  child: Text(
-                    widget.buttonLabel,
-                    style: const TextStyle(fontFamily: 'Rajdhani', fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 1.0),
+                  child: Center(
+                    child: Text(
+                      widget.buttonLabel,
+                      style: const TextStyle(
+                        fontFamily: 'Rajdhani',
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                        color: Color(0xFF181425),
+                        letterSpacing: 1.0,
+                      ),
+                    ),
                   ),
                 ),
               ),

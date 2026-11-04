@@ -208,15 +208,21 @@ class GameController extends ChangeNotifier {
   double vacuumStormTimer = 0.0;
   double speedBoostTimer = 0.0;
   static const double speedBoostDuration = 2.8;
+  bool isManualSpeedBoostActive = false;
 
-  bool get isSpeedBoostActive => speedBoostTimer > 0.0;
+  bool get isSpeedBoostActive => isManualSpeedBoostActive || speedBoostTimer > 0.0;
 
-  /// Triggers 2.8-second 2x speed boost from HUD button
-  void triggerSpeedBoost([double duration = speedBoostDuration]) {
-    speedBoostTimer = duration;
-    userSpeedMultiplier = 2.0;
+  /// Toggles manual 2x speed boost from HUD button without duration timeout.
+  void toggleSpeedBoost() {
+    isManualSpeedBoostActive = !isManualSpeedBoostActive;
+    userSpeedMultiplier = isManualSpeedBoostActive ? 2.0 : 1.0;
     _syncHud();
     notifyListeners();
+  }
+
+  /// Triggers 2x speed boost (manual toggle)
+  void triggerSpeedBoost([double duration = speedBoostDuration]) {
+    toggleSpeedBoost();
   }
 
   /// Cycles user fast-forward speed multiplier (1.0x -> 2.0x -> 4.0x -> 1.0x)
@@ -1599,7 +1605,7 @@ class GameController extends ChangeNotifier {
   }
 
   void update(double dt) {
-    if (speedBoostTimer > 0) {
+    if (!isManualSpeedBoostActive && speedBoostTimer > 0) {
       speedBoostTimer = max(0.0, speedBoostTimer - dt);
       if (speedBoostTimer == 0.0) {
         userSpeedMultiplier = 1.0;
@@ -3273,19 +3279,6 @@ class GameController extends ChangeNotifier {
           particles.spawnBurst(ball.x, paddle.y + 10.0, const Color(0xFFEA80FC), count: 24, speed: 170.0);
           particles.spawnFloatingText(ball.x.clamp(80.0, screenWidth - 80.0), paddle.y - 35.0, 'AHTAPOT KURTARIŞI!', const Color(0xFFE040FB), isLarge: true);
           audio.playSfx(GameSfx.victory);
-          continue;
-        }
-        // Item 7: Aquarium-Game Bridge: Dolphin Leap / Balık Kurtarışı (Oyun/Run başına strictly 1 kez)
-        if (balls.length == 1 && !fishSaveUsedThisRun && save.unlockedFish.isNotEmpty) {
-          fishSaveUsedThisRun = true;
-          ball.y = paddle.y - ball.radius - 4.0;
-          ball.vy = -ball.vy.abs();
-          particles.triggerShake(5.0, 0.28);
-          particles.spawnShockwave(ball.x, paddle.y + 10.0, const Color(0xFF00E5FF), maxRadius: 85.0);
-          particles.spawnBurst(ball.x, paddle.y + 10.0, const Color(0xFF80D8FF), count: 20, speed: 160.0);
-          particles.spawnFloatingText(ball.x.clamp(80.0, screenWidth - 80.0), paddle.y - 35.0, 'BALIK KURTARIŞI!', const Color(0xFF00E5FF), isLarge: true);
-          audio.playSfx(GameSfx.victory);
-          AchievementManager.instance.onMiracleDolphinSave();
           continue;
         }
         balls.removeAt(i);

@@ -720,6 +720,10 @@ class CrateDef {
     ),
   ];
 
+  /// The shop catalog crates, including the exclusive 8-pearl Octopus Vault.
+  /// Kept separate so the Octopus Vault is NEVER awarded as a random drop or wheel prize.
+  static List<CrateDef> get shopCrates => [...allCrates, octopusVault];
+
   /// Pearls needed to unlock an Octopus Treasure, whether it was won
   /// from the fortune wheel or bought in the shop.
   static const int octopusVaultPearlCost = 8;

@@ -15,6 +15,7 @@ import 'engine/play_games_manager.dart';
 import 'engine/cloud_social_manager.dart';
 import 'ui/splash_screen.dart';
 import 'ui/main_menu.dart';
+import 'ui/achievement_toast_overlay.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -104,6 +105,9 @@ class _KirmatasAppState extends State<KirmatasApp> with WidgetsBindingObserver {
           surface: Color(0xFF101320),
         ),
         textTheme: ThemeData.dark().textTheme.apply(fontFamily: 'Rajdhani'),
+      ),
+      builder: (context, child) => AchievementToastOverlay(
+        child: child ?? const SizedBox.shrink(),
       ),
       home: const SplashScreen(),
     );

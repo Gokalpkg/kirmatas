@@ -426,17 +426,13 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
   void _startAutoOpenTimer() {
     _autoOpenTimer?.cancel();
-    _autoOpenTimer = Timer(const Duration(milliseconds: 3800), () {
-      if (mounted && !_opened && !_isOpening) {
-        _openChestSequence();
-      }
-    });
+    _autoOpenTimer = null;
+    // Strictly manual open: chest waits for player tap/interaction and never auto-opens.
   }
 
   void _resetAutoOpenTimer() {
-    if (!_opened && !_isOpening) {
-      _startAutoOpenTimer();
-    }
+    _autoOpenTimer?.cancel();
+    _autoOpenTimer = null;
   }
 
   void _onOpenTick() {

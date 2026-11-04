@@ -58,12 +58,14 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
   Future<void> _startPurchaseAnimation({
     required BuildContext targetContext,
     required int cost,
+    bool isPearls = false,
     required Future<void> Function() onComplete,
   }) async {
     final save = SaveManager.instance;
-    if (save.gold < cost || _isPurchasing) return;
+    if (!isPearls && (save.gold < cost || _isPurchasing)) return;
+    if (isPearls && (save.pearls < cost || _isPurchasing)) return;
 
-    final startGold = save.gold;
+    final startGold = isPearls ? save.pearls : save.gold;
     final targetGold = max(0, startGold - cost);
 
     // Get positions
@@ -197,18 +199,24 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
   ) async {
     if (_isPurchasing) return;
     if (crate.id == CrateDef.octopusVault.id) {
-      // Strictly 3 pearls only! Decoupled from gold completely.
       if (SaveManager.instance.pearls < CrateDef.octopusVaultPearlCost) return;
-      if (SaveManager.instance.spendPearls(CrateDef.octopusVaultPearlCost)) {
-        AudioManager.instance.playSfx(GameSfx.powerupBuff);
-        if (mounted) {
-          CrateOpeningDialog.show(
-            context,
-            crate: crate,
-            preUnlockedVault: true,
-          );
-        }
-      }
+      await _startPurchaseAnimation(
+        targetContext: btnContext,
+        cost: CrateDef.octopusVaultPearlCost,
+        isPearls: true,
+        onComplete: () async {
+          if (SaveManager.instance.spendPearls(CrateDef.octopusVaultPearlCost)) {
+            AudioManager.instance.playSfx(GameSfx.powerupBuff);
+            if (mounted) {
+              CrateOpeningDialog.show(
+                context,
+                crate: crate,
+                preUnlockedVault: true,
+              );
+            }
+          }
+        },
+      );
       return;
     }
 
@@ -239,6 +247,37 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
         final ok = await SaveManager.instance.unlockBackground(theme.id, theme.cost);
         if (ok && mounted) {
           SaveManager.instance.selectBackground(theme.id);
+          AudioManager.instance.playSfx(GameSfx.victory);
+          HapticFeedback.heavyImpact();
+          showKaunosRewardReveal(
+            context: context,
+            accent: const Color(0xFFFFD54F),
+            headline: 'ARKA PLAN AÇILDI!',
+            title: theme.name.toUpperCase(),
+            subtitle: 'DÜKKANDAN SATIN ALINDI',
+            spectacle: true,
+            visualBuilder: (animValue) => Container(
+              width: 140,
+              height: 100,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFFFD54F), width: 2.5),
+                boxShadow: const [
+                  BoxShadow(color: Color(0xFF0F172A), offset: Offset(0, 4), blurRadius: 0),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Image.asset(
+                'assets/images/backgrounds/${theme.id}.png',
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.none,
+                errorBuilder: (_, __, ___) => const Center(
+                  child: Icon(Icons.wallpaper, color: Color(0xFFFFD54F), size: 48),
+                ),
+              ),
+            ),
+            buttonLabel: 'KULLAN & DEVAM ET',
+          );
         }
       },
     );
@@ -1141,7 +1180,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
           ),
         ),
 
-        for (final crate in CrateDef.allCrates)
+        for (final crate in CrateDef.shopCrates)
           _buildCrateCard(context, save, crate),
       ],
     );

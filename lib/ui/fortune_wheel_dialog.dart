@@ -610,41 +610,35 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
     showKaunosRewardReveal(
       context: context,
       accent: reward.primaryColor,
-      headline: I18n.tr('congratulations'),
-      title: displayLabel,
-      subtitle: displaySubtitle,
+      headline: isChest ? 'GİZEMLİ SANDIK!' : 'ÖDÜL KAZANDIN!',
+      title: isChest ? displayLabel : '+$displayLabel',
+      subtitle: displaySubtitle.toUpperCase(),
       spectacle: spectacle,
       visualBuilder: (animValue) => isChest
           ? ChestWidget(
-              size: 118,
+              size: 124,
               tier: chestTier ?? Rarity.common,
               primaryColor: chestPrimary ?? reward.primaryColor,
               secondaryColor: chestSecondary ?? const Color(0xFF4A148C),
               time: animValue * 2 * pi,
             )
           : Container(
-              width: 96,
-              height: 96,
+              width: 104,
+              height: 104,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                gradient: LinearGradient(
-                  colors: [reward.primaryColor.withValues(alpha: 0.35), const Color(0xFF0D111E)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(color: reward.primaryColor, width: 2.2),
-                boxShadow: [
-                  BoxShadow(color: reward.primaryColor.withValues(alpha: 0.6), blurRadius: 18),
+                borderRadius: BorderRadius.circular(18),
+                color: const Color(0xFF1E1B4B),
+                border: Border.all(color: reward.primaryColor, width: 2.5),
+                boxShadow: const [
+                  BoxShadow(color: Color(0xFF0F172A), offset: Offset(0, 4), blurRadius: 0),
                 ],
               ),
               child: Center(
-                child: PixelIcon(pixelIconName, size: 54),
+                child: PixelIcon(pixelIconName, size: 56),
               ),
             ),
-      footnote: isChest
-          ? 'Tebrikler! Sandığın hemen ücretsiz açılmaya hazır.'
-          : I18n.tr('reward_transferred_sub'),
-      buttonLabel: isChest ? 'HEDİYEYİ AÇ (ÜCRETSİZ)' : I18n.tr('awesome_btn'),
+      footnote: isChest ? 'Sandığın hemen açılmaya hazır!' : null,
+      buttonLabel: isChest ? 'SANDIĞI AÇ' : 'TOPLA',
       onDone: () {
         if (isChest) {
           final cDef = _awardedCrateDef;
