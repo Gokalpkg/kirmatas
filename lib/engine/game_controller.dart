@@ -1063,7 +1063,7 @@ class GameController extends ChangeNotifier {
           if (candidates.isNotEmpty) {
             final pinata = candidates[_rand.nextInt(candidates.length)];
             pinata.isGoldPinata = true;
-            pinata.hp = max(pinata.hp, 5);
+            pinata.hp = stats.level <= 10 ? 1 : max(pinata.hp, 5);
             pinata.maxHp = pinata.hp;
             pinata.color = const Color(0xFFFFD700);
           }
@@ -1229,6 +1229,18 @@ class GameController extends ChangeNotifier {
   }
 
   bool get hasStuckBall => balls.any((b) => b.isStuck);
+
+  void skipLevelTransition() {
+    if (levelTransitionTimer > 0) {
+      levelTransitionTimer = 0.0;
+      if (balls.isEmpty) {
+        resetPaddleAndBall();
+      }
+      status = GameStatus.ready;
+      _syncHud();
+      notifyListeners();
+    }
+  }
 
   void launchBall() {
     if (levelTransitionTimer > 0) {
@@ -5092,12 +5104,15 @@ class GameController extends ChangeNotifier {
     final luckLevel = save.getUpgradeLevel('u_luck');
     var dropChance = BalanceConfig.capsuleBaseDropRate + luckLevel * BalanceConfig.luckUpgradeDropStep + cosmicPearlLuckBonus;
     if (isChaosMode) dropChance *= 0.5; // Bulk breaks: half rate per brick.
+    if (currentMode == GameMode.classic && stats.level <= 10) {
+      dropChance = max(dropChance, 0.28); // Generous 28% drop rate for early levels (1-10)
+    }
     if (!force && _rand.nextDouble() > dropChance) return false;
 
     final allTypes = PowerUpType.values;
     // Luck tilts towards buffs (exclude mirror and pierce; multi allowed with healthy ~4% rate)
     PowerUpType chosen;
-    if (forceBuff || _rand.nextDouble() < 0.78 + luckLevel * 0.05) {
+    if (forceBuff || (currentMode == GameMode.classic && stats.level <= 10) || _rand.nextDouble() < 0.78 + luckLevel * 0.05) {
       var buffs = allTypes.where((t) => t.kind == PowerUpKind.buff && t != PowerUpType.mirror && t != PowerUpType.pierce && t != PowerUpType.drone && t != PowerUpType.food).toList();
       if (currentMode == GameMode.classic && stats.level < 4) {
         buffs = buffs.where((t) => t != PowerUpType.vortex).toList();
@@ -5778,8 +5793,8 @@ class GameController extends ChangeNotifier {
       _haltBackgroundGameplay();
       _resetMusicTension();
 
-      // Slow-Mo Finisher: Trigger cinematic slow-motion freeze, white flash & celebratory shockwave!
-      triggerHitStop(0.30);
+      // Snappy Slow-Mo Finisher: Crisp 100ms hit-stop & celebratory shockwave!
+      triggerHitStop(0.10);
       particles.spawnShockwave(screenWidth / 2, screenHeight * 0.40, const Color(0xFFFFD700), maxRadius: 180.0);
       particles.spawnBurst(screenWidth / 2, screenHeight * 0.40, const Color(0xFF00E5FF), count: 24, speed: 200.0);
 
@@ -5806,7 +5821,7 @@ class GameController extends ChangeNotifier {
         _flushRunStats();
         _onVictory();
       } else {
-        // Immediate next level load with celebratory transition freeze!
+        // Immediate next level load with snappy celebratory transition (<= 1s)!
         final int earnedStars;
         if (stats.lives >= stats.maxLives) {
           earnedStars = 3;
@@ -5817,7 +5832,7 @@ class GameController extends ChangeNotifier {
         }
         lastClearedLevelStars = earnedStars;
         save.saveLevelStars(stats.level, earnedStars);
-        levelTransitionTimer = 1.6;
+        levelTransitionTimer = 0.85;
         particles.spawnLevelClearConfetti(earnedStars, screenWidth, screenHeight);
         final baseGold = allowsGoldReward ? BalanceConfig.levelClearGold(stats.level) : 0;
         final relicBonus = (allowsGoldReward && save.hasPermanentRelic) ? max(1, (baseGold * 0.05).round()) : 0;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../engine/audio_manager.dart';
 import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
@@ -692,6 +693,85 @@ class HudOverlay extends StatelessWidget {
                             style: const TextStyle(color: Colors.white70, fontSize: 12),
                           ),
                         ],
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Fast Level Transition Pop-up Button ("Sonraki Bölüm")
+              if (controller.levelTransitionTimer > 0)
+                Positioned(
+                  bottom: 140.0,
+                  left: 32.0,
+                  right: 32.0,
+                  child: Center(
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.elasticOut,
+                      builder: (context, scale, child) {
+                        return Transform.scale(
+                          scale: scale,
+                          child: child,
+                        );
+                      },
+                      child: KaunosPressGlow(
+                        borderRadius: 22,
+                        waveColor: const Color(0xFF00E676),
+                        child: Container(
+                          height: 52,
+                          constraints: const BoxConstraints(maxWidth: 280),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFF00E676),
+                                Color(0xFF69F0AE),
+                                Color(0xFFFFD54F),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(color: const Color(0xFFE8F5E9), width: 2.0),
+                            boxShadow: const [
+                              BoxShadow(color: Color(0xFF072B10), offset: Offset(0, 4), blurRadius: 0),
+                              BoxShadow(color: Color(0x6600E676), blurRadius: 18, spreadRadius: 2, offset: Offset(0, 3)),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(22),
+                              onTap: () {
+                                HapticFeedback.heavyImpact();
+                                controller.skipLevelTransition();
+                              },
+                              child: const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 16),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          'SONRAKİ BÖLÜM ➔',
+                                          style: TextStyle(
+                                            fontFamily: 'Rajdhani',
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 18,
+                                            letterSpacing: 1.0,
+                                            color: Color(0xFF031E0A),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),

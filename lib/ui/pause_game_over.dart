@@ -62,8 +62,8 @@ class PauseGameOverOverlay extends StatelessWidget {
             child: SingleChildScrollView(
               child: TweenAnimationBuilder<double>(
                 tween: Tween<double>(begin: 0.0, end: 1.0),
-                duration: const Duration(milliseconds: 650),
-                curve: Curves.elasticOut,
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutBack,
                 builder: (context, t, child) {
                   return Transform.translate(
                     offset: Offset(0, -46.0 * (1.0 - t)),
@@ -142,7 +142,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                                 _RollingNumber(
                                   value: stats.score,
                                   delayMs: 0,
-                                  durationMs: 650,
+                                  durationMs: 280,
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w900,
@@ -190,8 +190,8 @@ class PauseGameOverOverlay extends StatelessWidget {
                                 _RollingNumber(
                                   value: stats.maxCombo,
                                   prefix: 'x',
-                                  delayMs: 250,
-                                  durationMs: 500,
+                                  delayMs: 60,
+                                  durationMs: 220,
                                   style: const TextStyle(
                                     color: Color(0xFF00E5FF),
                                     fontWeight: FontWeight.w900,
@@ -215,8 +215,8 @@ class PauseGameOverOverlay extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 _RollingNumber(
                                   value: stats.bricksBroken,
-                                  delayMs: 450,
-                                  durationMs: 500,
+                                  delayMs: 100,
+                                  durationMs: 220,
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w900,
@@ -246,8 +246,8 @@ class PauseGameOverOverlay extends StatelessWidget {
                                     _RollingNumber(
                                       value: stats.goldCollected,
                                       prefix: '+',
-                                      delayMs: 650,
-                                      durationMs: 500,
+                                      delayMs: 140,
+                                      durationMs: 220,
                                       style: const TextStyle(
                                         color: Color(0xFFFFD54F),
                                         fontWeight: FontWeight.w900,

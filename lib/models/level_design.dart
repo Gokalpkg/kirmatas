@@ -649,6 +649,21 @@ class LevelDesign {
 
   static int _selectArchetype(int level, int world, int step) {
     if (level == 238) return 29; // OmegaFinal Apex
+    // İlk 10 bölüm oyuncuyu hiç yakmadan akıp gitmesi için açık, tatmin edici ve eğlenceli şekiller
+    if (level <= 10) {
+      switch (level) {
+        case 1: return 0; // Checkerboard
+        case 2: return 2; // DiamondMine
+        case 3: return 6; // Honeycomb
+        case 4: return 8; // SymmetricTotem
+        case 5: return 12; // StarOfDestiny
+        case 6: return 1; // DominoChain
+        case 7: return 11; // Arrowhead
+        case 8: return 20; // TargetBullseye
+        case 9: return 26; // HeartOfStone
+        case 10: default: return 23; // ShieldAndCrown
+      }
+    }
     final cycleIndex = level ~/ 10;
     switch (step) {
       case 1:
@@ -992,8 +1007,19 @@ class LevelDesign {
     int cols;
     switch (world) {
       case 1:
-        rows = min(7, 5 + (level ~/ 12));
-        cols = 6 + (level % 2);
+        if (level <= 3) {
+          rows = 3;
+          cols = 6;
+        } else if (level <= 6) {
+          rows = 4;
+          cols = 6;
+        } else if (level <= 10) {
+          rows = 4;
+          cols = 7;
+        } else {
+          rows = min(7, 5 + (level ~/ 12));
+          cols = 6 + (level % 2);
+        }
         break;
       case 2:
         rows = min(8, 6 + ((level - 35) ~/ 15));
@@ -1031,8 +1057,8 @@ class LevelDesign {
     final palette = getWorldPalette(world);
 
     // Mystery Golden Chest Brick placement:
-    // Nadir ödül mekaniği: Her el çıkmaz, tam her 5 bölümde bir (bölüm 4, 9, 14, 19, 24...), el başına tam 1 sandık!
-    final bool isChestLevel = level >= 4 && (level % 5 == 4) && !isBossLevel;
+    // Nadir ödül mekaniği: Her el çıkmaz, her 5 bölümde bir ve taktiksel erken seviyelerde el başına tam 1 sandık!
+    final bool isChestLevel = (level == 2 || level == 45 || level == 85 || level == 126 || (level >= 4 && level % 5 == 4)) && !isBossLevel;
     int chestRow = -1;
     int chestCol = -1;
     if (isChestLevel) {
@@ -1133,7 +1159,7 @@ class LevelDesign {
         } else {
           switch (world) {
             case 1:
-              hp = (r < 2 && level > 15) ? 2 : 1;
+              hp = (level <= 10) ? 1 : ((r < 2 && level > 15) ? 2 : 1);
               break;
             case 2:
               hp = (r < 2) ? 2 : ((r == 2 && c % 2 == 0) ? 3 : 1);
@@ -1464,9 +1490,8 @@ class LevelDesign {
             points: 15,
           ),
         );
-      } else if (wave >= 4 && specialRoll >= 0.20 && specialRoll < 0.201) {
+      } else if (wave >= 4 && ((specialRoll >= 0.20 && specialRoll < 0.215) || (wave == 4 && row == 0 && c == emptyCol2))) {
         // Mystery Golden Treasure Chest in Chaos Mode!
-        // Nadir ödül mekaniği: Tam binde 1 (%0.1) şans (wave >= 4)
         // When cracked: drops +5 to +8 extra balls and big gold jackpot!
         final chestHp = min(3, max(1, hp ~/ 2));
         final chaosChestTier = (wave >= 30) ? 3 : ((wave >= 18) ? 2 : ((wave >= 8) ? 1 : 0));

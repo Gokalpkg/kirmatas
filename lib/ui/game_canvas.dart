@@ -105,6 +105,7 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
             if (c.levelTransitionTimer > 0) {
               _canLaunchOnUp = false;
               _touchStartLevel = null;
+              c.skipLevelTransition();
               return;
             }
             _touchStartLevel = c.stats.level;
@@ -6614,7 +6615,7 @@ class _GameWorldPainter extends CustomPainter {
   void _drawLevelClearCelebration(Canvas canvas, Size size) {
     if (c.levelTransitionTimer <= 0) return;
     final timer = c.levelTransitionTimer;
-    const totalDur = 1.6;
+    const totalDur = 0.85;
     final progress = (1.0 - timer / totalDur).clamp(0.0, 1.0);
     final alpha = (progress < 0.15 ? progress / 0.15 : (progress > 0.85 ? (1.0 - progress) / 0.15 : 1.0)).clamp(0.0, 1.0);
 
