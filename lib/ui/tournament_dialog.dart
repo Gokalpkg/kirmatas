@@ -391,9 +391,9 @@ class _TournamentDialogState extends State<TournamentDialog> {
                           children: [
                             Text(
                               save.leagueLastMovement > 0
-                                  ? 'GEÇEN HAFTA #${save.leagueLastRank} → YÜKSELDİN!'
+                                  ? 'GEÇEN HAFTA #${save.leagueLastRank}: YÜKSELDİN!'
                                   : (save.leagueLastMovement < 0
-                                        ? 'GEÇEN HAFTA #${save.leagueLastRank} → Bir kademe düştün'
+                                        ? 'GEÇEN HAFTA #${save.leagueLastRank}: Bir kademe düştün'
                                         : 'GEÇEN HAFTA #${save.leagueLastRank} BİTİRDİN'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -579,9 +579,9 @@ class _TournamentDialogState extends State<TournamentDialog> {
                       ),
                       child: Text(
                         playerRival.rank <= 3
-                            ? 'YÜKSELME ⬆️'
+                            ? 'YÜKSELME'
                             : (playerRival.rank > 10
-                                  ? 'DÜŞME ⬇️'
+                                  ? 'DÜŞME'
                                   : 'GÜVENLİ'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

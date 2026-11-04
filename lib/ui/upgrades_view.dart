@@ -370,7 +370,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                                       border: Border.all(color: const Color(0xFFFFD54F)),
                                     ),
                                     child: Text(
-                                      currentLvl >= 25 ? '👑 L25' : '👑 L10',
+                                      currentLvl >= 25 ? 'MAX L25' : 'EVO L10',
                                       style: const TextStyle(
                                         color: Color(0xFFFFD54F),
                                         fontWeight: FontWeight.w900,

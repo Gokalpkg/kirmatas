@@ -941,8 +941,8 @@ class PauseGameOverOverlay extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        'SONRAKİ BÖLÜM ➔',
+                      const Text(
+                        'SONRAKİ BÖLÜM',
                         style: TextStyle(
                           fontFamily: 'Rajdhani',
                           fontWeight: FontWeight.w900,

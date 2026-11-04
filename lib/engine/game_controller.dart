@@ -4158,7 +4158,7 @@ class GameController extends ChangeNotifier {
       save.addGold(hitGold);
       stats.goldCollected += hitGold;
       particles.spawnCoinOrbs(cx, cy, count: 3, totalValue: hitGold);
-      particles.spawnFloatingText(cx, b.y - 10, '+$hitGold 🪙', const Color(0xFFFFD700));
+      particles.spawnFloatingText(cx, b.y - 10, '+$hitGold ALTIN', const Color(0xFFFFD700));
     }
     b.hp -= dmg;
     b.jelly = 0.8;
@@ -4509,7 +4509,7 @@ class GameController extends ChangeNotifier {
       particles.spawnFloatingText(
         cx,
         b.y - 20,
-        '🪅 ALTIN PIÑATA! +$pinataGold ALTIN +$pinataPearls İNCİ 🪅',
+        'ALTIN PIÑATA! +$pinataGold ALTIN +$pinataPearls İNCİ',
         const Color(0xFFFFD700),
         isLarge: true,
       );

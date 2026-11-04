@@ -6683,7 +6683,7 @@ class _GameWorldPainter extends CustomPainter {
       _drawCelebrationStar(canvas, starOffsets[s], bounceScale, isEarned, alpha);
     }
 
-    // Star Explanation Subtitle ("★ KUSURSUZ (TAM CAN) ★" / "★ GÜZEL OYUN (2 CAN) ★" / "★ HAYATTA KALINDI (1 CAN) ★")
+    // Star Explanation Subtitle ("KUSURSUZ (TAM CAN)" / "GÜZEL OYUN (2 CAN)" / "HAYATTA KALINDI (1 CAN)")
     if (progress > 0.45) {
       final subAlpha = ((progress - 0.45) / 0.20).clamp(0.0, 1.0) * alpha;
       final String starSubtitleKey = earnedStars == 3

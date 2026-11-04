@@ -872,7 +872,7 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                                       const SizedBox(width: 5),
                                       Flexible(
                                         child: Text(
-                                          '★ ${FishItem.getById(_save.luckyFishId!).name} (3x Altın)',
+                                          '${FishItem.getById(_save.luckyFishId!).name} (3x Altın)',
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(

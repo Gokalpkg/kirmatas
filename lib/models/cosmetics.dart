@@ -867,6 +867,8 @@ class BackgroundTheme {
     required this.accentColor,
   });
 
+  String get name => I18n.tr(nameKey);
+
   static const List<BackgroundTheme> allThemes = [
     BackgroundTheme(
       id: 'bg_default',

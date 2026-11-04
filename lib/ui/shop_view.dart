@@ -505,7 +505,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '✨ AKTİF SET: ${synergy.nameTr}',
+                  'AKTİF SET: ${synergy.nameTr}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

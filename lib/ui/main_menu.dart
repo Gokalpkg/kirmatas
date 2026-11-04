@@ -648,7 +648,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
     final level = isClassic ? (_save.classicSavedLevel ?? 1) : (_save.chaosSavedLevel ?? 1);
     final score = isClassic ? (_save.classicSavedScore ?? 0) : (_save.chaosSavedScore ?? 0);
     final extraStat = isClassic
-        ? '${_save.classicSavedLives ?? 3} ️' : '${_save.chaosSavedStock ?? 3}  Top';
+        ? '${_save.classicSavedLives ?? 3} Can' : '${_save.chaosSavedStock ?? 3} Top';
 
     showDialog(
       context: context,
@@ -2077,7 +2077,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
                                 ),
                               ),
                               child: Text(
-                                'DEVAM ET: BÖLÜM ${_save.hasSavedGame(GameMode.classic) ? _save.classicSavedLevel : _save.highestLevel}${_save.hasSavedGame(GameMode.classic) ? ' ↺' : ''}',
+                                'DEVAM ET: BÖLÜM ${_save.hasSavedGame(GameMode.classic) ? _save.classicSavedLevel : _save.highestLevel}',
                                 style: TextStyle(
                                   color: _save.hasSavedGame(GameMode.classic)
                                       ? Colors.black
@@ -2353,7 +2353,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
                                   ],
                                 ),
                                 child: Text(
-                                  'DEVAM: BÖLÜM ${_save.chaosSavedLevel} ↺',
+                                  'DEVAM: BÖLÜM ${_save.chaosSavedLevel}',
                                   style: const TextStyle(
                                     color: Colors.black,
                                     fontSize: 10,

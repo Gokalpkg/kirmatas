@@ -981,7 +981,7 @@ class HudOverlay extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              isEquipped ? '✓' : (stock > 0 ? 'x$stock' : '${b.cost}G'),
+                              isEquipped ? 'AKTİF' : (stock > 0 ? 'x$stock' : '${b.cost}G'),
                               style: TextStyle(
                                 color: isEquipped ? Colors.greenAccent : (stock > 0 ? Colors.white : const Color(0xFFFFD54F)),
                                 fontSize: 10,
