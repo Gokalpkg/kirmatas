@@ -699,7 +699,7 @@ class HudOverlay extends StatelessWidget {
                 ),
 
               // Fast Level Transition Pop-up Button ("Sonraki Bölüm")
-              if (controller.levelTransitionTimer > 0)
+              if (controller.showNextLevelButton || controller.levelTransitionTimer > 0)
                 Positioned(
                   bottom: 140.0,
                   left: 32.0,

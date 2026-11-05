@@ -431,6 +431,7 @@ class GameController extends ChangeNotifier {
   double gameTime = 0.0;
   double bossWarningTimer = 0.0;
   double levelTransitionTimer = 0.0;
+  bool showNextLevelButton = false;
   bool _hasLoadedBricks = false;
   List<Brick>? _loadedBricksRef;
 
@@ -738,7 +739,7 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool get _blackHolesAllowed => currentMode != GameMode.classic || stats.level >= 4;
+  bool get _blackHolesAllowed => currentMode != GameMode.classic || stats.level > 10;
 
   int get sessionStartingBestScore => _sessionStartingBestScore;
 
@@ -999,7 +1000,10 @@ class GameController extends ChangeNotifier {
     final paddleWidthLvl = save.getUpgradeLevel('paddle_width');
     final upgradeWidthBonus = paddleWidthLvl * 2.0;
     final relicWidthBonus = (save.hasPermanentRelic && save.activeRelicStyle == 'aegis') ? paddle.baseWidth * 0.08 : 0.0;
-    paddle.width = paddle.baseWidth + fishBuffs.extraPaddleWidth + upgradeWidthBonus + relicWidthBonus;
+    final earlyLevelCushion = (currentMode == GameMode.classic && stats.level <= 10)
+        ? (24.0 - (stats.level - 1) * 2.0)
+        : 0.0;
+    paddle.width = paddle.baseWidth + earlyLevelCushion + fishBuffs.extraPaddleWidth + upgradeWidthBonus + relicWidthBonus;
     octopusClutchUsedThisStage = false;
     consecutivePaddleHits = 0;
     paddle.x = (screenWidth - paddle.width) / 2;
@@ -1214,7 +1218,7 @@ class GameController extends ChangeNotifier {
     if (currentMode == GameMode.classic && bricks.any((b) => b.isSteel)) {
       showOnceTip('steel', I18n.tr('tip_steel'));
     }
-    if (currentMode == GameMode.classic && stats.level < 4) {
+    if (currentMode == GameMode.classic && stats.level <= 10) {
       blackHoles.clear();
     }
     if (currentMode == GameMode.classic && stats.level >= 11 && stats.level % 10 == 1) {
@@ -1231,18 +1235,19 @@ class GameController extends ChangeNotifier {
   bool get hasStuckBall => balls.any((b) => b.isStuck);
 
   void skipLevelTransition() {
-    if (levelTransitionTimer > 0) {
-      levelTransitionTimer = 0.0;
-      if (balls.isEmpty) {
-        resetPaddleAndBall();
-      }
-      status = GameStatus.ready;
-      _syncHud();
-      notifyListeners();
+    levelTransitionTimer = 0.0;
+    showNextLevelButton = false;
+    if (balls.isEmpty) {
+      resetPaddleAndBall();
     }
+    status = GameStatus.ready;
+    launchBall();
+    _syncHud();
+    notifyListeners();
   }
 
   void launchBall() {
+    showNextLevelButton = false;
     if (levelTransitionTimer > 0) {
       levelTransitionTimer = 0.0;
       if (balls.isEmpty) {
@@ -1516,6 +1521,10 @@ class GameController extends ChangeNotifier {
     const pace = 1.48;
     if (currentMode == GameMode.chaos) {
       return 420.0 * pace;
+    }
+    // İlk 10 bölümde yumuşak, akıcı ve tatlı başlangıç hızı (340 -> 408 px/s)
+    if (currentMode == GameMode.classic && stats.level <= 10) {
+      return 340.0 + (stats.level - 1) * 7.5;
     }
     // Balanced base speed starting at 420.0 px/s at Level 1, gradually scaling up to Level 10
     const base = 420.0;
@@ -4744,7 +4753,7 @@ class GameController extends ChangeNotifier {
       final chosenPower = chestPowerUps[_rand.nextInt(chestPowerUps.length)];
       capsules.add(FallingCapsule(x: b.x + b.width / 2, y: b.y + b.height / 2, type: chosenPower));
       actionDropped = true;
-    } else if (stats.level <= 5 && !isChaosMode && !isZenMode && !earlyActionDropGranted) {
+    } else if (stats.level <= 10 && !isChaosMode && !isZenMode && !earlyActionDropGranted) {
       if (levelBricksBroken <= 3) {
         final shouldDrop = levelBricksBroken == 1 || (levelBricksBroken == 3 && !earlyActionDropGranted);
         if (shouldDrop) {
@@ -5520,7 +5529,10 @@ class GameController extends ChangeNotifier {
         final paddleWidthLvl = save.getUpgradeLevel('paddle_width');
         final upgradeWidthBonus = paddleWidthLvl * 2.0;
         final relicWidthBonus = (save.hasPermanentRelic && save.activeRelicStyle == 'aegis') ? paddle.baseWidth * 0.08 : 0.0;
-        paddle.width = paddle.baseWidth + fishBuffs.extraPaddleWidth + upgradeWidthBonus + relicWidthBonus;
+        final earlyLevelCushion = (currentMode == GameMode.classic && stats.level <= 10)
+        ? (24.0 - (stats.level - 1) * 2.0)
+        : 0.0;
+    paddle.width = paddle.baseWidth + earlyLevelCushion + fishBuffs.extraPaddleWidth + upgradeWidthBonus + relicWidthBonus;
         break;
       case PowerUpType.slow:
       case PowerUpType.fastball:
@@ -5833,6 +5845,7 @@ class GameController extends ChangeNotifier {
         lastClearedLevelStars = earnedStars;
         save.saveLevelStars(stats.level, earnedStars);
         levelTransitionTimer = 0.85;
+        showNextLevelButton = true;
         particles.spawnLevelClearConfetti(earnedStars, screenWidth, screenHeight);
         final baseGold = allowsGoldReward ? BalanceConfig.levelClearGold(stats.level) : 0;
         final relicBonus = (allowsGoldReward && save.hasPermanentRelic) ? max(1, (baseGold * 0.05).round()) : 0;
@@ -5920,6 +5933,7 @@ class GameController extends ChangeNotifier {
         loadLevelBricks();
         _hasLoadedBricks = bricks.isNotEmpty;
         status = GameStatus.ready;
+        showNextLevelButton = true;
         usedPreMatchBoosts.clear();
         emergencyClutchUsedThisStage = false;
         if (wasBossLevel && currentMode == GameMode.classic) {

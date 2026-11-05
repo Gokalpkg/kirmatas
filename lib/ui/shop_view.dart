@@ -271,7 +271,7 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
                 'assets/images/backgrounds/${theme.id}.png',
                 fit: BoxFit.cover,
                 filterQuality: FilterQuality.none,
-                errorBuilder: (_, __, ___) => const Center(
+                errorBuilder: (_, _, _) => const Center(
                   child: Icon(Icons.wallpaper, color: Color(0xFFFFD54F), size: 48),
                 ),
               ),

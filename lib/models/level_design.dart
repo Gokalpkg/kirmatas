@@ -1154,8 +1154,8 @@ class LevelDesign {
         } else if (isIce || isDynamite) {
           hp = 1;
         } else if (isChest) {
-          // Sturdy reinforced treasure chest: takes 2 hits in early worlds, 3 hits in late worlds
-          hp = (world <= 2) ? 2 : 3;
+          // Sturdy reinforced treasure chest: takes 1 hit in first 10 levels, 2 hits in early worlds, 3 hits in late worlds
+          hp = (level <= 10) ? 1 : ((world <= 2) ? 2 : 3);
         } else {
           switch (world) {
             case 1:
