@@ -7,7 +7,6 @@ import '../engine/audio_manager.dart';
 import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
 import '../engine/play_games_manager.dart';
-import '../engine/remove_ads_billing.dart';
 import '../models/game_state.dart';
 import '../storage/save_manager.dart';
 import 'aquarium_view.dart';
@@ -21,7 +20,6 @@ import 'daily_quests_dialog.dart';
 import 'shop_view.dart';
 import 'upgrades_view.dart';
 import 'sector_map_view.dart';
-import 'pixel_art.dart';
 import 'tournament_dialog.dart';
 import 'kaunos_ui.dart';
 import 'crate_opening_dialog.dart';
@@ -41,7 +39,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
   final SaveManager _save = SaveManager.instance;
   GameController? _activeGame;
   bool _levelAdBusy = false;
-  bool _offerBusy = false;
   Timer? _cooldownRefreshTimer;
   Timer? _autoWheelTimer;
 
@@ -399,134 +396,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
   void _maybeOfferRemoveAds() {
     // Reklamları Kaldır teklif penceresi kaldırıldı.
     return;
-  }
-
-  Future<void> _showRemoveAdsOffer() async {
-    if (!mounted) return;
-    await SaveManager.instance.markRemoveAdsOfferSeen();
-    if (!mounted) return;
-    final price = RemoveAdsBilling.instance.priceLabel;
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: const Color(0xF0101320),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-            side: const BorderSide(color: Color(0x3300E5FF), width: 1.5),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0x2200E5FF),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0x6600E5FF)),
-                ),
-                child: const PixelIcon('no_ads', size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  I18n.tr('remove_ads_offer_title'),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.8,
-                    fontSize: 17,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                I18n.tr('remove_ads_offer_body'),
-                style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0x2200E5FF),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0x4400E5FF)),
-                ),
-                child: Text(
-                  price,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFF00E5FF),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(
-                I18n.tr('remove_ads_later'),
-                style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold),
-              ),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(dialogContext).pop();
-                final success = await RemoveAdsBilling.instance.restorePurchasesManually();
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      success
-                          ? (SaveManager.instance.adsRemoved
-                              ? 'Satın alımlarınız geri yüklendi!'
-                              : 'Satın alımlar sorgulandı. Aktif bir satın alım bulunursa otomatik etkinleştirilecektir.')
-                          : 'Geri yükleme başlatılamadı. Mağaza bağlantısını kontrol edin.',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    backgroundColor: const Color(0xFF161A29),
-                  ),
-                );
-              },
-              child: const Text(
-                'Geri Yükle',
-                style: TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00E5FF),
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              ),
-              onPressed: () async {
-                Navigator.of(dialogContext).pop();
-                final opened = await RemoveAdsBilling.instance.buy();
-                if (!opened && mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(I18n.tr('remove_ads_unavailable'))),
-                  );
-                }
-              },
-              child: Text(
-                I18n.tr('remove_ads_buy'),
-                style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.6),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Future<void> _openFortuneWheelWithHero() async {
