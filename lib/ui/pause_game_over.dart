@@ -12,6 +12,7 @@ import '../storage/save_manager.dart';
 import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
 import 'kaunos_ui.dart';
+import 'level_clear_card.dart';
 
 class PauseGameOverOverlay extends StatelessWidget {
   final GameController controller;
@@ -113,7 +114,29 @@ class PauseGameOverOverlay extends StatelessWidget {
                     ),
                     if (isVictory) ...[
                       const SizedBox(height: 10),
-                      _VictoryStars(stars: stats.lives >= 2 ? 3 : (stats.lives == 1 ? 2 : 1)),
+                      _VictoryStars(stars: controller.lastClearedLevelStars),
+                      const SizedBox(height: 6),
+                      Text(
+                        I18n.tr(controller.lastClearedLevelStars == 3
+                            ? 'stars_3_subtitle'
+                            : (controller.lastClearedLevelStars == 2
+                                ? 'stars_2_subtitle'
+                                : 'stars_1_subtitle')),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Rajdhani',
+                          color: controller.lastClearedLevelStars == 3
+                              ? const Color(0xFF00E5FF)
+                              : const Color(0xFFFFD54F),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      if (controller.lastClearedLevelStars >= 3) ...[
+                        const SizedBox(height: 10),
+                        const FlawlessVictoryBadge(),
+                      ],
                     ],
                     const SizedBox(height: 16),
 
@@ -1571,9 +1594,13 @@ class _VictoryStars extends StatelessWidget {
       duration: Duration(milliseconds: 350 + index * 180),
       curve: Curves.elasticOut,
       builder: (context, scale, child) {
-        return Transform.scale(
-          scale: scale,
-          child: child,
+        final dropY = (1.0 - scale.clamp(0.0, 1.0)) * -32.0;
+        return Transform.translate(
+          offset: Offset(0, dropY),
+          child: Transform.scale(
+            scale: scale,
+            child: child,
+          ),
         );
       },
       child: Container(

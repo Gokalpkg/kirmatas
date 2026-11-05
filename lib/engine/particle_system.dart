@@ -558,6 +558,33 @@ class ParticleSystem {
     }
   }
 
+  /// Zero-Lag Clutch Save: Ekrana yukarı doğru altın şimşek kıvılcımları patlatır
+  void spawnClutchLightning(double originX, double originY, double screenHeight) {
+    const sparkCount = 28;
+    if (particles.length + sparkCount > maxParticles) {
+      final overflow = (particles.length + sparkCount) - maxParticles;
+      particles.removeRange(0, min(overflow, particles.length));
+    }
+
+    for (int i = 0; i < sparkCount; i++) {
+      final vx = (_rand.nextDouble() - 0.5) * 260.0;
+      final vy = -450.0 - _rand.nextDouble() * 550.0;
+      particles.add(
+        Particle(
+          x: originX + (_rand.nextDouble() - 0.5) * 50.0,
+          y: originY + _rand.nextDouble() * 15.0,
+          vx: vx,
+          vy: vy,
+          size: 3.5 + _rand.nextDouble() * 4.0,
+          color: i % 3 == 0
+              ? const Color(0xFFFFFFFF)
+              : (i % 3 == 1 ? const Color(0xFFFFEA00) : const Color(0xFFFFD700)),
+          maxLife: 0.50 + _rand.nextDouble() * 0.35,
+        ),
+      );
+    }
+  }
+
   void spawnBurnEmber(double x, double y, {Color? color}) {
     if (particles.length >= maxParticles) {
       particles.removeAt(0);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../config/balance_config.dart';
 import '../engine/audio_manager.dart';
 import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
@@ -8,6 +9,7 @@ import '../models/level_design.dart';
 import '../models/powerup.dart';
 import '../models/sector_data.dart';
 import '../storage/save_manager.dart';
+import 'level_clear_card.dart';
 import 'pixel_art.dart';
 import 'kaunos_ui.dart';
 
@@ -698,79 +700,32 @@ class HudOverlay extends StatelessWidget {
                   ),
                 ),
 
-              // Fast Level Transition Pop-up Button ("Sonraki Bölüm")
+              // Celebratory Level Clear Victory Card (with stars, rewards & next level button)
               if (controller.showNextLevelButton || controller.levelTransitionTimer > 0)
-                Positioned(
-                  bottom: 140.0,
-                  left: 32.0,
-                  right: 32.0,
-                  child: Center(
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween<double>(begin: 0.0, end: 1.0),
-                      duration: const Duration(milliseconds: 280),
-                      curve: Curves.elasticOut,
-                      builder: (context, scale, child) {
-                        return Transform.scale(
-                          scale: scale,
-                          child: child,
-                        );
-                      },
-                      child: KaunosPressGlow(
-                        borderRadius: 22,
-                        waveColor: const Color(0xFF00E676),
-                        child: Container(
-                          height: 52,
-                          constraints: const BoxConstraints(maxWidth: 280),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [
-                                Color(0xFF00E676),
-                                Color(0xFF69F0AE),
-                                Color(0xFFFFD54F),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(color: const Color(0xFFE8F5E9), width: 2.0),
-                            boxShadow: const [
-                              BoxShadow(color: Color(0xFF072B10), offset: Offset(0, 4), blurRadius: 0),
-                              BoxShadow(color: Color(0x6600E676), blurRadius: 18, spreadRadius: 2, offset: Offset(0, 3)),
-                            ],
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      controller.skipLevelTransition();
+                    },
+                    child: Container(
+                      color: const Color(0x66000000),
+                      alignment: Alignment.center,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.deferToChild,
+                        onTap: () {},
+                        child: LevelClearCard(
+                          stars: controller.lastClearedLevelStars,
+                          level: controller.stats.level > 1 ? controller.stats.level - 1 : controller.stats.level,
+                          score: controller.stats.score,
+                          goldEarned: BalanceConfig.levelClearGold(
+                            controller.stats.level > 1 ? controller.stats.level - 1 : controller.stats.level,
                           ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(22),
-                              onTap: () {
-                                HapticFeedback.heavyImpact();
-                                controller.skipLevelTransition();
-                              },
-                              child: const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 16),
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          'SONRAKİ BÖLÜM ➔',
-                                          style: TextStyle(
-                                            fontFamily: 'Rajdhani',
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 18,
-                                            letterSpacing: 1.0,
-                                            color: Color(0xFF031E0A),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                          onNextLevel: () {
+                            HapticFeedback.heavyImpact();
+                            controller.skipLevelTransition();
+                          },
                         ),
                       ),
                     ),

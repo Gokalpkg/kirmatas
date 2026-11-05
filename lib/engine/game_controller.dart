@@ -337,6 +337,7 @@ class GameController extends ChangeNotifier {
   final List<Brick> _primedDynamites = [];
   final List<FallingCapsule> capsules = [];
   final List<Projectile> projectiles = [];
+  final List<PulseWave> pulseWaves = [];
   final List<ActivePowerUp> activePowerUps = [];
 
   EasterEggBee? activeBee;
@@ -582,6 +583,7 @@ class GameController extends ChangeNotifier {
     bricks.clear();
     capsules.clear();
     projectiles.clear();
+    pulseWaves.clear();
     particles.clear();
     blackHoles.clear();
     portals.clear();
@@ -655,6 +657,26 @@ class GameController extends ChangeNotifier {
 
   final Set<String> usedPreMatchBoosts = {};
   int lastClearedLevelStars = 3;
+  int _livesLostThisLevel = 0;
+  int get livesLostThisLevel => _livesLostThisLevel;
+
+  @visibleForTesting
+  set livesLostThisLevelForTesting(int val) => _livesLostThisLevel = val;
+
+  /// Calculates level star rating based on performance in this specific level:
+  /// - 3 Stars (⭐⭐⭐ Perfect): 0 lives lost this level
+  /// - 2 Stars (⭐⭐ Good): 1 life lost this level
+  /// - 1 Star (⭐ Cleared): 2+ lives lost this level
+  /// Never returns 0 stars upon clearing.
+  int calculateLevelStars() {
+    if (_livesLostThisLevel <= 0) {
+      return 3;
+    } else if (_livesLostThisLevel == 1) {
+      return 2;
+    } else {
+      return 1;
+    }
+  }
 
   bool activatePreMatchBoost(String id) {
     if (usedPreMatchBoosts.contains(id)) return false;
@@ -779,6 +801,7 @@ class GameController extends ChangeNotifier {
     status = GameStatus.ready;
     streakBeforeGameOver = 0;
     streakProtected = false;
+    _livesLostThisLevel = 0;
     _resetMusicTension();
     revivesUsed = 0;
     hasClaimedVictoryBonus = false;
@@ -896,6 +919,7 @@ class GameController extends ChangeNotifier {
     particles.clear();
     capsules.clear();
     projectiles.clear();
+    pulseWaves.clear();
     activePowerUps.clear();
     activeBee = null;
     activeSplat = null;
@@ -962,6 +986,7 @@ class GameController extends ChangeNotifier {
     balls.clear();
     _pendingBallsToAdd.clear();
     projectiles.clear();
+    pulseWaves.clear();
     capsules.clear();
     isDiceRolling = false;
     diceSalvoRemaining = 0;
@@ -1027,6 +1052,7 @@ class GameController extends ChangeNotifier {
     activePowerUps.clear();
     capsules.clear();
     projectiles.clear();
+    pulseWaves.clear();
 
     balls.clear();
     _pendingBallsToAdd.clear();
@@ -1047,6 +1073,7 @@ class GameController extends ChangeNotifier {
   void loadLevelBricks() {
     _hasLoadedBricks = true;
     _currentLevelDuration = 0.0;
+    _livesLostThisLevel = 0;
     AnalyticsManager.instance.logLevelStart(stats.level, currentMode.name);
     activeIceVariant = _rand.nextInt(4);
     portals.clear();
@@ -1244,7 +1271,6 @@ class GameController extends ChangeNotifier {
       resetPaddleAndBall();
     }
     status = GameStatus.ready;
-    launchBall();
     _syncHud();
     notifyListeners();
   }
@@ -1849,6 +1875,7 @@ class GameController extends ChangeNotifier {
     _updatePowerUpTimers(effectiveDt);
     _updateCombo(effectiveDt);
     _updateProjectiles(effectiveDt);
+    _updatePulseWaves(effectiveDt);
     _updateCapsules(effectiveDt);
     _updateBricks(effectiveDt);
     _updateAnomalies(effectiveDt);
@@ -2450,23 +2477,161 @@ class GameController extends ChangeNotifier {
           if (!b.isAlive) continue;
           if (b.rect.contains(Offset(p.x, p.y))) {
             hit = true;
-            if (p.isRocket) {
+            if (p.isPiercingLaser) {
+              if (!p.hitBrickIds.contains(b.hashCode)) {
+                p.hitBrickIds.add(b.hashCode);
+                _hitBrick(b, null);
+                particles.spawnBurst(p.x, p.y, const Color(0xFFFFD700), count: 8, speed: 140.0);
+                audio.playSfx(GameSfx.laser, playbackRate: 1.35);
+              }
+            } else if (p.isRocket) {
               _explodeArea(p.x, p.y, radius: 65.0);
+              break;
             } else if (p.isShrapnel) {
               _hitBrick(b, null);
               particles.spawnBurst(p.x, p.y, const Color(0xFFECEFF1), count: 6, speed: 120.0);
               audio.playSfx(GameSfx.steel);
+              break;
             } else {
               _hitBrick(b, null);
+              break;
             }
-            break;
           }
         }
-        if (hit) {
+        if (hit && !p.isPiercingLaser) {
           projectiles.removeAt(i);
         }
       }
     }
+  }
+
+  void _fireOverdriveLaser() {
+    projectiles.add(
+      Projectile(
+        x: paddle.centerX,
+        y: paddle.y - 12.0,
+        vx: 0.0,
+        vy: -600.0,
+        radius: 6.0,
+        isLaser: true,
+        isPiercingLaser: true,
+      ),
+    );
+    particles.spawnShockwave(paddle.centerX, paddle.y - 12.0, const Color(0xFFFFD700), maxRadius: 50.0);
+    audio.playSfx(GameSfx.laser, playbackRate: 1.2);
+  }
+
+  void _updatePulseWaves(double dt) {
+    for (int i = pulseWaves.length - 1; i >= 0; i--) {
+      final wave = pulseWaves[i];
+      wave.update(dt);
+      if (!wave.isAlive) {
+        pulseWaves.removeAt(i);
+        continue;
+      }
+      for (final ball in balls) {
+        if (ball.isStuck) continue;
+        if (wave.affectedBallIds.contains(ball.hashCode)) continue;
+        if (wave.intersectsBall(ball.x, ball.y, ball.effectiveRadius)) {
+          wave.affectedBallIds.add(ball.hashCode);
+          _bendBallTrajectory(ball, wave);
+        }
+      }
+    }
+  }
+
+  void _bendBallTrajectory(Ball ball, PulseWave wave) {
+    // Priority targets: Boss or Gold Piñata if present on field
+    final aliveBoss = bricks.where((b) => b.isAlive && b.isBoss).firstOrNull;
+    final alivePinata = bricks.where((b) => b.isAlive && b.isGoldPinata).firstOrNull;
+    final targetBrick = aliveBoss ?? alivePinata;
+
+    double targetDirX;
+    double targetDirY;
+    if (targetBrick != null) {
+      final tCenterX = targetBrick.x + targetBrick.width / 2;
+      final tCenterY = targetBrick.y + targetBrick.height / 2;
+      final dx = tCenterX - ball.x;
+      final dy = tCenterY - ball.y;
+      final dist = sqrt(dx * dx + dy * dy);
+      if (dist > 0.001) {
+        targetDirX = dx / dist;
+        targetDirY = dy / dist;
+      } else {
+        targetDirX = cos(wave.aimAngle);
+        targetDirY = sin(wave.aimAngle);
+      }
+    } else {
+      targetDirX = cos(wave.aimAngle);
+      targetDirY = sin(wave.aimAngle);
+    }
+
+    final S = ball.speed;
+    if (S > 0.001) {
+      final currDirX = ball.vx / S;
+      final currDirY = ball.vy / S;
+
+      // Dalga topun hız vektörünü paletin nişan aldığı yöne doğru %25 büker
+      final blendedX = 0.75 * currDirX + 0.25 * targetDirX;
+      final blendedY = 0.75 * currDirY + 0.25 * targetDirY;
+      final blendedLen = sqrt(blendedX * blendedX + blendedY * blendedY);
+      if (blendedLen > 0.001) {
+        ball.vx = (blendedX / blendedLen) * S;
+        ball.vy = (blendedY / blendedLen) * S;
+      }
+    }
+
+    particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD700), count: 12, speed: 120.0);
+    particles.spawnShockwave(ball.x, ball.y, const Color(0xFFFFEA00), maxRadius: 45.0);
+    audio.playSfx(GameSfx.cornerBoost, playbackRate: 1.35);
+  }
+
+  /// Triggers Manyetik Darbe (Gravity Pulse) conical wave from the paddle
+  void triggerGravityPulse({double? aimAngle, double? targetX, double? targetY}) {
+    if (status != GameStatus.playing) return;
+
+    double resolvedAngle;
+    if (aimAngle != null) {
+      resolvedAngle = aimAngle;
+    } else if (targetX != null && targetY != null) {
+      resolvedAngle = atan2(targetY - paddle.y, targetX - paddle.centerX);
+    } else {
+      final aliveBoss = bricks.where((b) => b.isAlive && b.isBoss).firstOrNull;
+      final alivePinata = bricks.where((b) => b.isAlive && b.isGoldPinata).firstOrNull;
+      final targetBrick = aliveBoss ?? alivePinata;
+      if (targetBrick != null) {
+        final tCenterX = targetBrick.x + targetBrick.width / 2;
+        final tCenterY = targetBrick.y + targetBrick.height / 2;
+        resolvedAngle = atan2(tCenterY - paddle.y, tCenterX - paddle.centerX);
+      } else {
+        resolvedAngle = -pi / 2;
+      }
+    }
+
+    // Clamp angle to upper hemisphere with margin (-165° to -15°)
+    resolvedAngle = resolvedAngle.clamp(-pi + 0.26, -0.26);
+
+    pulseWaves.add(
+      PulseWave(
+        x: paddle.centerX,
+        y: paddle.y - 8.0,
+        aimAngle: resolvedAngle,
+        maxRadius: max(screenHeight * 1.1, 750.0),
+      ),
+    );
+
+    particles.spawnShockwave(paddle.centerX, paddle.y, const Color(0xFFFFD700), maxRadius: 85.0);
+    particles.spawnBurst(paddle.centerX, paddle.y, const Color(0xFFFFD700), count: 20, speed: 200.0);
+    particles.spawnFloatingText(
+      paddle.centerX,
+      paddle.y - 25.0,
+      'MANYETİK DARBE!',
+      const Color(0xFFFFD700),
+      isLarge: true,
+      iconType: FloatingIconType.bolt,
+    );
+    audio.playSfx(GameSfx.laser, playbackRate: 1.2);
+    audio.playSfx(GameSfx.ulti, playbackRate: 1.35);
   }
 
   void _updateCapsules(double dt) {
@@ -3498,7 +3663,7 @@ class GameController extends ChangeNotifier {
 
         if (!firstCornerHitShown) {
           firstCornerHitShown = true;
-          stats.bulletTimeLeft = 0.75; // Brief slow-motion pulse
+          // ZERO-LAG: Oyunu yavaşlatmadan saf arcade hızı ve altın kutlama!
           particles.triggerShake(6.0, 0.28);
           particles.spawnShockwave(ball.x, pr.top, const Color(0xFFFFD700), maxRadius: 85.0);
           particles.spawnFloatingText(
@@ -3517,12 +3682,19 @@ class GameController extends ChangeNotifier {
           ball.overdriveStreak = (ball.overdriveStreak + 1).clamp(1, BalanceConfig.overdriveMaxStreak);
           final boostFactor = 1.0 + (ball.overdriveStreak * BalanceConfig.overdriveSpeedStep);
           ball.setSpeed(min(ball.speed * boostFactor, 680.0));
-          if (ball.overdriveStreak == 2) {
+          if (ball.overdriveStreak == 1) {
+            particles.spawnFloatingText(
+              ball.x,
+              pr.top - 24,
+              'OVERDRIVE Lv.1! +15% HIZ',
+              const Color(0xFFFFD54F),
+            );
+          } else if (ball.overdriveStreak == 2) {
             stats.combo += 3;
             particles.spawnFloatingText(
               ball.x,
               pr.top - 28,
-              'OVERDRIVE x2! +3 KOMBO',
+              'OVERDRIVE Lv.2! +30% HIZ & ÇİFT ALTIN',
               const Color(0xFFFFD54F),
               isLarge: true,
               iconType: FloatingIconType.bolt,
@@ -3530,10 +3702,11 @@ class GameController extends ChangeNotifier {
           } else if (ball.overdriveStreak >= 3) {
             ball.isPierce = true;
             ball.fireballPierceCount = max(ball.fireballPierceCount, 3);
+            _fireOverdriveLaser();
             particles.spawnFloatingText(
               ball.x,
               pr.top - 30,
-              'OVERDRIVE MAX! DELİCİ GÜLLE',
+              'OVERDRIVE Lv.3! ALTIN LAZER',
               const Color(0xFFFFD700),
               isLarge: true,
               iconType: FloatingIconType.flame,
@@ -3543,27 +3716,37 @@ class GameController extends ChangeNotifier {
           ball.overdriveStreak = 0;
         }
 
-        final isClutchSave = hitOffset.abs() >= 0.88;
+        // [ADRENALİN 8] Zero-Lag Clutch Kurtarışı:
+        // Top paletin alt hizasına 8px kala (tam ölüm anında) son anda kurtarıldığında veya kenar clutch'ta:
+        // AĞIR ÇEKİM / SLOW-MOTION KESİNLİKLE YOK! Fizik hızı %100 aynı kalır.
+        final isNearDeathBottom = (ball.y + ball.radius >= pr.bottom - 8.0);
+        final isClutchSave = isNearDeathBottom || (hitOffset.abs() >= 0.88);
         if (isClutchSave) {
           stats.score += 150;
+          _nearMissSlowLeft = 0.0; // ZERO-LAG: Asla yavaşlama yok, %100 akıcı fizik!
           if (_nearMissCooldown <= 0) {
-            _nearMissCooldown = 1.2;
+            _nearMissCooldown = 0.8;
             nearMissFlashTimer = 0.50;
-            _nearMissSlowLeft = 0.28;
-            triggerHitStop(0.045);
-            particles.triggerShake(5.5, 0.22);
+            particles.triggerShake(5.0, 0.20);
             particles.spawnShockwave(ball.x, pr.top, const Color(0xFF00E5FF), maxRadius: 95.0);
-            particles.spawnBurst(ball.x, pr.top, const Color(0xFFFFD54F), count: 14, speed: 180.0);
+            particles.spawnShockwave(ball.x, pr.bottom, const Color(0xFFFFD700), maxRadius: 130.0);
+            // a) Paletin altından yukarı doğru tüm ekran boyunca parlak altın şimşek kıvılcımları patlar:
+            particles.spawnClutchLightning(ball.x, pr.bottom, screenHeight);
+            // b) Ekranda "CLUTCH SAVE!" retro arcade yazısı belirir:
             particles.spawnFloatingText(
-              ball.x,
-              pr.top - 20,
-              'SON ANDA! +150',
-              const Color(0xFF00E5FF),
+              screenWidth / 2,
+              screenHeight * 0.42,
+              'CLUTCH SAVE!',
+              const Color(0xFFFFD700),
               isLarge: true,
-              iconType: FloatingIconType.flame,
+              iconType: FloatingIconType.bolt,
             );
             audio.playSfx(GameSfx.cornerBoost);
-            audio.playSfx(GameSfx.powerupBuff, playbackRate: 0.8);
+            audio.playSfx(GameSfx.powerupBuff, playbackRate: 1.25);
+            // c) Kurtarılan top 4 saniyeliğine "Aşırı Yüklü Altın Gülle"ye dönüşür:
+            ball.clutchOverchargeTimer = 4.0;
+            ball.clutchPierceRemaining = 3;
+            ball.isPierce = true;
           }
         }
         stats.ultiCharge = (stats.ultiCharge + 3.0 * cosmicPearlUltiMultiplier).clamp(0.0, 100.0);
@@ -3875,9 +4058,43 @@ class GameController extends ChangeNotifier {
           }
         }
 
-        if (ball.isBomb) {
+        // Element Recombination & Sinerji Motoru (FAZ 2: 1 + 1 = 5):
+        final isPlasmaShatter = (ball.isFireball && ball.isBomb) ||
+            (ball.isFireball && (ball.isClutchOvercharged || stats.combo >= 8));
+
+        if (isPlasmaShatter) {
+          // Plazma Patlaması: Devasa 105px yarıçaplı elektrik-ateş şoku
+          _explodeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 105.0);
+          particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFF3D00), maxRadius: 100.0);
+          particles.triggerShake(6.5, 0.22);
+          particles.spawnFloatingText(
+            b.x + b.width / 2,
+            b.y - 20,
+            'PLAZMA PATLAMASI!',
+            const Color(0xFFFF3D00),
+            isLarge: true,
+            iconType: FloatingIconType.flame,
+          );
+          audio.playSfx(GameSfx.ulti, playbackRate: 1.35);
+        } else if (ball.isBomb) {
           _explodeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 55.0);
         }
+
+        // Buzkıran Sinerjisi (Ateş / Mega / Clutch vs Donmuş Tuğla):
+        if (b.isIce && (ball.isFireball || ball.megaTimer > 0 || ball.isClutchOvercharged)) {
+          _explodeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 75.0);
+          particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFF00E5FF), maxRadius: 70.0);
+          particles.spawnFloatingText(
+            b.x + b.width / 2,
+            b.y - 18,
+            'BUZKIRAN!',
+            const Color(0xFF00E5FF),
+            isLarge: true,
+            iconType: FloatingIconType.bolt,
+          );
+          audio.playSfx(GameSfx.powerupBuff, playbackRate: 1.3);
+        }
+
         if (ball.isFrost || activePowerUps.any((p) => p.type == PowerUpType.frost)) {
           if (b.isIce) {
             // Frost striking a true ice brick flash-freezes localized adjacent area!
@@ -3892,7 +4109,20 @@ class GameController extends ChangeNotifier {
           particles.spawnBurst(ball.x, ball.y, const Color(0xFF80D8FF), count: 14, speed: 130.0);
         }
         if (ball.isShrapnel || activePowerUps.any((p) => p.type == PowerUpType.shrapnel)) {
-          _spawnShrapnel(b.x + b.width / 2, b.y + b.height / 2);
+          if (balls.length >= 2) {
+            // Çoklu top + Şarapnel = Spor Salgını (4 iğne mermisi)
+            _spawnSporSalginShrapnels(b.x + b.width / 2, b.y + b.height / 2);
+            particles.spawnFloatingText(
+              b.x + b.width / 2,
+              b.y - 14,
+              'SPOR SALGINI!',
+              const Color(0xFF69F0AE),
+              isLarge: true,
+              iconType: FloatingIconType.bolt,
+            );
+          } else {
+            _spawnShrapnel(b.x + b.width / 2, b.y + b.height / 2);
+          }
         }
         if (!b.isTuft) {
           break;
@@ -3914,6 +4144,23 @@ class GameController extends ChangeNotifier {
     ));
     particles.spawnBurst(bx, by, const Color(0xFFCFD8DC), count: 6, speed: 120.0);
     audio.playSfx(GameSfx.steel);
+  }
+
+  void _spawnSporSalginShrapnels(double bx, double by) {
+    const spd = 540.0;
+    final angles = [-0.35, -0.12, 0.12, 0.35];
+    for (final ang in angles) {
+      projectiles.add(Projectile(
+        x: bx,
+        y: by - 4.0,
+        vx: sin(ang) * spd,
+        vy: -cos(ang) * spd,
+        radius: 3.5,
+        isShrapnel: true,
+      ));
+    }
+    particles.spawnBurst(bx, by, const Color(0xFF69F0AE), count: 12, speed: 140.0);
+    audio.playSfx(GameSfx.steel, playbackRate: 1.3);
   }
 
   void _hitBrick(Brick b, Ball? ball, {bool isEcho = false}) {
@@ -4192,6 +4439,26 @@ class GameController extends ChangeNotifier {
       stats.goldCollected += hitGold;
       particles.spawnCoinOrbs(cx, cy, count: 3, totalValue: hitGold);
       particles.spawnFloatingText(cx, b.y - 10, '+$hitGold ALTIN', const Color(0xFFFFD700));
+    }
+
+    // Aşırı Yüklü Altın Gülle (Clutch Save Overcharge):
+    // İlk 3 tuğlayı canına bakmaksızın tek darbede kırar ve x2 altın düşürür
+    if (ball != null && ball.isClutchOvercharged) {
+      if (ball.clutchPierceRemaining > 0) {
+        dmg = max(dmg, b.hp);
+        ball.clutchPierceRemaining--;
+        ball.isPierce = true;
+        particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD700), count: 12, speed: 180.0);
+        particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFEA00), maxRadius: 60.0);
+        audio.playSfx(GameSfx.explosion, playbackRate: 1.4);
+      }
+      if (allowsGoldReward) {
+        final int clutchGold = max(b.points, 3) * 2;
+        save.addGold(clutchGold);
+        stats.goldCollected += clutchGold;
+        particles.spawnCoinOrbs(b.x + b.width / 2, b.y + b.height / 2, count: 4, totalValue: clutchGold);
+        particles.spawnFloatingText(b.x + b.width / 2, b.y - 14, 'CLUTCH x2 ALTIN!', const Color(0xFFFFD700));
+      }
     }
     b.hp -= dmg;
     b.jelly = 0.8;
@@ -5789,6 +6056,7 @@ class GameController extends ChangeNotifier {
   void _loseLife() {
     consecutivePaddleHits = 0;
     if (levelTransitionTimer > 0 || status != GameStatus.playing) return;
+    _livesLostThisLevel++;
     stats.lives--;
     checkLowLifeTransition();
     if (stats.lives <= 0 && currentMode == GameMode.classic && !save.usedFreeContinue) {
@@ -5911,14 +6179,7 @@ class GameController extends ChangeNotifier {
         _onVictory();
       } else {
         // Immediate next level load with snappy celebratory transition (<= 1s)!
-        final int earnedStars;
-        if (stats.lives >= stats.maxLives) {
-          earnedStars = 3;
-        } else if (stats.lives >= 2) {
-          earnedStars = 2;
-        } else {
-          earnedStars = 1;
-        }
+        final int earnedStars = calculateLevelStars();
         lastClearedLevelStars = earnedStars;
         save.saveLevelStars(stats.level, earnedStars);
         levelTransitionTimer = 0.85;
@@ -5953,8 +6214,8 @@ class GameController extends ChangeNotifier {
             ),
           );
         }
-        // MEKANİK FAZ 2.2: Kusursuz Hız Bonusu (Speed-Par <= 25s with full lives)
-        if (allowsGoldReward && _currentLevelDuration > 0.1 && _currentLevelDuration <= BalanceConfig.speedParDurationSeconds && stats.lives >= stats.maxLives) {
+        // MEKANİK FAZ 2.2: Kusursuz Hız Bonusu (Speed-Par <= 25s with 0 lives lost this level)
+        if (allowsGoldReward && _currentLevelDuration > 0.1 && _currentLevelDuration <= BalanceConfig.speedParDurationSeconds && _livesLostThisLevel == 0) {
           const speedBonus = BalanceConfig.speedParBonusGold;
           save.addGold(speedBonus);
           stats.goldCollected += speedBonus;
@@ -5984,9 +6245,17 @@ class GameController extends ChangeNotifier {
         }
         final clearedLevel = stats.level;
         final wasBossLevel = LevelDesign.isBossLevelNumber(clearedLevel);
+        GameEventBus().fire(
+          LevelClearedEvent(
+            levelNumber: clearedLevel,
+            score: stats.score,
+            goldEarned: levelGold,
+            starsAwarded: earnedStars,
+          ),
+        );
         AchievementManager.instance.onLevelCompleted(
           levelNumber: clearedLevel,
-          noDamage: stats.lives >= stats.maxLives,
+          noDamage: _livesLostThisLevel == 0,
           durationSec: _currentLevelDuration,
         );
         if (wasBossLevel) {
@@ -6035,20 +6304,21 @@ class GameController extends ChangeNotifier {
   void _onVictory() {
     _haltBackgroundGameplay();
     status = GameStatus.victory;
-    final int earnedStars;
-    if (stats.lives >= stats.maxLives) {
-      earnedStars = 3;
-    } else if (stats.lives >= 2) {
-      earnedStars = 2;
-    } else {
-      earnedStars = 1;
-    }
+    final int earnedStars = calculateLevelStars();
     lastClearedLevelStars = earnedStars;
     save.saveLevelStars(stats.level, earnedStars);
     particles.spawnLevelClearConfetti(earnedStars, screenWidth, screenHeight);
+    GameEventBus().fire(
+      LevelClearedEvent(
+        levelNumber: stats.level,
+        score: stats.score,
+        goldEarned: allowsGoldReward ? BalanceConfig.levelClearGold(stats.level) : 0,
+        starsAwarded: earnedStars,
+      ),
+    );
     AchievementManager.instance.onLevelCompleted(
       levelNumber: stats.level,
-      noDamage: stats.lives >= stats.maxLives,
+      noDamage: _livesLostThisLevel == 0,
       durationSec: _currentLevelDuration,
     );
     if (currentMode == GameMode.classic) {
@@ -6058,7 +6328,7 @@ class GameController extends ChangeNotifier {
     }
     save.updateHighScore(currentMode, stats.score);
     int victoryGold = allowsGoldReward
-        ? (BalanceConfig.levelClearGold(stats.level) * (stats.lives >= stats.maxLives ? 2 : 1))
+        ? (BalanceConfig.levelClearGold(stats.level) * (_livesLostThisLevel == 0 ? 2 : 1))
         : 0;
     if (allowsGoldReward && save.cosmicGoldMasteryLevel > 0) {
       victoryGold = (victoryGold * cosmicGoldRewardMultiplier).round();

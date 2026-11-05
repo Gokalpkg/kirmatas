@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 class Paddle {
@@ -124,6 +125,54 @@ class Paddle {
   }
 }
 
+class PulseWave {
+  double x;
+  double y;
+  double radius;
+  double maxRadius;
+  double progress;
+  double speed;
+  double aimAngle;
+  double spreadAngle;
+  bool isAlive;
+  final Set<int> affectedBallIds = {};
+
+  PulseWave({
+    required this.x,
+    required this.y,
+    this.radius = 12.0,
+    this.maxRadius = 750.0,
+    this.speed = 950.0,
+    this.aimAngle = -math.pi / 2,
+    this.spreadAngle = 1.15,
+    double? progress,
+    this.isAlive = true,
+  }) : progress = progress ?? ((maxRadius > 0) ? (radius / maxRadius).clamp(0.0, 1.0) : 0.0);
+
+  void update(double dt) {
+    if (!isAlive) return;
+    radius += speed * dt;
+    progress = (radius / maxRadius).clamp(0.0, 1.0);
+    if (progress >= 1.0) {
+      isAlive = false;
+    }
+  }
+
+  bool intersectsBall(double bx, double by, double bradius) {
+    if (!isAlive) return false;
+    final dx = bx - x;
+    final dy = by - y;
+    final dist = math.sqrt(dx * dx + dy * dy);
+    if (dist < radius - 55.0 || dist > radius + bradius + 20.0) return false;
+    final angle = math.atan2(dy, dx);
+    var diff = (angle - aimAngle).abs();
+    while (diff > math.pi) {
+      diff = (2 * math.pi - diff).abs();
+    }
+    return diff <= spreadAngle / 2;
+  }
+}
+
 class Projectile {
   double x;
   double y;
@@ -131,11 +180,13 @@ class Projectile {
   double vy;
   double radius;
   bool isLaser;
+  bool isPiercingLaser;
   bool isRocket;
   bool isBossBullet;
   bool isShrapnel;
   bool isHazard;
   bool isAlive;
+  final Set<int> hitBrickIds = {};
 
   Projectile({
     required this.x,
@@ -144,6 +195,7 @@ class Projectile {
     this.vy = -450.0,
     this.radius = 4.0,
     this.isLaser = false,
+    this.isPiercingLaser = false,
     this.isRocket = false,
     this.isBossBullet = false,
     this.isShrapnel = false,
@@ -158,3 +210,4 @@ class Projectile {
     y += vy * dt;
   }
 }
+

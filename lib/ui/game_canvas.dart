@@ -38,6 +38,9 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
   bool _canLaunchOnUp = false;
   int _lastPointerDownMs = 0;
   Offset? _lastPointerDownPos;
+  int _pointerDownMs = 0;
+  Offset? _pointerDownPos;
+  bool _touchStartedNearPaddle = false;
 
   @override
   void initState() {
@@ -96,12 +99,20 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
             final nowMs = DateTime.now().millisecondsSinceEpoch;
             if (_lastPointerDownPos != null &&
                 nowMs - _lastPointerDownMs < 350 &&
-                (event.localPosition - _lastPointerDownPos!).distance < 25.0 &&
-                c.isUltiReady) {
-              c.triggerUlti();
+                (event.localPosition - _lastPointerDownPos!).distance < 25.0) {
+              if (c.isUltiReady) {
+                c.triggerUlti();
+              } else if (c.status == GameStatus.playing && !c.hasStuckBall) {
+                c.triggerGravityPulse(targetX: event.localPosition.dx, targetY: event.localPosition.dy);
+              }
             }
             _lastPointerDownMs = nowMs;
             _lastPointerDownPos = event.localPosition;
+            _pointerDownMs = nowMs;
+            _pointerDownPos = event.localPosition;
+            _touchStartedNearPaddle = (event.localPosition.dy >= c.paddle.y - 45.0 &&
+                event.localPosition.dy <= c.paddle.y + c.paddle.height + 45.0 &&
+                (event.localPosition.dx - c.paddle.centerX).abs() <= c.paddle.width * 0.9);
 
             if (c.levelTransitionTimer > 0) {
               _canLaunchOnUp = false;
@@ -175,14 +186,31 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
             }
             c.movePaddleBy(dx);
           },
-          onPointerUp: (_) {
+          onPointerUp: (event) {
             final controller = widget.controller;
+            final now = DateTime.now().millisecondsSinceEpoch;
+            final holdDuration = now - _pointerDownMs;
+            final downPos = _pointerDownPos ?? event.localPosition;
+            final dragDelta = event.localPosition - downPos;
+            final isFlickUp = dragDelta.dy < -35.0;
+
+            if (controller.status == GameStatus.playing && !controller.hasStuckBall) {
+              if (isFlickUp) {
+                final flickAngle = atan2(dragDelta.dy, dragDelta.dx);
+                controller.triggerGravityPulse(aimAngle: flickAngle);
+              } else if (_touchStartedNearPaddle && holdDuration >= 180 && !_pointerMoved) {
+                controller.triggerGravityPulse(targetX: event.localPosition.dx, targetY: event.localPosition.dy);
+              }
+            }
+
             final isEligible = _canLaunchOnUp &&
                 !_pointerMoved &&
                 controller.levelTransitionTimer <= 0 &&
                 _touchStartLevel == controller.stats.level;
             _canLaunchOnUp = false;
             _touchStartLevel = null;
+            _pointerDownPos = null;
+            _touchStartedNearPaddle = false;
 
             if (controller.currentMode == GameMode.chaos) {
               _chaosPointerDownPos = null;
@@ -201,6 +229,8 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
             _touchStartLevel = null;
             _pointerMoved = false;
             _chaosPointerDownPos = null;
+            _pointerDownPos = null;
+            _touchStartedNearPaddle = false;
           },
           child: Stack(
             children: [
@@ -734,6 +764,7 @@ class _GameWorldPainter extends CustomPainter {
     _drawChestLids(canvas);
     _drawNet(canvas, size);
     _drawPaddle(canvas);
+    _drawPulseWaves(canvas);
     _drawChaosAim(canvas);
     _drawChronoLaser(canvas);
     _drawCapsules(canvas);
@@ -3484,6 +3515,43 @@ class _GameWorldPainter extends CustomPainter {
     canvas.drawCircle(end, 3.8, _fill);
   }
 
+  void _drawPulseWaves(Canvas canvas) {
+    for (final wave in c.pulseWaves) {
+      if (!wave.isAlive) continue;
+      final alpha = (1.0 - wave.progress).clamp(0.0, 1.0);
+      final startAngle = wave.aimAngle - wave.spreadAngle / 2;
+      final sweepAngle = wave.spreadAngle;
+      final rect = Rect.fromCircle(center: Offset(wave.x, wave.y), radius: wave.radius);
+
+      // 1. Broad soft golden cone fan
+      _fill
+        ..style = PaintingStyle.fill
+        ..shader = null
+        ..color = const Color(0xFFFFD700).withValues(alpha: alpha * 0.18);
+      _tempPath
+        ..reset()
+        ..moveTo(wave.x, wave.y)
+        ..arcTo(rect, startAngle, sweepAngle, false)
+        ..close();
+      canvas.drawPath(_tempPath, _fill);
+
+      // 2. Bright leading wavefront arc
+      _stroke
+        ..style = PaintingStyle.stroke
+        ..shader = null
+        ..color = const Color(0xFFFFEA00).withValues(alpha: alpha * 0.90)
+        ..strokeWidth = 3.5
+        ..strokeCap = StrokeCap.round;
+      canvas.drawArc(rect, startAngle, sweepAngle, false, _stroke);
+
+      // 3. Blazing white core on the wavefront
+      _stroke
+        ..color = Colors.white.withValues(alpha: alpha * 0.95)
+        ..strokeWidth = 1.5;
+      canvas.drawArc(rect, startAngle + sweepAngle * 0.2, sweepAngle * 0.6, false, _stroke);
+    }
+  }
+
   void _drawPaddle(Canvas canvas) {
     if (c.currentMode == GameMode.chaos) return;
     final p = c.paddle;
@@ -5410,6 +5478,21 @@ class _GameWorldPainter extends CustomPainter {
         canvas.drawCircle(Offset.zero, ball.radius + 5.2, _stroke);
       }
 
+      if (ball.isClutchOvercharged) {
+        final pulse = 0.82 + 0.18 * sin(time * 22.0);
+        _fill
+          ..style = PaintingStyle.fill
+          ..shader = null
+          ..color = const Color(0xFFFFD700).withValues(alpha: 0.38 * pulse);
+        canvas.drawCircle(Offset.zero, ball.effectiveRadius * 1.85, _fill);
+        _stroke
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.4
+          ..shader = null
+          ..color = const Color(0xFFFFEA00).withValues(alpha: 0.92 * pulse);
+        canvas.drawCircle(Offset.zero, ball.effectiveRadius * 1.35, _stroke);
+      }
+
       canvas.restore();
     }
   }
@@ -6012,6 +6095,19 @@ class _GameWorldPainter extends CustomPainter {
         canvas.drawCircle(Offset(p.x, p.y), p.radius, _fill);
         _fill.color = Colors.white;
         canvas.drawCircle(Offset(p.x - 0.7, p.y - 0.7), p.radius * 0.45, _fill);
+      } else if (p.isPiercingLaser) {
+        // Overdrive Stage 3 Golden Piercing Laser
+        _stroke
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = 6.0
+          ..shader = null
+          ..color = const Color(0xFFFFD700);
+        canvas.drawLine(Offset(p.x, p.y), Offset(p.x, p.y - 24), _stroke);
+        _stroke
+          ..strokeWidth = 2.4
+          ..color = Colors.white;
+        canvas.drawLine(Offset(p.x, p.y + 2), Offset(p.x, p.y - 22), _stroke);
       } else {
         // Laser
         _stroke
@@ -6624,7 +6720,8 @@ class _GameWorldPainter extends CustomPainter {
     final progress = (1.0 - timer / totalDur).clamp(0.0, 1.0);
     final alpha = (progress < 0.15 ? progress / 0.15 : (progress > 0.85 ? (1.0 - progress) / 0.15 : 1.0)).clamp(0.0, 1.0);
 
-    final bannerH = 100.0;
+    final earnedStars = c.lastClearedLevelStars.clamp(1, 3);
+    final bannerH = earnedStars == 3 ? 122.0 : 100.0;
     final bannerY = size.height * 0.36;
     final bannerRect = Rect.fromLTWH(0, bannerY - bannerH / 2, size.width, bannerH);
 
@@ -6669,7 +6766,6 @@ class _GameWorldPainter extends CustomPainter {
     _tp.paint(canvas, Offset((size.width - _tp.width) / 2, bannerRect.top + 10.0));
 
     // 3 Sequential Dropping Golden Stars ("PAT - PAT - PAT")
-    final earnedStars = c.lastClearedLevelStars.clamp(1, 3);
     final starCenterY = bannerRect.top + 48.0;
     final starOffsets = [
       Offset(size.width / 2 - 44.0, starCenterY),
@@ -6689,7 +6785,7 @@ class _GameWorldPainter extends CustomPainter {
       _drawCelebrationStar(canvas, starOffsets[s], bounceScale, isEarned, alpha);
     }
 
-    // Star Explanation Subtitle ("KUSURSUZ (TAM CAN)" / "GÜZEL OYUN (2 CAN)" / "HAYATTA KALINDI (1 CAN)")
+    // Star Explanation Subtitle ("KUSURSUZ (HASARSIZ)" / "GÜZEL OYUN (1 CAN)" / "BÖLÜM GEÇİLDİ (2+ CAN)")
     if (progress > 0.45) {
       final subAlpha = ((progress - 0.45) / 0.20).clamp(0.0, 1.0) * alpha;
       final String starSubtitleKey = earnedStars == 3
@@ -6711,6 +6807,60 @@ class _GameWorldPainter extends CustomPainter {
       );
       _tp.layout();
       _tp.paint(canvas, Offset((size.width - _tp.width) / 2, bannerRect.top + 73.0));
+    }
+
+    // "KUSURSUZ ZAFER!" Badge for 3 Stars
+    if (earnedStars == 3 && progress > 0.52) {
+      final badgeProgress = ((progress - 0.52) / 0.22).clamp(0.0, 1.0);
+      final badgeAlpha = badgeProgress * alpha;
+      final badgeScale = badgeProgress < 1.0 ? (1.0 + sin(badgeProgress * pi) * 0.35) : 1.0;
+
+      canvas.save();
+      final badgeCenter = Offset(size.width / 2, bannerRect.top + 98.0);
+      canvas.translate(badgeCenter.dx, badgeCenter.dy);
+      canvas.scale(badgeScale, badgeScale);
+
+      const badgeW = 168.0;
+      const badgeH = 20.0;
+      final badgeRRect = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset.zero, width: badgeW, height: badgeH),
+        const Radius.circular(10.0),
+      );
+
+      // Glowing aura
+      _fill
+        ..shader = null
+        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.28 * badgeAlpha);
+      canvas.drawRRect(badgeRRect.inflate(3.0), _fill);
+
+      // Pill container
+      _fill.color = const Color(0xFF041E28).withValues(alpha: 0.95 * badgeAlpha);
+      canvas.drawRRect(badgeRRect, _fill);
+
+      // Cyan neon border
+      _stroke
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = const Color(0xFF00E5FF).withValues(alpha: badgeAlpha);
+      canvas.drawRRect(badgeRRect, _stroke);
+
+      _tp.text = TextSpan(
+        text: '👑  ${I18n.tr('flawless_victory_badge')}  👑',
+        style: TextStyle(
+          fontFamily: 'Rajdhani',
+          fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
+          color: const Color(0xFF00E5FF).withValues(alpha: badgeAlpha),
+          fontSize: 10.5,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.6,
+          shadows: [
+            Shadow(color: const Color(0xFF00E5FF).withValues(alpha: badgeAlpha * 0.8), blurRadius: 8.0),
+          ],
+        ),
+      );
+      _tp.layout();
+      _tp.paint(canvas, Offset(-_tp.width / 2, -_tp.height / 2));
+      canvas.restore();
     }
   }
 
@@ -6738,6 +6888,19 @@ class _GameWorldPainter extends CustomPainter {
     path.close();
 
     if (earned) {
+      // Burst ray sparks popping outwards
+      final burstProgress = ((scale - 1.0) / 0.45).clamp(0.0, 1.0);
+      if (burstProgress > 0) {
+        for (int p = 0; p < 6; p++) {
+          final rayAngle = p * pi / 3.0;
+          final rayDist = 20.0 + burstProgress * 12.0;
+          final rayX = cos(rayAngle) * rayDist;
+          final rayY = sin(rayAngle) * rayDist;
+          _fill.color = const Color(0xFFFFD54F).withValues(alpha: alpha * burstProgress * 0.85);
+          canvas.drawCircle(Offset(rayX, rayY), 2.0 * burstProgress, _fill);
+        }
+      }
+
       // Golden glow aura
       _fill
         ..shader = null

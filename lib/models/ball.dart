@@ -110,6 +110,10 @@ class Ball {
   int rapidBounceCount = 0;
   double rapidBounceTimer = 0.0;
   bool isOverdriveHoming = false;
+  double clutchOverchargeTimer = 0.0;
+  int clutchPierceRemaining = 0;
+
+  bool get isClutchOvercharged => clutchOverchargeTimer > 0;
 
   Ball({
     required this.x,
@@ -179,6 +183,13 @@ class Ball {
       if (rapidBounceTimer <= 0) {
         rapidBounceTimer = 0.0;
         rapidBounceCount = 0;
+      }
+    }
+    if (clutchOverchargeTimer > 0) {
+      clutchOverchargeTimer -= dt;
+      if (clutchOverchargeTimer <= 0) {
+        clutchOverchargeTimer = 0.0;
+        clutchPierceRemaining = 0;
       }
     }
 

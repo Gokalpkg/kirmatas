@@ -1182,6 +1182,9 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
 
         for (final crate in CrateDef.shopCrates)
           _buildCrateCard(context, save, crate),
+
+        // Derin Hendek Karaborsası: Altın -> İnci Dönüştürücü (FAZ 4 & 10)
+        _buildDeepTrenchExchangeCard(context, save),
       ],
     );
   }
@@ -1486,6 +1489,216 @@ class _ShopViewState extends State<ShopView> with TickerProviderStateMixin {
     ),
   );
 }
+
+  Widget _buildDeepTrenchExchangeCard(BuildContext context, SaveManager save) {
+    const pearlCostGold = 2500;
+    final canAfford = save.gold >= pearlCostGold;
+    const color = Color(0xFFE040FB);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            color.withValues(alpha: 0.18),
+            const Color(0xFF1B1424),
+            const Color(0xFF0F121E),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.15),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2A1636),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: color.withValues(alpha: 0.7), width: 1.5),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.lens_blur_rounded, color: Color(0xFFE040FB), size: 34),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: color.withValues(alpha: 0.5)),
+                        ),
+                        child: const Text(
+                          'DERİN HENDEK KARABORSASI',
+                          style: TextStyle(
+                            color: Color(0xFFE040FB),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 10,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Altın -> İnci Dönüştürücü',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '2.500 Altın vererek 1 İnci kazan. Ahtopot Sandığına ${max(0, 8 - save.pearls)} inci kaldı!',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.lens_blur_rounded, color: Color(0xFFE040FB), size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${save.pearls}/8 İnci',
+                      style: const TextStyle(
+                        color: Color(0xFFE040FB),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    const Icon(Icons.monetization_on, color: Color(0xFFFFD54F), size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${save.gold} Altın',
+                      style: const TextStyle(
+                        color: Color(0xFFFFD54F),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: Builder(
+                builder: (btnContext) {
+                  return ElevatedButton(
+                    onPressed: canAfford && !_isPurchasing
+                        ? () async {
+                            await _startPurchaseAnimation(
+                              targetContext: btnContext,
+                              cost: pearlCostGold,
+                              isPearls: false,
+                              onComplete: () async {
+                                if (await save.spendGold(pearlCostGold)) {
+                                  save.addPearls(1);
+                                  AudioManager.instance.playSfx(GameSfx.victory);
+                                  HapticFeedback.heavyImpact();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        backgroundColor: const Color(0xFF22162B),
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          side: const BorderSide(color: Color(0xFFE040FB)),
+                                        ),
+                                        content: const Row(
+                                          children: [
+                                            Icon(Icons.lens_blur_rounded, color: Color(0xFFE040FB), size: 20),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              '+1 İnci Kazanıldı!',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                            );
+                          }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: canAfford ? const Color(0xFFE040FB) : Colors.white12,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.white12,
+                      disabledForegroundColor: Colors.white30,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: canAfford ? 4 : 0,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.currency_exchange_rounded, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          canAfford
+                              ? '2.500 ALTIN İLE 1 İNCİ AL'
+                              : 'YETERSİZ ALTIN (2.500 GEREKİR)',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12.5,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildBallsTab(BuildContext context, SaveManager save) {
     return Padding(
