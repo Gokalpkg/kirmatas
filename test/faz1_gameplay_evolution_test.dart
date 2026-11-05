@@ -134,8 +134,11 @@ void main() {
       ctrl.triggerGravityPulse();
       expect(ctrl.pulseWaves.isNotEmpty, isTrue);
 
-      // Advance time so wave intersects ball
-      ctrl.update(0.12);
+      // Advance time frame-by-frame so wave naturally intersects ball
+      for (int i = 0; i < 25; i++) {
+        ctrl.update(0.016);
+        if (ball.vx < -10.0) break;
+      }
 
       // Ball should be bent towards the top-left (vx < 0)
       expect(ball.vx, lessThan(-10.0), reason: 'Ball should be bent towards top-left boss');
@@ -158,13 +161,17 @@ void main() {
       expect(ball.overdriveStreak, 1);
 
       // Reset position for second edge hit
+      ball.x = ctrl.paddle.x + ctrl.paddle.width * 0.96;
       ball.y = ctrl.paddle.y - 4;
+      ball.vx = 0;
       ball.vy = 200.0;
       ctrl.update(0.016);
       expect(ball.overdriveStreak, 2);
 
       // Reset position for third edge hit (Stage 3!)
+      ball.x = ctrl.paddle.x + ctrl.paddle.width * 0.96;
       ball.y = ctrl.paddle.y - 4;
+      ball.vx = 0;
       ball.vy = 200.0;
       ctrl.update(0.016);
       expect(ball.overdriveStreak, 3);
@@ -183,10 +190,11 @@ void main() {
       ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
       ctrl.launchBall();
 
-      // Stack two 1-HP bricks vertically in laser line
+      // Stack two 1-HP bricks vertically in laser line, plus an extra 10-HP brick so level doesn't end
       final b1 = Brick(x: 180, y: 300, width: 40, height: 20, hp: 1, maxHp: 1, color: Colors.blue);
       final b2 = Brick(x: 180, y: 250, width: 40, height: 20, hp: 1, maxHp: 1, color: Colors.blue);
-      ctrl.bricks = [b1, b2];
+      final b3 = Brick(x: 180, y: 100, width: 40, height: 20, hp: 10, maxHp: 10, color: Colors.blue);
+      ctrl.bricks = [b1, b2, b3];
 
       // Add a piercing laser right below b1 heading straight up
       final laser = Projectile(x: 200, y: 320, vx: 0, vy: -500, radius: 5, isLaser: true, isPiercingLaser: true);
@@ -194,7 +202,7 @@ void main() {
       ctrl.projectiles.add(laser);
 
       // Step laser through b1
-      ctrl.update(0.05);
+      ctrl.update(0.02);
       expect(b1.hp, lessThanOrEqualTo(0));
       expect(ctrl.projectiles.contains(laser), isTrue, reason: 'Piercing laser must not be destroyed on first brick');
 

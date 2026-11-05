@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../config/balance_config.dart';
 import '../engine/game_controller.dart';
 import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
@@ -599,6 +600,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                     ],
 
                     if (isGameOver) ...[
+                      _buildPinchPointProgressCard(context, save),
                       _PulsingRematchButton(onPressed: onRestart),
                       const SizedBox(height: 10),
                     ],
@@ -683,6 +685,95 @@ class PauseGameOverOverlay extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildPinchPointProgressCard(BuildContext context, SaveManager save) {
+    // Find next closest upgrade across standard upgrades:
+    final upgradeKeys = [
+      ('u_gold', 'Altın Çoğaltıcı'),
+      ('paddle_width', 'Geniş Palet'),
+      ('magnet', 'Kozmik Mıknatıs'),
+      ('crit_damage', 'Kritik Darbe'),
+      ('luck', 'Kozmik Şans'),
+    ];
+
+    int minNeeded = 999999;
+    String bestUpgradeName = 'Geliştirme';
+    int bestCost = 100;
+
+    for (final entry in upgradeKeys) {
+      final key = entry.$1;
+      final name = entry.$2;
+      final curLvl = save.getUpgradeLevel(key);
+      if (curLvl >= 10) continue;
+      final cost = BalanceConfig.upgradeCost(curLvl);
+      final needed = cost - save.gold;
+      if (needed > 0 && needed < minNeeded) {
+        minNeeded = needed;
+        bestUpgradeName = name;
+        bestCost = cost;
+      }
+    }
+
+    if (minNeeded == 999999) {
+      return const SizedBox.shrink();
+    }
+
+    final double progress = (save.gold / bestCost).clamp(0.05, 0.98);
+    final int percent = (progress * 100).toInt();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131A2A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFFD54F).withValues(alpha: 0.35), width: 1.4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.bolt, color: Color(0xFFFFD54F), size: 18),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '$bestUpgradeName için sadece $minNeeded Altın kaldı!',
+                  style: const TextStyle(
+                    fontFamily: 'Rajdhani',
+                    fontFamilyFallback: ['Segoe UI Emoji', 'Segoe UI Symbol'],
+                    color: Color(0xFFFFD54F),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                '%$percent',
+                style: const TextStyle(
+                  fontFamily: 'Rajdhani',
+                  fontFamilyFallback: ['Segoe UI Emoji', 'Segoe UI Symbol'],
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              backgroundColor: const Color(0xFF0D131F),
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFFB300)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

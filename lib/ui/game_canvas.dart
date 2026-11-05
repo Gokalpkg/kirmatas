@@ -1444,6 +1444,16 @@ class _GameWorldPainter extends CustomPainter {
           _drawDynamiteBrick(canvas, b, rect, halfW, halfH);
         } else if (b.isIce) {
           _drawIceBrick(canvas, rect, rrect, halfW, halfH, c.activeIceVariant);
+        } else if (b.isPrism) {
+          _drawPrismBrick(canvas, b, rect, rrect, halfW, halfH);
+        } else if (b.isBeacon) {
+          _drawBeaconBrick(canvas, b, rect, rrect, halfW, halfH);
+        } else if (b.isChainKey) {
+          _drawChainKeyBrick(canvas, b, rect, rrect, halfW, halfH);
+        } else if (b.isChainLocked) {
+          _drawChainLockedBrick(canvas, b, rect, rrect, halfW, halfH);
+        } else if (b.isTicker) {
+          _drawTickerBrick(canvas, b, rect, rrect, halfW, halfH);
         } else {
           switch (c.activeBrickStyle) {
             case 'brick_gloss':
@@ -1553,6 +1563,22 @@ class _GameWorldPainter extends CustomPainter {
           );
           _tp.layout();
           _tp.paint(canvas, Offset(-_tp.width / 2, -_tp.height / 2));
+        }
+
+        // Beacon forcefield aura if this brick is currently protected:
+        final isProtectedByBeacon = !b.isBeacon && !b.isSteel && c.bricks.any((beacon) {
+          if (!beacon.isAlive || !beacon.isBeacon) return false;
+          final dx = (beacon.x + beacon.width / 2) - (b.x + b.width / 2);
+          final dy = (beacon.y + beacon.height / 2) - (b.y + b.height / 2);
+          return (dx * dx + dy * dy) <= (beacon.beaconRadius * beacon.beaconRadius);
+        });
+        if (isProtectedByBeacon) {
+          final pulse = sin(time * 5.0) * 0.2 + 0.8;
+          _stroke
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.0
+            ..color = const Color(0xFF00E5FF).withValues(alpha: 0.70 * pulse);
+          canvas.drawRRect(rrect.inflate(2.0), _stroke);
         }
       }
 
@@ -2201,6 +2227,175 @@ class _GameWorldPainter extends CustomPainter {
     canvas.drawCircle(sparkPos, 1.8, _fill);
     _fill.color = Colors.white;
     canvas.drawCircle(sparkPos, 0.9, _fill);
+  }
+
+  void _drawPrismBrick(Canvas canvas, Brick b, Rect rect, RRect rrect, double halfW, double halfH) {
+    // 1. Prismatic Crystalline Base Fill (Cyan -> Azure -> Deep Teal)
+    final prismKey = Object.hash('prism_fill', rect.width.round(), rect.height.round());
+    _fill.shader = _brickShaders.putIfAbsent(prismKey, () {
+      return const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFE0F7FA), Color(0xFF00E5FF), Color(0xFF00838F)],
+        stops: [0.0, 0.5, 1.0],
+      ).createShader(rect);
+    });
+    canvas.drawRRect(rrect, _fill);
+    _fill.shader = null;
+
+    // 2. Diagonal Facet Cut (45 degrees)
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..color = Colors.white.withValues(alpha: 0.85);
+    canvas.drawLine(Offset(-halfW + 4, halfH - 4), Offset(halfW - 4, -halfH + 4), _stroke);
+
+    // 3. Directional Chevron Vector in center indicating 90° deflection
+    final arrowDir = b.prismAngle > 0 ? 1.0 : -1.0;
+    _tempPath
+      ..reset()
+      ..moveTo(-4.0 * arrowDir, -4.5)
+      ..lineTo(3.5 * arrowDir, 0.0)
+      ..lineTo(-4.0 * arrowDir, 4.5);
+    _stroke
+      ..color = const Color(0xFF004D40)
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.miter;
+    canvas.drawPath(_tempPath, _stroke);
+    _stroke
+      ..color = Colors.white
+      ..strokeWidth = 1.2;
+    canvas.drawPath(_tempPath, _stroke);
+  }
+
+  void _drawBeaconBrick(Canvas canvas, Brick b, Rect rect, RRect rrect, double halfW, double halfH) {
+    // 1. Dark Tech Core Base Plate
+    _fill
+      ..shader = null
+      ..color = const Color(0xFF0A192F);
+    canvas.drawRRect(rrect, _fill);
+
+    // 2. Pulsing Concentric Radar Rings
+    final pulse = sin(time * 6.0) * 0.5 + 0.5;
+    final r1 = 5.0 + pulse * 4.0;
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.8 - pulse * 0.4);
+    canvas.drawCircle(Offset.zero, r1, _stroke);
+
+    // 3. Central Luminous Crystal Node
+    _fill.color = const Color(0xFF00E5FF);
+    canvas.drawCircle(Offset.zero, 3.8, _fill);
+    _fill.color = Colors.white;
+    canvas.drawCircle(Offset.zero, 1.8, _fill);
+
+    // 4. Tech Corner Notches
+    _stroke
+      ..strokeWidth = 1.4
+      ..color = const Color(0xFF00E5FF);
+    canvas.drawLine(Offset(-halfW + 2, -halfH + 4), Offset(-halfW + 2, -halfH + 2), _stroke);
+    canvas.drawLine(Offset(-halfW + 2, -halfH + 2), Offset(-halfW + 4, -halfH + 2), _stroke);
+    canvas.drawLine(Offset(halfW - 2, halfH - 4), Offset(halfW - 2, halfH - 2), _stroke);
+    canvas.drawLine(Offset(halfW - 2, halfH - 2), Offset(halfW - 4, halfH - 2), _stroke);
+  }
+
+  void _drawChainKeyBrick(Canvas canvas, Brick b, Rect rect, RRect rrect, double halfW, double halfH) {
+    // 1. Golden Radiant Gradient
+    final keyKey = Object.hash('chain_key_fill', rect.width.round(), rect.height.round());
+    _fill.shader = _brickShaders.putIfAbsent(keyKey, () {
+      return const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFFFF8F00)],
+      ).createShader(rect);
+    });
+    canvas.drawRRect(rrect, _fill);
+    _fill.shader = null;
+
+    // 2. Pixel Art Key Glyph in Center
+    // Key Bow (circle head on left)
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..color = const Color(0xFF4E342E);
+    canvas.drawCircle(const Offset(-4.5, 0.0), 3.2, _stroke);
+    // Key Stem
+    canvas.drawLine(const Offset(-1.5, 0.0), const Offset(6.5, 0.0), _stroke);
+    // Key Bits (teeth pointing down)
+    canvas.drawLine(const Offset(3.5, 0.0), const Offset(3.5, 3.0), _stroke);
+    canvas.drawLine(const Offset(6.0, 0.0), const Offset(6.0, 3.0), _stroke);
+  }
+
+  void _drawChainLockedBrick(Canvas canvas, Brick b, Rect rect, RRect rrect, double halfW, double halfH) {
+    // 1. Heavy Metal Steel Chassis
+    _fill
+      ..shader = null
+      ..color = const Color(0xFF263238);
+    canvas.drawRRect(rrect, _fill);
+
+    // 2. Silver Padlock Shackle Loop
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..color = const Color(0xFFB0BEC5);
+    _tempPath
+      ..reset()
+      ..moveTo(-3.2, -1.0)
+      ..lineTo(-3.2, -4.5)
+      ..arcToPoint(const Offset(3.2, -4.5), radius: const Radius.circular(3.2))
+      ..lineTo(3.2, -1.0);
+    canvas.drawPath(_tempPath, _stroke);
+
+    // 3. Brass Lock Body
+    final lockBody = Rect.fromCenter(center: const Offset(0.0, 2.0), width: 10.0, height: 7.5);
+    _fill.color = const Color(0xFFFFB300);
+    canvas.drawRRect(RRect.fromRectAndRadius(lockBody, const Radius.circular(1.8)), _fill);
+
+    // 4. Tiny Keyhole
+    _fill.color = const Color(0xFF212121);
+    canvas.drawCircle(const Offset(0.0, 1.2), 1.0, _fill);
+    _stroke
+      ..strokeWidth = 1.0
+      ..color = const Color(0xFF212121);
+    canvas.drawLine(const Offset(0.0, 1.2), const Offset(0.0, 3.4), _stroke);
+  }
+
+  void _drawTickerBrick(Canvas canvas, Brick b, Rect rect, RRect rrect, double halfW, double halfH) {
+    final isUrgent = b.tickerTimer < 5.0;
+    final pulse = isUrgent ? (sin(time * 16.0) * 0.5 + 0.5) : 1.0;
+
+    // 1. Dark Chrono Chassis
+    _fill
+      ..shader = null
+      ..color = isUrgent ? Color.lerp(const Color(0xFF212121), const Color(0xFF880E4F), pulse * 0.7)! : const Color(0xFF1B1B1B);
+    canvas.drawRRect(rrect, _fill);
+
+    // 2. Hazard Border
+    _stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..color = isUrgent ? const Color(0xFFFF1744) : const Color(0xFFFF9100);
+    canvas.drawRRect(rrect, _stroke);
+
+    // 3. Digital LCD Seconds Counter
+    final seconds = b.tickerTimer.ceil().clamp(0, 99);
+    _tp.text = TextSpan(
+      text: '${seconds}s',
+      style: TextStyle(
+        fontFamily: 'Rajdhani',
+        fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
+        color: isUrgent ? Colors.white : const Color(0xFFFFD54F),
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+        shadows: const [
+          Shadow(color: Colors.black, offset: Offset(0, 1), blurRadius: 2.0),
+        ],
+      ),
+    );
+    _tp.layout();
+    _tp.paint(canvas, Offset(-_tp.width / 2, -_tp.height / 2));
   }
 
   void _drawCornerFrost(Canvas canvas, double w, double h, double halfW, double halfH, double lengthScale) {

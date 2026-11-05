@@ -10,6 +10,11 @@ enum BrickType {
   dynamite,
   tuft,
   ballPickup,
+  prism,
+  beacon,
+  chainKey,
+  chainLocked,
+  ticker,
 }
 
 class Brick {
@@ -40,6 +45,16 @@ class Brick {
   bool isChest;
   int chestTier;
   bool isGoldPinata;
+  bool isPrism;
+  double prismAngle;
+  bool isBeacon;
+  double beaconRadius;
+  bool isChainKey;
+  bool isChainLocked;
+  int chainKeyId;
+  bool isTicker;
+  double tickerTimer;
+  bool tickerExpired;
   bool isPrimedDynamite = false;
   double primedTimer = 0.0;
   int chainExplosionDepth = 0;
@@ -81,6 +96,16 @@ class Brick {
     this.isChest = false,
     this.chestTier = 0,
     this.isGoldPinata = false,
+    this.isPrism = false,
+    this.prismAngle = pi / 4,
+    this.isBeacon = false,
+    this.beaconRadius = 95.0,
+    this.isChainKey = false,
+    this.isChainLocked = false,
+    this.chainKeyId = 0,
+    this.isTicker = false,
+    this.tickerTimer = 15.0,
+    this.tickerExpired = false,
     this.jelly = 0.0,
     required this.color,
     this.points = 10,
@@ -88,7 +113,13 @@ class Brick {
     BrickType? type,
   })  : targetY = targetY ?? y,
         isBoss = isBoss || type == BrickType.boss,
-        _explicitType = type;
+        _explicitType = type {
+    if (type == BrickType.prism) isPrism = true;
+    if (type == BrickType.beacon) isBeacon = true;
+    if (type == BrickType.chainKey) isChainKey = true;
+    if (type == BrickType.chainLocked) isChainLocked = true;
+    if (type == BrickType.ticker) isTicker = true;
+  }
 
   BrickType get type {
     if (_explicitType != null) return _explicitType!;
@@ -99,6 +130,11 @@ class Brick {
     if (isDynamite) return BrickType.dynamite;
     if (isTuft) return BrickType.tuft;
     if (isBallPickup) return BrickType.ballPickup;
+    if (isPrism) return BrickType.prism;
+    if (isBeacon) return BrickType.beacon;
+    if (isChainKey) return BrickType.chainKey;
+    if (isChainLocked) return BrickType.chainLocked;
+    if (isTicker) return BrickType.ticker;
     return BrickType.normal;
   }
 
@@ -154,6 +190,17 @@ class Brick {
       } else if (x + width >= maxX) {
         x = maxX - width;
         moverVx = -moverVx.abs();
+      }
+    }
+
+    // Ticker countdown logic
+    if (isTicker && !tickerExpired && isAlive) {
+      tickerTimer -= dt;
+      if (tickerTimer <= 0) {
+        tickerTimer = 0.0;
+        tickerExpired = true;
+        isSteel = true;
+        points = 0;
       }
     }
 

@@ -1145,14 +1145,53 @@ class LevelDesign {
 
         final bool isChest = (r == chestRow && c == chestCol) && !isSteel && !isHeavySteel && !isDynamite && !isIce;
 
+        // Tactical Puzzle Brick Placement (Prism, Beacon, Chain Key/Locked, Ticker Bomb)
+        bool isPrism = false;
+        double prismAngle = pi / 4;
+        bool isBeacon = false;
+        bool isChainKey = false;
+        bool isChainLocked = false;
+        int chainKeyId = 1;
+        bool isTicker = false;
+
+        if (!isSteel && !isHeavySteel && !isDynamite && !isIce && !isChest) {
+          // 1. Prism Deflector: Shoulder angles on step == 3 or step == 6
+          if (level >= 5 && (step == 3 || step == 6) && r <= 1 && (c == 0 || c == cols - 1)) {
+            isPrism = true;
+            prismAngle = (c == 0) ? (pi / 4) : (-pi / 4);
+          }
+          // 2. Beacon Shield Generator: Central guardian on step == 5
+          else if (level >= 6 && step == 5 && r == rows ~/ 2 && c == cols ~/ 2) {
+            isBeacon = true;
+          }
+          // 3. Chain Core & Key: Key in back row, locked front line on step == 7
+          else if (level >= 8 && step == 7) {
+            if (r == 0 && c == cols ~/ 2) {
+              isChainKey = true;
+              chainKeyId = 1;
+            } else if (r == rows - 1 && (c == 1 || c == cols - 2)) {
+              isChainLocked = true;
+              chainKeyId = 1;
+            }
+          }
+          // 4. Ticker Bomb: 15s timer for +100 gold bonus on step == 9
+          else if (level >= 4 && step == 9 && r == max(0, rows - 2) && c == cols ~/ 2) {
+            isTicker = true;
+          }
+        }
+
         // HP Scaling
         int hp = 1;
         if (isSteel) {
           hp = 999;
         } else if (isHeavySteel) {
           hp = 9999;
-        } else if (isIce || isDynamite) {
+        } else if (isIce || isDynamite || isChainKey || isTicker) {
           hp = 1;
+        } else if (isPrism) {
+          hp = 5;
+        } else if (isBeacon) {
+          hp = 3;
         } else if (isChest) {
           // Sturdy reinforced treasure chest: 2 hits in early worlds, 3 hits in late worlds
           hp = (world <= 2) ? 2 : 3;
@@ -1216,6 +1255,13 @@ class LevelDesign {
             isIce: isIce,
             isChest: isChest,
             chestTier: isChest ? (world >= 4 ? 3 : (world == 3 ? 2 : (world == 2 ? 1 : 0))) : 0,
+            isPrism: isPrism,
+            prismAngle: prismAngle,
+            isBeacon: isBeacon,
+            isChainKey: isChainKey,
+            isChainLocked: isChainLocked,
+            chainKeyId: chainKeyId,
+            isTicker: isTicker,
             minX: startX,
             maxX: screenWidth - startX,
             color: brickColor,

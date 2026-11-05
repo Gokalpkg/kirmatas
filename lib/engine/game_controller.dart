@@ -3506,6 +3506,9 @@ class GameController extends ChangeNotifier {
         ball.x + ball.radius >= pr.left &&
         ball.x - ball.radius <= pr.right) {
 
+      // Capture bottom near-death state before ball.y is repositioned to paddle top
+      final isNearDeathBottom = (ball.y + ball.radius >= pr.bottom - 8.0);
+
       // Ghost paddle mechanic: Center 50% is hollow/permeable, wings (25% each) are solid
       if (paddle.isGhost) {
         final leftBoundary = paddle.x + paddle.width * 0.25;
@@ -3701,6 +3704,7 @@ class GameController extends ChangeNotifier {
             );
           } else if (ball.overdriveStreak >= 3) {
             ball.isPierce = true;
+            ball.fireballPaddleBounces = 0;
             ball.fireballPierceCount = max(ball.fireballPierceCount, 3);
             _fireOverdriveLaser();
             particles.spawnFloatingText(
@@ -3719,7 +3723,6 @@ class GameController extends ChangeNotifier {
         // [ADRENALİN 8] Zero-Lag Clutch Kurtarışı:
         // Top paletin alt hizasına 8px kala (tam ölüm anında) son anda kurtarıldığında veya kenar clutch'ta:
         // AĞIR ÇEKİM / SLOW-MOTION KESİNLİKLE YOK! Fizik hızı %100 aynı kalır.
-        final isNearDeathBottom = (ball.y + ball.radius >= pr.bottom - 8.0);
         final isClutchSave = isNearDeathBottom || (hitOffset.abs() >= 0.88);
         if (isClutchSave) {
           stats.score += 150;
@@ -3746,6 +3749,7 @@ class GameController extends ChangeNotifier {
             // c) Kurtarılan top 4 saniyeliğine "Aşırı Yüklü Altın Gülle"ye dönüşür:
             ball.clutchOverchargeTimer = 4.0;
             ball.clutchPierceRemaining = 3;
+            ball.fireballPaddleBounces = 0;
             ball.isPierce = true;
           }
         }
@@ -4039,9 +4043,26 @@ class GameController extends ChangeNotifier {
 
           final dot = ball.vx * nx + ball.vy * ny;
           if (dot < 0) {
-            // Real-world continuous velocity reflection: v' = v - 2 * (v . n) * n
-            ball.vx -= 2.0 * dot * nx;
-            ball.vy -= 2.0 * dot * ny;
+            if (b.isPrism) {
+              final spd = ball.speed;
+              final oldVx = ball.vx;
+              final oldVy = ball.vy;
+              if (b.prismAngle > 0) {
+                ball.vx = -oldVy;
+                ball.vy = -oldVx;
+              } else {
+                ball.vx = oldVy;
+                ball.vy = oldVx;
+              }
+              ball.setSpeed(spd);
+              particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFF00E5FF), count: 14, speed: 180.0);
+              particles.spawnFloatingText(b.x + b.width / 2, b.y - 15, 'PRİZMA SAPMASI!', const Color(0xFF00E5FF));
+              audio.playSfx(GameSfx.cornerBoost, playbackRate: 1.4);
+            } else {
+              // Real-world continuous velocity reflection: v' = v - 2 * (v . n) * n
+              ball.vx -= 2.0 * dot * nx;
+              ball.vy -= 2.0 * dot * ny;
+            }
             // Position adjustment along contact normal to prevent sticking/tunneling
             ball.x = nearestX + nx * (r + 0.1);
             ball.y = nearestY + ny * (r + 0.1);
@@ -4208,6 +4229,22 @@ class GameController extends ChangeNotifier {
         particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, Colors.grey, count: 6);
         audio.playSfx(GameSfx.steel);
       }
+      return;
+    }
+
+    // [MEKANİK 5] Kalkan Jeneratörü (Beacon) Koruması:
+    // Sahada hayatta olan herhangi bir Beacon varsa ve hedef tuğla bu Beacon'ın etki yarıçapındaysa hasar almaz!
+    final isProtectedByBeacon = !b.isBeacon && bricks.any((beacon) {
+      if (!beacon.isAlive || !beacon.isBeacon) return false;
+      final dx = (beacon.x + beacon.width / 2) - (b.x + b.width / 2);
+      final dy = (beacon.y + beacon.height / 2) - (b.y + b.height / 2);
+      return (dx * dx + dy * dy) <= (beacon.beaconRadius * beacon.beaconRadius);
+    });
+    if (isProtectedByBeacon && !b.isSteel) {
+      b.jelly = 0.8;
+      particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFF00E5FF), maxRadius: 36.0);
+      particles.spawnFloatingText(b.x + b.width / 2, b.y - 10, 'KALKAN KORUMASI!', const Color(0xFF00E5FF));
+      audio.playSfx(GameSfx.steel);
       return;
     }
 
@@ -4812,6 +4849,51 @@ class GameController extends ChangeNotifier {
         'ALTIN PIÑATA! +$pinataGold ALTIN +$pinataPearls İNCİ',
         const Color(0xFFFFD700),
         isLarge: true,
+      );
+      audio.playSfx(GameSfx.victory);
+    }
+
+    // [MEKANİK 5] Kalkan Jeneratörü (Beacon) İmhası:
+    if (b.isBeacon) {
+      final cx = b.x + b.width / 2;
+      final cy = b.y + b.height / 2;
+      particles.triggerShake(6.0, 0.25);
+      particles.spawnShockwave(cx, cy, const Color(0xFF00E5FF), maxRadius: 120.0);
+      particles.spawnFloatingText(cx, b.y - 22, 'JENERATÖR ÇÖKTÜ!', const Color(0xFF00E5FF), isLarge: true);
+      audio.playSfx(GameSfx.laser, playbackRate: 0.8);
+    }
+
+    // [MEKANİK 5] Zincirleme Çekirdek (Chain Key):
+    if (b.isChainKey) {
+      final cx = b.x + b.width / 2;
+      final cy = b.y + b.height / 2;
+      particles.triggerShake(7.5, 0.35);
+      particles.spawnShockwave(cx, cy, const Color(0xFFFFD700), maxRadius: 140.0);
+      particles.spawnFloatingText(cx, b.y - 24, 'ZİNCİRLEME ÇÖZÜLÜŞ!', const Color(0xFFFFD700), isLarge: true);
+      audio.playSfx(GameSfx.explosion);
+      final locked = bricks.where((other) => other.isAlive && other.isChainLocked && other.chainKeyId == b.chainKeyId).toList();
+      for (final target in locked) {
+        target.hp = 0;
+        _destroyBrick(target, chainDepth + 1, isEcho);
+      }
+    }
+
+    // [MEKANİK 5] Geri Sayım Tuğlası (Ticker Bomb) Zamanında Kırılma Ödülü:
+    if (b.isTicker && !b.tickerExpired && allowsGoldReward) {
+      final cx = b.x + b.width / 2;
+      final cy = b.y + b.height / 2;
+      const tickerGold = 100;
+      save.addGold(tickerGold);
+      stats.goldCollected += tickerGold;
+      particles.spawnCoinOrbs(cx, cy, count: 12, totalValue: tickerGold);
+      particles.spawnBurst(cx, cy, const Color(0xFFFFD700), count: 28, speed: 220.0);
+      particles.spawnFloatingText(
+        cx,
+        b.y - 22,
+        '+$tickerGold ALTIN!',
+        const Color(0xFFFFD700),
+        isLarge: true,
+        iconType: FloatingIconType.bolt,
       );
       audio.playSfx(GameSfx.victory);
     }
