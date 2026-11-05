@@ -17,6 +17,7 @@ import '../models/sector_data.dart';
 import '../models/sector_blessing.dart';
 import '../models/portal.dart';
 import '../models/easter_egg.dart';
+import '../models/level_design.dart';
 
 class GameCanvas extends StatefulWidget {
   final GameController controller;
@@ -2096,17 +2097,20 @@ class _GameWorldPainter extends CustomPainter {
     for (int s = 0; s < 3; s++) {
       final sy = -halfH + s * stickH;
       final stickRect = Rect.fromLTWH(-halfW, sy + 0.3, w, stickH - 0.6);
-      final stickKey = Object.hash('dyn_stick', s, w.round(), h.round());
+      final stickKey = Object.hash('dyn_stick', s, w.round(), h.round(), b.hp, c.currentMode == GameMode.chaos);
       _fill.shader = _brickShaders.putIfAbsent(stickKey, () {
-        return const LinearGradient(
+        final colors = (c.currentMode == GameMode.chaos)
+            ? LevelDesign.getChaosDynamiteColors(b.hp)
+            : const [
+                Color(0xFFFF5252),
+                Color(0xFFD50000),
+                Color(0xFF7F0000),
+              ];
+        return LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFF5252),
-            Color(0xFFD50000),
-            Color(0xFF7F0000),
-          ],
-          stops: [0.0, 0.45, 1.0],
+          colors: colors,
+          stops: const [0.0, 0.45, 1.0],
         ).createShader(stickRect);
       });
       canvas.drawRRect(RRect.fromRectAndRadius(stickRect, const Radius.circular(3.2)), _fill);
@@ -2133,18 +2137,20 @@ class _GameWorldPainter extends CustomPainter {
       ..color = pulse > 0.5 ? const Color(0xFFFFD600) : const Color(0xFFFF3D00);
     canvas.drawRRect(badgeRRect, _stroke);
 
-    // Crisp vector "TNT" micro-glyph inside badge
-    _stroke
-      ..color = pulse > 0.5 ? const Color(0xFFFFEA00) : const Color(0xFFFF1744)
-      ..strokeWidth = 1.4
-      ..strokeCap = StrokeCap.square;
-    // Left 'T' canvas.drawLine(const Offset(-7.2, -2.5), const Offset(-3.8, -2.5), _stroke);
-    canvas.drawLine(const Offset(-5.5, -2.5), const Offset(-5.5, 2.6), _stroke);
-    // Middle 'N' canvas.drawLine(const Offset(-1.8, 2.6), const Offset(-1.8, -2.5), _stroke);
-    canvas.drawLine(const Offset(-1.8, -2.5), const Offset(1.8, 2.6), _stroke);
-    canvas.drawLine(const Offset(1.8, 2.6), const Offset(1.8, -2.5), _stroke);
-    // Right 'T' canvas.drawLine(const Offset(3.8, -2.5), const Offset(7.2, -2.5), _stroke);
-    canvas.drawLine(const Offset(5.5, -2.5), const Offset(5.5, 2.6), _stroke);
+    // Crisp vector "TNT" micro-glyph inside badge (in Chaos Mode, the HP number is displayed cleanly instead)
+    if (c.currentMode != GameMode.chaos) {
+      _stroke
+        ..color = pulse > 0.5 ? const Color(0xFFFFEA00) : const Color(0xFFFF1744)
+        ..strokeWidth = 1.4
+        ..strokeCap = StrokeCap.square;
+      // Left 'T' canvas.drawLine(const Offset(-7.2, -2.5), const Offset(-3.8, -2.5), _stroke);
+      canvas.drawLine(const Offset(-5.5, -2.5), const Offset(-5.5, 2.6), _stroke);
+      // Middle 'N' canvas.drawLine(const Offset(-1.8, 2.6), const Offset(-1.8, -2.5), _stroke);
+      canvas.drawLine(const Offset(-1.8, -2.5), const Offset(1.8, 2.6), _stroke);
+      canvas.drawLine(const Offset(1.8, 2.6), const Offset(1.8, -2.5), _stroke);
+      // Right 'T' canvas.drawLine(const Offset(3.8, -2.5), const Offset(7.2, -2.5), _stroke);
+      canvas.drawLine(const Offset(5.5, -2.5), const Offset(5.5, 2.6), _stroke);
+    }
 
     // 5. Sizzling Fuse & Star Spark on Right/Top
     _stroke

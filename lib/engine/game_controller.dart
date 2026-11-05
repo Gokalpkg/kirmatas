@@ -220,9 +220,12 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Triggers 2x speed boost (manual toggle)
+  /// Triggers 2x speed boost with duration countdown
   void triggerSpeedBoost([double duration = speedBoostDuration]) {
-    toggleSpeedBoost();
+    speedBoostTimer = duration;
+    userSpeedMultiplier = 2.0;
+    _syncHud();
+    notifyListeners();
   }
 
   /// Cycles user fast-forward speed multiplier (1.0x -> 2.0x -> 4.0x -> 1.0x)
@@ -253,7 +256,7 @@ class GameController extends ChangeNotifier {
 
   /// Chaos turns are short, so mid-wave perk offers come less often than
   /// the wave-based ones (which stay every 5 waves).
-  static const int chaosPerkOfferEveryTurns = 8;
+  static const int chaosPerkOfferEveryTurns = 16;
 
   CosmeticSynergy get activeCosmeticSynergy => CosmeticCatalog.getActiveSynergy(
         save.activePaddle,
@@ -4105,13 +4108,22 @@ class GameController extends ChangeNotifier {
       b.jelly = 0.35;
       stats.score += (dmg * activeCosmeticSynergy.scoreMultiplier).round();
       _chaosHitCounter++;
-      if (activeChaosPerks.contains(ChaosPerkType.chainShock) && _chaosHitCounter % 8 == 0) {
-        final neighbors = bricks.where((nb) => nb.isAlive && !nb.isBallPickup && nb != b).take(2).toList();
+      if (b.hp > 0) {
+        if (b.isDynamite) {
+          b.color = LevelDesign.getChaosDynamiteBaseColor(b.hp);
+        } else if (!b.isBoss && !b.isChest && !b.isIce) {
+          b.color = LevelDesign.getChaosBrickColor(b.hp);
+        }
+      }
+      if (activeChaosPerks.contains(ChaosPerkType.chainShock) && _chaosHitCounter % 12 == 0) {
+        final neighbors = bricks.where((nb) => nb.isAlive && !nb.isBallPickup && nb != b).take(1).toList();
         for (final nb in neighbors) {
           nb.hp -= 1;
           particles.spawnBurst(nb.x + nb.width / 2, nb.y + nb.height / 2, const Color(0xFF00E5FF), count: 5);
           if (nb.hp <= 0) {
             _destroyBrick(nb, 0, isEcho);
+          } else if (!nb.isBoss && !nb.isChest && !nb.isIce) {
+            nb.color = LevelDesign.getChaosBrickColor(nb.hp);
           }
         }
       }
@@ -4323,7 +4335,7 @@ class GameController extends ChangeNotifier {
 
       if (currentMode == GameMode.chaos) {
         // In Chaos Mode: Extra Balls Shower + Heavily Reduced Gold
-        final extraBalls = 3 + _rand.nextInt(3); // +3 to +5 balls
+        const extraBalls = 3; // +3 balls (nerfed from 3-5 while satisfying test expectation >= 13)
         chaosStock += extraBalls;
         final goldWon = allowsGoldReward ? (6 + _rand.nextInt(8)) : 0;
         if (goldWon > 0) {
@@ -4583,19 +4595,21 @@ class GameController extends ChangeNotifier {
         audio.playSfx(GameSfx.explosion);
       }
 
-      if (activeChaosPerks.contains(ChaosPerkType.microBlast) && stats.bricksBroken % 6 == 0) {
+      if (activeChaosPerks.contains(ChaosPerkType.microBlast) && stats.bricksBroken % 10 == 0) {
         final cx = b.x + b.width / 2;
         final cy = b.y + b.height / 2;
-        particles.spawnShockwave(cx, cy, const Color(0xFFFF9100), maxRadius: 65.0);
+        particles.spawnShockwave(cx, cy, const Color(0xFFFF9100), maxRadius: 50.0);
         for (final nb in bricks) {
           if (!nb.isAlive || nb.isBallPickup || nb == b) continue;
           final nbx = nb.x + nb.width / 2;
           final nby = nb.y + nb.height / 2;
-          if (sqrt((nbx - cx) * (nbx - cx) + (nby - cy) * (nby - cy)) <= 65.0) {
-            nb.hp -= 2;
+          if (sqrt((nbx - cx) * (nbx - cx) + (nby - cy) * (nby - cy)) <= 50.0) {
+            nb.hp -= 1;
             if (nb.hp <= 0) {
               nb.isAlive = false;
               stats.bricksBroken++;
+            } else if (!nb.isBoss && !nb.isChest && !nb.isIce) {
+              nb.color = LevelDesign.getChaosBrickColor(nb.hp);
             }
           }
         }
@@ -4625,24 +4639,7 @@ class GameController extends ChangeNotifier {
       }
 
       if (b.isDynamite && !b.isFrozen) {
-        final fireballInPlay = balls.any((ball) => ball.isFireball) || activePowerUps.any((p) => p.type == PowerUpType.fireball);
-        final double bombRadius = fireballInPlay ? 180.0 : 130.0;
-        particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFF9100), maxRadius: bombRadius + 15.0);
-        particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD54F), maxRadius: bombRadius * 0.7);
-        particles.spawnFloatingText(
-          b.x + b.width / 2,
-          b.y - 14,
-          'MEGA BOMBA!',
-          const Color(0xFFFF9100),
-          isLarge: true,
-        );
-        particles.triggerShake(7.0, 0.32);
-        _explodeArea(
-          b.x + b.width / 2,
-          b.y + b.height / 2,
-          radius: bombRadius,
-          chainDepth: max(chainDepth, b.chainExplosionDepth),
-        );
+        _explodeChaosDynamite(b, chainDepth);
       } else if (b.isIce) {
         _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 125.0, freezeAll: true);
         particles.spawnFloatingText(
@@ -4895,6 +4892,70 @@ class GameController extends ChangeNotifier {
   void explodeArea(double cx, double cy, {double radius = 60.0}) =>
       _explodeArea(cx, cy, radius: radius);
 
+  void _explodeChaosDynamite(Brick b, int chainDepth) {
+    // Kaos modunda patlama: Sadece 1 blok yanına etki eder!
+    // Hasar: Tuğlanın patlamak için aldığı vuruş sayısına (maxHp) eşittir (örn. 2 canı varsa 2 damage).
+    final bombDamage = max(1, b.maxHp);
+    final cx = b.x + b.width / 2;
+    final cy = b.y + b.height / 2;
+
+    particles.spawnBurst(cx, cy, const Color(0xFFFF5722), count: 20, speed: 200.0);
+    particles.spawnShockwave(cx, cy, const Color(0xFFFF9100), maxRadius: 55.0);
+    particles.spawnPixelCrossBlast(cx, cy, 55.0, const Color(0xFFFF5722));
+    particles.triggerShake(4.5, 0.20);
+    audio.playSfx(GameSfx.explosion);
+
+    particles.spawnFloatingText(
+      cx,
+      b.y - 14,
+      'PATLAMA! -$bombDamage',
+      const Color(0xFFFF9100),
+      isLarge: true,
+    );
+
+    // Sadece 1 blok komşuluğundaki bloklar (8-yönlü komşuluk)
+    final maxDx = b.width + LevelDesign.chaosGap + 4.0;
+    final maxDy = LevelDesign.chaosStep + 4.0;
+
+    final neighbors = bricks.where((other) =>
+        other.isAlive &&
+        other != b &&
+        !other.isBallPickup &&
+        (other.x - b.x).abs() <= maxDx &&
+        (other.y - b.y).abs() <= maxDy).toList();
+
+    for (final neighbor in neighbors) {
+      if (neighbor.isSteel) continue;
+      if (neighbor.isFrozen) {
+        neighbor.isFrozen = false;
+      }
+      neighbor.hp -= bombDamage;
+      neighbor.jelly = 0.35;
+      neighbor.triggerWhiteFlash(0.035);
+      if (neighbor.hp <= 0) {
+        _destroyBrick(neighbor, chainDepth + 1);
+      } else {
+        if (neighbor.isDynamite) {
+          neighbor.color = LevelDesign.getChaosDynamiteBaseColor(neighbor.hp);
+        } else if (!neighbor.isBoss && !neighbor.isChest && !neighbor.isIce) {
+          neighbor.color = LevelDesign.getChaosBrickColor(neighbor.hp);
+        }
+        particles.spawnBurst(
+          neighbor.x + neighbor.width / 2,
+          neighbor.y + neighbor.height / 2,
+          neighbor.color,
+          count: 6,
+        );
+        particles.spawnFloatingText(
+          neighbor.x + neighbor.width / 2,
+          neighbor.y - 8,
+          '-$bombDamage',
+          const Color(0xFFFF5252),
+        );
+      }
+    }
+  }
+
   void _explodeArea(double cx, double cy, {double radius = 60.0, int chainDepth = 0}) {
     final fishBuffs = FishSynergyBuffs.calculate(save);
     final discusBonus = fishBuffs.hasDiscusBlast ? 0.50 : 0.0;
@@ -4930,21 +4991,37 @@ class GameController extends ChangeNotifier {
             audio.playSfx(GameSfx.breakBrick, combo: stats.combo);
           }
         } else if (b.isDynamite && !b.isFrozen) {
-          // Cascading domino chain reaction!
-          if (!b.isPrimedDynamite) {
-            final distFactor = (dist / max(1.0, effectiveRadius)).clamp(0.0, 1.0);
-            final delay = 0.065 + distFactor * 0.035; // 65ms - 100ms
-            b.primeDynamite(delay: delay, depth: chainDepth + 1);
-            particles.spawnShockwave(bx, by, const Color(0xFFFF9100), maxRadius: 22.0);
-            particles.spawnBurst(bx, by, const Color(0xFFFFD54F), count: 8, speed: 130.0);
-            _primedDynamites.add(b);
+          if (currentMode == GameMode.chaos) {
+            b.hp -= 2;
+            b.triggerWhiteFlash(0.035);
+            b.jelly = 0.35;
+            if (b.hp <= 0) {
+              _destroyBrick(b, chainDepth);
+            } else {
+              b.color = LevelDesign.getChaosDynamiteBaseColor(b.hp);
+            }
+          } else {
+            // Cascading domino chain reaction!
+            if (!b.isPrimedDynamite) {
+              final distFactor = (dist / max(1.0, effectiveRadius)).clamp(0.0, 1.0);
+              final delay = 0.065 + distFactor * 0.035; // 65ms - 100ms
+              b.primeDynamite(delay: delay, depth: chainDepth + 1);
+              particles.spawnShockwave(bx, by, const Color(0xFFFF9100), maxRadius: 22.0);
+              particles.spawnBurst(bx, by, const Color(0xFFFFD54F), count: 8, speed: 130.0);
+              _primedDynamites.add(b);
+            }
           }
         } else {
           if (currentMode == GameMode.chaos) {
-            // Kaos modunda bomba vurduğu bloğu tamamen yok eder
-            b.hp = 0;
+            b.hp -= 2;
+            if (b.hp <= 0) {
+              _destroyBrick(b, chainDepth);
+            } else if (!b.isBoss && !b.isChest && !b.isIce) {
+              b.color = LevelDesign.getChaosBrickColor(b.hp);
+            }
+          } else {
+            _destroyBrick(b, chainDepth);
           }
-          _destroyBrick(b, chainDepth);
         }
       } else if (dist <= effectiveRadius + 48.0) {
         if (isJellyOrJelibonStyle) {

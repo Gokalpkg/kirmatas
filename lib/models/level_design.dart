@@ -1154,8 +1154,8 @@ class LevelDesign {
         } else if (isIce || isDynamite) {
           hp = 1;
         } else if (isChest) {
-          // Sturdy reinforced treasure chest: takes 1 hit in first 10 levels, 2 hits in early worlds, 3 hits in late worlds
-          hp = (level <= 10) ? 1 : ((world <= 2) ? 2 : 3);
+          // Sturdy reinforced treasure chest: 2 hits in early worlds, 3 hits in late worlds
+          hp = (world <= 2) ? 2 : 3;
         } else {
           switch (world) {
             case 1:
@@ -1359,6 +1359,46 @@ class LevelDesign {
     return rowBricks;
   }
 
+  /// Distinct HP-tiered color progression for Chaos Mode bricks.
+  /// As HP increases, bricks transition through clearly distinguishable colors.
+  static Color getChaosBrickColor(int hp) {
+    if (hp <= 1) return const Color(0xFF69F0AE); // 1 HP: Neon Mint / Green
+    if (hp == 2) return const Color(0xFF00E5FF); // 2 HP: Cyan
+    if (hp <= 4) return const Color(0xFF448AFF); // 3-4 HP: Electric Blue
+    if (hp <= 7) return const Color(0xFFFFD600); // 5-7 HP: Amber / Yellow
+    if (hp <= 11) return const Color(0xFFFF9100); // 8-11 HP: Vivid Orange
+    if (hp <= 17) return const Color(0xFFFF5252); // 12-17 HP: Coral Red
+    if (hp <= 26) return const Color(0xFFFF4081); // 18-26: Hot Pink
+    if (hp <= 40) return const Color(0xFFE040FB); // 27-40: Neon Purple
+    if (hp <= 60) return const Color(0xFF7C4DFF); // 41-60: Deep Violet
+    if (hp <= 99) return const Color(0xFF536DFE); // 61-99: Royal Indigo
+    return const Color(0xFFFFD700);               // 100+ HP: Radiant Gold
+  }
+
+  /// HP-tiered primary color for Chaos Mode explosive / dynamite bricks.
+  static Color getChaosDynamiteBaseColor(int hp) {
+    if (hp <= 1) return const Color(0xFFFF5252); // 1 HP: Red
+    if (hp == 2) return const Color(0xFFFF9100); // 2 HP: Orange
+    if (hp <= 4) return const Color(0xFFE040FB); // 3-4 HP: Purple/Magenta
+    if (hp <= 8) return const Color(0xFF00E5FF); // 5-8 HP: Cyan
+    return const Color(0xFFFFD600);               // 9+ HP: Radiant Gold
+  }
+
+  /// Gradient colors for 3 dynamite sticks inside _drawDynamiteBrick based on HP.
+  static List<Color> getChaosDynamiteColors(int hp) {
+    if (hp <= 1) {
+      return const [Color(0xFFFF5252), Color(0xFFD50000), Color(0xFF7F0000)];
+    } else if (hp == 2) {
+      return const [Color(0xFFFFB74D), Color(0xFFFF6D00), Color(0xFFBF360C)];
+    } else if (hp <= 4) {
+      return const [Color(0xFFEA80FC), Color(0xFFAA00FF), Color(0xFF4A148C)];
+    } else if (hp <= 8) {
+      return const [Color(0xFF80D8FF), Color(0xFF0091EA), Color(0xFF01579B)];
+    } else {
+      return const [Color(0xFFFFF176), Color(0xFFFFD600), Color(0xFFFF6F00)];
+    }
+  }
+
   static const double chaosGap = 8.0;
   static const double chaosMargin = 12.0;
   static const int chaosCols = 7;
@@ -1369,25 +1409,37 @@ class LevelDesign {
     final bricks = <Brick>[];
     const initialRows = 4;
     for (int row = 0; row < initialRows; row++) {
-      bricks.addAll(buildChaosRow(wave, row, screenWidth, isInitialBoard: true));
+      // Only 1 row (row 1) receives a ball pickup on the initial board, not all 4!
+      bricks.addAll(buildChaosRow(wave, row, screenWidth, isInitialBoard: true, allowPickupOnInitialRow: row == 1));
     }
     return bricks;
   }
 
-  static List<Brick> buildChaosRow(int wave, int row, double screenWidth, {bool isInitialBoard = false, int turn = 0}) {
+  static List<Brick> buildChaosRow(
+    int wave,
+    int row,
+    double screenWidth, {
+    bool isInitialBoard = false,
+    int turn = 0,
+    bool allowPickupOnInitialRow = true,
+  }) {
     final rand = Random(wave * 20011 + (row * 101) + (turn * 37) + 7);
     final bw = (screenWidth - chaosMargin * 2 - chaosGap * (chaosCols - 1)) / chaosCols;
     final y = baseTopMargin + row * chaosStep;
     final bricks = <Brick>[];
 
-    // Pick 1 column for guaranteed +1 Ball pickup per row
-    final pickupCol = rand.nextInt(chaosCols);
+    // Nerfed ball pickup accumulation: ~38% chance per row (not 100% every row).
+    // On the initial board, only allow on designated row to avoid starting with too many balls.
+    final bool spawnPickup = isInitialBoard
+        ? allowPickupOnInitialRow
+        : (rand.nextDouble() < 0.38);
+    final int pickupCol = spawnPickup ? rand.nextInt(chaosCols) : -1;
     // Pick 1-2 empty corridor columns for trick shot ricochets
-    final emptyCol1 = (pickupCol + 2) % chaosCols;
-    final emptyCol2 = (pickupCol + 4) % chaosCols;
+    final emptyCol1 = (pickupCol >= 0) ? (pickupCol + 2) % chaosCols : 1;
+    final emptyCol2 = (pickupCol >= 0) ? (pickupCol + 4) % chaosCols : 4;
 
     final bool isBossWaveRow = wave >= 10 && wave % 10 == 0 && row == 0;
-    final int bossCol = (pickupCol + 1) % chaosCols;
+    final int bossCol = (pickupCol >= 0) ? (pickupCol + 1) % chaosCols : 3;
 
     for (int c = 0; c < chaosCols; c++) {
       if (c == pickupCol) {
@@ -1456,22 +1508,33 @@ class LevelDesign {
         hp = max(1, (baseHp * 0.95).round() + rand.nextInt(variance + 1));
       }
 
-      final colorIndex = (wave * 3 + row * 2 + c) % neonPalette.length;
-      final color = isTankBrick ? const Color(0xFFFF5252) : neonPalette[colorIndex];
+      // Colors strictly reflect HP level in Chaos mode
+      final color = getChaosBrickColor(hp);
 
       final specialRoll = rand.nextDouble();
       if (specialRoll < 0.10) {
-        // Dynamite brick - satisfying chain blast!
+        // Dynamite brick: HP scales with wave, dealing damage equal to its maxHp upon detonation!
+        final int dynHp;
+        if (wave <= 1) {
+          dynHp = 1;
+        } else if (wave <= 3) {
+          dynHp = 1 + rand.nextInt(2);
+        } else if (wave <= 9) {
+          dynHp = 2 + rand.nextInt(2);
+        } else {
+          dynHp = 2 + rand.nextInt(min(4, 1 + wave ~/ 8));
+        }
+        final dynColor = getChaosDynamiteBaseColor(dynHp);
         bricks.add(
           Brick(
             x: chaosMargin + c * (bw + chaosGap),
             y: y,
             width: bw,
             height: chaosBrickH,
-            hp: 1,
-            maxHp: 1,
+            hp: dynHp,
+            maxHp: dynHp,
             isDynamite: true,
-            color: const Color(0xFFFF5722),
+            color: dynColor,
             points: 15,
           ),
         );
@@ -1492,7 +1555,7 @@ class LevelDesign {
         );
       } else if (wave >= 4 && ((specialRoll >= 0.20 && specialRoll < 0.215) || (wave == 4 && row == 0 && c == emptyCol2))) {
         // Mystery Golden Treasure Chest in Chaos Mode!
-        // When cracked: drops +5 to +8 extra balls and big gold jackpot!
+        // When cracked: drops +1 to +2 extra balls and gold jackpot
         final chestHp = min(3, max(1, hp ~/ 2));
         final chaosChestTier = (wave >= 30) ? 3 : ((wave >= 18) ? 2 : ((wave >= 8) ? 1 : 0));
         bricks.add(

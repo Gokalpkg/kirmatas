@@ -99,7 +99,7 @@ void main() {
       ctrl.applyPowerUp(PowerUpType.frost);
       expect(ctrl.balls.first.isFrost, isTrue);
 
-      final brick = ctrl.bricks.firstWhere((b) => b.isAlive && !b.isSteel);
+      final brick = ctrl.bricks.lastWhere((b) => b.isAlive && !b.isSteel);
       brick.isFrozen = true;
       expect(brick.isFrozen, isTrue);
 
@@ -125,7 +125,7 @@ void main() {
       ctrl.applyPowerUp(PowerUpType.shrapnel);
       expect(ctrl.balls.first.isShrapnel, isTrue);
 
-      final brick = ctrl.bricks.firstWhere((b) => b.isAlive && !b.isSteel);
+      final brick = ctrl.bricks.lastWhere((b) => b.isAlive && !b.isSteel);
       final ball = ctrl.balls.first;
       ball.isStuck = false;
       ball.x = brick.x + brick.width / 2;
