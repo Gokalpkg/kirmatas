@@ -522,28 +522,31 @@ class SettingsDialog extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Kırmataş — Kaunos Games Gizlilik Politikası',
+                  'Kırmataş: Tuğla Kırma ve Akvaryum — Kaunos Games Gizlilik Politikası',
                   style: TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 SizedBox(height: 8),
                 Text(
                   'Geliştirici: Kaunos Games (kaunosgames@gmail.com)\n'
-                  'Uygulama: Kırmataş (com.kaunos.kirmatas)\n'
-                  'Yürürlük Tarihi: Ekim 2026\n\n'
+                  'Uygulama: Kırmataş: Tuğla Kırma ve Akvaryum / Brick Breaker Aquarium: Crush Bricks (com.kaunos.kirmatas)\n'
+                  'Yürürlük Tarihi: Ekim 2026 (Güncelleme: Kasım 2026)\n\n'
                   '1. Veri Toplama ve Kullanımı:\n'
                   'Kırmataş oyunu, adınız, adresiniz veya telefon numaranız gibi doğrudan kişisel kimlik bilgilerinizi toplamaz. Oyun içi ilerlemeniz (bölümler, altın, inci, balıklar) cihazınızda yerel olarak saklanır. İsteğe bağlı olarak bulut servisleri (Google Play Games / Game Center) üzerinden yedekleme yapılabilir.\n\n'
                   '2. Entegre Edilen Üçüncü Taraf Hizmetleri:\n'
-                  'Oyun deneyimini sunabilmek, kilitlenmeleri çözmek ve ödüllü reklam sunmak amacıyla aşağıdaki güvenilir servisler kullanılmaktadır:\n'
+                  'Oyun deneyimini sunabilmek, kilitlenmeleri çözmek, bildirim iletmek ve ödüllü reklam sunmak amacıyla aşağıdaki güvenilir servisler kullanılmaktadır:\n'
                   '• Oyun Hizmetleri (Google Play Games / Game Center - Liderlik tablosu, başarımlar ve bulut kayıtları)\n'
                   '• Google AdMob (Ödüllü ve geçiş reklamları - Cihaz reklam kimliğini kullanabilir)\n'
+                  '• Firebase Cloud Messaging & Yerel Bildirimler (Etkinlik ve ödül hatırlatıcıları - Anonim rastgele token kullanılır)\n'
                   '• Firebase Analytics (Anonim oyun performansı ve bölüm istatistikleri)\n'
                   '• Firebase Crashlytics (Kilitlenme ve hata teşhisi raporları)\n'
                   '• Uygulama İçi Satın Alma Hizmetleri (Google Play In-App Billing / Apple StoreKit - Güvenli uygulama içi satın alımlar)\n\n'
-                  '3. Reklamlar ve Reklam Kimliği:\n'
+                  '3. Bildirimler ve Tercihler:\n'
+                  'Uygulama, akvaryum kasanız dolduğunda veya çark ödülleriniz hazır olduğunda size bildirim gönderebilir. Bildirim izinlerini dilediğiniz an cihaz ayarlarınızdan kapatabilirsiniz; bildirimleri kapatmak çevrimdışı oynanışı etkilemez.\n\n'
+                  '4. Reklamlar ve Reklam Kimliği:\n'
                   'AdMob servisleri, dolandırıcılığı önlemek ve uygun reklamları gösterebilmek için cihazınızın Reklam Kimliğini (AAID/IDFA) kullanabilir. Dilediğiniz zaman cihazınızın gizlilik ayarlarından reklam kişiselleştirmesini yönetebilirsiniz.\n\n'
-                  '4. Çocukların Gizliliği:\n'
+                  '5. Çocukların Gizliliği:\n'
                   'Uygulamamız 13 yaşın altındaki çocuklardan bilerek herhangi bir kişisel veri talep etmez.\n\n'
-                  '5. Veri Güvenliği ve Silme Talebi:\n'
+                  '6. Veri Güvenliği ve Silme Talebi:\n'
                   'Tüm veri iletimleri endüstri standardı HTTPS/TLS şifrelemesi ile gerçekleşir. Cihazınızdaki oyun verilerini dilediğiniz an uygulama verilerini temizleyerek silebilirsiniz. Gizlilikle ilgili her türlü soru ve talebiniz için kaunosgames@gmail.com adresinden bizimle iletişime geçebilirsiniz.',
                   style: TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.55),
                 ),

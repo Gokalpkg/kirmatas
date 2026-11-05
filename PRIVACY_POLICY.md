@@ -1,8 +1,8 @@
-﻿# Kaunos Games - Privacy Policy & Terms - Kirmatas
+# Kaunos Games - Privacy Policy & Terms - Kırmataş: Tuğla Kırma ve Akvaryum / Brick Breaker Aquarium: Crush Bricks
 
 ## Privacy Policy
 
-This privacy policy applies to the Kirmatas app for mobile devices, together with any related services operated by Kaunos Games (collectively, the "Application"). Kaunos Games is hereby referred to as the "Service Provider".
+This privacy policy applies to the Kırmataş: Tuğla Kırma ve Akvaryum app (globally distributed as Brick Breaker Aquarium: Crush Bricks, package identifier com.kaunos.kirmatas) for mobile devices, together with any related services operated by Kaunos Games (collectively, the "Application"). Kaunos Games is hereby referred to as the "Service Provider".
 
 ### Information Collection and Use
 The Application collects information when you download and use it. This information may include information such as:
@@ -36,7 +36,15 @@ The Service Provider or its third-party service providers may transfer personal 
 Data protection laws in other countries may differ from those in your jurisdiction. Where required by law, the Service Provider will apply appropriate safeguards and obtain any consent required for the transfer.
 
 Please note that the Application utilizes third-party services that have their own Privacy Policy about handling data. Below are the links to the Privacy Policy of the third-party service providers used by the Application:
-- [Google Play Services](https://www.google.com/policies/privacy/)
+- [Google Play Services & Apple Game Center](https://www.google.com/policies/privacy/)
+- [Google AdMob](https://support.google.com/admob/answer/6128543?hl=en)
+- [Google Analytics for Firebase](https://firebase.google.com/policies/analytics)
+- [Firebase Crashlytics](https://firebase.google.com/support/privacy/)
+- [Firebase Cloud Messaging](https://firebase.google.com/support/privacy/)
+- [Google Play In-App Billing / Apple In-App Purchase](https://policies.google.com/privacy)
+
+### Push and Local Notifications
+The Application may deliver local scheduled notifications (reminding you of aquarium vault collection or daily rewards) and remote push notifications (via Firebase Cloud Messaging) regarding gameplay events. These use anonymous, randomized tokens without accessing personal identity. You can disable notifications at any time via your device settings.
 
 The Service Provider may disclose User Provided and Automatically Collected Information:
 - As required by law, such as to comply with a subpoena, or similar legal process;
@@ -85,7 +93,7 @@ If you have any questions regarding privacy while using the Application, or have
 
 ## Terms & Conditions
 
-These terms and conditions apply to the Kirmatas app for mobile devices, together with any related services operated by Kaunos Games (collectively, the "Application"). Kaunos Games is hereby referred to as the "Service Provider".
+These terms and conditions apply to the Kırmataş: Tuğla Kırma ve Akvaryum app (globally distributed as Brick Breaker Aquarium: Crush Bricks, package identifier com.kaunos.kirmatas) for mobile devices, together with any related services operated by Kaunos Games (collectively, the "Application"). Kaunos Games is hereby referred to as the "Service Provider".
 
 By downloading or using the Application, you agree to these Terms and Conditions. You should read them carefully before using the Application.
 
