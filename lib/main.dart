@@ -13,6 +13,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'engine/analytics_manager.dart';
 import 'engine/play_games_manager.dart';
 import 'engine/cloud_social_manager.dart';
+import 'engine/notification_service.dart';
 import 'ui/splash_screen.dart';
 import 'ui/main_menu.dart';
 import 'ui/achievement_toast_overlay.dart';
@@ -46,6 +47,7 @@ void main() async {
   unawaited(CloudSocialManager.instance.syncProfileToCloud());
   unawaited(CloudSocialManager.instance.refreshFriendsFromCloud());
   unawaited(CloudSocialManager.instance.fetchWeeklyLeagueRivals());
+  unawaited(NotificationService.instance.initialize());
 
   MainMenuScreen.suppressBootPopups = false;
 
@@ -82,6 +84,7 @@ class _KirmatasAppState extends State<KirmatasApp> with WidgetsBindingObserver {
     if (buried) {
       AudioManager.instance.stopAll();
       unawaited(PlayGamesManager.instance.autoSaveToCloud());
+      unawaited(NotificationService.instance.scheduleSmartRetentionLoops());
     } else if (state == AppLifecycleState.resumed) {
       if (AudioManager.instance.isBgmAllowed && SaveManager.instance.bgmVolume > 0) {
         AudioManager.instance.resumeBgm();
