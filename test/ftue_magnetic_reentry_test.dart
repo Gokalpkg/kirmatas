@@ -210,7 +210,7 @@ void main() {
   });
 
   group('PauseGameOverOverlay: Reaction Buttons', () {
-    testWidgets('victory state displays "SONRAKİ BÖLÜM ➔" green/gold neon button', (tester) async {
+    testWidgets('victory state displays "SONRAKİ BÖLÜM" green/gold neon button', (tester) async {
       final controller = GameController();
       controller.status = GameStatus.victory;
       bool restarted = false;
@@ -229,7 +229,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 50));
 
-      final victoryBtn = find.text('SONRAKİ BÖLÜM ➔');
+      final victoryBtn = find.text('SONRAKİ BÖLÜM');
       expect(victoryBtn, findsOneWidget);
 
       await tester.tap(victoryBtn);

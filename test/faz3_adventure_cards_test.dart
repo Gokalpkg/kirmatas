@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,7 +6,6 @@ import 'package:kirmatas/engine/game_controller.dart';
 import 'package:kirmatas/models/adventure_card.dart';
 import 'package:kirmatas/models/ball.dart';
 import 'package:kirmatas/models/brick.dart';
-import 'package:kirmatas/models/cosmetics.dart';
 import 'package:kirmatas/models/game_state.dart';
 import 'package:kirmatas/models/powerup.dart';
 import 'package:kirmatas/storage/save_manager.dart';

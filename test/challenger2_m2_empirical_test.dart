@@ -149,7 +149,7 @@ void main() {
         expect(find.text('HAFTALIK LİG ŞAMPİYONASI'), findsOneWidget);
         expect(find.textContaining('Kişilik Lig Grubu'), findsOneWidget);
         expect(find.text('Neon Avcısı'), findsWidgets);
-        expect(find.text('YÜKSELME ⬆️'), findsOneWidget);
+        expect(find.text('YÜKSELME'), findsOneWidget);
         expect(find.text('SEN'), findsWidgets);
 
         // Tap Join
@@ -163,7 +163,7 @@ void main() {
         await tester.tap(find.text('SHOW'));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        expect(find.text('DÜŞME ⬇️'), findsOneWidget);
+        expect(find.text('DÜŞME'), findsOneWidget);
 
         // Close via close button
         await tester.tap(find.byIcon(Icons.close_rounded));

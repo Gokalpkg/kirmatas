@@ -7040,7 +7040,7 @@ class _GameWorldPainter extends CustomPainter {
       canvas.drawRRect(badgeRRect, _stroke);
 
       _tp.text = TextSpan(
-        text: '👑  ${I18n.tr('flawless_victory_badge')}  👑',
+        text: '[ ${I18n.tr('flawless_victory_badge')} ]',
         style: TextStyle(
           fontFamily: 'Rajdhani',
           fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],

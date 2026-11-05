@@ -202,7 +202,7 @@ class NotificationService {
       final time4h = now.add(const Duration(hours: 4));
       await _localNotifications.zonedSchedule(
         id: 101,
-        title: isTr ? 'Akvaryum Kasası Doldu! 🐟' : 'Aquarium Vault is Full! 🐟',
+        title: isTr ? 'Akvaryum Kasasi Doldu!' : 'Aquarium Vault is Full!',
         body: isTr
             ? 'Balıkların hazine sandığını altınla doldurdu! Toplamak için hemen dokun.'
             : 'Your fish have filled the chest with gold! Tap to collect.',
@@ -215,7 +215,7 @@ class NotificationService {
       final time24h = now.add(const Duration(hours: 24));
       await _localNotifications.zonedSchedule(
         id: 102,
-        title: isTr ? 'Ücretsiz Şans Çarkı Hazır! 🎡' : 'Free Fortune Wheel Spin! 🎡',
+        title: isTr ? 'Ucretsiz Sans Carki Hazir!' : 'Free Fortune Wheel Spin!',
         body: isTr
             ? 'Bugünkü bedava çarkıfelek hakkın seni bekliyor, hemen çevir ve incileri kap!'
             : 'Your free daily wheel spin is ready. Tap to spin & win pearls!',
@@ -228,7 +228,7 @@ class NotificationService {
       final time48h = now.add(const Duration(hours: 48));
       await _localNotifications.zonedSchedule(
         id: 103,
-        title: isTr ? 'Günün Şanslı Balığı Seni Bekliyor! ⭐' : 'Lucky Fish of the Day! ⭐',
+        title: isTr ? 'Gunun Sansli Baligi Seni Bekliyor!' : 'Lucky Fish of the Day!',
         body: isTr
             ? 'Akvaryumunu ziyaret et, 3 kat altın bonusunu kaçırma!'
             : 'Visit your aquarium now for 3x gold production!',

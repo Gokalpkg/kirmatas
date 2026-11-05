@@ -804,7 +804,7 @@ class GameController extends ChangeNotifier {
     );
     if (id == 'golden_octopus') {
       if (save.pearls < 1) return false;
-      final ok = await save.spendPearls(1);
+      final ok = save.spendPearls(1);
       if (!ok) return false;
       await save.addBoostStock(id, 1);
       return activatePreMatchBoost(id);
