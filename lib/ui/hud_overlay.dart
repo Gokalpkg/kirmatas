@@ -911,9 +911,13 @@ class HudOverlay extends StatelessWidget {
     }
     final save = SaveManager.instance;
     final boosts = [
-      (id: 'life', icon: Icons.favorite_rounded, label: '+1 Can', color: const Color(0xFFFF5252), cost: 400),
-      (id: 'wide', icon: Icons.unfold_more_rounded, label: 'Geniş', color: const Color(0xFF40C4FF), cost: 550),
-      (id: 'multi', icon: Icons.hub_rounded, label: 'Çift Top', color: const Color(0xFFFF9800), cost: 750),
+      (id: 'risk_double', icon: Icons.casino_rounded, label: 'Risk x4', color: const Color(0xFFFF1744), cost: 200, isPearl: false),
+      (id: 'overcharged_speed', icon: Icons.flash_on_rounded, label: 'Lazer Top', color: const Color(0xFFFFD700), cost: 200, isPearl: false),
+      (id: 'pinata_heaven', icon: Icons.card_giftcard_rounded, label: 'Piñata', color: const Color(0xFF00E5FF), cost: 200, isPearl: false),
+      (id: 'golden_octopus', icon: Icons.bubble_chart_rounded, label: 'Ahtapot x5', color: const Color(0xFFE040FB), cost: 1, isPearl: true),
+      (id: 'life', icon: Icons.favorite_rounded, label: '+1 Can', color: const Color(0xFFFF5252), cost: 400, isPearl: false),
+      (id: 'wide', icon: Icons.unfold_more_rounded, label: 'Geniş', color: const Color(0xFF40C4FF), cost: 550, isPearl: false),
+      (id: 'multi', icon: Icons.hub_rounded, label: 'Çift Top', color: const Color(0xFFFF9800), cost: 750, isPearl: false),
     ];
 
     return Positioned(
@@ -953,22 +957,36 @@ class HudOverlay extends StatelessWidget {
                             if (stock > 0) {
                               controller.activatePreMatchBoost(b.id);
                             } else {
-                              if (save.gold < b.cost) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Yetersiz altın! (${b.cost} Altın gerekir)'),
-                                      duration: const Duration(milliseconds: 1200),
-                                    ),
-                                  );
+                              if (b.isPearl) {
+                                if (save.pearls < b.cost) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Yetersiz inci! (${b.cost} İnci gerekir)'),
+                                        duration: const Duration(milliseconds: 1200),
+                                      ),
+                                    );
+                                  }
+                                  return;
                                 }
-                                return;
+                              } else {
+                                if (save.gold < b.cost) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Yetersiz altın! (${b.cost} Altın gerekir)'),
+                                        duration: const Duration(milliseconds: 1200),
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
                               }
                               final ok = await controller.buyAndActivatePreMatchBoost(b.id);
                               if (!ok && context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Yetersiz altın! (${b.cost} Altın gerekir)'),
+                                    content: Text(b.isPearl ? 'İnci yetersiz!' : 'Altın yetersiz!'),
                                     duration: const Duration(milliseconds: 1200),
                                   ),
                                 );
@@ -1016,9 +1034,9 @@ class HudOverlay extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              isEquipped ? 'AKTİF' : (stock > 0 ? 'x$stock' : '${b.cost}G'),
+                              isEquipped ? 'AKTİF' : (stock > 0 ? 'x$stock' : (b.isPearl ? '${b.cost}İ' : '${b.cost}G')),
                               style: TextStyle(
-                                color: isEquipped ? Colors.greenAccent : (stock > 0 ? Colors.white : const Color(0xFFFFD54F)),
+                                color: isEquipped ? Colors.greenAccent : (stock > 0 ? Colors.white : (b.isPearl ? const Color(0xFFE040FB) : const Color(0xFFFFD54F))),
                                 fontSize: 10,
                                 fontWeight: FontWeight.w900,
                               ),

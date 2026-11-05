@@ -656,6 +656,19 @@ class GameController extends ChangeNotifier {
   bool earlyActionDropGranted = false;
 
   final Set<String> usedPreMatchBoosts = {};
+  bool isRiskDoubleActive = false;
+  bool isOverchargedSpeedActive = false;
+  bool isPinataHeavenActive = false;
+  bool isGoldenOctopusActive = false;
+  bool octopusRescueUsed = false;
+
+  int get matchGoldMultiplier {
+    int mult = 1;
+    if (isRiskDoubleActive) mult *= 4;
+    if (isGoldenOctopusActive) mult *= 5;
+    return mult;
+  }
+
   int lastClearedLevelStars = 3;
   int _livesLostThisLevel = 0;
   int get livesLostThisLevel => _livesLostThisLevel;
@@ -664,9 +677,9 @@ class GameController extends ChangeNotifier {
   set livesLostThisLevelForTesting(int val) => _livesLostThisLevel = val;
 
   /// Calculates level star rating based on performance in this specific level:
-  /// - 3 Stars (⭐⭐⭐ Perfect): 0 lives lost this level
-  /// - 2 Stars (⭐⭐ Good): 1 life lost this level
-  /// - 1 Star (⭐ Cleared): 2+ lives lost this level
+  /// - 3 Stars (Perfect): 0 lives lost this level
+  /// - 2 Stars (Good): 1 life lost this level
+  /// - 1 Star (Cleared): 2+ lives lost this level
   /// Never returns 0 stars upon clearing.
   int calculateLevelStars() {
     if (_livesLostThisLevel <= 0) {
@@ -710,6 +723,65 @@ class GameController extends ChangeNotifier {
         }
         applyPowerUp(PowerUpType.multi);
         break;
+      case 'risk_double':
+        isRiskDoubleActive = true;
+        for (final b in bricks) {
+          if (!b.isSteel && !b.isHeavySteel) {
+            b.maxHp *= 2;
+            b.hp *= 2;
+          }
+        }
+        particles.spawnShockwave(paddle.x + paddle.width / 2, paddle.y, const Color(0xFFFF1744), maxRadius: 100.0);
+        particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, 'RISK x4 AKTIF!', const Color(0xFFFF1744), isLarge: true);
+        audio.playSfx(GameSfx.powerupBuff);
+        break;
+      case 'overcharged_speed':
+        isOverchargedSpeedActive = true;
+        paddle.hasLaser = true;
+        paddle.laserAmmo = 99;
+        for (final b in balls) {
+          b.vx *= 1.4;
+          b.vy *= 1.4;
+        }
+        particles.spawnShockwave(paddle.x + paddle.width / 2, paddle.y, const Color(0xFFFFD700), maxRadius: 100.0);
+        particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, 'LAZER TOP AKTIF!', const Color(0xFFFFD700), isLarge: true);
+        audio.playSfx(GameSfx.laser);
+        break;
+      case 'pinata_heaven':
+        isPinataHeavenActive = true;
+        final p1 = Brick(
+          x: 24.0,
+          y: 70.0,
+          width: 56.0,
+          height: 22.0,
+          hp: 1,
+          maxHp: 1,
+          color: const Color(0xFFFFD700),
+          isGoldPinata: true,
+        );
+        final p2 = Brick(
+          x: max(90.0, screenWidth - 80.0),
+          y: 70.0,
+          width: 56.0,
+          height: 22.0,
+          hp: 1,
+          maxHp: 1,
+          color: const Color(0xFFFFD700),
+          isGoldPinata: true,
+        );
+        bricks.insert(0, p1);
+        bricks.insert(0, p2);
+        particles.spawnShockwave(screenWidth / 2, 70.0, const Color(0xFF00E5FF), maxRadius: 120.0);
+        particles.spawnFloatingText(screenWidth / 2, 70.0, 'PINATA CENNETI!', const Color(0xFF00E5FF), isLarge: true);
+        audio.playSfx(GameSfx.powerupBuff);
+        break;
+      case 'golden_octopus':
+        isGoldenOctopusActive = true;
+        octopusRescueUsed = false;
+        particles.spawnShockwave(paddle.x + paddle.width / 2, paddle.y, const Color(0xFFE040FB), maxRadius: 120.0);
+        particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, 'ALTIN AHTAPOT x5!', const Color(0xFFE040FB), isLarge: true);
+        audio.playSfx(GameSfx.powerupBuff);
+        break;
     }
     notifyListeners();
     return true;
@@ -730,12 +802,20 @@ class GameController extends ChangeNotifier {
       (b) => b.id == id,
       orElse: () => BoostItem.allBoosts.first,
     );
-    final cost = boost.cost;
-    if (save.gold < cost) return false;
-    final ok = await save.spendGold(cost);
-    if (!ok) return false;
-    await save.addBoostStock(id, 1);
-    return activatePreMatchBoost(id);
+    if (id == 'golden_octopus') {
+      if (save.pearls < 1) return false;
+      final ok = await save.spendPearls(1);
+      if (!ok) return false;
+      await save.addBoostStock(id, 1);
+      return activatePreMatchBoost(id);
+    } else {
+      final cost = boost.cost;
+      if (save.gold < cost) return false;
+      final ok = await save.spendGold(cost);
+      if (!ok) return false;
+      await save.addBoostStock(id, 1);
+      return activatePreMatchBoost(id);
+    }
   }
 
   bool get isChaosMode => currentMode == GameMode.chaos;
@@ -865,6 +945,11 @@ class GameController extends ChangeNotifier {
       emergencyClutchUsedThisStage = false;
       chronoBulletTimeTimer = 0.0;
       usedPreMatchBoosts.clear();
+      isRiskDoubleActive = false;
+      isOverchargedSpeedActive = false;
+      isPinataHeavenActive = false;
+      isGoldenOctopusActive = false;
+      octopusRescueUsed = false;
       isMatchStart = true;
       consecutivePaddleHits = 0;
     }
@@ -1549,17 +1634,24 @@ class GameController extends ChangeNotifier {
   double getBaseBallSpeed() {
     const pace = 1.48;
     if (currentMode == GameMode.chaos) {
-      return 420.0 * pace;
+      double spd = 420.0 * pace;
+      if (isOverchargedSpeedActive) spd *= 1.40;
+      return spd;
     }
     // İlk 10 bölümde yumuşak, akıcı ve tatlı başlangıç hızı (340 -> 408 px/s)
     if (currentMode == GameMode.classic && stats.level <= 10) {
-      return 340.0 + (stats.level - 1) * 7.5;
+      double spd = 340.0 + (stats.level - 1) * 7.5;
+      if (isOverchargedSpeedActive) spd *= 1.40;
+      return spd;
     }
     // Balanced base speed starting at 420.0 px/s at Level 1, gradually scaling up to Level 10
     const base = 420.0;
     double levelSpeed = base + min(max(stats.level - 1, 0) * 10.0, 90.0);
     if (save.hasPermanentRelic && save.activeRelicStyle == 'overdrive') {
       levelSpeed *= 1.06;
+    }
+    if (isOverchargedSpeedActive) {
+      levelSpeed *= 1.40;
     }
     return levelSpeed;
   }
@@ -2685,6 +2777,23 @@ class GameController extends ChangeNotifier {
       // Fallen below screen
       if (c.y > screenHeight) {
         capsules.removeAt(i);
+        continue;
+      }
+
+      // FAZ 1 Perk: Seviye 5+ Mıknatıs çekilen kapsüllerin tuğlalara 1 hasar vermesini sağlar
+      if (magnetLevel >= 5) {
+        for (final b in bricks) {
+          if (!b.isAlive || b.isSteel || b.isHeavySteel) continue;
+          if (b.rect.contains(Offset(c.x, c.y))) {
+            b.hp -= 1;
+            b.jelly = 0.8;
+            particles.spawnBurst(c.x, c.y, const Color(0xFFE040FB), count: 3, speed: 60.0);
+            if (b.hp <= 0) {
+              _destroyBrick(b);
+            }
+            break;
+          }
+        }
       }
     }
   }
@@ -4461,7 +4570,7 @@ class GameController extends ChangeNotifier {
 
     // Overdrive Açı Bahsi bonus gold on brick hit
     if (ball != null && ball.overdriveStreak > 0 && allowsGoldReward) {
-      final odGold = ball.overdriveStreak >= 3 ? 5 : 2;
+      final odGold = (ball.overdriveStreak >= 3 ? 5 : 2) * matchGoldMultiplier;
       save.addGold(odGold);
       stats.goldCollected += odGold;
       particles.spawnCoinOrbs(b.x + b.width / 2, b.y + b.height / 2, count: 2, totalValue: odGold);
@@ -4471,7 +4580,7 @@ class GameController extends ChangeNotifier {
     if (b.isGoldPinata && allowsGoldReward) {
       final cx = b.x + b.width / 2;
       final cy = b.y + b.height / 2;
-      const hitGold = BalanceConfig.goldPinataHitGold;
+      final hitGold = BalanceConfig.goldPinataHitGold * matchGoldMultiplier;
       save.addGold(hitGold);
       stats.goldCollected += hitGold;
       particles.spawnCoinOrbs(cx, cy, count: 3, totalValue: hitGold);
@@ -4490,7 +4599,7 @@ class GameController extends ChangeNotifier {
         audio.playSfx(GameSfx.explosion, playbackRate: 1.4);
       }
       if (allowsGoldReward) {
-        final int clutchGold = max(b.points, 3) * 2;
+        final int clutchGold = max(b.points, 3) * 2 * matchGoldMultiplier;
         save.addGold(clutchGold);
         stats.goldCollected += clutchGold;
         particles.spawnCoinOrbs(b.x + b.width / 2, b.y + b.height / 2, count: 4, totalValue: clutchGold);
@@ -4535,6 +4644,18 @@ class GameController extends ChangeNotifier {
             particles.triggerShake(7.5, 0.35);
             particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFF1744), maxRadius: 95.0);
             particles.spawnFloatingText(screenWidth / 2, screenHeight * 0.35, I18n.tr('boss_enraged'), const Color(0xFFFF1744), isLarge: true);
+            // Faz 2: Öfkelenen patron altına ekstra Altın Piñata tuğlası doğurur
+            final pinata = Brick(
+              x: (b.x + b.width / 2 - 28.0).clamp(10.0, screenWidth - 66.0),
+              y: (b.y + b.height + 16.0).clamp(20.0, screenHeight * 0.65),
+              width: 56.0,
+              height: 22.0,
+              hp: 1,
+              maxHp: 1,
+              color: const Color(0xFFFFD700),
+              isGoldPinata: true,
+            );
+            bricks.add(pinata);
           }
         }
       } else if (b.isChest) {
@@ -4835,8 +4956,8 @@ class GameController extends ChangeNotifier {
     if (b.isGoldPinata && allowsGoldReward) {
       final cx = b.x + b.width / 2;
       final cy = b.y + b.height / 2;
-      const pinataGold = BalanceConfig.goldPinataDestroyGold;
-      const pinataPearls = BalanceConfig.goldPinataDestroyPearls;
+      final pinataGold = BalanceConfig.goldPinataDestroyGold * matchGoldMultiplier;
+      final pinataPearls = BalanceConfig.goldPinataDestroyPearls;
       save.addGold(pinataGold);
       stats.goldCollected += pinataGold;
       save.addPearls(pinataPearls);
@@ -4882,7 +5003,7 @@ class GameController extends ChangeNotifier {
     if (b.isTicker && !b.tickerExpired && allowsGoldReward) {
       final cx = b.x + b.width / 2;
       final cy = b.y + b.height / 2;
-      const tickerGold = 100;
+      final tickerGold = 100 * matchGoldMultiplier;
       save.addGold(tickerGold);
       stats.goldCollected += tickerGold;
       particles.spawnCoinOrbs(cx, cy, count: 12, totalValue: tickerGold);
@@ -5315,6 +5436,14 @@ class GameController extends ChangeNotifier {
     particles.triggerShake(5.0, 0.22);
     final pitch = min(1.85, 1.0 + chainDepth * 0.08);
     audio.playSfx(GameSfx.explosion, playbackRate: pitch);
+
+    // FAZ 1 SINERJI: Mini Kara Delik (Bomba + Miknatis)
+    final magnetLvl = save.getUpgradeLevel('magnet');
+    if (paddle.hasVortex || magnetLvl >= 1) {
+      vacuumStormTimer = 3.5;
+      particles.spawnShockwave(cx, cy, const Color(0xFF7C4DFF), maxRadius: effectiveRadius * 1.5);
+      particles.spawnFloatingText(cx, cy - 25, 'MINI KARA DELIK!', const Color(0xFFB388FF), isLarge: true);
+    }
 
     for (final b in bricks) {
       if (!b.isAlive || b.isSteel) continue;
@@ -6138,6 +6267,36 @@ class GameController extends ChangeNotifier {
   void _loseLife() {
     consecutivePaddleHits = 0;
     if (levelTransitionTimer > 0 || status != GameStatus.playing) return;
+
+    if (isGoldenOctopusActive && !octopusRescueUsed) {
+      octopusRescueUsed = true;
+      particles.spawnShockwave(paddle.x + paddle.width / 2, paddle.y, const Color(0xFFE040FB), maxRadius: 130.0);
+      particles.spawnFloatingText(
+        paddle.x + paddle.width / 2,
+        paddle.y - 25,
+        'ALTIN AHTAPOT KURTARDI!',
+        const Color(0xFFE040FB),
+        isLarge: true,
+      );
+      audio.playSfx(GameSfx.powerupBuff);
+      if (balls.isEmpty) {
+        balls.add(Ball(
+          x: paddle.x + paddle.width / 2,
+          y: paddle.y - 14.0,
+          vx: 0,
+          vy: -320.0,
+        ));
+      } else {
+        final b = balls.first;
+        b.x = paddle.x + paddle.width / 2;
+        b.y = paddle.y - 14.0;
+        b.vy = -b.vy.abs();
+        if (b.vy == 0) b.vy = -320.0;
+      }
+      notifyListeners();
+      return;
+    }
+
     _livesLostThisLevel++;
     stats.lives--;
     checkLowLifeTransition();
@@ -6282,6 +6441,9 @@ class GameController extends ChangeNotifier {
         if (allowsGoldReward && save.cosmicGoldMasteryLevel > 0) {
           levelGold = (levelGold * cosmicGoldRewardMultiplier).round();
         }
+        if (allowsGoldReward && matchGoldMultiplier > 1) {
+          levelGold *= matchGoldMultiplier;
+        }
         if (levelGold > 0) {
           stats.goldCollected += levelGold;
           save.addGold(levelGold);
@@ -6363,6 +6525,11 @@ class GameController extends ChangeNotifier {
         status = GameStatus.ready;
         showNextLevelButton = true;
         usedPreMatchBoosts.clear();
+      isRiskDoubleActive = false;
+      isOverchargedSpeedActive = false;
+      isPinataHeavenActive = false;
+      isGoldenOctopusActive = false;
+      octopusRescueUsed = false;
         emergencyClutchUsedThisStage = false;
         if (wasBossLevel && currentMode == GameMode.classic) {
           offerSectorBlessings();

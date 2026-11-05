@@ -265,6 +265,11 @@ class _LevelClearCardState extends State<LevelClearCard>
             ),
           ),
 
+          // Feature unlock badge for levels 3, 5, 10
+          if (_buildFeatureUnlockBadge(widget.level) != null) ...[
+            _buildFeatureUnlockBadge(widget.level)!,
+          ],
+
           const SizedBox(height: 18),
 
           // Action Buttons
@@ -392,6 +397,81 @@ class _LevelClearCardState extends State<LevelClearCard>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget? _buildFeatureUnlockBadge(int level) {
+    String? title;
+    String? desc;
+    IconData? icon;
+    Color color = const Color(0xFFFFD700);
+
+    if (level == 3) {
+      title = 'YENİ ÖZELLİK AÇILDI!';
+      desc = 'Şans Çarkı artık Ana Menüde seni bekliyor!';
+      icon = Icons.casino_rounded;
+      color = const Color(0xFFFF9100);
+    } else if (level == 5) {
+      title = 'YENİ ÖZELLİK AÇILDI!';
+      desc = 'Kaunos Akvaryumu kilitleri kalktı!';
+      icon = Icons.water_drop_rounded;
+      color = const Color(0xFF00E5FF);
+    } else if (level == 10) {
+      title = 'YENİ ÖZELLİK AÇILDI!';
+      desc = 'Haftalık Kaunos Turnuvası aktifleşti!';
+      icon = Icons.military_tech_rounded;
+      color = const Color(0xFFFFD700);
+    }
+
+    if (title == null) return null;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color, width: 1.6),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.28),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: 'Rajdhani',
+                    color: color,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                Text(
+                  desc!,
+                  style: const TextStyle(
+                    fontFamily: 'Rajdhani',
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

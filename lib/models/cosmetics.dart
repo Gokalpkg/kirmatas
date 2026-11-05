@@ -843,6 +843,38 @@ class BoostItem {
       icon: Icons.blur_on,
       color: Color(0xFFFF9800),
     ),
+    BoostItem(
+      id: 'risk_double',
+      name: 'Risk Bahsi',
+      description: 'Tüm tuğlaların canı 2 katına çıkar, ancak el sonu altın kazancı x4 olur!',
+      cost: 200,
+      icon: Icons.casino_rounded,
+      color: Color(0xFFFF1744),
+    ),
+    BoostItem(
+      id: 'overcharged_speed',
+      name: 'Lazer Top',
+      description: 'Top hızı +%40 artar ve palet delici lazer fırlatır!',
+      cost: 200,
+      icon: Icons.flash_on_rounded,
+      color: Color(0xFFFFD700),
+    ),
+    BoostItem(
+      id: 'pinata_heaven',
+      name: 'Piñata Cenneti',
+      description: 'Sahaya başlangıçta 2 ekstra Altın Piñata eklenir!',
+      cost: 200,
+      icon: Icons.card_giftcard_rounded,
+      color: Color(0xFF00E5FF),
+    ),
+    BoostItem(
+      id: 'golden_octopus',
+      name: 'Altın Ahtapot',
+      description: 'Düşen ilk topu otomatik kurtarır ve eldeki tüm altınları x5 yapar!',
+      cost: 1,
+      icon: Icons.bubble_chart_rounded,
+      color: Color(0xFFE040FB),
+    ),
   ];
 }
 
