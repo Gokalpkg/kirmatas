@@ -121,55 +121,112 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                if (_save.isAquariumUnlocked) ...[
-                  // Quest 1: Feed Fish
-                  _buildQuestCard(
-                    id: 'feed_fish',
-                    title: I18n.tr('quest_feed'),
-                    rewardText: '+60 ${I18n.tr('quest_gold')} + 1 ${I18n.tr('food_word')}',
-                    current: _save.questFishFed ? 1 : 0,
-                    target: 1,
-                    icon: Icons.set_meal,
-                    color: const Color(0xFF00E5FF),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_save.isAquariumUnlocked) ...[
+                          // Quest 1: Feed Fish
+                          _buildQuestCard(
+                            id: 'feed_fish',
+                            title: I18n.tr('quest_feed'),
+                            rewardText: '+60 ${I18n.tr('quest_gold')} + 1 ${I18n.tr('food_word')}',
+                            current: _save.questFishFed ? 1 : 0,
+                            target: 1,
+                            icon: Icons.set_meal,
+                            color: const Color(0xFF00E5FF),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+
+                        // Quest 2: Break 100 Bricks
+                        _buildQuestCard(
+                          id: 'break_bricks',
+                          title: I18n.tr('quest_bricks'),
+                          rewardText: '+120 ${I18n.tr('quest_gold')}',
+                          current: _save.questBricksBroken,
+                          target: 100,
+                          icon: Icons.view_module,
+                          color: const Color(0xFFFFB300),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Quest 3: Ad or Victory
+                        _buildQuestCard(
+                          id: 'ad_or_win',
+                          title: I18n.tr('quest_win'),
+                          rewardText: '+150 ${I18n.tr('quest_gold')}',
+                          current: _save.questAdOrWinDone ? 1 : 0,
+                          target: 1,
+                          icon: Icons.star,
+                          color: const Color(0xFFE040FB),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Quest: Manyetik Darbe
+                        _buildQuestCard(
+                          id: 'pulse_bricks',
+                          title: 'Manyetik Darbe: 25 Tuğla Kır',
+                          rewardText: '+140 ${I18n.tr('quest_gold')}',
+                          current: _save.questPulseBricks,
+                          target: 25,
+                          icon: Icons.grain_rounded,
+                          color: const Color(0xFF00E5FF),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Quest: Overdrive Lazer
+                        _buildQuestCard(
+                          id: 'overdrive_laser',
+                          title: 'Overdrive Lazer: 3 Ateşleme',
+                          rewardText: '+160 ${I18n.tr('quest_gold')}',
+                          current: _save.questOverdriveLasers,
+                          target: 3,
+                          icon: Icons.bolt_rounded,
+                          color: const Color(0xFFFFD700),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Quest: Altın Piñata
+                        _buildQuestCard(
+                          id: 'gold_pinata',
+                          title: 'Altın Piñata: 2 Kez Avla',
+                          rewardText: '+180 ${I18n.tr('quest_gold')}',
+                          current: _save.questGoldPinatas,
+                          target: 2,
+                          icon: Icons.card_giftcard_rounded,
+                          color: const Color(0xFFFFAB00),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Quest: Clutch Saves
+                        _buildQuestCard(
+                          id: 'clutch_saves',
+                          title: 'Kritik Kurtarış: 4 Clutch Save',
+                          rewardText: '+130 ${I18n.tr('quest_gold')}',
+                          current: _save.questClutchSaves,
+                          target: 4,
+                          icon: Icons.shield_rounded,
+                          color: const Color(0xFF00E676),
+                        ),
+
+                        if (!_save.isAquariumUnlocked) ...[
+                          const SizedBox(height: 10),
+                          _buildQuestCard(
+                            id: 'feed_fish',
+                            title: I18n.tr('quest_feed'),
+                            rewardText: '+60 ${I18n.tr('quest_gold')} + 1 ${I18n.tr('food_word')} • Bölüm 5',
+                            current: _save.questFishFed ? 1 : 0,
+                            target: 1,
+                            icon: Icons.set_meal,
+                            color: const Color(0xFF00E5FF),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                ],
-
-                // Quest 2: Break 100 Bricks
-                _buildQuestCard(
-                  id: 'break_bricks',
-                  title: I18n.tr('quest_bricks'),
-                  rewardText: '+120 ${I18n.tr('quest_gold')}',
-                  current: _save.questBricksBroken,
-                  target: 100,
-                  icon: Icons.view_module,
-                  color: const Color(0xFFFFB300),
                 ),
-                const SizedBox(height: 12),
-
-                // Quest 3: Ad or Victory
-                _buildQuestCard(
-                  id: 'ad_or_win',
-                  title: I18n.tr('quest_win'),
-                  rewardText: '+150 ${I18n.tr('quest_gold')}',
-                  current: _save.questAdOrWinDone ? 1 : 0,
-                  target: 1,
-                  icon: Icons.star,
-                  color: const Color(0xFFE040FB),
-                ),
-
-                if (!_save.isAquariumUnlocked) ...[
-                  const SizedBox(height: 12),
-                  _buildQuestCard(
-                    id: 'feed_fish',
-                    title: I18n.tr('quest_feed'),
-                    rewardText: '+60 ${I18n.tr('quest_gold')} + 1 ${I18n.tr('food_word')} • Bölüm 5',
-                    current: _save.questFishFed ? 1 : 0,
-                    target: 1,
-                    icon: Icons.set_meal,
-                    color: const Color(0xFF00E5FF),
-                  ),
-                ],
 
                 const SizedBox(height: 16),
                 KaunosPressGlow(

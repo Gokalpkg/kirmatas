@@ -348,6 +348,8 @@ class SaveManager extends ChangeNotifier {
   int aquariumMoss = 2;
   int aquariumKelp = 1;
   int aquariumAnubias = 1;
+  Set<String> unlockedDecorations = {};
+  Set<String> activeDecorations = {};
 
   // --- ECO-TANK PER-FISH FEEDING & 6-HOUR GOLD PAYOUT ---
   int fishFood = 5;
@@ -381,6 +383,10 @@ class SaveManager extends ChangeNotifier {
   int questZenSeconds = 0;
   int questShapesClears = 0;
   int questDescendRows = 0;
+  int questPulseBricks = 0;
+  int questOverdriveLasers = 0;
+  int questGoldPinatas = 0;
+  int questClutchSaves = 0;
   Set<String> claimedQuests = {};
 
   int lastAdWatchTime = 0;
@@ -1006,6 +1012,12 @@ class SaveManager extends ChangeNotifier {
     pendingCrate = null;
     selectedBoosts.clear();
     _cachedLeagueRivals.clear();
+    unlockedDecorations.clear();
+    activeDecorations.clear();
+    questPulseBricks = 0;
+    questOverdriveLasers = 0;
+    questGoldPinatas = 0;
+    questClutchSaves = 0;
   }
 
   Future<void> init() async {
@@ -1132,6 +1144,8 @@ class SaveManager extends ChangeNotifier {
     aquariumMoss = _prefs?.getInt('aquariumMoss') ?? 2;
     aquariumKelp = _prefs?.getInt('aquariumKelp') ?? 1;
     aquariumAnubias = _prefs?.getInt('aquariumAnubias') ?? 1;
+    unlockedDecorations = (_prefs?.getStringList('unlockedDecorations') ?? []).toSet();
+    activeDecorations = (_prefs?.getStringList('activeDecorations') ?? []).toSet();
 
     fishFood = _prefs?.getInt('fishFood') ?? 5;
     seenFirstShot = _prefs?.getBool('seenFirstShot') ?? false;
@@ -1179,6 +1193,10 @@ class SaveManager extends ChangeNotifier {
     questZenSeconds = _prefs?.getInt('questZenSeconds') ?? 0;
     questShapesClears = _prefs?.getInt('questShapesClears') ?? 0;
     questDescendRows = _prefs?.getInt('questDescendRows') ?? 0;
+    questPulseBricks = _prefs?.getInt('questPulseBricks') ?? 0;
+    questOverdriveLasers = _prefs?.getInt('questOverdriveLasers') ?? 0;
+    questGoldPinatas = _prefs?.getInt('questGoldPinatas') ?? 0;
+    questClutchSaves = _prefs?.getInt('questClutchSaves') ?? 0;
     claimedQuests = (_prefs?.getStringList('claimedQuests') ?? []).toSet();
     _checkAndResetQuests();
 
@@ -2539,6 +2557,10 @@ class SaveManager extends ChangeNotifier {
       questZenSeconds = 0;
       questShapesClears = 0;
       questDescendRows = 0;
+      questPulseBricks = 0;
+      questOverdriveLasers = 0;
+      questGoldPinatas = 0;
+      questClutchSaves = 0;
       claimedQuests = {};
       _prefs?.setString('currentQuestDate', today);
       _prefs?.setInt('questBricksBroken', 0);
@@ -2547,6 +2569,10 @@ class SaveManager extends ChangeNotifier {
       _prefs?.setInt('questZenSeconds', 0);
       _prefs?.setInt('questShapesClears', 0);
       _prefs?.setInt('questDescendRows', 0);
+      _prefs?.setInt('questPulseBricks', 0);
+      _prefs?.setInt('questOverdriveLasers', 0);
+      _prefs?.setInt('questGoldPinatas', 0);
+      _prefs?.setInt('questClutchSaves', 0);
       _prefs?.setStringList('claimedQuests', []);
     }
   }
@@ -2594,6 +2620,34 @@ class SaveManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  void recordPulseBrickBrokenQuest([int count = 1]) {
+    _checkAndResetQuests();
+    questPulseBricks += count;
+    _prefs?.setInt('questPulseBricks', questPulseBricks);
+    notifyListeners();
+  }
+
+  void recordOverdriveLaserQuest([int count = 1]) {
+    _checkAndResetQuests();
+    questOverdriveLasers += count;
+    _prefs?.setInt('questOverdriveLasers', questOverdriveLasers);
+    notifyListeners();
+  }
+
+  void recordGoldPinataQuest([int count = 1]) {
+    _checkAndResetQuests();
+    questGoldPinatas += count;
+    _prefs?.setInt('questGoldPinatas', questGoldPinatas);
+    notifyListeners();
+  }
+
+  void recordClutchSaveQuest([int count = 1]) {
+    _checkAndResetQuests();
+    questClutchSaves += count;
+    _prefs?.setInt('questClutchSaves', questClutchSaves);
+    notifyListeners();
+  }
+
   Future<int> claimQuestReward(String questId) async {
     _checkAndResetQuests();
     if (claimedQuests.contains(questId)) return 0;
@@ -2612,6 +2666,14 @@ class SaveManager extends ChangeNotifier {
       reward = 100;
     } else if (questId == 'descend_rows' && questDescendRows >= 10) {
       reward = 90;
+    } else if (questId == 'pulse_bricks' && questPulseBricks >= 25) {
+      reward = 140;
+    } else if (questId == 'overdrive_laser' && questOverdriveLasers >= 3) {
+      reward = 160;
+    } else if (questId == 'gold_pinata' && questGoldPinatas >= 2) {
+      reward = 180;
+    } else if (questId == 'clutch_saves' && questClutchSaves >= 4) {
+      reward = 130;
     }
 
     if (reward > 0) {
@@ -2636,10 +2698,44 @@ class SaveManager extends ChangeNotifier {
     if (!claimedQuests.contains('zen_time') && questZenSeconds >= 600) count++;
     if (!claimedQuests.contains('shapes_clear') && questShapesClears >= 1) count++;
     if (!claimedQuests.contains('descend_rows') && questDescendRows >= 10) count++;
+    if (!claimedQuests.contains('pulse_bricks') && questPulseBricks >= 25) count++;
+    if (!claimedQuests.contains('overdrive_laser') && questOverdriveLasers >= 3) count++;
+    if (!claimedQuests.contains('gold_pinata') && questGoldPinatas >= 2) count++;
+    if (!claimedQuests.contains('clutch_saves') && questClutchSaves >= 4) count++;
     return count;
   }
 
   bool get hasClaimableQuests => claimableQuestsCount > 0;
+
+  // --- AQUARIUM DECORATIONS ---
+  Future<bool> buyDecoration(String id, int cost) async {
+    if (unlockedDecorations.contains(id)) return true;
+    if (cost > 0 && gold < cost) return false;
+    if (cost > 0) {
+      final success = await spendGold(cost);
+      if (!success) return false;
+    }
+    unlockedDecorations.add(id);
+    activeDecorations.add(id);
+    await _prefs?.setStringList('unlockedDecorations', unlockedDecorations.toList());
+    await _prefs?.setStringList('activeDecorations', activeDecorations.toList());
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> toggleDecoration(String id) async {
+    if (!unlockedDecorations.contains(id)) return;
+    if (activeDecorations.contains(id)) {
+      activeDecorations.remove(id);
+    } else {
+      activeDecorations.add(id);
+    }
+    await _prefs?.setStringList('activeDecorations', activeDecorations.toList());
+    notifyListeners();
+  }
+
+  bool isDecorationActive(String id) =>
+      unlockedDecorations.contains(id) && activeDecorations.contains(id);
 
   Future<void> setSpeed(SpeedSetting s) async {
     speed = s;

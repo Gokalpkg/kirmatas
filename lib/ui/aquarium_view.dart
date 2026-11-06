@@ -4,6 +4,7 @@ import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
+import '../models/decoration_data.dart';
 import '../storage/save_manager.dart';
 import 'eco_tank_background.dart';
 import 'fish_hoard_chest.dart';
@@ -1397,7 +1398,11 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
               ),
               const SizedBox(width: 4),
 
-              // 3. KATALOG BUTONU
+              // 3. DEKORASYON BUTONU
+              _buildDecorationButton(),
+              const SizedBox(width: 4),
+
+              // 4. KATALOG BUTONU
               _buildCatalogButton(),
             ],
           ),
@@ -1502,6 +1507,285 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDecorationButton() {
+    return GestureDetector(
+      onTap: () {
+        AudioManager.instance.playSfx(GameSfx.click);
+        _showAquariumDecorationSheet();
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xD9101C2E),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0x66FFD54F),
+            width: 1.1,
+          ),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.auto_awesome_rounded,
+              color: Color(0xFFFFD54F),
+              size: 14,
+            ),
+            SizedBox(width: 4),
+            Text(
+              'Dekor',
+              style: TextStyle(
+                fontFamily: 'Rajdhani',
+                fontWeight: FontWeight.w900,
+                fontSize: 11,
+                letterSpacing: 0.3,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAquariumDecorationSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => ListenableBuilder(
+        listenable: _save,
+        builder: (context, _) {
+          final decorations = AquariumDecoration.all;
+          final unlockedCount = decorations.where((d) => _save.unlockedDecorations.contains(d.id)).length;
+
+          return Container(
+            height: MediaQuery.of(sheetCtx).size.height * 0.82,
+            decoration: const BoxDecoration(
+              color: Color(0xF2091724),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+              border: Border(top: BorderSide(color: Color(0xFFFFD54F), width: 1.5)),
+            ),
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4.5,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Header
+                  Row(
+                    children: [
+                      const Icon(Icons.auto_awesome_rounded, color: Color(0xFFFFD54F), size: 22),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Akvaryum Dekorasyonları',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF131D2A),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0x44FFD54F)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.savings_rounded, color: Color(0xFFFFD54F), size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${_save.gold}',
+                              style: const TextStyle(
+                                color: Color(0xFFFFD54F),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                        onPressed: () => Navigator.of(sheetCtx).pop(),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        'Koleksiyon: $unlockedCount / ${decorations.length}',
+                        style: const TextStyle(color: Colors.white60, fontSize: 11.5, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // List
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: decorations.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 10),
+                      itemBuilder: (context, idx) {
+                        final dec = decorations[idx];
+                        final isUnlocked = _save.unlockedDecorations.contains(dec.id);
+                        final isActive = _save.isDecorationActive(dec.id);
+                        final canAfford = _save.gold >= dec.cost;
+
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? dec.primaryColor.withValues(alpha: 0.12)
+                                : const Color(0xFF0F1A28),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isActive
+                                  ? dec.primaryColor
+                                  : (isUnlocked ? Colors.white24 : Colors.white12),
+                              width: isActive ? 1.5 : 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: dec.primaryColor.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: dec.primaryColor.withValues(alpha: 0.5)),
+                                ),
+                                child: Icon(dec.icon, color: dec.primaryColor, size: 24),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      dec.name,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 13.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      dec.description,
+                                      style: const TextStyle(
+                                        color: Colors.white60,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              if (isUnlocked)
+                                ElevatedButton(
+                                  onPressed: () {
+                                    AudioManager.instance.playSfx(GameSfx.click);
+                                    _save.toggleDecoration(dec.id);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isActive
+                                        ? const Color(0xFF00E676)
+                                        : const Color(0xFF263238),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      side: BorderSide(
+                                        color: isActive ? Colors.white : Colors.white24,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    isActive ? 'Aktif' : 'Sergile',
+                                    style: TextStyle(
+                                      color: isActive ? Colors.black : Colors.white70,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                )
+                              else
+                                ElevatedButton(
+                                  onPressed: canAfford
+                                      ? () async {
+                                          final ok = await _save.buyDecoration(dec.id, dec.cost);
+                                          if (ok) {
+                                            AudioManager.instance.playSfx(GameSfx.powerupBuff);
+                                          }
+                                        }
+                                      : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: canAfford
+                                        ? const Color(0xFFFFD54F)
+                                        : Colors.white12,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.monetization_on_rounded,
+                                        size: 13,
+                                        color: canAfford ? Colors.black : Colors.white38,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${dec.cost}',
+                                        style: TextStyle(
+                                          color: canAfford ? Colors.black : Colors.white38,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 11.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

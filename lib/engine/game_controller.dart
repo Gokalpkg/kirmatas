@@ -2611,6 +2611,7 @@ class GameController extends ChangeNotifier {
     );
     particles.spawnShockwave(paddle.centerX, paddle.y - 12.0, const Color(0xFFFFD700), maxRadius: 50.0);
     audio.playSfx(GameSfx.laser, playbackRate: 1.2);
+    save.recordOverdriveLaserQuest();
   }
 
   void _updatePulseWaves(double dt) {
@@ -2673,6 +2674,7 @@ class GameController extends ChangeNotifier {
       }
     }
 
+    ball.pulseBoostTimer = 6.0;
     particles.spawnBurst(ball.x, ball.y, const Color(0xFFFFD700), count: 12, speed: 120.0);
     particles.spawnShockwave(ball.x, ball.y, const Color(0xFFFFEA00), maxRadius: 45.0);
     audio.playSfx(GameSfx.cornerBoost, playbackRate: 1.35);
@@ -2722,6 +2724,9 @@ class GameController extends ChangeNotifier {
       isLarge: true,
       iconType: FloatingIconType.bolt,
     );
+    for (final b in balls) {
+      b.pulseBoostTimer = 6.0;
+    }
     audio.playSfx(GameSfx.laser, playbackRate: 1.2);
     audio.playSfx(GameSfx.ulti, playbackRate: 1.35);
   }
@@ -3558,6 +3563,7 @@ class GameController extends ChangeNotifier {
             !emergencyClutchUsedThisStage &&
             balls.length == 1) {
           emergencyClutchUsedThisStage = true;
+          save.recordClutchSaveQuest();
           ball.y = paddle.y - ball.radius - 2.0;
           ball.vy = -ball.vy.abs();
           particles.triggerShake(7.0, 0.32);
@@ -3570,6 +3576,7 @@ class GameController extends ChangeNotifier {
         final fishBuffs = FishSynergyBuffs.calculate(save);
         if (balls.length == 1 && !octopusClutchUsedThisStage && fishBuffs.hasOctopusClutchSave) {
           octopusClutchUsedThisStage = true;
+          save.recordClutchSaveQuest();
           ball.y = paddle.y - ball.radius - 4.0;
           ball.vy = -ball.vy.abs();
           particles.triggerShake(6.0, 0.32);
@@ -3835,6 +3842,7 @@ class GameController extends ChangeNotifier {
         final isClutchSave = isNearDeathBottom || (hitOffset.abs() >= 0.88);
         if (isClutchSave) {
           stats.score += 150;
+          save.recordClutchSaveQuest();
           _nearMissSlowLeft = 0.0; // ZERO-LAG: Asla yavaşlama yok, %100 akıcı fizik!
           if (_nearMissCooldown <= 0) {
             _nearMissCooldown = 0.8;
@@ -4618,6 +4626,12 @@ class GameController extends ChangeNotifier {
     }
 
     if (b.hp <= 0) {
+      if (ball != null && ball.isPulseBoosted) {
+        save.recordPulseBrickBrokenQuest();
+      }
+      if (b.isGoldPinata) {
+        save.recordGoldPinataQuest();
+      }
       _destroyBrick(b, 0, isEcho);
     } else {
       // Step 1: Hit white flash

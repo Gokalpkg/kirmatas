@@ -112,8 +112,10 @@ class Ball {
   bool isOverdriveHoming = false;
   double clutchOverchargeTimer = 0.0;
   int clutchPierceRemaining = 0;
+  double pulseBoostTimer = 0.0;
 
   bool get isClutchOvercharged => clutchOverchargeTimer > 0;
+  bool get isPulseBoosted => pulseBoostTimer > 0;
 
   Ball({
     required this.x,
@@ -191,6 +193,10 @@ class Ball {
         clutchOverchargeTimer = 0.0;
         clutchPierceRemaining = 0;
       }
+    }
+    if (pulseBoostTimer > 0) {
+      pulseBoostTimer -= dt;
+      if (pulseBoostTimer < 0) pulseBoostTimer = 0.0;
     }
 
     if (!isStuck) {

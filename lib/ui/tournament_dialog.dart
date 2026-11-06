@@ -8,6 +8,7 @@ import '../engine/cloud_social_manager.dart';
 import '../engine/play_games_manager.dart';
 import '../engine/i18n.dart';
 import '../models/game_state.dart';
+import '../models/tournament_data.dart';
 import '../storage/save_manager.dart';
 import 'kaunos_ui.dart';
 
@@ -53,10 +54,36 @@ class _TournamentDialogState extends State<TournamentDialog> {
   final ScrollController _leagueScrollController = ScrollController();
   bool _leagueScrolled = false;
 
+  int _leagueSubView = 0;
+  List<TournamentLeaderboardEntry> _globalLeaderboard = [];
+  bool _loadingGlobal = false;
+
+  void _loadGlobalLeaderboard() async {
+    if (_loadingGlobal) return;
+    setState(() => _loadingGlobal = true);
+    try {
+      final list = await TournamentLeaderboardService.instance.fetchGlobalLeaderboard(save: widget.save);
+      if (mounted) {
+        setState(() {
+          _globalLeaderboard = list;
+          _loadingGlobal = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _globalLeaderboard = TournamentLeaderboardService.instance.getOfflineFallbackLeaderboard(widget.save);
+          _loadingGlobal = false;
+        });
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _selectedTab = widget.initialTab;
+    _loadGlobalLeaderboard();
     CloudSocialManager.instance.syncProfileToCloud();
     CloudSocialManager.instance.refreshFriendsFromCloud().then((_) {
       if (mounted) setState(() {});
@@ -341,11 +368,128 @@ class _TournamentDialogState extends State<TournamentDialog> {
 
         SizedBox(height: isCompact ? 6 : 10),
 
-        Expanded(
-          child: ListView(
-            controller: _leagueScrollController,
-            padding: const EdgeInsets.only(bottom: 8),
-            children: [
+        // Sub-view toggle: [ LİG BÖLÜMÜ | KÜRESEL SIRALAMA ]
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20),
+          child: Container(
+            height: isCompact ? 32 : 36,
+            padding: const EdgeInsets.all(2.5),
+            decoration: BoxDecoration(
+              color: const Color(0xFF141A2B),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      if (_leagueSubView != 0) {
+                        setState(() => _leagueSubView = 0);
+                        AudioManager.instance.playSfx(GameSfx.click);
+                      }
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: _leagueSubView == 0
+                            ? tierColor.withValues(alpha: 0.25)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        border: _leagueSubView == 0
+                            ? Border.all(color: tierColor, width: 1.2)
+                            : null,
+                      ),
+                      alignment: Alignment.center,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            'LİG BÖLÜMÜ',
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: _leagueSubView == 0 ? Colors.white : Colors.white60,
+                              fontWeight: FontWeight.w900,
+                              fontSize: isCompact ? 10.5 : 11.5,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      if (_leagueSubView != 1) {
+                        setState(() => _leagueSubView = 1);
+                        AudioManager.instance.playSfx(GameSfx.click);
+                        if (_globalLeaderboard.isEmpty) _loadGlobalLeaderboard();
+                      }
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: _leagueSubView == 1
+                            ? const Color(0x3300E5FF)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        border: _leagueSubView == 1
+                            ? Border.all(color: const Color(0xFF00E5FF), width: 1.2)
+                            : null,
+                      ),
+                      alignment: Alignment.center,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.public_rounded,
+                                size: isCompact ? 12 : 14,
+                                color: _leagueSubView == 1
+                                    ? const Color(0xFF00E5FF)
+                                    : Colors.white60,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'KÜRESEL SIRALAMA',
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: _leagueSubView == 1
+                                      ? const Color(0xFF00E5FF)
+                                      : Colors.white60,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: isCompact ? 10.5 : 11.5,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        SizedBox(height: isCompact ? 6 : 10),
+
+        if (_leagueSubView == 0) ...[
+          Expanded(
+            child: ListView(
+              controller: _leagueScrollController,
+              padding: const EdgeInsets.only(bottom: 8),
+              children: [
               _buildTierBannerCard(save, tierColor, isCompact),
               SizedBox(height: isCompact ? 6 : 10),
 
@@ -787,7 +931,279 @@ class _TournamentDialogState extends State<TournamentDialog> {
             ),
           ),
         ),
+      ] else ...[
+        Expanded(
+          child: _buildGlobalLeaderboardContent(context, isCompact),
+        ),
       ],
+    ],
+  );
+}
+
+  Widget _buildGlobalLeaderboardContent(BuildContext context, bool isCompact) {
+    if (_loadingGlobal && _globalLeaderboard.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Color(0xFF00E5FF),
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Küresel skorlar senkronize ediliyor...',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final playerEntry = _globalLeaderboard.where((e) => e.isPlayer).firstOrNull;
+
+    return Column(
+      children: [
+        // Sync bar & player standing
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20, vertical: 6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF131828),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0x3300E5FF)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF00E676),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Canlı Firestore Sıralaması',
+                    style: TextStyle(
+                      color: Color(0xFF00E5FF),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                if (playerEntry != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0x3300E5FF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Sıran: #${playerEntry.rank}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 6),
+                IconButton(
+                  icon: _loadingGlobal
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 1.8, color: Colors.white70),
+                        )
+                      : const Icon(Icons.refresh_rounded, size: 18, color: Colors.white70),
+                  onPressed: _loadingGlobal ? null : _loadGlobalLeaderboard,
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Leaderboard List
+        Expanded(
+          child: ListView.builder(
+            padding: EdgeInsets.fromLTRB(
+              isCompact ? 16 : 20,
+              0,
+              isCompact ? 16 : 20,
+              16,
+            ),
+            itemCount: _globalLeaderboard.length,
+            itemBuilder: (context, index) {
+              final entry = _globalLeaderboard[index];
+              return _buildGlobalLeaderboardRow(entry, isCompact);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGlobalLeaderboardRow(TournamentLeaderboardEntry entry, bool isCompact) {
+    final isTop3 = entry.rank <= 3;
+    final Color rankColor;
+    final IconData rankIcon;
+    if (entry.rank == 1) {
+      rankColor = const Color(0xFFFFD700);
+      rankIcon = Icons.emoji_events_rounded;
+    } else if (entry.rank == 2) {
+      rankColor = const Color(0xFFCFD8DC);
+      rankIcon = Icons.workspace_premium_rounded;
+    } else if (entry.rank == 3) {
+      rankColor = const Color(0xFFCD7F32);
+      rankIcon = Icons.military_tech_rounded;
+    } else {
+      rankColor = Colors.white54;
+      rankIcon = Icons.tag_rounded;
+    }
+
+    final isMe = entry.isPlayer;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 10 : 12,
+        vertical: isCompact ? 8 : 10,
+      ),
+      decoration: BoxDecoration(
+        color: isMe
+            ? const Color(0xFF162A3A)
+            : (isTop3 ? const Color(0xFF151A2C) : const Color(0xFF101422)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isMe
+              ? const Color(0xFF00E5FF)
+              : (isTop3 ? rankColor.withValues(alpha: 0.45) : Colors.white10),
+          width: isMe ? 1.5 : 1.0,
+        ),
+        boxShadow: isMe
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF00E5FF).withValues(alpha: 0.2),
+                  blurRadius: 8,
+                ),
+              ]
+            : null,
+      ),
+      child: Row(
+        children: [
+          // Rank Badge
+          Container(
+            width: isCompact ? 28 : 34,
+            height: isCompact ? 28 : 34,
+            decoration: BoxDecoration(
+              color: isTop3 ? rankColor.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
+              shape: BoxShape.circle,
+              border: isTop3 ? Border.all(color: rankColor.withValues(alpha: 0.5)) : null,
+            ),
+            child: Center(
+              child: isTop3
+                  ? Icon(rankIcon, color: rankColor, size: isCompact ? 16 : 18)
+                  : Text(
+                      '${entry.rank}',
+                      style: TextStyle(
+                        color: rankColor,
+                        fontWeight: FontWeight.w900,
+                        fontSize: isCompact ? 11 : 12,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 10),
+
+          // Player Name & Tag
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        entry.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isMe ? const Color(0xFF00E5FF) : Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: isCompact ? 12 : 13,
+                        ),
+                      ),
+                    ),
+                    if (isMe) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00E5FF),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'SEN',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  entry.tag,
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Score
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _fmtNum(entry.weeklyScore),
+                style: TextStyle(
+                  color: isTop3 ? rankColor : Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: isCompact ? 13 : 14.5,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const Text(
+                'PUAN',
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -1744,6 +2160,58 @@ class _TournamentDialogState extends State<TournamentDialog> {
                   target: 10,
                   icon: Icons.keyboard_double_arrow_down_rounded,
                   color: const Color(0xFF9575CD),
+                  isCompact: isCompact,
+                ),
+                const SizedBox(height: 10),
+
+                // Quest 7: Manyetik Darbe
+                _buildQuestCard(
+                  id: 'pulse_bricks',
+                  title: 'Manyetik Darbe: 25 Tuğla Kır',
+                  rewardText: '+140 Altın',
+                  current: widget.save.questPulseBricks,
+                  target: 25,
+                  icon: Icons.grain_rounded,
+                  color: const Color(0xFF00E5FF),
+                  isCompact: isCompact,
+                ),
+                const SizedBox(height: 10),
+
+                // Quest 8: Overdrive Lazer
+                _buildQuestCard(
+                  id: 'overdrive_laser',
+                  title: 'Overdrive Lazer: 3 Ateşleme',
+                  rewardText: '+160 Altın',
+                  current: widget.save.questOverdriveLasers,
+                  target: 3,
+                  icon: Icons.bolt_rounded,
+                  color: const Color(0xFFFFD700),
+                  isCompact: isCompact,
+                ),
+                const SizedBox(height: 10),
+
+                // Quest 9: Altın Piñata
+                _buildQuestCard(
+                  id: 'gold_pinata',
+                  title: 'Altın Piñata: 2 Kez Avla',
+                  rewardText: '+180 Altın',
+                  current: widget.save.questGoldPinatas,
+                  target: 2,
+                  icon: Icons.card_giftcard_rounded,
+                  color: const Color(0xFFFFAB00),
+                  isCompact: isCompact,
+                ),
+                const SizedBox(height: 10),
+
+                // Quest 10: Clutch Saves
+                _buildQuestCard(
+                  id: 'clutch_saves',
+                  title: 'Kritik Kurtarış: 4 Clutch Save',
+                  rewardText: '+130 Altın',
+                  current: widget.save.questClutchSaves,
+                  target: 4,
+                  icon: Icons.shield_rounded,
+                  color: const Color(0xFF00E676),
                   isCompact: isCompact,
                 ),
                 const SizedBox(height: 12),

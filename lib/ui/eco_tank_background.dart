@@ -1323,6 +1323,9 @@ class _TankPainter extends CustomPainter {
     // 9. Substrate / Seabed (Deep sediment + warm contoured sand dune + crest highlight + river pebbles)
     _drawSubstrate(canvas);
 
+    // 9b. Visual Aquarium Decorations (Batık gemi, neon mercanlar, tapınak, anemon, atlantis obelisk)
+    _drawDecorations(canvas, time);
+
     // 10. Pellets an octopus has tucked underneath itself
     for (final f in simFish) {
       final gp = f.grabbedPellet;
@@ -1604,6 +1607,403 @@ class _TankPainter extends CustomPainter {
       canvas.drawCircle(const Offset(7, -2), 2.0, _eyeWhite);
       canvas.drawCircle(const Offset(8, -2), 0.9, _eyeBlack);
       canvas.scale(1.0 / fishScale, 1.0 / fishScale);
+    }
+
+    canvas.restore();
+  }
+
+  void _drawDecorations(Canvas canvas, double time) {
+    final save = SaveManager.instance;
+    if (save.isDecorationActive('shipwreck')) {
+      _drawShipwreck(canvas, time);
+    }
+    if (save.isDecorationActive('neon_corals')) {
+      _drawNeonCorals(canvas, time);
+    }
+    if (save.isDecorationActive('submerged_temple')) {
+      _drawSubmergedTemple(canvas, time);
+    }
+    if (save.isDecorationActive('glowing_anemone')) {
+      _drawGlowingAnemone(canvas, time);
+    }
+    if (save.isDecorationActive('atlantis_obelisk')) {
+      _drawAtlantisObelisk(canvas, time);
+    }
+    if (save.isDecorationActive('poseidon_trident')) {
+      _drawPoseidonTrident(canvas, time);
+    }
+    if (save.isDecorationActive('pearl_clam')) {
+      _drawPearlClam(canvas, time);
+    }
+    if (save.isDecorationActive('submarine_volcano')) {
+      _drawSubmarineVolcano(canvas, time);
+    }
+  }
+
+  void _drawShipwreck(Canvas canvas, double time) {
+    canvas.save();
+    canvas.translate(80, 726);
+    canvas.rotate(-0.20);
+    final hullPath = Path()
+      ..moveTo(-42, 10)
+      ..lineTo(48, 5)
+      ..quadraticBezierTo(54, -14, 46, -22)
+      ..lineTo(-36, -18)
+      ..quadraticBezierTo(-46, -6, -42, 10)
+      ..close();
+    final hullPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF5D4037), Color(0xFF3E2723), Color(0xFF271610)],
+      ).createShader(const Rect.fromLTWH(-46, -22, 100, 32));
+    canvas.drawPath(hullPath, hullPaint);
+
+    final plankPaint = Paint()
+      ..color = const Color(0xFF1E110C).withValues(alpha: 0.8)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(const Offset(-38, -10), const Offset(46, -6), plankPaint);
+    canvas.drawLine(const Offset(-40, -2), const Offset(47, 0), plankPaint);
+
+    final mastPaint = Paint()
+      ..color = const Color(0xFF4E342E)
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(const Offset(6, -20), const Offset(10, -56), mastPaint);
+    canvas.drawLine(const Offset(-12, -44), const Offset(26, -40), mastPaint..strokeWidth = 2.0);
+
+    final seaweedPaint = Paint()
+      ..color = const Color(0xFF1B5E20).withValues(alpha: 0.75)
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+    final weedPath = Path()
+      ..moveTo(10, -52)
+      ..quadraticBezierTo(14 + sin(time * 2.0) * 3, -35, 12, -22);
+    canvas.drawPath(weedPath, seaweedPaint);
+
+    final portholeGlow = Paint()
+      ..color = const Color(0xFFFFD54F).withValues(alpha: 0.4 + 0.2 * sin(time * 2.5));
+    canvas.drawCircle(const Offset(-15, -8), 4.5, portholeGlow);
+    canvas.drawCircle(const Offset(-15, -8), 2.2, Paint()..color = const Color(0xFFFFF9C4));
+    canvas.drawCircle(const Offset(10, -6), 4.0, portholeGlow);
+    canvas.drawCircle(const Offset(10, -6), 2.0, Paint()..color = const Color(0xFFFFF9C4));
+    canvas.restore();
+  }
+
+  void _drawNeonCorals(Canvas canvas, double time) {
+    canvas.save();
+    canvas.translate(325, 735);
+    final pulse = 0.5 + 0.5 * sin(time * 2.4);
+    final coralCyan = Color.lerp(const Color(0xFF00E5FF), const Color(0xFF80D8FF), pulse)!;
+    final coralPink = Color.lerp(const Color(0xFFFF4081), const Color(0xFFFF80AB), pulse)!;
+
+    final branchPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    branchPaint.color = coralPink.withValues(alpha: 0.85);
+    branchPaint.strokeWidth = 4.0;
+    canvas.drawLine(const Offset(0, 0), Offset(sin(time * 1.2) * 2, -24), branchPaint);
+
+    branchPaint.color = coralCyan.withValues(alpha: 0.9);
+    branchPaint.strokeWidth = 3.0;
+    canvas.drawLine(const Offset(-4, -12), Offset(-18 + sin(time * 1.5) * 2, -32), branchPaint);
+    canvas.drawLine(const Offset(-12, -22), const Offset(-24, -40), branchPaint..strokeWidth = 2.0);
+
+    branchPaint.color = const Color(0xFF00E676).withValues(alpha: 0.85);
+    canvas.drawLine(const Offset(3, -10), Offset(18 + cos(time * 1.4) * 2, -28), branchPaint..strokeWidth = 3.0);
+    canvas.drawLine(const Offset(12, -18), const Offset(25, -36), branchPaint..strokeWidth = 2.0);
+
+    final tipPaint = Paint()..style = PaintingStyle.fill;
+    tipPaint.color = coralCyan.withValues(alpha: 0.7 + 0.3 * pulse);
+    canvas.drawCircle(const Offset(-24, -40), 3.5, tipPaint);
+    tipPaint.color = coralPink.withValues(alpha: 0.7 + 0.3 * pulse);
+    canvas.drawCircle(Offset(sin(time * 1.2) * 2, -24), 3.8, tipPaint);
+    tipPaint.color = const Color(0xFF69F0AE).withValues(alpha: 0.7 + 0.3 * pulse);
+    canvas.drawCircle(const Offset(25, -36), 3.2, tipPaint);
+    canvas.restore();
+  }
+
+  void _drawSubmergedTemple(Canvas canvas, double time) {
+    canvas.save();
+    canvas.translate(165, 730);
+    final stoneBase = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF90A4AE), Color(0xFF546E7A), Color(0xFF37474F)],
+      ).createShader(const Rect.fromLTWH(-32, 0, 64, 14));
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(-32, 4, 64, 10), const Radius.circular(2)), stoneBase);
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(-28, -2, 56, 8), const Radius.circular(2)), stoneBase);
+
+    final colPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [Color(0xFFCFD8DC), Color(0xFFECEFF1), Color(0xFF90A4AE)],
+      ).createShader(const Rect.fromLTWH(-25, -36, 50, 36));
+    for (final cx in [-20.0, 0.0, 20.0]) {
+      canvas.drawRect(Rect.fromLTWH(cx - 3.5, -36, 7.0, 36), colPaint);
+      canvas.drawRect(Rect.fromLTWH(cx - 5.0, -38, 10.0, 3.0), stoneBase);
+      canvas.drawRect(Rect.fromLTWH(cx - 5.0, -2, 10.0, 3.0), stoneBase);
+    }
+
+    canvas.drawRect(const Rect.fromLTWH(-26, -42, 52, 5), stoneBase);
+    final pediment = Path()
+      ..moveTo(-27, -42)
+      ..lineTo(0, -56)
+      ..lineTo(27, -42)
+      ..close();
+    canvas.drawPath(pediment, stoneBase);
+
+    final glyphAlpha = 0.5 + 0.4 * sin(time * 2.0);
+    final glyphPaint = Paint()
+      ..color = const Color(0xFF00E5FF).withValues(alpha: glyphAlpha)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(const Offset(0, -47), 2.5, glyphPaint);
+    canvas.restore();
+  }
+
+  void _drawGlowingAnemone(Canvas canvas, double time) {
+    canvas.save();
+    canvas.translate(378, 738);
+    canvas.drawOval(
+      const Rect.fromLTWH(-12, -4, 24, 8),
+      Paint()..color = const Color(0xFF4A148C),
+    );
+
+    final tentaclePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 9; i++) {
+      final angle = (i / 8.0 - 0.5) * 1.5;
+      final sway = sin(time * 1.8 + i * 0.7) * 4.0;
+      final tColor = Color.lerp(
+        const Color(0xFFE040FB),
+        const Color(0xFF80D8FF),
+        (i / 8.0),
+      )!;
+      tentaclePaint.color = tColor.withValues(alpha: 0.85);
+      final tPath = Path()
+        ..moveTo((i - 4) * 2.4, -2)
+        ..quadraticBezierTo(
+          sin(angle) * 14 + sway,
+          -14,
+          sin(angle) * 22 + sway * 1.4,
+          -26,
+        );
+      canvas.drawPath(tPath, tentaclePaint);
+      canvas.drawCircle(
+        Offset(sin(angle) * 22 + sway * 1.4, -26),
+        1.8,
+        Paint()..color = const Color(0xFFEA80FC).withValues(alpha: 0.9),
+      );
+    }
+    canvas.restore();
+  }
+
+  void _drawAtlantisObelisk(Canvas canvas, double time) {
+    canvas.save();
+    final floatY = 660.0 + sin(time * 1.6) * 7.0;
+    canvas.translate(210, floatY);
+
+    final auraPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF00E5FF).withValues(alpha: 0.35 + 0.15 * sin(time * 3.0)),
+          const Color(0x0000E5FF),
+        ],
+      ).createShader(const Rect.fromLTWH(-32, -48, 64, 96));
+    canvas.drawCircle(Offset.zero, 34, auraPaint);
+
+    final crystalPath = Path()
+      ..moveTo(0, -36)
+      ..lineTo(11, -12)
+      ..lineTo(9, 28)
+      ..lineTo(0, 36)
+      ..lineTo(-9, 28)
+      ..lineTo(-11, -12)
+      ..close();
+    final crystalPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFE0F7FA), Color(0xFF00E5FF), Color(0xFF00838F)],
+      ).createShader(const Rect.fromLTWH(-12, -36, 24, 72));
+    canvas.drawPath(crystalPath, crystalPaint);
+
+    final facetPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawLine(const Offset(0, -36), const Offset(0, 36), facetPaint);
+
+    final ringAngle = time * 2.2;
+    final ringPaint = Paint()
+      ..color = const Color(0xFF64FFDA).withValues(alpha: 0.75)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(cos(ringAngle) * 4, sin(ringAngle) * 2),
+        width: 32,
+        height: 10,
+      ),
+      ringPaint,
+    );
+    canvas.restore();
+  }
+
+  void _drawPoseidonTrident(Canvas canvas, double time) {
+    canvas.save();
+    canvas.translate(130, 725);
+    canvas.rotate(-0.16);
+
+    // Golden shaft
+    final shaftPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFFFEA00), Color(0xFFFFB300), Color(0xFFFF8F00)],
+      ).createShader(const Rect.fromLTWH(-2, -50, 4, 60))
+      ..strokeWidth = 3.6
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(const Offset(0, 10), const Offset(0, -48), shaftPaint);
+
+    // Cross guard
+    final guardPaint = Paint()
+      ..color = const Color(0xFFFFD54F)
+      ..strokeWidth = 2.8;
+    canvas.drawLine(const Offset(-10, -32), const Offset(10, -32), guardPaint);
+
+    // Trident prongs
+    final prongPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFFFFEA00);
+
+    // Left curved prong
+    final leftPath = Path()
+      ..moveTo(-8, -32)
+      ..quadraticBezierTo(-14, -42, -9, -58);
+    canvas.drawPath(leftPath, prongPaint);
+
+    // Center straight spear tip
+    canvas.drawLine(const Offset(0, -32), const Offset(0, -64), prongPaint..strokeWidth = 3.0);
+
+    // Right curved prong
+    final rightPath = Path()
+      ..moveTo(8, -32)
+      ..quadraticBezierTo(14, -42, 9, -58);
+    canvas.drawPath(rightPath, prongPaint);
+
+    // Energy spark aura
+    final sparkPulse = 0.5 + 0.5 * sin(time * 3.5);
+    final auraPaint = Paint()
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.35 * sparkPulse)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    canvas.drawCircle(const Offset(0, -64), 7.0, auraPaint);
+    canvas.drawCircle(const Offset(0, -64), 2.5, Paint()..color = const Color(0xFFE0F7FA));
+
+    canvas.restore();
+  }
+
+  void _drawPearlClam(Canvas canvas, double time) {
+    canvas.save();
+    canvas.translate(275, 742);
+
+    final openRatio = 0.25 + 0.20 * sin(time * 1.5).abs();
+
+    // Bottom shell
+    final bottomPath = Path()
+      ..moveTo(-18, 0)
+      ..quadraticBezierTo(0, 12, 18, 0)
+      ..quadraticBezierTo(0, -4, -18, 0)
+      ..close();
+    final shellPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFBA68C8), Color(0xFF7B1FA2), Color(0xFF4A148C)],
+      ).createShader(const Rect.fromLTWH(-18, -16, 36, 28));
+    canvas.drawPath(bottomPath, shellPaint);
+
+    // Glowing pearl in center
+    final pearlPulse = 0.6 + 0.4 * sin(time * 2.5);
+    final glowPaint = Paint()
+      ..color = const Color(0xFFE040FB).withValues(alpha: 0.35 * pearlPulse)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    canvas.drawCircle(const Offset(0, 1), 8.0, glowPaint);
+
+    final pearlPaint = Paint()
+      ..shader = const RadialGradient(
+        colors: [Color(0xFFFFFFFF), Color(0xFFE1BEE7), Color(0xFF80DEEA)],
+      ).createShader(const Rect.fromLTWH(-4, -3, 8, 8));
+    canvas.drawCircle(const Offset(0, 1), 4.5, pearlPaint);
+
+    // Top shell opening upwards
+    final topAngle = -openRatio;
+    canvas.save();
+    canvas.rotate(topAngle);
+    final topPath = Path()
+      ..moveTo(-18, 0)
+      ..quadraticBezierTo(0, -14, 18, 0)
+      ..quadraticBezierTo(0, -2, -18, 0)
+      ..close();
+    canvas.drawPath(topPath, shellPaint);
+
+    // Shell ridges
+    final ridgePaint = Paint()
+      ..color = const Color(0xFFE1BEE7).withValues(alpha: 0.6)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(const Offset(0, 0), const Offset(0, -12), ridgePaint);
+    canvas.drawLine(const Offset(-8, 0), const Offset(-8, -10), ridgePaint);
+    canvas.drawLine(const Offset(8, 0), const Offset(8, -10), ridgePaint);
+    canvas.restore();
+
+    canvas.restore();
+  }
+
+  void _drawSubmarineVolcano(Canvas canvas, double time) {
+    canvas.save();
+    canvas.translate(35, 746);
+
+    // Basalt volcanic cone
+    final conePath = Path()
+      ..moveTo(-26, 10)
+      ..lineTo(-8, -26)
+      ..lineTo(8, -26)
+      ..lineTo(26, 10)
+      ..close();
+    final basaltPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF37474F), Color(0xFF263238), Color(0xFF101416)],
+      ).createShader(const Rect.fromLTWH(-26, -26, 52, 36));
+    canvas.drawPath(conePath, basaltPaint);
+
+    // Magma fissure inside vent
+    final ventPaint = Paint()
+      ..shader = const RadialGradient(
+        colors: [Color(0xFFFFEA00), Color(0xFFFF3D00), Color(0xFFD50000)],
+      ).createShader(const Rect.fromLTWH(-8, -28, 16, 6));
+    canvas.drawOval(const Rect.fromLTWH(-8, -28, 16, 5), ventPaint);
+
+    // Rising neon thermal bubbles / embers
+    final emberPaint = Paint()..style = PaintingStyle.fill;
+    for (int p = 0; p < 4; p++) {
+      final tOffset = (time * 1.8 + p * 0.7) % 2.0;
+      final y = -28.0 - tOffset * 22.0;
+      final x = sin(time * 3.0 + p) * 5.0;
+      final alpha = (1.0 - tOffset / 2.0).clamp(0.0, 1.0);
+      emberPaint.color = (p % 2 == 0 ? const Color(0xFFFF9100) : const Color(0xFFFF1744))
+          .withValues(alpha: alpha * 0.85);
+      canvas.drawCircle(Offset(x, y), 1.8 + (1.0 - tOffset / 2.0) * 1.5, emberPaint);
     }
 
     canvas.restore();
