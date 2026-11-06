@@ -1656,7 +1656,7 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                         final dec = decorations[idx];
                         final isUnlocked = _save.unlockedDecorations.contains(dec.id);
                         final isActive = _save.isDecorationActive(dec.id);
-                        final canAfford = _save.gold >= dec.cost;
+                        final canAfford = dec.isPearlCost ? _save.pearls >= dec.cost : _save.gold >= dec.cost;
 
                         return Container(
                           padding: const EdgeInsets.all(12),
@@ -1740,7 +1740,7 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                                 ElevatedButton(
                                   onPressed: canAfford
                                       ? () async {
-                                          final ok = await _save.buyDecoration(dec.id, dec.cost);
+                                          final ok = await _save.buyDecoration(dec.id, dec.cost, isPearlCost: dec.isPearlCost);
                                           if (ok) {
                                             AudioManager.instance.playSfx(GameSfx.powerupBuff);
                                           }
@@ -1748,7 +1748,7 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                                       : null,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: canAfford
-                                        ? const Color(0xFFFFD54F)
+                                        ? (dec.isPearlCost ? const Color(0xFFEA80FC) : const Color(0xFFFFD54F))
                                         : Colors.white12,
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                     shape: RoundedRectangleBorder(
@@ -1759,7 +1759,7 @@ class _AquariumViewState extends State<AquariumView> with TickerProviderStateMix
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        Icons.monetization_on_rounded,
+                                        dec.isPearlCost ? Icons.bubble_chart_rounded : Icons.monetization_on_rounded,
                                         size: 13,
                                         color: canAfford ? Colors.black : Colors.white38,
                                       ),

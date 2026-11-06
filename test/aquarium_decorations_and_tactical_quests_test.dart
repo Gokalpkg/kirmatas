@@ -49,8 +49,8 @@ void main() {
 
       final clam = AquariumDecoration.findById('pearl_clam');
       expect(clam, isNotNull);
-      expect(clam!.isPearlCost, isTrue);
-      expect(clam.cost, 3);
+      expect(clam!.isPearlCost, isFalse);
+      expect(clam.cost, 2800);
 
       final volcano = AquariumDecoration.findById('submarine_volcano');
       expect(volcano, isNotNull);

@@ -2708,12 +2708,16 @@ class SaveManager extends ChangeNotifier {
   bool get hasClaimableQuests => claimableQuestsCount > 0;
 
   // --- AQUARIUM DECORATIONS ---
-  Future<bool> buyDecoration(String id, int cost) async {
+  Future<bool> buyDecoration(String id, int cost, {bool isPearlCost = false}) async {
     if (unlockedDecorations.contains(id)) return true;
-    if (cost > 0 && gold < cost) return false;
     if (cost > 0) {
-      final success = await spendGold(cost);
-      if (!success) return false;
+      if (isPearlCost) {
+        if (!spendPearls(cost)) return false;
+      } else {
+        if (gold < cost) return false;
+        final success = await spendGold(cost);
+        if (!success) return false;
+      }
     }
     unlockedDecorations.add(id);
     activeDecorations.add(id);
