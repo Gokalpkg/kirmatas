@@ -21,37 +21,48 @@ import 'ui/achievement_toast_overlay.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase & Crashlytics crash handlers
+  // Set system UI to immersive sticky mode immediately
+  unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky));
+  unawaited(SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]));
+
+  // Only await local fast preferences before rendering first frame
+  await SaveManager.instance.init();
+  SaveManager.instance.noteAppOpen();
+
+  MainMenuScreen.suppressBootPopups = false;
+
+  // Render app immediately so cold-boot never freezes on OS launch screen
+  runApp(const KirmatasApp());
+
+  // Initialize heavy subsystems asynchronously in background during Splash
+  unawaited(_initBackgroundServices());
+}
+
+Future<void> _initBackgroundServices() async {
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp().timeout(const Duration(milliseconds: 2500));
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
     PlatformDispatcher.instance.onError = (error, stack) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       return true;
     };
-    await AnalyticsManager.instance.init();
+    unawaited(AnalyticsManager.instance.init());
   } catch (_) {}
 
-  // Set system UI to immersive sticky mode
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-
-  // Initialize offline storage, audio, ads and image assets
-  await SaveManager.instance.init();
-  SaveManager.instance.noteAppOpen();
-  await AudioManager.instance.init();
-  await AssetCache.instance.init();
-  await AdManager.instance.init();
+  unawaited(AssetCache.instance.init());
+  unawaited(AudioManager.instance.init());
+  unawaited(AdManager.instance.init());
   unawaited(RemoveAdsBilling.instance.init());
-  unawaited(PlayGamesManager.instance.init());
   unawaited(CloudSocialManager.instance.syncProfileToCloud());
   unawaited(CloudSocialManager.instance.refreshFriendsFromCloud());
   unawaited(CloudSocialManager.instance.fetchWeeklyLeagueRivals());
-  unawaited(NotificationService.instance.initialize());
 
-  MainMenuScreen.suppressBootPopups = false;
-
-  runApp(const KirmatasApp());
+  // Defer intrusive system permission & sign-in prompts on first-ever launch
+  // until the player has completed at least 1 game.
+  if (SaveManager.instance.gamesPlayed > 0 || SaveManager.instance.maxLevelUnlocked > 1) {
+    unawaited(PlayGamesManager.instance.init());
+    unawaited(NotificationService.instance.initialize());
+  }
 }
 
 class KirmatasApp extends StatefulWidget {

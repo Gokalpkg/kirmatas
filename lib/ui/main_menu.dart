@@ -460,8 +460,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
   }
 
   void _launchGame(GameMode mode, {bool isResume = false, int? explicitStartLevel}) {
-    AudioManager.instance.isBgmAllowed = false;
-    AudioManager.instance.pauseBgm();
+    AudioManager.instance.isBgmAllowed = true;
+    if (SaveManager.instance.bgmVolume > 0) {
+      AudioManager.instance.resumeBgm();
+    }
     final media = MediaQuery.sizeOf(context);
     setState(() {
       _activeGame?.statusVersion.removeListener(_onActiveGameTick);
@@ -477,8 +479,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
   }
 
   void _launchDailyBlitz() {
-    AudioManager.instance.isBgmAllowed = false;
-    AudioManager.instance.pauseBgm();
+    AudioManager.instance.isBgmAllowed = true;
+    if (SaveManager.instance.bgmVolume > 0) {
+      AudioManager.instance.resumeBgm();
+    }
     final media = MediaQuery.sizeOf(context);
     setState(() {
       _activeGame?.statusVersion.removeListener(_onActiveGameTick);

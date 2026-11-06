@@ -123,7 +123,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '+$reward ${I18n.tr('quest_gold')}',
+            '+$reward ${I18n.tr('gold')}',
             style: const TextStyle(
               fontWeight: FontWeight.w900,
               color: Color(0xFFFFD54F),
@@ -201,7 +201,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                     child: _buildTabButton(
                       index: 0,
                       icon: Icons.military_tech_rounded,
-                      label: 'HAFTALIK LİG',
+                      label: I18n.bi('HAFTALIK LİG', 'WEEKLY LEAGUE'),
                       activeColor: tierColor,
                       isCompact: isCompact,
                     ),
@@ -211,7 +211,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                     child: _buildTabButton(
                       index: 1,
                       icon: Icons.assignment_turned_in_rounded,
-                      label: 'GÜNLÜK GÖREVLER',
+                      label: I18n.bi('GÜNLÜK GÖREVLER', 'DAILY QUESTS'),
                       activeColor: const Color(0xFFFFD54F),
                       isCompact: isCompact,
                     ),
@@ -221,7 +221,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                     child: _buildTabButton(
                       index: 2,
                       icon: Icons.people_alt_rounded,
-                      label: 'ARKADAŞLAR',
+                      label: I18n.bi('ARKADAŞLAR', 'FRIENDS'),
                       activeColor: const Color(0xFF00E5FF),
                       isCompact: isCompact,
                     ),
@@ -335,7 +335,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'HAFTALIK LİG ŞAMPİYONASI',
+                      I18n.bi('HAFTALIK LİG ŞAMPİYONASI', 'WEEKLY LEAGUE CHAMPIONSHIP'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -347,7 +347,10 @@ class _TournamentDialogState extends State<TournamentDialog> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '15 Kişilik Lig Grubu  •  Bitişe ${_fmtRemaining(remaining)}',
+                      I18n.bi(
+                        '15 Kişilik Lig Grubu  •  Bitişe ${_fmtRemaining(remaining)}',
+                        '15-Player Division  •  Ends in ${_fmtRemaining(remaining)}',
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -406,7 +409,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: Text(
-                            'LİG BÖLÜMÜ',
+                            I18n.bi('LİG BÖLÜMÜ', 'DIVISION'),
                             maxLines: 1,
                             style: TextStyle(
                               color: _leagueSubView == 0 ? Colors.white : Colors.white60,
@@ -459,7 +462,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                'KÜRESEL SIRALAMA',
+                                I18n.bi('KÜRESEL SIRALAMA', 'GLOBAL TOP 50'),
                                 maxLines: 1,
                                 style: TextStyle(
                                   color: _leagueSubView == 1
@@ -911,7 +914,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                 size: isCompact ? 20 : 22,
               ),
               label: Text(
-                'MÜCADELEYE KATIL',
+                I18n.bi('MÜCADELEYE KATIL', 'JOIN TOURNAMENT'),
                 style: TextStyle(
                   color: Colors.black,
                   fontWeight: FontWeight.w900,
@@ -942,11 +945,11 @@ class _TournamentDialogState extends State<TournamentDialog> {
 
   Widget _buildGlobalLeaderboardContent(BuildContext context, bool isCompact) {
     if (_loadingGlobal && _globalLeaderboard.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
+            const SizedBox(
               width: 32,
               height: 32,
               child: CircularProgressIndicator(
@@ -954,10 +957,10 @@ class _TournamentDialogState extends State<TournamentDialog> {
                 color: Color(0xFF00E5FF),
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Text(
-              'Küresel skorlar senkronize ediliyor...',
-              style: TextStyle(color: Colors.white70, fontSize: 12),
+              I18n.bi('Küresel skorlar senkronize ediliyor...', 'Syncing global scores...'),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ],
         ),
@@ -965,6 +968,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
     }
 
     final playerEntry = _globalLeaderboard.where((e) => e.isPlayer).firstOrNull;
+    final isLive = TournamentLeaderboardService.instance.lastFetchWasLiveCloud;
 
     return Column(
       children: [
@@ -976,24 +980,28 @@ class _TournamentDialogState extends State<TournamentDialog> {
             decoration: BoxDecoration(
               color: const Color(0xFF131828),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0x3300E5FF)),
+              border: Border.all(
+                color: isLive ? const Color(0x3300E5FF) : const Color(0x33FFB300),
+              ),
             ),
             child: Row(
               children: [
                 Container(
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF00E676),
+                  decoration: BoxDecoration(
+                    color: isLive ? const Color(0xFF00E676) : const Color(0xFFFFB300),
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Canlı Firestore Sıralaması',
+                    isLive
+                        ? I18n.bi('Canlı Firestore Sıralaması', 'Live Cloud Leaderboard')
+                        : I18n.bi('Çevrimdışı Sıralama (Senkron Bekleniyor)', 'Offline Standings (Waiting for Sync)'),
                     style: TextStyle(
-                      color: Color(0xFF00E5FF),
+                      color: isLive ? const Color(0xFF00E5FF) : const Color(0xFFFFD54F),
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
                     ),
@@ -1007,7 +1015,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'Sıran: #${playerEntry.rank}',
+                      I18n.bi('Sıran: #${playerEntry.rank}', 'Rank: #${playerEntry.rank}'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
@@ -1153,9 +1161,9 @@ class _TournamentDialogState extends State<TournamentDialog> {
                           color: const Color(0xFF00E5FF),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text(
-                          'SEN',
-                          style: TextStyle(
+                        child: Text(
+                          I18n.bi('SEN', 'YOU'),
+                          style: const TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.w900,
                             fontSize: 9,
@@ -1192,9 +1200,9 @@ class _TournamentDialogState extends State<TournamentDialog> {
                   letterSpacing: 0.5,
                 ),
               ),
-              const Text(
-                'PUAN',
-                style: TextStyle(
+              Text(
+                I18n.bi('PUAN', 'PTS'),
+                style: const TextStyle(
                   color: Colors.white38,
                   fontSize: 8.5,
                   fontWeight: FontWeight.w800,
@@ -1960,7 +1968,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'GÜNLÜK GÖREVLER',
+                      I18n.tr('quests_title'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -1972,7 +1980,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Görevleri Tamamla • Altın & Yem Kazan',
+                      I18n.bi('Görevleri Tamamla • Altın & Yem Kazan', 'Complete Quests • Earn Gold & Fish Food'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -2030,9 +2038,9 @@ class _TournamentDialogState extends State<TournamentDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'GÜNÜN OPERASYONU',
-                              style: TextStyle(
+                            Text(
+                              I18n.bi('GÜNÜN OPERASYONU', 'DAILY OPERATION'),
+                              style: const TextStyle(
                                 color: Color(0xFFFFB74D),
                                 fontWeight: FontWeight.w900,
                                 fontSize: 12.5,
@@ -2042,8 +2050,8 @@ class _TournamentDialogState extends State<TournamentDialog> {
                             const SizedBox(height: 2),
                             Text(
                               widget.save.isDailyBlitzCompletedToday
-                                  ? 'Bugünkü ödül alındı!'
-                                  : 'Özel günlük bölüm: 250G + 3İ + 1 Parça',
+                                  ? I18n.bi('Bugünkü ödül alındı!', 'Today\'s reward claimed!')
+                                  : I18n.bi('Özel günlük bölüm: 250G + 3İ + 1 Parça', 'Special daily stage: 250G + 3P + 1 Shard'),
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 11,
@@ -2070,8 +2078,8 @@ class _TournamentDialogState extends State<TournamentDialog> {
                         ),
                         child: Text(
                           widget.save.isDailyBlitzCompletedToday
-                              ? 'TAMAM'
-                              : '250G + 3İ',
+                              ? I18n.bi('TAMAM', 'DONE')
+                              : '250G + 3P',
                           style: TextStyle(
                             color: widget.save.isDailyBlitzCompletedToday
                                 ? const Color(0xFF00E676)
@@ -2090,7 +2098,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                 _buildQuestCard(
                   id: 'feed_fish',
                   title: I18n.tr('quest_feed'),
-                  rewardText: '+60 Altın  + 1 ${I18n.tr('food_word')}',
+                  rewardText: '+60 ${I18n.tr('gold')}  + 1 ${I18n.tr('food_word')}',
                   current: widget.save.questFishFed ? 1 : 0,
                   target: 1,
                   icon: Icons.set_meal_rounded,
@@ -2103,7 +2111,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                 _buildQuestCard(
                   id: 'break_bricks',
                   title: I18n.tr('quest_bricks'),
-                  rewardText: '+120 Altın',
+                  rewardText: '+120 ${I18n.tr('gold')}',
                   current: widget.save.questBricksBroken,
                   target: 100,
                   icon: Icons.view_module_rounded,
@@ -2116,7 +2124,7 @@ class _TournamentDialogState extends State<TournamentDialog> {
                 _buildQuestCard(
                   id: 'ad_or_win',
                   title: I18n.tr('quest_win'),
-                  rewardText: '+150 Altın',
+                  rewardText: '+150 ${I18n.tr('gold')}',
                   current: widget.save.questAdOrWinDone ? 1 : 0,
                   target: 1,
                   icon: Icons.star_rounded,
@@ -2128,8 +2136,8 @@ class _TournamentDialogState extends State<TournamentDialog> {
                 // Quest 4: Zen time
                 _buildQuestCard(
                   id: 'zen_time',
-                  title: 'Zen: 10 Dakika Huzur',
-                  rewardText: '+80 Altın',
+                  title: I18n.bi('Zen: 10 Dakika Huzur', 'Zen: 10 Minutes of Calm'),
+                  rewardText: '+80 ${I18n.tr('gold')}',
                   current: widget.save.questZenSeconds ~/ 60,
                   target: 10,
                   icon: Icons.spa_rounded,
@@ -2141,8 +2149,8 @@ class _TournamentDialogState extends State<TournamentDialog> {
                 // Quest 5: Shapes clear
                 _buildQuestCard(
                   id: 'shapes_clear',
-                  title: 'Şekiller: 1 Figür Tamamla',
-                  rewardText: '+100 Altın',
+                  title: I18n.bi('Şekiller: 1 Figür Tamamla', 'Visual: Clear 1 Pixel Art Statue'),
+                  rewardText: '+100 ${I18n.tr('gold')}',
                   current: widget.save.questShapesClears,
                   target: 1,
                   icon: Icons.palette_rounded,
@@ -2154,8 +2162,8 @@ class _TournamentDialogState extends State<TournamentDialog> {
                 // Quest 6: Descend survival rows
                 _buildQuestCard(
                   id: 'descend_rows',
-                  title: 'Descend: 10 Sıra Hayatta Kal',
-                  rewardText: '+90 Altın',
+                  title: I18n.bi('Descend: 10 Sıra Hayatta Kal', 'Descend: Survive 10 Falling Rows'),
+                  rewardText: '+90 ${I18n.tr('gold')}',
                   current: widget.save.questDescendRows,
                   target: 10,
                   icon: Icons.keyboard_double_arrow_down_rounded,
@@ -2167,8 +2175,8 @@ class _TournamentDialogState extends State<TournamentDialog> {
                 // Quest 7: Manyetik Darbe
                 _buildQuestCard(
                   id: 'pulse_bricks',
-                  title: 'Manyetik Darbe: 25 Tuğla Kır',
-                  rewardText: '+140 Altın',
+                  title: I18n.bi('Manyetik Darbe: 25 Tuğla Kır', 'Magnetic Pulse: Break 25 Bricks'),
+                  rewardText: '+140 ${I18n.tr('gold')}',
                   current: widget.save.questPulseBricks,
                   target: 25,
                   icon: Icons.grain_rounded,
@@ -2180,8 +2188,8 @@ class _TournamentDialogState extends State<TournamentDialog> {
                 // Quest 8: Overdrive Lazer
                 _buildQuestCard(
                   id: 'overdrive_laser',
-                  title: 'Overdrive Lazer: 3 Ateşleme',
-                  rewardText: '+160 Altın',
+                  title: I18n.bi('Overdrive Lazer: 3 Ateşleme', 'Overdrive Laser: Fire 3 Times'),
+                  rewardText: '+160 ${I18n.tr('gold')}',
                   current: widget.save.questOverdriveLasers,
                   target: 3,
                   icon: Icons.bolt_rounded,
@@ -2193,8 +2201,8 @@ class _TournamentDialogState extends State<TournamentDialog> {
                 // Quest 9: Altın Piñata
                 _buildQuestCard(
                   id: 'gold_pinata',
-                  title: 'Altın Piñata: 2 Kez Avla',
-                  rewardText: '+180 Altın',
+                  title: I18n.bi('Altın Piñata: 2 Kez Avla', 'Gold Piñata: Smash 2 Times'),
+                  rewardText: '+180 ${I18n.tr('gold')}',
                   current: widget.save.questGoldPinatas,
                   target: 2,
                   icon: Icons.card_giftcard_rounded,
@@ -2206,8 +2214,8 @@ class _TournamentDialogState extends State<TournamentDialog> {
                 // Quest 10: Clutch Saves
                 _buildQuestCard(
                   id: 'clutch_saves',
-                  title: 'Kritik Kurtarış: 4 Clutch Save',
-                  rewardText: '+130 Altın',
+                  title: I18n.bi('Kritik Kurtarış: 4 Clutch Save', 'Clutch Save: 4 Last-Second Saves'),
+                  rewardText: '+130 ${I18n.tr('gold')}',
                   current: widget.save.questClutchSaves,
                   target: 4,
                   icon: Icons.shield_rounded,

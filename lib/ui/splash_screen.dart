@@ -40,8 +40,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _animController.forward();
 
-    // Auto navigate after delay
-    Future.delayed(const Duration(milliseconds: 2600), () {
+    // Auto navigate after snappy delay
+    Future.delayed(const Duration(milliseconds: 1200), () {
       _goToMenu();
     });
   }
@@ -51,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     _navigated = true;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 550),
+        transitionDuration: const Duration(milliseconds: 300),
         pageBuilder: (context, anim, secAnim) => const MainMenuScreen(),
         transitionsBuilder: (context, animation, secAnim, child) {
           return FadeTransition(opacity: animation, child: child);
@@ -136,9 +136,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         final pulse = (sin(_animController.value * pi * 3) * 0.3 + 0.7).clamp(0.0, 1.0);
                         return Opacity(
                           opacity: _fadeAnimation.value * pulse,
-                          child: const Text(
-                            'S U N A R',
-                            style: TextStyle(
+                          child: Text(
+                            I18n.bi('S U N A R', 'P R E S E N T S'),
+                            style: const TextStyle(
                               color: Color(0xFFFFD54F),
                               fontSize: 13,
                               fontWeight: FontWeight.w900,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../engine/audio_manager.dart';
+import '../engine/i18n.dart';
 import 'kaunos_ui.dart';
 
 class MainMenuTourOverlay extends StatefulWidget {
@@ -175,10 +176,13 @@ class _MainMenuTourOverlayState extends State<MainMenuTourOverlay>
                 ),
               ),
               const SizedBox(height: 18),
-              const Text(
-                'KIRMATAS DÜNYASINA\nHOŞ GELDİN!',
+              Text(
+                I18n.bi(
+                  'KIRMATAS DÜNYASINA\nHOŞ GELDİN!',
+                  'WELCOME TO\nBRICK BREAKER AQUARIUM!',
+                ),
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontFamily: 'Rajdhani',
                   fontSize: 22,
@@ -189,7 +193,10 @@ class _MainMenuTourOverlayState extends State<MainMenuTourOverlay>
               ),
               const SizedBox(height: 10),
               Text(
-                'Ekrandaki sekmeler kafanı karıştırmasın! 1 dakikalık hızlı tur ile oyunun 4 temel gücünü keşfedelim.',
+                I18n.bi(
+                  'Ekrandaki sekmeler kafanı karıştırmasın! 1 dakikalık hızlı tur ile oyunun 4 temel gücünü keşfedelim.',
+                  'Let\'s take a quick 1-minute tour to discover the 4 core pillars of the game.',
+                ),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.78),
@@ -220,15 +227,15 @@ class _MainMenuTourOverlayState extends State<MainMenuTourOverlay>
                       ),
                     ],
                   ),
-                  child: const Center(
+                  child: Center(
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.play_arrow_rounded, color: Color(0xFF1B1605), size: 22),
-                        SizedBox(width: 6),
+                        const Icon(Icons.play_arrow_rounded, color: Color(0xFF1B1605), size: 22),
+                        const SizedBox(width: 6),
                         Text(
-                          'HIZLI TURU BAŞLAT',
-                          style: TextStyle(
+                          I18n.bi('HIZLI TURU BAŞLAT', 'START QUICK TOUR'),
+                          style: const TextStyle(
                             color: Color(0xFF1B1605),
                             fontFamily: 'Rajdhani',
                             fontWeight: FontWeight.w900,
@@ -245,7 +252,7 @@ class _MainMenuTourOverlayState extends State<MainMenuTourOverlay>
               TextButton(
                 onPressed: _finish,
                 child: Text(
-                  'ATLA (Biliyorum)',
+                  I18n.bi('ATLA (Biliyorum)', 'SKIP TOUR'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                     fontFamily: 'Rajdhani',
@@ -270,35 +277,43 @@ class _MainMenuTourOverlayState extends State<MainMenuTourOverlay>
 
     switch (_currentStep) {
       case 1:
-        stepBadge = 'ADIM 1 / 4';
-        title = 'OYNA (Klasik Macera)';
-        desc =
-            'Tuğla kırma yolculuğun burada başlar! Bölümleri geçtikçe puan toplar, seviye atlar ve yeni özelliklerin kilidini açarsın.';
+        stepBadge = I18n.bi('ADIM 1 / 4', 'STEP 1 / 4');
+        title = I18n.bi('OYNA (Klasik Macera)', 'PLAY (Classic Adventure)');
+        desc = I18n.bi(
+          'Tuğla kırma yolculuğun burada başlar! Bölümleri geçtikçe puan toplar, seviye atlar ve yeni özelliklerin kilidini açarsın.',
+          'Your brick-breaking journey starts here! Clear stages, earn gold, and unlock new game modes.',
+        );
         icon = Icons.play_arrow_rounded;
         accentColor = const Color(0xFFFFD54F);
         break;
       case 2:
-        stepBadge = 'ADIM 2 / 4';
-        title = 'Atölye & Yükseltmeler';
-        desc =
-            'Bölüm 3 seviyesinde açılır! Kırdığın tuğlalardan kazandığın altınlarla palet genişliğini, top hızını ve vuruş gücünü kalıcı olarak artırabilirsin.';
+        stepBadge = I18n.bi('ADIM 2 / 4', 'STEP 2 / 4');
+        title = I18n.bi('Atölye & Yükseltmeler', 'Workshop & Upgrades');
+        desc = I18n.bi(
+          'Bölüm 3 seviyesinde açılır! Kırdığın tuğlalardan kazandığın altınlarla palet genişliğini, top hızını ve vuruş gücünü kalıcı olarak artırabilirsin.',
+          'Unlocks at Level 3! Spend gold from broken bricks to permanently upgrade your paddle width, critical strike, and power.',
+        );
         icon = Icons.auto_awesome_rounded;
         accentColor = const Color(0xFFFF9100);
         break;
       case 3:
-        stepBadge = 'ADIM 3 / 4';
-        title = 'Kaunos Akvaryumu (Bölüm 5)';
-        desc =
-            'Bölüm 5 seviyesinde açılır! Kendi su altı dünyanda balıklarını besleyebilir ve sana düzenli pasif altın ve inci üretmelerini sağlayabilirsin.';
+        stepBadge = I18n.bi('ADIM 3 / 4', 'STEP 3 / 4');
+        title = I18n.bi('Kaunos Akvaryumu (Bölüm 5)', 'Eco-Tank Aquarium (Level 5)');
+        desc = I18n.bi(
+          'Bölüm 5 seviyesinde açılır! Kendi su altı dünyanda balıklarını besleyebilir ve sana düzenli pasif altın ve inci üretmelerini sağlayabilirsin.',
+          'Unlocks at Level 5! Feed exotic fish in your underwater sanctuary to generate passive gold and pearls.',
+        );
         icon = Icons.water_drop_rounded;
         accentColor = const Color(0xFF00E5FF);
         break;
       case 4:
       default:
-        stepBadge = 'ADIM 4 / 4';
-        title = 'Şans Çarkı ve Görevler';
-        desc =
-            'Her gün ücretsiz çark çevirerek sürpriz sandıklar kazanabilir, günlük operasyon ve görevlerle devasa ödüller toplayabilirsin!';
+        stepBadge = I18n.bi('ADIM 4 / 4', 'STEP 4 / 4');
+        title = I18n.bi('Şans Çarkı ve Görevler', 'Fortune Wheel & Quests');
+        desc = I18n.bi(
+          'Her gün ücretsiz çark çevirerek sürpriz sandıklar kazanabilir, günlük operasyon ve görevlerle devasa ödüller toplayabilirsin!',
+          'Spin the daily wheel for free chests and complete tactical quests to claim massive rewards!',
+        );
         icon = Icons.star_rounded;
         accentColor = const Color(0xFFE040FB);
         break;
@@ -322,20 +337,20 @@ class _MainMenuTourOverlayState extends State<MainMenuTourOverlay>
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.white24),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Turu Geç',
-                    style: TextStyle(
+                    I18n.bi('Turu Geç', 'Skip Tour'),
+                    style: const TextStyle(
                       color: Colors.white70,
                       fontFamily: 'Rajdhani',
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(width: 4),
-                  Icon(Icons.close_rounded, color: Colors.white70, size: 14),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.close_rounded, color: Colors.white70, size: 14),
                 ],
               ),
             ),
@@ -416,9 +431,9 @@ class _MainMenuTourOverlayState extends State<MainMenuTourOverlay>
                     TextButton.icon(
                       onPressed: _prevStep,
                       icon: const Icon(Icons.arrow_back_rounded, color: Colors.white54, size: 16),
-                      label: const Text(
-                        'GERİ',
-                        style: TextStyle(
+                      label: Text(
+                        I18n.bi('GERİ', 'BACK'),
+                        style: const TextStyle(
                           color: Colors.white54,
                           fontFamily: 'Rajdhani',
                           fontWeight: FontWeight.bold,
@@ -449,7 +464,9 @@ class _MainMenuTourOverlayState extends State<MainMenuTourOverlay>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              _currentStep == 4 ? 'MACERAYA BAŞLA!' : 'SONRAKİ',
+                              _currentStep == 4
+                                  ? I18n.bi('MACERAYA BAŞLA!', 'START ADVENTURE!')
+                                  : I18n.bi('SONRAKİ', 'NEXT'),
                               style: TextStyle(
                                 color: accentColor.computeLuminance() > 0.4
                                     ? const Color(0xFF070B18)

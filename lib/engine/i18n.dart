@@ -23,6 +23,12 @@ class I18n {
 
   static String get currentLang => SaveManager.instance.language;
 
+  static bool get isTr => currentLang == 'tr';
+
+  /// Bilingual helper: returns [trText] when current language is Turkish,
+  /// otherwise returns [enText].
+  static String bi(String trText, String enText) => isTr ? trText : enText;
+
   static String tr(String key) {
     final lang = currentLang;
     final dict = _translations[lang] ?? _translations['en']!;

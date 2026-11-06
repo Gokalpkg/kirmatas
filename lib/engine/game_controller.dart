@@ -38,15 +38,15 @@ enum ChaosPerkType {
   String get cleanTitleTr {
     switch (this) {
       case ChaosPerkType.emberCore:
-        return 'Kor Çekirdek';
+        return I18n.bi('Kor Çekirdek', 'Ember Core');
       case ChaosPerkType.chainShock:
-        return 'Zincirleme Şok';
+        return I18n.bi('Zincirleme Şok', 'Chain Shock');
       case ChaosPerkType.microBlast:
-        return 'Mikro Patlama';
+        return I18n.bi('Mikro Patlama', 'Micro Blast');
       case ChaosPerkType.magnetPull:
-        return 'Manyetik Çekim';
+        return I18n.bi('Manyetik Çekim', 'Magnetic Pull');
       case ChaosPerkType.sniperSight:
-        return 'Keskin Nişancı';
+        return I18n.bi('Keskin Nişancı', 'Sniper Sight');
     }
   }
 
@@ -55,15 +55,30 @@ enum ChaosPerkType {
   String get descriptionTr {
     switch (this) {
       case ChaosPerkType.emberCore:
-        return 'Tuğlalara +1 ekstra kor hasarı verir.';
+        return I18n.bi(
+          'Tuğlalara +1 ekstra kor hasarı verir.',
+          'Deals +1 bonus ember damage to bricks.',
+        );
       case ChaosPerkType.chainShock:
-        return 'Her 8 vuruşta komşu tuğlalara elektrik arkı sıçratır.';
+        return I18n.bi(
+          'Her 8 vuruşta komşu tuğlalara elektrik arkı sıçratır.',
+          'Every 8th hit arcs chain lightning to neighboring bricks.',
+        );
       case ChaosPerkType.microBlast:
-        return 'Kırılan her 6. tuğla çevresine mikro şok dalgası vurur.';
+        return I18n.bi(
+          'Kırılan her 6. tuğla çevresine mikro şok dalgası vurur.',
+          'Every 6th broken brick triggers a micro shockwave blast.',
+        );
       case ChaosPerkType.magnetPull:
-        return '+1 Top kapsüllerini toplara doğru manyetik olarak çeker.';
+        return I18n.bi(
+          '+1 Top kapsüllerini toplara doğru manyetik olarak çeker.',
+          'Magnetically pulls +1 Ball orbs toward your active balls.',
+        );
       case ChaosPerkType.sniperSight:
-        return 'Nişan lazerini uzatır ve ilk vuruşlara ekstra güç katar.';
+        return I18n.bi(
+          'Nişan lazerini uzatır ve ilk vuruşlara ekstra güç katar.',
+          'Extends the aim laser sight and empowers opening hits.',
+        );
     }
   }
 
@@ -874,8 +889,10 @@ class GameController extends ChangeNotifier {
     int? explicitStartLevel,
     Set<String>? selectedBoosts,
   }) {
-    audio.isBgmAllowed = false;
-    audio.pauseBgm();
+    audio.isBgmAllowed = true;
+    if (SaveManager.instance.bgmVolume > 0) {
+      audio.resumeBgm();
+    }
     rollSessionCosmetics();
     currentMode = mode;
     status = GameStatus.ready;
@@ -3132,10 +3149,10 @@ class GameController extends ChangeNotifier {
             final splatY = activeBee!.y;
             activeBee!.isAlive = false;
             activeBee = null;
-            activeSplat = WindshieldSplat(x: splatX, y: splatY, duration: 2.0);
+            activeSplat = null;
             stats.score += 100;
             particles.spawnBurst(splatX, splatY, const Color(0xFFD31018), count: 24, speed: 110.0);
-            particles.spawnFloatingText(splatX, splatY - 18.0, 'BZZZ! SPLAT! +100', const Color(0xFFFF1744), isLarge: true);
+            particles.spawnFloatingText(splatX, splatY - 18.0, '+100', const Color(0xFFFF1744), isLarge: true);
             audio.playSfx(GameSfx.breakBrick, combo: stats.combo);
           }
         } else if (ball.isFireball && distSq <= (hitDist + 26.0) * (hitDist + 26.0)) {

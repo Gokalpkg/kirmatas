@@ -1,7 +1,10 @@
 import '../engine/analytics_manager.dart';
 import '../engine/achievement_manager.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1000,7 +1003,22 @@ class SaveManager extends ChangeNotifier {
   bool hapticsEnabled = true;
   HapticIntensity hapticIntensity = HapticIntensity.strong;
 
-  String language = 'tr';
+  String language = detectSystemLanguage();
+  String playerUuid = '';
+
+  static String detectSystemLanguage({bool ignoreTestEnv = false}) {
+    if (!ignoreTestEnv && !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+      return 'tr';
+    }
+    try {
+      final sysCode = ui.PlatformDispatcher.instance.locale.languageCode.toLowerCase();
+      const supported = {'en', 'tr', 'fr', 'de', 'es', 'it', 'ru', 'ko', 'ja', 'pt'};
+      if (supported.contains(sysCode)) return sysCode;
+      return 'en';
+    } catch (_) {
+      return 'en';
+    }
+  }
   Set<String> unlockedBackgrounds = {'bg_default'};
   String activeBackground = 'bg_default';
   Set<String> unlockedBrickStyles = {'brick_gloss'};
@@ -1032,6 +1050,13 @@ class SaveManager extends ChangeNotifier {
       final hexCode = (rng.nextInt(0xEFFF) + 0x1000).toRadixString(16).toUpperCase();
       playerTag = '#KRM-$hexCode';
       _prefs?.setString('playerTag', playerTag);
+    }
+    playerUuid = _prefs?.getString('playerUuid') ?? '';
+    if (playerUuid.isEmpty) {
+      final rng = math.Random();
+      final bytes = List<int>.generate(12, (_) => rng.nextInt(256));
+      playerUuid = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+      _prefs?.setString('playerUuid', playerUuid);
     }
 
     final rfJson = _prefs?.getString('realFriendsJson');
@@ -1208,7 +1233,7 @@ class SaveManager extends ChangeNotifier {
     hapticIntensity = HapticIntensity.values[hIndex.clamp(0, HapticIntensity.values.length - 1)];
     hapticsEnabled = hapticIntensity != HapticIntensity.off;
 
-    language = _prefs?.getString('language') ?? 'tr';
+    language = _prefs?.getString('language') ?? detectSystemLanguage();
     unlockedBackgrounds = (_prefs?.getStringList('unlockedBackgrounds') ?? ['bg_default']).toSet();
     activeBackground = _prefs?.getString('activeBackground') ?? 'bg_default';
     unlockedBrickStyles = (_prefs?.getStringList('unlockedBrickStyles') ?? ['brick_gloss']).toSet();

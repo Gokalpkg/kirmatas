@@ -38,7 +38,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
         AudioManager.instance.playSfx(GameSfx.bubble, playbackRate: 1.25);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text( ' +$reward ${I18n.tr('quest_gold')}',
+            content: Text( ' +$reward ${I18n.tr('gold')}',
               style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFFD54F)),
             ),
             backgroundColor: const Color(0xFF161A29),
@@ -131,7 +131,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                           _buildQuestCard(
                             id: 'feed_fish',
                             title: I18n.tr('quest_feed'),
-                            rewardText: '+60 ${I18n.tr('quest_gold')} + 1 ${I18n.tr('food_word')}',
+                            rewardText: '+60 ${I18n.tr('gold')} + 1 ${I18n.tr('food_word')}',
                             current: _save.questFishFed ? 1 : 0,
                             target: 1,
                             icon: Icons.set_meal,
@@ -144,7 +144,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                         _buildQuestCard(
                           id: 'break_bricks',
                           title: I18n.tr('quest_bricks'),
-                          rewardText: '+120 ${I18n.tr('quest_gold')}',
+                          rewardText: '+120 ${I18n.tr('gold')}',
                           current: _save.questBricksBroken,
                           target: 100,
                           icon: Icons.view_module,
@@ -156,7 +156,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                         _buildQuestCard(
                           id: 'ad_or_win',
                           title: I18n.tr('quest_win'),
-                          rewardText: '+150 ${I18n.tr('quest_gold')}',
+                          rewardText: '+150 ${I18n.tr('gold')}',
                           current: _save.questAdOrWinDone ? 1 : 0,
                           target: 1,
                           icon: Icons.star,
@@ -167,8 +167,8 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                         // Quest: Manyetik Darbe
                         _buildQuestCard(
                           id: 'pulse_bricks',
-                          title: 'Manyetik Darbe: 25 Tuğla Kır',
-                          rewardText: '+140 ${I18n.tr('quest_gold')}',
+                          title: I18n.bi('Manyetik Darbe: 25 Tuğla Kır', 'Magnetic Pulse: Break 25 Bricks'),
+                          rewardText: '+140 ${I18n.tr('gold')}',
                           current: _save.questPulseBricks,
                           target: 25,
                           icon: Icons.grain_rounded,
@@ -179,8 +179,8 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                         // Quest: Overdrive Lazer
                         _buildQuestCard(
                           id: 'overdrive_laser',
-                          title: 'Overdrive Lazer: 3 Ateşleme',
-                          rewardText: '+160 ${I18n.tr('quest_gold')}',
+                          title: I18n.bi('Overdrive Lazer: 3 Ateşleme', 'Overdrive Laser: Fire 3 Times'),
+                          rewardText: '+160 ${I18n.tr('gold')}',
                           current: _save.questOverdriveLasers,
                           target: 3,
                           icon: Icons.bolt_rounded,
@@ -191,8 +191,8 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                         // Quest: Altın Piñata
                         _buildQuestCard(
                           id: 'gold_pinata',
-                          title: 'Altın Piñata: 2 Kez Avla',
-                          rewardText: '+180 ${I18n.tr('quest_gold')}',
+                          title: I18n.bi('Altın Piñata: 2 Kez Avla', 'Gold Piñata: Smash 2 Times'),
+                          rewardText: '+180 ${I18n.tr('gold')}',
                           current: _save.questGoldPinatas,
                           target: 2,
                           icon: Icons.card_giftcard_rounded,
@@ -203,8 +203,8 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                         // Quest: Clutch Saves
                         _buildQuestCard(
                           id: 'clutch_saves',
-                          title: 'Kritik Kurtarış: 4 Clutch Save',
-                          rewardText: '+130 ${I18n.tr('quest_gold')}',
+                          title: I18n.bi('Kritik Kurtarış: 4 Clutch Save', 'Clutch Save: 4 Last-Second Saves'),
+                          rewardText: '+130 ${I18n.tr('gold')}',
                           current: _save.questClutchSaves,
                           target: 4,
                           icon: Icons.shield_rounded,
@@ -216,7 +216,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                           _buildQuestCard(
                             id: 'feed_fish',
                             title: I18n.tr('quest_feed'),
-                            rewardText: '+60 ${I18n.tr('quest_gold')} + 1 ${I18n.tr('food_word')} • Bölüm 5',
+                            rewardText: '+60 ${I18n.tr('gold')} + 1 ${I18n.tr('food_word')} • ${I18n.bi('Bölüm 5', 'Level 5')}',
                             current: _save.questFishFed ? 1 : 0,
                             target: 1,
                             icon: Icons.set_meal,
@@ -295,7 +295,7 @@ class _DailyQuestsDialogState extends State<DailyQuestsDialog> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text( 'Ödül: $rewardText',
+                    Text( '${I18n.bi('Ödül', 'Reward')}: $rewardText',
                       style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.w700,

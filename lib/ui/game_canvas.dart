@@ -97,15 +97,6 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
           onPointerDown: (event) {
             final c = widget.controller;
             final nowMs = DateTime.now().millisecondsSinceEpoch;
-            if (_lastPointerDownPos != null &&
-                nowMs - _lastPointerDownMs < 350 &&
-                (event.localPosition - _lastPointerDownPos!).distance < 25.0) {
-              if (c.isUltiReady) {
-                c.triggerUlti();
-              } else if (c.status == GameStatus.playing && !c.hasStuckBall) {
-                c.triggerGravityPulse(targetX: event.localPosition.dx, targetY: event.localPosition.dy);
-              }
-            }
             _lastPointerDownMs = nowMs;
             _lastPointerDownPos = event.localPosition;
             _pointerDownMs = nowMs;
@@ -188,21 +179,6 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
           },
           onPointerUp: (event) {
             final controller = widget.controller;
-            final now = DateTime.now().millisecondsSinceEpoch;
-            final holdDuration = now - _pointerDownMs;
-            final downPos = _pointerDownPos ?? event.localPosition;
-            final dragDelta = event.localPosition - downPos;
-            final isFlickUp = dragDelta.dy < -35.0;
-
-            if (controller.status == GameStatus.playing && !controller.hasStuckBall) {
-              if (isFlickUp) {
-                final flickAngle = atan2(dragDelta.dy, dragDelta.dx);
-                controller.triggerGravityPulse(aimAngle: flickAngle);
-              } else if (_touchStartedNearPaddle && holdDuration >= 180 && !_pointerMoved) {
-                controller.triggerGravityPulse(targetX: event.localPosition.dx, targetY: event.localPosition.dy);
-              }
-            }
-
             final isEligible = _canLaunchOnUp &&
                 !_pointerMoved &&
                 controller.levelTransitionTimer <= 0 &&

@@ -6,6 +6,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../storage/save_manager.dart';
 import 'audio_manager.dart';
 import 'analytics_manager.dart';
+import 'i18n.dart';
 
 class AdManager extends ChangeNotifier {
   static final AdManager instance = AdManager._internal();
@@ -264,25 +265,30 @@ class AdManager extends ChangeNotifier {
   }) async {
     if (_isShowing) return;
 
-    // 1. VIP No-Ads Pass: Claim reward instantly without ad
+    if (remainingCooldownSeconds > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            I18n.bi(
+              'Lütfen bekleyin: $remainingCooldownSeconds saniye sonra tekrar ödül alabilirsiniz.',
+              'Please wait $remainingCooldownSeconds seconds before claiming again.',
+            ),
+          ),
+          backgroundColor: const Color(0xFF1E2438),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // 1. VIP No-Ads Pass: Claim reward instantly without ad (respects cooldown)
     if (SaveManager.instance.adsRemoved) {
       SaveManager.instance.addGold(goldRewardAmount);
       SaveManager.instance.setLastAdWatchTime(DateTime.now().millisecondsSinceEpoch);
       SaveManager.instance.recordAdOrWinQuest();
       AudioManager.instance.playSfx(GameSfx.powerupBuff);
       onSuccess(goldRewardAmount);
-      return;
-    }
-
-    if (remainingCooldownSeconds > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lütfen bekleyin: $remainingCooldownSeconds saniye sonra tekrar ödül alabilirsiniz.'),
-          backgroundColor: const Color(0xFF1E2438),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
       return;
     }
 

@@ -198,7 +198,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('Canlı Firestore Sıralaması'), findsOneWidget);
+      expect(find.byIcon(Icons.public_rounded), findsWidgets);
       expect(find.text('SEN'), findsWidgets);
     });
 

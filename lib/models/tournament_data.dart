@@ -60,15 +60,23 @@ class TournamentLeaderboardService {
 
   static const String _collectionName = 'kirmatas_players';
 
+  /// True only when the most recent [fetchGlobalLeaderboard] call retrieved
+  /// live records from Firebase Firestore rather than offline fallback data.
+  bool lastFetchWasLiveCloud = false;
+
   /// Synchronizes the current player's score and profile to Firestore.
   Future<void> syncPlayerScore(SaveManager save) async {
     final cleanTag = save.playerTag.replaceAll('#', '').trim().toUpperCase();
     if (cleanTag.isEmpty) return;
+    final docId = save.playerUuid.length >= 8
+        ? '${cleanTag}_${save.playerUuid.substring(0, 8)}'
+        : cleanTag;
 
     try {
       if (Firebase.apps.isEmpty) return;
-      await FirebaseFirestore.instance.collection(_collectionName).doc(cleanTag).set({
+      await FirebaseFirestore.instance.collection(_collectionName).doc(docId).set({
         'tag': save.playerTag,
+        'uuid': save.playerUuid,
         'name': save.playerName,
         'weeklyScore': save.weeklyTournamentScore,
         'highScore': save.getHighScore(GameMode.classic),
@@ -95,6 +103,7 @@ class TournamentLeaderboardService {
 
     try {
       if (Firebase.apps.isEmpty) {
+        lastFetchWasLiveCloud = false;
         return getOfflineFallbackLeaderboard(save);
       }
 
@@ -114,8 +123,11 @@ class TournamentLeaderboardService {
       for (final doc in snapshot.docs) {
         final data = doc.data();
         final rawTag = (data['tag'] as String?) ?? '#${doc.id}';
+        final docUuid = (data['uuid'] as String?) ?? '';
         final cleanDocTag = rawTag.replaceAll('#', '').trim().toUpperCase();
-        final isMe = cleanDocTag == myCleanTag;
+        final isMe = (save.playerUuid.isNotEmpty && docUuid.isNotEmpty)
+            ? docUuid == save.playerUuid
+            : cleanDocTag == myCleanTag;
         if (isMe) playerFoundInTop = true;
 
         final rawName = data['name'] as String?;
@@ -153,12 +165,15 @@ class TournamentLeaderboardService {
           isPlayer: true,
         ));
       }
+      lastFetchWasLiveCloud = snapshot.docs.isNotEmpty;
     } catch (_) {
       // Firestore offline or unconfigured: fall back to simulated global rivals
+      lastFetchWasLiveCloud = false;
       return getOfflineFallbackLeaderboard(save);
     }
 
     if (list.isEmpty) {
+      lastFetchWasLiveCloud = false;
       return getOfflineFallbackLeaderboard(save);
     }
 
