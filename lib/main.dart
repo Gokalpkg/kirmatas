@@ -59,7 +59,7 @@ Future<void> _initBackgroundServices() async {
 
   // Defer intrusive system permission & sign-in prompts on first-ever launch
   // until the player has completed at least 1 game.
-  if (SaveManager.instance.gamesPlayed > 0 || SaveManager.instance.maxLevelUnlocked > 1) {
+  if (SaveManager.instance.highestLevel > 1 || SaveManager.instance.totalGold > 300) {
     unawaited(PlayGamesManager.instance.init());
     unawaited(NotificationService.instance.initialize());
   }

@@ -107,7 +107,7 @@ void main() {
       expect(ctrl.balls.length, equals(3), reason: 'Mirror powerup must not exceed 3 balls cap');
     });
 
-    test('Frost and Fireball powerups smoothly replace each other without converting to multiBall', () {
+    test('Opposite element powerup converts to multi without exceeding 3-ball cap and preserves primary element', () {
       final ctrl = GameController();
       ctrl.setDimensions(360, 640);
       ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
@@ -118,17 +118,15 @@ void main() {
       expect(ctrl.balls.first.isFireball, isTrue);
       expect(ctrl.balls.length, equals(1));
 
-      // Apply Frost: must replace Fireball with Frost without spawning multi balls
+      // Apply Frost: converts to multi without giving frost, stays fireball, capped at 3
       ctrl.applyPowerUp(PowerUpType.frost);
-      expect(ctrl.balls.first.isFrost, isTrue);
-      expect(ctrl.balls.first.isFireball, isFalse);
-      expect(ctrl.balls.length, equals(1), reason: 'Catching frost while fire is active must not spawn multi balls');
-
-      // Apply Fireball again: must replace Frost with Fireball without spawning multi balls
-      ctrl.applyPowerUp(PowerUpType.fireball);
       expect(ctrl.balls.first.isFireball, isTrue);
-      expect(ctrl.balls.first.isFrost, isFalse);
-      expect(ctrl.balls.length, equals(1), reason: 'Catching fireball while frost is active must not spawn multi balls');
+      expect(ctrl.balls.any((b) => b.isFrost), isFalse);
+      expect(ctrl.balls.length, equals(3), reason: 'Opposite element capsule converts to multi-ball');
+
+      // Subsequent opposite element powerups must not exceed 3 balls cap
+      ctrl.applyPowerUp(PowerUpType.frost);
+      expect(ctrl.balls.length, equals(3), reason: 'Must not exceed 3 balls cap in classic mode');
     });
 
     test('Prismatic Splitter blessing does not spontaneously clone balls on paddle hit', () {

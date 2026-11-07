@@ -5905,8 +5905,8 @@ class GameController extends ChangeNotifier {
   }
 
   void applyPowerUp(PowerUpType type) {
-    // Alev ve buz aynı anda alınamaz: biri aktifken diğeri yakalanırsa
-    // önceki zıt elementi söndürür (asla gizlice çoklu topa dönüşüp top çoğaltmaz!).
+    // Alev ve buz zıt elementtir: biri aktifken diğeri yakalanırsa önceki elementi söndürür.
+    // Asla gizlice çoklu topa (multi) dönüşüp sebepsiz top çoğaltmaz!
     if (type == PowerUpType.frost) {
       activePowerUps.removeWhere((p) => p.type == PowerUpType.fireball);
       for (final b in balls) {
