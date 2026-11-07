@@ -28,14 +28,14 @@ void main() {
       ctrl.applyPowerUp(PowerUpType.fireball);
       expect(ctrl.balls.first.isFireball, isTrue);
 
-      // Trying to take frost now must not frost the ball (converts to multi).
+      // Taking frost extinguishes fireball and applies frost (mutual exclusion)
       ctrl.applyPowerUp(PowerUpType.frost);
-      expect(ctrl.balls.any((b) => b.isFrost), isFalse);
-      expect(ctrl.activePowerUps.any((p) => p.type == PowerUpType.frost), isFalse);
-      expect(ctrl.balls.first.isFireball, isTrue, reason: 'fireball stays untouched');
+      expect(ctrl.balls.any((b) => b.isFireball), isFalse, reason: 'fireball is extinguished');
+      expect(ctrl.activePowerUps.any((p) => p.type == PowerUpType.fireball), isFalse);
+      expect(ctrl.balls.first.isFrost, isTrue, reason: 'frost becomes active');
     });
 
-    test('fireball cannot be taken while frost is active', () {
+    test('fireball cannot be taken while frost is active without extinguishing frost', () {
       final ctrl = GameController();
       ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
       ctrl.status = GameStatus.playing;
@@ -44,9 +44,9 @@ void main() {
       expect(ctrl.balls.first.isFrost, isTrue);
 
       ctrl.applyPowerUp(PowerUpType.fireball);
-      expect(ctrl.balls.any((b) => b.isFireball), isFalse);
-      expect(ctrl.activePowerUps.any((p) => p.type == PowerUpType.fireball), isFalse);
-      expect(ctrl.balls.first.isFrost, isTrue, reason: 'frost stays untouched');
+      expect(ctrl.balls.any((b) => b.isFrost), isFalse, reason: 'frost is extinguished');
+      expect(ctrl.activePowerUps.any((p) => p.type == PowerUpType.frost), isFalse);
+      expect(ctrl.balls.first.isFireball, isTrue, reason: 'fireball becomes active');
     });
 
     test('each still applies normally on its own', () {

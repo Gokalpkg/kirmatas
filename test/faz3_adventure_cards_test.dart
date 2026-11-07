@@ -200,7 +200,7 @@ void main() {
   });
 
   group('Faz 3 - Törensel Kilit Açılış Rozetleri (Problem 6 & 11)', () {
-    testWidgets('LevelClearCard renders feature unlock badge on Level 3 (Wheel)', (tester) async {
+    testWidgets('LevelClearCard renders feature unlock badge on Level 3 (Wheel & Aquarium)', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -216,10 +216,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('YENİ ÖZELLİK AÇILDI!'), findsOneWidget);
-      expect(find.text('Şans Çarkı artık Ana Menüde seni bekliyor!'), findsOneWidget);
+      expect(find.text('Kaunos Akvaryumu ve Şans Çarkı kilitleri kalktı!'), findsOneWidget);
     });
 
-    testWidgets('LevelClearCard renders feature unlock badge on Level 5 (Aquarium)', (tester) async {
+    testWidgets('LevelClearCard renders feature unlock badge on Level 5 (Chaos Mode)', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -235,7 +235,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('YENİ ÖZELLİK AÇILDI!'), findsOneWidget);
-      expect(find.text('Kaunos Akvaryumu kilitleri kalktı!'), findsOneWidget);
+      expect(find.text('Kaos Modu kilitleri kalktı!'), findsOneWidget);
     });
 
     testWidgets('LevelClearCard renders feature unlock badge on Level 10 (Tournament)', (tester) async {

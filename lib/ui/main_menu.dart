@@ -23,6 +23,8 @@ import 'sector_map_view.dart';
 import 'tournament_dialog.dart';
 import 'kaunos_ui.dart';
 import 'crate_opening_dialog.dart';
+import 'offline_earnings_dialog.dart';
+import '../engine/lucky_fish_notification_manager.dart';
 import 'main_menu_tour_overlay.dart';
 import 'settings_dialog.dart';
 
@@ -114,6 +116,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
         });
         return;
       }
+
+      if (_save.currentAvailableFishGold > 0 && mounted && _activeGame == null) {
+        OfflineEarningsDialog.show(context, save: _save);
+      }
+      LuckyFishNotificationManager.instance.checkAndShowDailyReminder(context);
 
       if (!_hasAutoShownWheelThisSession && mounted && _save.isShopUnlocked && _save.isNextWheelSpinFree) {
         _hasAutoShownWheelThisSession = true;
@@ -323,7 +330,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
       return;
     }
     if (page == 2 && !_save.isAquariumUnlocked) {
-      _onLockedDockTapped(2, 'Bu özellik Bölüm 5 seviyesinde açılır.');
+      _onLockedDockTapped(2, 'Bu özellik Bölüm 3 seviyesinde açılır.');
       return;
     }
     if (page == 3 && !_save.isWorkshopUnlocked) {
@@ -874,7 +881,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
                           )
                         : _buildLockedPlaceholder(
                             title: 'AKVARYUM',
-                            subtitle: 'Bölüm 5 seviyesinde açılır.',
+                            subtitle: 'Bölüm 3 seviyesinde açılır.',
                             icon: Icons.water_drop_rounded,
                             accentColor: const Color(0xFF00E5FF),
                           ),
@@ -1490,7 +1497,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
                     icon: Icons.water_drop_rounded,
                           label: I18n.tr('aquarium'),
                     badge: !_save.isAquariumUnlocked
-                        ? 'Bölüm 5'
+                        ? 'Bölüm 3'
                         : (_save.isUnlockNew('aquarium', _save.isAquariumUnlocked)
                             ? 'YENİ!'
                             : (_save.currentAvailableFishGold > 0
@@ -2394,7 +2401,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
     final upcoming = <String>[
       if (!_save.isShopUnlocked) 'Mağaza (Bölüm 2)',
       if (!_save.isWorkshopUnlocked) 'Atölye (Bölüm 3)',
-      if (!_save.isAquariumUnlocked) 'Akvaryum (Bölüm 5)',
+      if (!_save.isAquariumUnlocked) 'Akvaryum (Bölüm 3)',
       if (!_save.isChaosUnlocked) 'Kaos (Bölüm 5)',
       if (!_save.isLeagueUnlocked) 'Lig & Etkinlikler (Bölüm 7)',
     ];

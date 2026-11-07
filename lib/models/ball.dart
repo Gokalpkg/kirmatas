@@ -113,6 +113,8 @@ class Ball {
   double clutchOverchargeTimer = 0.0;
   int clutchPierceRemaining = 0;
   double pulseBoostTimer = 0.0;
+  dynamic lastHitBrick;
+  double lastHitBrickCooldown = 0.0;
 
   bool get isClutchOvercharged => clutchOverchargeTimer > 0;
   bool get isPulseBoosted => pulseBoostTimer > 0;
@@ -140,7 +142,7 @@ class Ball {
     this.cornerBoostTimer = 0.0,
     this.megaTimer = 0.0,
   }) : isStuck = isStuck ?? (vx == 0.0 && vy == 0.0),
-       fireballPierceCount = fireballPierceCount ?? ((isFireball || isPierce) ? 4 : 0);
+       fireballPierceCount = fireballPierceCount ?? ((isFireball || isPierce) ? 12 : 0);
 
   double get effectiveRadius => megaTimer > 0 ? (radius * 1.85).clamp(13.0, 16.0) : radius;
 
@@ -197,6 +199,13 @@ class Ball {
     if (pulseBoostTimer > 0) {
       pulseBoostTimer -= dt;
       if (pulseBoostTimer < 0) pulseBoostTimer = 0.0;
+    }
+    if (lastHitBrickCooldown > 0) {
+      lastHitBrickCooldown -= dt;
+      if (lastHitBrickCooldown <= 0) {
+        lastHitBrickCooldown = 0.0;
+        lastHitBrick = null;
+      }
     }
 
     if (!isStuck) {

@@ -44,7 +44,7 @@ void main() {
 
           final expectedShop = (lvl >= 2) || (g >= 100);
           final expectedWorkshop = lvl >= 3;
-          final expectedAquarium = lvl >= 5;
+          final expectedAquarium = lvl >= 3;
           final expectedChaos = lvl >= 5;
           final expectedLeague = lvl >= 7;
 
@@ -109,11 +109,11 @@ void main() {
       expect(save.isChaosUnlocked, isFalse);
       expect(save.isLeagueUnlocked, isFalse);
 
-      // Level 3, Gold 0: Shop and Workshop unlocked
+      // Level 3, Gold 0: Shop, Workshop, and Aquarium unlocked
       save.highestLevel = 3;
       expect(save.isShopUnlocked, isTrue);
       expect(save.isWorkshopUnlocked, isTrue);
-      expect(save.isAquariumUnlocked, isFalse);
+      expect(save.isAquariumUnlocked, isTrue);
       expect(save.isChaosUnlocked, isFalse);
       expect(save.isLeagueUnlocked, isFalse);
 
@@ -121,7 +121,7 @@ void main() {
       save.highestLevel = 4;
       expect(save.isShopUnlocked, isTrue);
       expect(save.isWorkshopUnlocked, isTrue);
-      expect(save.isAquariumUnlocked, isFalse);
+      expect(save.isAquariumUnlocked, isTrue);
       expect(save.isChaosUnlocked, isFalse);
       expect(save.isLeagueUnlocked, isFalse);
 

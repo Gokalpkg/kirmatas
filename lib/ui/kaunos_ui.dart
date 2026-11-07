@@ -1462,42 +1462,43 @@ class _KaunosTactileButtonState extends State<KaunosTactileButton> with TickerPr
   }
 
   void _handleTapUp(TapUpDetails details) {
+    if (!_isClickable) return;
     if (_isPressed) {
       setState(() {
         _isPressed = false;
         _pointerPos = details.localPosition;
       });
-
-      // Layer 2: Elastic spring snap-back on release
-      if (widget.enableElasticSnap) {
-        _elasticController.forward(from: 0.0);
-      }
-
-      // Layer 3: Perimeter expanding neon wave
-      if (widget.enableNeonWave) {
-        _waveController.forward(from: 0.0);
-      }
-
-      // Layer 5: Glowing particle burst shower
-      if (widget.enableParticles) {
-        _generateParticles();
-        _particleController.forward(from: 0.0);
-      }
-
-      // Layer 6: High-stakes kinetic screen shake & sound
-      if (widget.isHighStakes) {
-        _shakeController.forward(from: 0.0);
-        HapticFeedback.heavyImpact();
-        AudioManager.instance.playSfx(GameSfx.ulti, playbackRate: 1.25);
-      } else {
-        // Layer 4: Warm rewarding chime on release
-        HapticFeedback.mediumImpact();
-        AudioManager.instance.playSfx(GameSfx.click);
-        AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.35);
-      }
-
-      widget.onTap?.call();
     }
+
+    // Layer 2: Elastic spring snap-back on release
+    if (widget.enableElasticSnap) {
+      _elasticController.forward(from: 0.0);
+    }
+
+    // Layer 3: Perimeter expanding neon wave
+    if (widget.enableNeonWave) {
+      _waveController.forward(from: 0.0);
+    }
+
+    // Layer 5: Glowing particle burst shower
+    if (widget.enableParticles) {
+      _generateParticles();
+      _particleController.forward(from: 0.0);
+    }
+
+    // Layer 6: High-stakes kinetic screen shake & sound
+    if (widget.isHighStakes) {
+      _shakeController.forward(from: 0.0);
+      HapticFeedback.heavyImpact();
+      AudioManager.instance.playSfx(GameSfx.ulti, playbackRate: 1.25);
+    } else {
+      // Layer 4: Warm rewarding chime on release
+      HapticFeedback.mediumImpact();
+      AudioManager.instance.playSfx(GameSfx.click);
+      AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.35);
+    }
+
+    widget.onTap?.call();
   }
 
   void _handleTapCancel() {
@@ -1561,6 +1562,7 @@ class _KaunosTactileButtonState extends State<KaunosTactileButton> with TickerPr
           onTapDown: _handleTapDown,
           onTapUp: _handleTapUp,
           onTapCancel: _handleTapCancel,
+          onTap: _isClickable ? () {} : null,
           onLongPress: _isClickable ? widget.onLongPress : null,
           behavior: HitTestBehavior.opaque,
           child: AnimatedBuilder(

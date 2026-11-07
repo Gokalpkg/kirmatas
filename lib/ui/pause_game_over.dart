@@ -14,6 +14,7 @@ import '../engine/ad_manager.dart';
 import '../engine/audio_manager.dart';
 import 'kaunos_ui.dart';
 import 'level_clear_card.dart';
+import '../engine/in_app_review_manager.dart';
 
 class PauseGameOverOverlay extends StatelessWidget {
   final GameController controller;
@@ -49,6 +50,18 @@ class PauseGameOverOverlay extends StatelessWidget {
             stats.score > 0 &&
             (stats.score > controller.sessionStartingBestScore ||
                 (controller.sessionStartingBestScore == 0 && stats.score >= 50));
+
+        if (isVictory && (controller.stats.level == 6 || controller.stats.level == 10) && controller.lastClearedLevelStars >= 3) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              InAppReviewManager.instance.checkAndRequestReview(
+                context: context,
+                level: controller.stats.level,
+                stars: controller.lastClearedLevelStars,
+              );
+            }
+          });
+        }
 
         return Container(
           color: const Color(0xCC05060A),
@@ -479,9 +492,9 @@ class PauseGameOverOverlay extends StatelessWidget {
                               Flexible(
                                 child: Text(
                                   stats.level < 3
-                                      ? 'HEDEF: Bölüm 3 • Atölye & Yükseltmeler'
+                                      ? 'HEDEF: Bölüm 3 • Atölye & Akvaryum'
                                       : stats.level < 5
-                                          ? 'HEDEF: Bölüm 5 • Akvaryum & Ekosistem'
+                                          ? 'HEDEF: Bölüm 5 • Kaos Modu'
                                           : stats.level < 10
                                               ? 'HEDEF: Bölüm 10 • Kaos Modu'
                                               : stats.level < 15

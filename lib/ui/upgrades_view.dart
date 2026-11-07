@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
 import '../models/cosmetics.dart';
-import '../models/fish_synergy.dart';
 import '../storage/save_manager.dart';
 import 'kaunos_ui.dart';
 
@@ -105,18 +104,20 @@ class _UpgradesViewState extends State<UpgradesView> {
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // --- SECTION 0: ECO-TANK FISH SYNERGIES ---
+              // --- SECTION 0: ECO-TANK PASSIVE GOLD VAULT & OCTOPUS CLUTCH ---
               Builder(
-                builder: (_) {
-                  final buffs = FishSynergyBuffs.calculate(save);
-                  if (buffs.activeBuffDescriptions.isEmpty) return const SizedBox.shrink();
+                builder: (context) {
+                  if (save.unlockedFish.isEmpty) return const SizedBox.shrink();
+                  final readyGold = save.currentAvailableFishGold;
+                  final hasOctopus = save.hasOctopus;
+
                   return Container(
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          const Color(0xFF00E5FF).withValues(alpha: 0.15),
+                          const Color(0xFFFFD54F).withValues(alpha: 0.12),
                           const Color(0xFF161A28),
                         ],
                         begin: Alignment.topLeft,
@@ -124,7 +125,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                       ),
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
-                        color: const Color(0xFF00E5FF).withValues(alpha: 0.4),
+                        color: const Color(0xFFFFD54F).withValues(alpha: 0.35),
                         width: 1.2,
                       ),
                     ),
@@ -133,32 +134,31 @@ class _UpgradesViewState extends State<UpgradesView> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.water_drop_rounded, color: Color(0xFF00E5FF), size: 18),
+                            const Icon(Icons.savings_rounded, color: Color(0xFFFFD54F), size: 20),
                             const SizedBox(width: 8),
                             const Expanded(
                               child: Text(
-                                'Akvaryum Sinerjileri',
+                                'Akvaryum Altın Kasası',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: Color(0xFF00E5FF),
+                                  color: Color(0xFFFFD54F),
                                   fontWeight: FontWeight.w900,
-                                  fontSize: 13,
-                                  letterSpacing: 0.8,
+                                  fontSize: 14,
+                                  letterSpacing: 0.5,
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF00E5FF).withValues(alpha: 0.2),
+                                color: const Color(0xFFFFD54F).withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
                                 '${save.unlockedFish.length} Balık',
                                 style: const TextStyle(
-                                  color: Color(0xFF00E5FF),
+                                  color: Color(0xFFFFD54F),
                                   fontWeight: FontWeight.w900,
                                   fontSize: 10,
                                 ),
@@ -166,40 +166,160 @@ class _UpgradesViewState extends State<UpgradesView> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: buffs.activeBuffDescriptions.map((desc) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: Colors.black38,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white12),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.black38,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.white10),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFD54F).withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.monetization_on_rounded, color: Color(0xFFFFD54F), size: 20),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.check_circle_rounded, color: Color(0xFF69F0AE), size: 12),
-                                  const SizedBox(width: 5),
-                                  Flexible(
-                                    child: Text(
-                                      desc,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      readyGold > 0 ? '+$readyGold Altın Hazır!' : 'Altın Üretimi Aktif',
+                                      style: TextStyle(
+                                        color: readyGold > 0 ? const Color(0xFFFFD54F) : Colors.white,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      readyGold > 0
+                                          ? 'Kasada biriken altınları hemen topla.'
+                                          : '${save.producingFishCount} balık üretimde (${save.pendingFishGold} altın hazırlanıyor)',
                                       style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white60,
                                         fontSize: 11,
                                       ),
                                     ),
+                                  ],
+                                ),
+                              ),
+                              if (readyGold > 0)
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    final collected = await save.collectFishGold();
+                                    if (context.mounted && collected > 0) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('+$collected Altın kasadan toplandı!'),
+                                          backgroundColor: const Color(0xFF1B5E20),
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFFFD54F),
+                                    foregroundColor: Colors.black,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
+                                  child: const Text(
+                                    'TOPLA',
+                                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        if (hasOctopus) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color(0xFFAB47BC).withValues(alpha: 0.22),
+                                  const Color(0xFF161A28),
                                 ],
                               ),
-                            );
-                          }).toList(),
-                        ),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFE040FB).withValues(alpha: 0.35),
+                                width: 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE040FB).withValues(alpha: 0.2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.shield_rounded, color: Color(0xFFE040FB), size: 18),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Ahtapot Vantuz Kurtarışı',
+                                        style: TextStyle(
+                                          color: Color(0xFFE040FB),
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      Text(
+                                        save.canUseDailyOctopusClutch
+                                            ? 'Son canında top kaçarsa vantuzla fırlatır'
+                                            : 'Bugünkü kurtarış kullanıldı (Yarın yenilenir)',
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: save.canUseDailyOctopusClutch
+                                        ? const Color(0xFF00E676).withValues(alpha: 0.2)
+                                        : Colors.white10,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: save.canUseDailyOctopusClutch
+                                          ? const Color(0xFF00E676).withValues(alpha: 0.6)
+                                          : Colors.white24,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    save.canUseDailyOctopusClutch ? 'HAZIR' : 'KULLANILDI',
+                                    style: TextStyle(
+                                      color: save.canUseDailyOctopusClutch
+                                          ? const Color(0xFF00E676)
+                                          : Colors.white54,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   );

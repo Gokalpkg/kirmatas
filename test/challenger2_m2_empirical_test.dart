@@ -155,14 +155,19 @@ void main() {
         // Tap Join
         await tester.tap(find.text('MÜCADELEYE KATIL'));
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
         expect(joinCalled, isTrue);
 
         // Case B: Score 0 -> Demotion rank > 10
         save.weeklyTournamentScore = 0;
         await tester.tap(find.text('SHOW'));
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        // The list auto-scrolls to player at rank 15; scroll back to top to check header badge
+        await tester.drag(find.byType(ListView), const Offset(0, 1000));
+        await tester.pumpAndSettle();
         expect(find.text('DÜŞME'), findsOneWidget);
 
         // Close via close button

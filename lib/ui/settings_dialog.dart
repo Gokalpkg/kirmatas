@@ -522,13 +522,13 @@ class SettingsDialog extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Kırmataş: Tuğla Kırma ve Akvaryum — Kaunos Games Gizlilik Politikası',
+                  'Kırmataş: Blok Kırma Oyunu — Kaunos Games Gizlilik Politikası',
                   style: TextStyle(color: Color(0xFFFFD54F), fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 SizedBox(height: 8),
                 Text(
                   'Geliştirici: Kaunos Games (kaunosgames@gmail.com)\n'
-                  'Uygulama: Kırmataş: Tuğla Kırma ve Akvaryum / Brick Breaker Aquarium: Crush Bricks (com.kaunos.kirmatas)\n'
+                  'Uygulama: Kırmataş: Blok Kırma Oyunu / Brick Breaker: Ball Crusher (com.kaunos.kirmatas)\n'
                   'Yürürlük Tarihi: Ekim 2026 (Güncelleme: Kasım 2026)\n\n'
                   '1. Veri Toplama ve Kullanımı:\n'
                   'Kırmataş oyunu, adınız, adresiniz veya telefon numaranız gibi doğrudan kişisel kimlik bilgilerinizi toplamaz. Oyun içi ilerlemeniz (bölümler, altın, inci, balıklar) cihazınızda yerel olarak saklanır. İsteğe bağlı olarak bulut servisleri (Google Play Games / Game Center) üzerinden yedekleme yapılabilir.\n\n'

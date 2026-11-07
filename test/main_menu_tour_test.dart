@@ -54,7 +54,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.text('ADIM 3 / 4'), findsOneWidget);
-      expect(find.text('Kaunos Akvaryumu (Bölüm 5)'), findsOneWidget);
+      expect(find.text('Kaunos Akvaryumu (Bölüm 3)'), findsOneWidget);
 
       // Step 4: Çark & Görevler
       await tester.tap(find.text('SONRAKİ'));

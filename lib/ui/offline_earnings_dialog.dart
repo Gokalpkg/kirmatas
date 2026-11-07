@@ -169,10 +169,10 @@ class _OfflineEarningsDialogState extends State<OfflineEarningsDialog> with Sing
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Sen uzaktayken balıkların senin için altın üretti.',
+            Text(
+              'Yokken balıkların $readyGold altın biriktirdi!',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: Color(0xFFB0BEC5),
                 fontSize: 13,
                 fontWeight: FontWeight.w500,

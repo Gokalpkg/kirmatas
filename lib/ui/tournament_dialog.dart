@@ -10,6 +10,7 @@ import '../engine/i18n.dart';
 import '../models/game_state.dart';
 import '../models/tournament_data.dart';
 import '../storage/save_manager.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'kaunos_ui.dart';
 
 /// Upgraded dual-tab Events & League dialog:
@@ -828,6 +829,14 @@ class _TournamentDialogState extends State<TournamentDialog> {
 
               // Crystal Clear Weekly League Rewards Card
               _buildLeagueRewardsCard(save, tierColor, isCompact),
+
+              SizedBox(height: isCompact ? 6 : 10),
+
+              // Viral Friend Invite & Share Card (+150 Gold)
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20),
+                child: _buildShareInviteCard(context, save, compact: isCompact),
+              ),
 
               SizedBox(height: isCompact ? 8 : 12),
 
@@ -2716,6 +2725,193 @@ class _TournamentDialogState extends State<TournamentDialog> {
                           color: Colors.black,
                           fontWeight: FontWeight.w900,
                           fontSize: 11.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _buildShareInviteCard(context, save, compact: isCompact),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _shareInvite(BuildContext context, SaveManager save, {bool isWhatsApp = true}) async {
+    final tag = save.playerTag;
+    final inviteMsg = "Kırmataş'ta skorumu geçebilir misin? Beni ekle: $tag https://play.google.com/store/apps/details?id=com.kaunos.kirmatas";
+    bool launched = false;
+
+    if (isWhatsApp) {
+      final whatsappUri = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(inviteMsg)}');
+      try {
+        if (await canLaunchUrl(whatsappUri)) {
+          await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+          launched = true;
+        }
+      } catch (_) {}
+    }
+
+    await save.claimFriendInviteReward(amount: 150);
+    AudioManager.instance.playSfx(GameSfx.victory);
+
+    if (!launched) {
+      try {
+        await Clipboard.setData(ClipboardData(text: inviteMsg));
+      } catch (_) {}
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.celebration_rounded, color: Color(0xFFFFD700), size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  launched
+                      ? 'Davet paylaşıldı! +150 Altın hesabına eklendi!'
+                      : 'Davet metni kopyalandı! +150 Altın hesabına eklendi!',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF006064),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      setState(() {});
+    }
+  }
+
+  Widget _buildShareInviteCard(BuildContext context, SaveManager save, {bool compact = false}) {
+    return Container(
+      margin: EdgeInsets.only(top: compact ? 6 : 10),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 14, vertical: compact ? 8 : 10),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F3A40), Color(0xFF0A1B2A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.4), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: const BoxDecoration(
+                  color: Color(0x3300E676),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.share_rounded, color: Color(0xFF00E676), size: 16),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Arkadaşını Getir (+150 Altın)',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12.5,
+                    fontFamily: 'Rajdhani',
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0x33FFD54F),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFFD54F), width: 1),
+                ),
+                child: const Text(
+                  '+150 ALTIN',
+                  style: TextStyle(
+                    color: Color(0xFFFFD54F),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '"Kırmataş\'ta skorumu geçebilir misin? Beni ekle: ${save.playerTag}"',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: KaunosTactileButton.jade(
+                  height: 34,
+                  onTap: () => _shareInvite(context, save, isWhatsApp: true),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 14),
+                      SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'WhatsApp',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: KaunosTactileButton.cyan(
+                  height: 34,
+                  onTap: () => _shareInvite(context, save, isWhatsApp: false),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.share_outlined, color: Color(0xFF00E5FF), size: 14),
+                      SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'Hikaye / Paylaş',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Color(0xFF00E5FF),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                     ],

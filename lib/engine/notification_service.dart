@@ -25,6 +25,9 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
+  @visibleForTesting
+  set isInitializedForTest(bool value) => _initialized = value;
+
   static const String retentionChannelId = 'kirmatas_retention_channel';
   static const String retentionChannelName = 'Kırmataş Hatırlatıcıları';
   static const String eventsChannelId = 'kirmatas_events_channel';
@@ -182,7 +185,12 @@ class NotificationService {
       await _localNotifications.cancel(id: 103);
 
       final isTr = I18n.currentLang == 'tr';
-      final now = tz.TZDateTime.now(tz.local);
+      tz.TZDateTime now;
+      try {
+        now = tz.TZDateTime.now(tz.local);
+      } catch (_) {
+        now = tz.TZDateTime.now(tz.UTC);
+      }
 
       final androidDetails = const AndroidNotificationDetails(
         retentionChannelId,
@@ -198,48 +206,53 @@ class NotificationService {
       );
       final details = NotificationDetails(android: androidDetails, iOS: darwinDetails);
 
-      // Loop 1: 4 Hours - Offline Vault Full
+      // Loop 1: 4 Hours - Hungry Fish & Pearls (+4h retention)
       final time4h = now.add(const Duration(hours: 4));
       await _localNotifications.zonedSchedule(
         id: 101,
-        title: isTr ? 'Akvaryum Kasası Doldu!' : 'Aquarium Vault is Full!',
+        title: isTr ? 'Balıkların Acıktı!' : 'Your Fish Are Hungry!',
         body: isTr
-            ? 'Balıkların hazine sandığını altınla doldurdu! Toplamak için hemen dokun.'
-            : 'Your fish have filled the chest with gold! Tap to collect.',
+            ? 'Balıkların acıktı, incilerini toplamayı unutma!'
+            : "Your fish are hungry, don't forget to collect your pearls!",
         scheduledDate: time4h,
         notificationDetails: details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
 
-      // Loop 2: 24 Hours - Daily Fortune Wheel Free Spin
+      // Loop 2: 24 Hours - Lucky Fish of the Day (+24h retention)
       final time24h = now.add(const Duration(hours: 24));
       await _localNotifications.zonedSchedule(
         id: 102,
-        title: isTr ? 'Ücretsiz Şans Çarkı Hazır!' : 'Free Fortune Wheel Spin!',
+        title: isTr ? 'Günün Şanslı Balığı Seni Bekliyor!' : 'Lucky Fish of the Day!',
         body: isTr
-            ? 'Bugünkü bedava çarkıfelek hakkın seni bekliyor, hemen çevir ve incileri kap!'
-            : 'Your free daily wheel spin is ready. Tap to spin & win pearls!',
+            ? 'Günün Şanslı Balığı seni bekliyor (3x Altın)!'
+            : 'Lucky Fish of the Day is waiting for you (3x Gold)!',
         scheduledDate: time24h,
         notificationDetails: details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
 
-      // Loop 3: 48 Hours - Comeback & Lucky Fish Bonus
+      // Loop 3: 48 Hours - Comeback & Win Streak Bonus
       final time48h = now.add(const Duration(hours: 48));
       await _localNotifications.zonedSchedule(
         id: 103,
-        title: isTr ? 'Günün Şanslı Balığı Seni Bekliyor!' : 'Lucky Fish of the Day!',
+        title: isTr ? 'Kırmataş Seni Özledi!' : 'Kirmatas Misses You!',
         body: isTr
-            ? 'Akvaryumunu ziyaret et, 3 kat altın bonusunu kaçırma!'
-            : 'Visit your aquarium now for 3x gold production!',
+            ? 'Akvaryumunu ziyaret et, zafer serini koru ve ödüllerini topla!'
+            : 'Visit your aquarium, maintain your win streak and collect your rewards!',
         scheduledDate: time48h,
         notificationDetails: details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
 
       debugPrint('[NotificationService] Supercell retention loops scheduled cleanly (+4h, +24h, +48h).');
-    } catch (e) {
-      debugPrint('[NotificationService] Retention scheduling warning: $e');
+    } catch (e, st) {
+      debugPrint('[NotificationService] Retention scheduling warning: $e\n$st');
     }
+  }
+
+  /// Explicit hook to start retention loops immediately once Level 2 is cleared.
+  Future<void> schedulePostLevel2Notifications() async {
+    await scheduleSmartRetentionLoops();
   }
 }

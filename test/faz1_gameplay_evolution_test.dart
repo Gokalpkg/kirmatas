@@ -219,6 +219,7 @@ void main() {
       ctrl.setDimensions(400, 800);
       ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
       ctrl.launchBall();
+      ctrl.firstCornerHitShown = true;
 
       ctrl.balls.clear();
       final ball = Ball(

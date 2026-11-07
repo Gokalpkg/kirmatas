@@ -179,7 +179,7 @@ class _MainMenuTourOverlayState extends State<MainMenuTourOverlay>
               Text(
                 I18n.bi(
                   'KIRMATAS DÜNYASINA\nHOŞ GELDİN!',
-                  'WELCOME TO\nBRICK BREAKER AQUARIUM!',
+                  'WELCOME TO\nBRICK BREAKER ARCADE!',
                 ),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
@@ -298,10 +298,10 @@ class _MainMenuTourOverlayState extends State<MainMenuTourOverlay>
         break;
       case 3:
         stepBadge = I18n.bi('ADIM 3 / 4', 'STEP 3 / 4');
-        title = I18n.bi('Kaunos Akvaryumu (Bölüm 5)', 'Eco-Tank Aquarium (Level 5)');
+        title = I18n.bi('Kaunos Akvaryumu (Bölüm 3)', 'Eco-Tank Aquarium (Level 3)');
         desc = I18n.bi(
-          'Bölüm 5 seviyesinde açılır! Kendi su altı dünyanda balıklarını besleyebilir ve sana düzenli pasif altın ve inci üretmelerini sağlayabilirsin.',
-          'Unlocks at Level 5! Feed exotic fish in your underwater sanctuary to generate passive gold and pearls.',
+          'Bölüm 3 seviyesinde açılır! Kendi su altı dünyanda balıklarını besleyebilir ve sana düzenli pasif altın ve inci üretmelerini sağlayabilirsin.',
+          'Unlocks at Level 3! Feed exotic fish in your underwater sanctuary to generate passive gold and pearls.',
         );
         icon = Icons.water_drop_rounded;
         accentColor = const Color(0xFF00E5FF);

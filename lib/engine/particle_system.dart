@@ -60,6 +60,7 @@ enum FloatingIconType {
   none,
   flame,
   bolt,
+  star,
 }
 
 class FloatingText {

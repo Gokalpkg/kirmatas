@@ -706,8 +706,10 @@ class HudOverlay extends StatelessWidget {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () {
-                      HapticFeedback.mediumImpact();
-                      controller.skipLevelTransition();
+                      if (controller.levelTransitionTimer <= 0.0) {
+                        HapticFeedback.mediumImpact();
+                        controller.skipLevelTransition();
+                      }
                     },
                     child: Container(
                       color: const Color(0x66000000),

@@ -1,5 +1,7 @@
 import '../engine/analytics_manager.dart';
 import '../engine/achievement_manager.dart';
+import '../engine/notification_service.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -101,6 +103,7 @@ class PendingCrate {
   final bool isFoodBonus;
   final int bonusFoodCount;
   final int bonusGoldCount;
+  final int bonusPearlCount;
 
   PendingCrate({
     required this.crateType,
@@ -117,6 +120,7 @@ class PendingCrate {
     this.isFoodBonus = false,
     this.bonusFoodCount = 0,
     this.bonusGoldCount = 0,
+    this.bonusPearlCount = 0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -134,6 +138,7 @@ class PendingCrate {
     'isFoodBonus': isFoodBonus,
     'bonusFoodCount': bonusFoodCount,
     'bonusGoldCount': bonusGoldCount,
+    'bonusPearlCount': bonusPearlCount,
   };
 
   factory PendingCrate.fromJson(Map<String, dynamic> json) => PendingCrate(
@@ -151,6 +156,7 @@ class PendingCrate {
     isFoodBonus: json['isFoodBonus'] as bool? ?? false,
     bonusFoodCount: json['bonusFoodCount'] as int? ?? 0,
     bonusGoldCount: json['bonusGoldCount'] as int? ?? 0,
+    bonusPearlCount: json['bonusPearlCount'] as int? ?? 0,
   );
 }
 
@@ -423,9 +429,12 @@ class SaveManager extends ChangeNotifier {
 
   bool get isShopUnlocked => highestLevel >= 2 || totalGold >= 100;
   bool get isWorkshopUnlocked => highestLevel >= 3;
-  bool get isAquariumUnlocked => highestLevel >= 5;
+  bool get isAquariumUnlocked => highestLevel >= 3;
   bool get isChaosUnlocked => highestLevel >= 5;
   bool get isLeagueUnlocked => highestLevel >= 7;
+
+  bool hasRequestedReview = false;
+  int friendInvitesSent = 0;
 
   // --- R5: COSMIC MASTERY & PEARLS ---
   int _pearls = 0;
@@ -1036,6 +1045,8 @@ class SaveManager extends ChangeNotifier {
     questOverdriveLasers = 0;
     questGoldPinatas = 0;
     questClutchSaves = 0;
+    unlockedFish = ['guppy', 'tetra'];
+    ownedFishCounts = {'guppy': 1, 'tetra': 1};
   }
 
   Future<void> init() async {
@@ -1140,6 +1151,8 @@ class SaveManager extends ChangeNotifier {
     statWheelSpins = _prefs?.getInt('statWheelSpins') ?? 0;
     statBossesDefeated = _prefs?.getInt('statBossesDefeated') ?? 0;
     cratePityCounter = _prefs?.getInt('cratePityCounter') ?? 0;
+    hasRequestedReview = _prefs?.getBool('hasRequestedReview') ?? false;
+    friendInvitesSent = _prefs?.getInt('friendInvitesSent') ?? 0;
     unlockedAchievements = (_prefs?.getStringList('unlockedAchievements') ?? []).toSet();
     final stepsJson = _prefs?.getString('achievementSteps');
     if (stepsJson != null) {
@@ -1389,28 +1402,28 @@ class SaveManager extends ChangeNotifier {
         break;
       case 'ball':
         if (crate.isShardReward) {
-          await addShard(crate.category ?? 'balls', 1);
+          await addShard(crate.category ?? 'balls', crate.shardCount > 0 ? crate.shardCount : 1);
         } else {
           await unlockBall(crate.rewardId);
         }
         break;
       case 'paddle':
         if (crate.isShardReward) {
-          await addShard(crate.category ?? 'paddles', 1);
+          await addShard(crate.category ?? 'paddles', crate.shardCount > 0 ? crate.shardCount : 1);
         } else {
           await unlockPaddle(crate.rewardId);
         }
         break;
       case 'trail':
         if (crate.isShardReward) {
-          await addShard(crate.category ?? 'trails', 1);
+          await addShard(crate.category ?? 'trails', crate.shardCount > 0 ? crate.shardCount : 1);
         } else {
           await unlockTrail(crate.rewardId);
         }
         break;
       case 'brick':
         if (crate.isShardReward) {
-          await addShard(crate.category ?? 'bricks', 1);
+          await addShard(crate.category ?? 'bricks', crate.shardCount > 0 ? crate.shardCount : 1);
         } else {
           await unlockBrickStyle(crate.rewardId);
         }
@@ -1420,6 +1433,19 @@ class SaveManager extends ChangeNotifier {
           await addGold(crate.bonusGoldCount);
         }
         break;
+    }
+
+    // Award scaled bonus gifts (gold, food, pearls) if specified
+    if (crate.rewardType != 'gold' && crate.bonusGoldCount > 0) {
+      await addGold(crate.bonusGoldCount);
+    }
+    if (crate.rewardType != 'fish' && crate.bonusFoodCount > 0) {
+      await addFishFood(crate.bonusFoodCount);
+    } else if (crate.rewardType == 'fish' && !crate.isFoodBonus && crate.bonusFoodCount > 0) {
+      await addFishFood(crate.bonusFoodCount);
+    }
+    if (crate.bonusPearlCount > 0) {
+      addPearls(crate.bonusPearlCount);
     }
 
     await clearPendingCrate();
@@ -1474,6 +1500,23 @@ class SaveManager extends ChangeNotifier {
     statClearsByLevel[level] = (statClearsByLevel[level] ?? 0) + 1;
     await _prefs?.setInt('statTotalClears', statTotalClears);
     await _saveIntMap('statClearsByLevel', statClearsByLevel);
+    if (level == 2) {
+      unawaited(NotificationService.instance.schedulePostLevel2Notifications());
+    }
+  }
+
+  Future<void> markReviewRequested() async {
+    hasRequestedReview = true;
+    await _prefs?.setBool('hasRequestedReview', true);
+    notifyListeners();
+  }
+
+  Future<bool> claimFriendInviteReward({int amount = 150}) async {
+    await addGold(amount);
+    friendInvitesSent++;
+    await _prefs?.setInt('friendInvitesSent', friendInvitesSent);
+    notifyListeners();
+    return true;
   }
 
   Future<void> addLifetimeRunStats({required int bricks, required int seconds}) async {
@@ -1971,12 +2014,31 @@ class SaveManager extends ChangeNotifier {
   // --- ECO-TANK PER-FISH FEEDING (3H SATIETY & 6H GOLD PAYOUT) ---
 
   /// Dynamic gold reward for a specific fish after 6 hours, scaled with highest level reached.
-  /// If [fishId] is the Lucky Fish of the Day, gold is multiplied by 3x!
+  /// Balanced passive gold vault income: neither overpowered nor negligible.
   int getFishGoldValue(String fishId, {bool applyLucky = true}) {
     final base = FishItem.getById(fishId).goldReward;
-    final levelMultiplier = 1.0 + (highestLevel * 0.12);
-    final luckyMult = (applyLucky && isLuckyFish(fishId)) ? 3.0 : 1.0;
+    final cappedLevel = math.min(highestLevel, 100);
+    final levelMultiplier = 1.0 + (cappedLevel * 0.035);
+    final luckyMult = (applyLucky && isLuckyFish(fishId)) ? 2.0 : 1.0;
     return (base * levelMultiplier * luckyMult).round();
+  }
+
+  /// Octopus Clutch Save (Ahtapot Vantuz Kurtarışı) Daily Tracking
+  String? get lastOctopusClutchDay => _prefs?.getString('lastOctopusClutchDay');
+
+  bool get hasOctopus =>
+      unlockedFish.contains('octopus') || (ownedFishCounts['octopus'] ?? 0) > 0;
+
+  bool get canUseDailyOctopusClutch {
+    if (!hasOctopus) return false;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    return lastOctopusClutchDay != today;
+  }
+
+  Future<void> recordDailyOctopusClutchUsed() async {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    await _prefs?.setString('lastOctopusClutchDay', today);
+    notifyListeners();
   }
 
   /// Total gold reward if all currently unlocked fish are fed

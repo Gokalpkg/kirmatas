@@ -210,6 +210,7 @@ void main() {
 
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 1200));
+      await tester.pump(const Duration(milliseconds: 2000));
       expect(find.byType(KaunosCard), findsOneWidget);
       expect(find.text(I18n.tr('claim_and_close')), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -362,6 +363,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 1200));
+      await tester.pump(const Duration(milliseconds: 2000));
 
       // Should display all items unlocked text and +1000 gold
       expect(find.text(I18n.tr('all_items_unlocked')), findsOneWidget);
@@ -417,6 +419,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 1200));
+      await tester.pump(const Duration(milliseconds: 2000));
 
       // Since player has 3 shards and it was a duplicate, the shard redemption button should appear
       expect(find.text(I18n.tr('use_shards_guaranteed')), findsOneWidget);
@@ -466,6 +469,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 1200));
+      await tester.pump(const Duration(milliseconds: 2000));
 
       final error = tester.takeException();
       expect(error, isNull);
@@ -517,6 +521,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 1200));
+      await tester.pump(const Duration(milliseconds: 2000));
 
       final error = tester.takeException();
       expect(error, isNull);

@@ -38,9 +38,6 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
   bool _canLaunchOnUp = false;
   int _lastPointerDownMs = 0;
   Offset? _lastPointerDownPos;
-  int _pointerDownMs = 0;
-  Offset? _pointerDownPos;
-  bool _touchStartedNearPaddle = false;
 
   @override
   void initState() {
@@ -102,17 +99,10 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
                 (event.localPosition - _lastPointerDownPos!).distance < 25.0) {
               if (c.isUltiReady) {
                 c.triggerUlti();
-              } else if (c.status == GameStatus.playing && !c.hasStuckBall) {
-                c.triggerGravityPulse(targetX: event.localPosition.dx, targetY: event.localPosition.dy);
               }
             }
             _lastPointerDownMs = nowMs;
             _lastPointerDownPos = event.localPosition;
-            _pointerDownMs = nowMs;
-            _pointerDownPos = event.localPosition;
-            _touchStartedNearPaddle = (event.localPosition.dy >= c.paddle.y - 45.0 &&
-                event.localPosition.dy <= c.paddle.y + c.paddle.height + 45.0 &&
-                (event.localPosition.dx - c.paddle.centerX).abs() <= c.paddle.width * 0.9);
 
             if (c.levelTransitionTimer > 0) {
               _canLaunchOnUp = false;
@@ -184,7 +174,7 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
             if (_pointerTravel >= 10.0) {
               _pointerMoved = true;
             }
-            c.movePaddleBy(dx);
+            c.movePaddleBy(dx * 1.65);
           },
           onPointerUp: (event) {
             final controller = widget.controller;
@@ -194,8 +184,6 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
                 _touchStartLevel == controller.stats.level;
             _canLaunchOnUp = false;
             _touchStartLevel = null;
-            _pointerDownPos = null;
-            _touchStartedNearPaddle = false;
 
             if (controller.currentMode == GameMode.chaos) {
               _chaosPointerDownPos = null;
@@ -214,8 +202,6 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
             _touchStartLevel = null;
             _pointerMoved = false;
             _chaosPointerDownPos = null;
-            _pointerDownPos = null;
-            _touchStartedNearPaddle = false;
           },
           child: Stack(
             children: [
@@ -576,7 +562,7 @@ class _ScreenVignettePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     double redAlpha = 0.0;
-    if (c.isLowLifeAlertActive) {
+    if (c.currentMode != GameMode.chaos && c.isLowLifeAlertActive) {
       // ~72 bpm double-beat envelope: sharp thump then softer echo.
       final t = (c.gameTime * 1.2) % 1.0;
       final beat = t < 0.12
@@ -587,10 +573,11 @@ class _ScreenVignettePainter extends CustomPainter {
                   ? 0.55 * (1.0 - (t - 0.36) / 0.16)
                   : 0.0;
       final fade = (c.lowLifeAlertTimer / 0.8).clamp(0.0, 1.0);
-      redAlpha = (0.05 + 0.10 * beat.clamp(0.0, 1.0)) * fade;
+      redAlpha = (0.05 + 0.10 * beat.clamp(0.0, 1.0)) * fade * 0.38;
     }
     final flash = (c.nearMissFlashTimer / 0.55).clamp(0.0, 1.0);
-    final hasStreakBorder = c.save.winStreak >= 5 &&
+    final hasStreakBorder = c.currentMode != GameMode.chaos &&
+        c.save.winStreak >= 5 &&
         (c.status == GameStatus.playing || c.status == GameStatus.ready);
     if (redAlpha <= 0.0 && flash <= 0.0 && !hasStreakBorder) return;
 
@@ -610,8 +597,9 @@ class _ScreenVignettePainter extends CustomPainter {
 
     if (hasStreakBorder) {
       // Breathing, pulsating translucent orange / golden fire vignette & border (Win Streak x5)
+      // Scaled to 38% intensity per design calibration
       final pulse = 0.5 + 0.5 * sin(c.gameTime * 3.5);
-      final flameAlpha = 0.20 + 0.12 * pulse;
+      final flameAlpha = (0.20 + 0.12 * pulse) * 0.38;
       final flameShader = RadialGradient(
         radius: 0.96,
         colors: [
@@ -625,14 +613,14 @@ class _ScreenVignettePainter extends CustomPainter {
       canvas.drawRect(rect, _flamePaint);
 
       _flameBorderStroke
-        ..strokeWidth = 2.5 + 1.5 * pulse
+        ..strokeWidth = (2.0 + 1.2 * pulse) * 0.65
         ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color.lerp(const Color(0xFFFF6D00), const Color(0xFFFFD600), pulse)!.withValues(alpha: 0.40 + 0.25 * pulse),
-            Color.lerp(const Color(0xFFFF3D00), const Color(0xFFFF9100), 1.0 - pulse)!.withValues(alpha: 0.30 + 0.20 * pulse),
-            Color.lerp(const Color(0xFFFFAB00), const Color(0xFFFF3D00), pulse)!.withValues(alpha: 0.40 + 0.25 * pulse),
+            Color.lerp(const Color(0xFFFF6D00), const Color(0xFFFFD600), pulse)!.withValues(alpha: (0.40 + 0.25 * pulse) * 0.38),
+            Color.lerp(const Color(0xFFFF3D00), const Color(0xFFFF9100), 1.0 - pulse)!.withValues(alpha: (0.30 + 0.20 * pulse) * 0.38),
+            Color.lerp(const Color(0xFFFFAB00), const Color(0xFFFF3D00), pulse)!.withValues(alpha: (0.40 + 0.25 * pulse) * 0.38),
           ],
         ).createShader(rect);
       canvas.drawRect(rect.deflate(1.5), _flameBorderStroke);
@@ -749,7 +737,6 @@ class _GameWorldPainter extends CustomPainter {
     _drawChestLids(canvas);
     _drawNet(canvas, size);
     _drawPaddle(canvas);
-    _drawPulseWaves(canvas);
     _drawChaosAim(canvas);
     _drawChronoLaser(canvas);
     _drawCapsules(canvas);
@@ -760,6 +747,7 @@ class _GameWorldPainter extends CustomPainter {
     _drawDice(canvas);
     _drawParticles(canvas);
     _drawCoinOrbs(canvas);
+    _drawOctopusTentacles(canvas, size);
     if (c.stats.isFever) {
       _drawFeverEdges(canvas, size);
     }
@@ -998,22 +986,23 @@ class _GameWorldPainter extends CustomPainter {
       final fx = ((time * speed + i * 210.0) % cycleW) - fishLen;
       final fy = size.height * (0.62 + i * 0.18) + sin(time * 1.5 + i * 2.0) * 8.0;
 
-      final path = Path();
-      path.moveTo(fx + fishLen * 0.5, fy);
-      path.quadraticBezierTo(fx, fy - fishH * 0.5, fx - fishLen * 0.35, fy);
-      path.lineTo(fx - fishLen * 0.55, fy - fishH * 0.45);
-      path.lineTo(fx - fishLen * 0.42, fy);
-      path.lineTo(fx - fishLen * 0.55, fy + fishH * 0.45);
-      path.lineTo(fx - fishLen * 0.35, fy);
-      path.quadraticBezierTo(fx, fy + fishH * 0.5, fx + fishLen * 0.5, fy);
-      path.close();
+      _tempPath
+        ..reset()
+        ..moveTo(fx + fishLen * 0.5, fy)
+        ..quadraticBezierTo(fx, fy - fishH * 0.5, fx - fishLen * 0.35, fy)
+        ..lineTo(fx - fishLen * 0.55, fy - fishH * 0.45)
+        ..lineTo(fx - fishLen * 0.42, fy)
+        ..lineTo(fx - fishLen * 0.55, fy + fishH * 0.45)
+        ..lineTo(fx - fishLen * 0.35, fy)
+        ..quadraticBezierTo(fx, fy + fishH * 0.5, fx + fishLen * 0.5, fy)
+        ..close();
 
       _fill
         ..style = PaintingStyle.fill
         ..shader = null
         ..maskFilter = null
         ..color = const Color(0xFF00E5FF).withValues(alpha: 0.05);
-      canvas.drawPath(path, _fill);
+      canvas.drawPath(_tempPath, _fill);
     }
   }
 
@@ -3695,42 +3684,7 @@ class _GameWorldPainter extends CustomPainter {
     canvas.drawCircle(end, 3.8, _fill);
   }
 
-  void _drawPulseWaves(Canvas canvas) {
-    for (final wave in c.pulseWaves) {
-      if (!wave.isAlive) continue;
-      final alpha = (1.0 - wave.progress).clamp(0.0, 1.0);
-      final startAngle = wave.aimAngle - wave.spreadAngle / 2;
-      final sweepAngle = wave.spreadAngle;
-      final rect = Rect.fromCircle(center: Offset(wave.x, wave.y), radius: wave.radius);
 
-      // 1. Broad soft golden cone fan
-      _fill
-        ..style = PaintingStyle.fill
-        ..shader = null
-        ..color = const Color(0xFFFFD700).withValues(alpha: alpha * 0.18);
-      _tempPath
-        ..reset()
-        ..moveTo(wave.x, wave.y)
-        ..arcTo(rect, startAngle, sweepAngle, false)
-        ..close();
-      canvas.drawPath(_tempPath, _fill);
-
-      // 2. Bright leading wavefront arc
-      _stroke
-        ..style = PaintingStyle.stroke
-        ..shader = null
-        ..color = const Color(0xFFFFEA00).withValues(alpha: alpha * 0.90)
-        ..strokeWidth = 3.5
-        ..strokeCap = StrokeCap.round;
-      canvas.drawArc(rect, startAngle, sweepAngle, false, _stroke);
-
-      // 3. Blazing white core on the wavefront
-      _stroke
-        ..color = Colors.white.withValues(alpha: alpha * 0.95)
-        ..strokeWidth = 1.5;
-      canvas.drawArc(rect, startAngle + sweepAngle * 0.2, sweepAngle * 0.6, false, _stroke);
-    }
-  }
 
   void _drawPaddle(Canvas canvas) {
     if (c.currentMode == GameMode.chaos) return;
@@ -6329,7 +6283,8 @@ class _GameWorldPainter extends CustomPainter {
   }
 
   void _drawFeverEdges(Canvas canvas, Size size) {
-    // Ultra-subtle, unobtrusive warm fever breathing glow (toned down significantly per user feedback)
+    if (c.currentMode == GameMode.chaos) return;
+    // Ultra-subtle, unobtrusive warm fever breathing glow (toned down to 38% intensity)
     final pulse = 0.65 + sin(time * 3.2) * 0.35;
     final w = size.width;
     final h = size.height;
@@ -6344,8 +6299,8 @@ class _GameWorldPainter extends CustomPainter {
         colors: [
           Colors.transparent,
           Colors.transparent,
-          Color.lerp(const Color(0x04FF3D00), const Color(0x08FF1744), pulse)!,
-          Color.lerp(const Color(0x0CFF1744), const Color(0x14FF3D00), pulse)!,
+          Color.lerp(const Color(0x02FF3D00), const Color(0x04FF1744), pulse)!,
+          Color.lerp(const Color(0x05FF1744), const Color(0x08FF3D00), pulse)!,
         ],
         stops: const [0.0, 0.72, 0.90, 1.0],
       ).createShader(rect);
@@ -6376,6 +6331,93 @@ class _GameWorldPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0, h - edgeH, w, edgeH), _fill);
 
     _fill.shader = null;
+  }
+
+  void _drawOctopusTentacles(Canvas canvas, Size size) {
+    if (c.octopusClutchAnimTimer <= 0.0) return;
+    const totalDuration = 0.85;
+    final elapsed = (totalDuration - c.octopusClutchAnimTimer).clamp(0.0, totalDuration);
+    final t = (elapsed / totalDuration).clamp(0.0, 1.0);
+
+    final double alpha;
+    if (t < 0.15) {
+      alpha = t / 0.15;
+    } else if (t < 0.6) {
+      alpha = 1.0;
+    } else {
+      alpha = (1.0 - t) / 0.4;
+    }
+
+    final targetX = c.octopusClutchX > 0 ? c.octopusClutchX : size.width / 2;
+    final targetY = c.octopusClutchY > 0 ? c.octopusClutchY : size.height * 0.85;
+    final bottomY = size.height + 40;
+
+    final tentacleConfigs = [
+      (targetX - 35.0, -45.0, const Color(0xFFAB47BC), 16.0),
+      (targetX - 12.0, -15.0, const Color(0xFFE040FB), 20.0),
+      (targetX + 15.0, 20.0, const Color(0xFFBA68C8), 18.0),
+      (targetX + 40.0, 50.0, const Color(0xFF7E57C2), 15.0),
+    ];
+
+    final double reach;
+    if (t < 0.3) {
+      reach = sin((t / 0.3) * (pi / 2));
+    } else {
+      reach = 1.0 - (t - 0.3) * 0.4;
+    }
+
+    for (int i = 0; i < tentacleConfigs.length; i++) {
+      final config = tentacleConfigs[i];
+      final baseX = targetX + config.$2 * 2.2;
+      final tipX = targetX + (config.$1 - targetX) * reach;
+      final currentY = bottomY - (bottomY - targetY) * reach;
+
+      final path = Path();
+      path.moveTo(baseX - config.$4 * 0.7, bottomY);
+      final controlX1 = baseX + (i % 2 == 0 ? -40.0 : 40.0) * sin(t * pi * 2);
+      final controlY1 = bottomY - (bottomY - currentY) * 0.5;
+      final controlX2 = tipX + (i % 2 == 0 ? 30.0 : -30.0);
+      final controlY2 = currentY + 30.0;
+
+      path.cubicTo(controlX1, controlY1, controlX2, controlY2, tipX, currentY);
+      path.cubicTo(controlX2 + 10.0, controlY2 + 5.0, controlX1 + 15.0, controlY1 + 5.0, baseX + config.$4 * 0.7, bottomY);
+      path.close();
+
+      _fill
+        ..color = config.$3.withValues(alpha: (alpha * 0.88).clamp(0.0, 1.0))
+        ..shader = LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [
+            const Color(0xFF4A148C).withValues(alpha: alpha * 0.9),
+            config.$3.withValues(alpha: alpha),
+            const Color(0xFFEA80FC).withValues(alpha: alpha),
+          ],
+        ).createShader(Rect.fromLTRB(targetX - 70, targetY - 20, targetX + 70, bottomY))
+        ..style = PaintingStyle.fill;
+      canvas.drawPath(path, _fill);
+      _fill.shader = null;
+
+      for (double step = 0.2; step <= 0.85; step += 0.15) {
+        final suckX = baseX + (tipX - baseX) * step + (i % 2 == 0 ? -8.0 : 8.0);
+        final suckY = bottomY - (bottomY - currentY) * step;
+        _fill
+          ..color = const Color(0xFF00E5FF).withValues(alpha: (alpha * 0.85).clamp(0.0, 1.0))
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(Offset(suckX, suckY), 3.5, _fill);
+
+        _stroke
+          ..color = Colors.white.withValues(alpha: (alpha * 0.9).clamp(0.0, 1.0))
+          ..strokeWidth = 1.2
+          ..style = PaintingStyle.stroke;
+        canvas.drawCircle(Offset(suckX, suckY), 3.5, _stroke);
+      }
+    }
+
+    _fill
+      ..color = const Color(0xFFE040FB).withValues(alpha: (alpha * 0.35).clamp(0.0, 1.0))
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(targetX, targetY), 45.0 * reach, _fill);
   }
 
   void _drawReviveFlash(Canvas canvas, Size size) {

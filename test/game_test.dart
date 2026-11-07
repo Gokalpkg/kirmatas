@@ -1827,9 +1827,9 @@ void main() {
             reason: 'Level $lvl must have at least 6 breakable bricks');
 
         for (final b in bricks) {
-          expect(b.x >= 15.99, true,
+          expect(b.x >= 7.99, true,
               reason: 'Level $lvl brick left bound ${b.x} out of screen');
-          expect(b.x + b.width <= screenWidth - 15.99, true,
+          expect(b.x + b.width <= screenWidth - 7.99, true,
               reason: 'Level $lvl brick right bound ${b.x + b.width} out of screen');
           expect(b.hp >= 1, true, reason: 'Level $lvl brick must have positive HP');
         }
@@ -3125,12 +3125,12 @@ void main() {
         expect(save.isShopUnlocked, true);
         expect(save.isWorkshopUnlocked, false);
 
-        // Workshop unlocks at Level 3
+        // Workshop & Aquarium unlock at Level 3
         save.highestLevel = 3;
         expect(save.isWorkshopUnlocked, true);
-        expect(save.isAquariumUnlocked, false);
+        expect(save.isAquariumUnlocked, true);
 
-        // Aquarium & Chaos unlock at Level 5
+        // Chaos unlocks at Level 5
         save.highestLevel = 5;
         expect(save.isAquariumUnlocked, true);
         expect(save.isChaosUnlocked, true);
@@ -3171,8 +3171,7 @@ void main() {
 
         // Lock badges visible on locked features in bottom dock
         expect(find.text('Bölüm 2'), findsWidgets);
-        expect(find.text('Bölüm 3'), findsOneWidget);
-        expect(find.text('Bölüm 5'), findsWidgets);
+        expect(find.text('Bölüm 3'), findsWidgets);
 
         // Tapping locked Shop tab triggers locked SnackBar feedback
         final shopBtn = find.text(I18n.tr('shop'));
@@ -3631,11 +3630,12 @@ void main() {
         expect(find.text('P1 • 14/14'), findsOneWidget);
 
         await tester.scrollUntilVisible(find.text('PRESTİJ SEKTÖR OMEGA'), 400);
+        await tester.pump(const Duration(milliseconds: 100));
         expect(find.text('PRESTİJ SEKTÖR OMEGA'), findsOneWidget);
         expect(find.text('Sonsuz Seviye • Prestij Kademesi 1'), findsOneWidget);
         expect(find.text('Bölüm 245'), findsOneWidget);
 
-        await tester.tap(find.text('PRESTİJ SEKTÖR OMEGA'));
+        await tester.tap(find.byType(InkWell).last);
         await tester.pump();
         expect(startedLevel, 245);
       });

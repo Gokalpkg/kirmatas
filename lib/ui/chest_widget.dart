@@ -17,6 +17,7 @@ class ChestWidget extends StatelessWidget {
   final bool showGlow;
   final double time;
   final Rarity? tier;
+  final String? crateType;
 
   const ChestWidget({
     super.key,
@@ -28,6 +29,7 @@ class ChestWidget extends StatelessWidget {
     this.showGlow = true,
     this.time = 0.0,
     this.tier,
+    this.crateType,
   });
 
   /// Intelligently infers rarity tier from primary color when tier is unspecified.
@@ -69,6 +71,7 @@ class ChestWidget extends StatelessWidget {
           showGlow: showGlow,
           time: time,
           tier: effectiveTier,
+          crateType: crateType,
         ),
       ),
     );
@@ -83,6 +86,7 @@ class _ChestPainter extends CustomPainter {
   final bool showGlow;
   final double time;
   final Rarity tier;
+  final String? crateType;
 
   _ChestPainter({
     required this.primaryColor,
@@ -91,6 +95,7 @@ class _ChestPainter extends CustomPainter {
     required this.openProgress,
     required this.showGlow,
     required this.tier,
+    this.crateType,
     this.time = 0.0,
   });
 
@@ -212,147 +217,94 @@ class _ChestPainter extends CustomPainter {
   }
 
   void _drawBasePlanks(Canvas canvas, Rect baseRect, RRect baseRRect, double w, double h, double pulse) {
+    // Tüm sandıklar için temel zemin: Zengin damarlı doğal ahşap (tahta) plakalar
+    final Color woodTop;
+    final Color woodMid;
+    final Color woodBot;
+
     switch (tier) {
       case Rarity.common:
-        // Matte dark basalt stone slabs
-        final basaltGrad = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF1E2333),
-            Color(0xFF141724),
-            Color(0xFF0C0E17),
-          ],
-          stops: [0.0, 0.55, 1.0],
-        );
-        canvas.drawRRect(baseRRect, Paint()..shader = basaltGrad.createShader(baseRect));
-
-        // 3 chiseled basalt slabs with deep seam bevels
-        final seamPaint = Paint()
-          ..color = const Color(0xFF04060A)
-          ..strokeWidth = max(1.4, w * 0.020);
-        canvas.drawLine(Offset(w * 0.38, h * 0.44), Offset(w * 0.38, h * 0.84), seamPaint);
-        canvas.drawLine(Offset(w * 0.62, h * 0.44), Offset(w * 0.62, h * 0.84), seamPaint);
-
-        // Chiseled stone highlight seam lines
-        final grainPaint = Paint()
-          ..color = Colors.white.withValues(alpha: 0.12)
-          ..strokeWidth = max(0.8, w * 0.010);
-        canvas.drawLine(Offset(w * 0.395, h * 0.44), Offset(w * 0.395, h * 0.84), grainPaint);
-        canvas.drawLine(Offset(w * 0.635, h * 0.44), Offset(w * 0.635, h * 0.84), grainPaint);
+        // Doğal meşe ve ceviz ahşap
+        woodTop = const Color(0xFF6D4C41);
+        woodMid = const Color(0xFF4E342E);
+        woodBot = const Color(0xFF2E1C14);
         break;
-
       case Rarity.rare:
-        // Deep oceanic jade-obsidian with crystalline refraction veins
-        final jadeGrad = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF0F2E36),
-            Color(0xFF0A1E24),
-            Color(0xFF040F13),
-          ],
-          stops: [0.0, 0.55, 1.0],
-        );
-        canvas.drawRRect(baseRRect, Paint()..shader = jadeGrad.createShader(baseRect));
+        // Denizcil tik ve sedir ahşabı (hafif turkuaz yansımalı)
+        woodTop = const Color(0xFF5D4037);
+        woodMid = const Color(0xFF3E2723);
+        woodBot = const Color(0xFF1B0E09);
+        break;
+      case Rarity.epic:
+        // Koyu kraliyet maun ahşabı (mor hareli)
+        woodTop = const Color(0xFF4E342E);
+        woodMid = const Color(0xFF372018);
+        woodBot = const Color(0xFF1A0A06);
+        break;
+      case Rarity.legendary:
+        // Kadim abanoz / altın vernikli demir ağacı
+        woodTop = const Color(0xFF5D3823);
+        woodMid = const Color(0xFF3A1E0D);
+        woodBot = const Color(0xFF1D0A02);
+        break;
+    }
 
-        // Deep seam grooves
-        final seamPaint = Paint()
-          ..color = const Color(0xFF02090C)
-          ..strokeWidth = max(1.4, w * 0.020);
-        canvas.drawLine(Offset(w * 0.38, h * 0.44), Offset(w * 0.38, h * 0.84), seamPaint);
-        canvas.drawLine(Offset(w * 0.62, h * 0.44), Offset(w * 0.62, h * 0.84), seamPaint);
+    final woodGrad = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [woodTop, woodMid, woodBot],
+      stops: const [0.0, 0.55, 1.0],
+    );
+    canvas.drawRRect(baseRRect, Paint()..shader = woodGrad.createShader(baseRect));
 
-        // Translucent aquamarine crystalline refraction veins
+    // Ahşap dikey tahta birleşim dikişleri
+    final seamPaint = Paint()
+      ..color = const Color(0xFF0F0603)
+      ..strokeWidth = max(1.4, w * 0.020);
+    canvas.drawLine(Offset(w * 0.38, h * 0.44), Offset(w * 0.38, h * 0.84), seamPaint);
+    canvas.drawLine(Offset(w * 0.62, h * 0.44), Offset(w * 0.62, h * 0.84), seamPaint);
+
+    // Ahşap damar yansıma çizgileri
+    final grainPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.14)
+      ..strokeWidth = max(0.8, w * 0.010);
+    canvas.drawLine(Offset(w * 0.395, h * 0.44), Offset(w * 0.395, h * 0.84), grainPaint);
+    canvas.drawLine(Offset(w * 0.635, h * 0.44), Offset(w * 0.635, h * 0.84), grainPaint);
+
+    // Nadirliğe göre parlama & sihirli damar
+    switch (tier) {
+      case Rarity.common:
+        // Sıcak bronz / kehribar tahta ışıltısı
+        final glowPaint = Paint()
+          ..color = const Color(0xFFFF9800).withValues(alpha: 0.12 * pulse)
+          ..strokeWidth = max(0.9, w * 0.012);
+        canvas.drawLine(Offset(w * 0.27, h * 0.52), Offset(w * 0.35, h * 0.78), glowPaint);
+        break;
+      case Rarity.rare:
+        // Akuamarin mavi kristal ahşap damarları
         final veinPaint = Paint()
-          ..color = const Color(0xFF00E5FF).withValues(alpha: 0.28)
+          ..color = const Color(0xFF00E5FF).withValues(alpha: 0.28 * pulse)
           ..strokeWidth = max(0.9, w * 0.012);
         canvas.drawLine(Offset(w * 0.27, h * 0.48), Offset(w * 0.35, h * 0.78), veinPaint);
         canvas.drawLine(Offset(w * 0.50, h * 0.50), Offset(w * 0.56, h * 0.80), veinPaint);
         canvas.drawLine(Offset(w * 0.65, h * 0.46), Offset(w * 0.72, h * 0.76), veinPaint);
         break;
-
       case Rarity.epic:
-        // Glossy midnight violet obsidian slabs with specular highlights
-        final epicGrad = const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF281340),
-            Color(0xFF180B28),
-            Color(0xFF090312),
-          ],
-          stops: [0.0, 0.50, 1.0],
-        );
-        canvas.drawRRect(baseRRect, Paint()..shader = epicGrad.createShader(baseRect));
-
-        // Deep seam grooves
-        final seamPaint = Paint()
-          ..color = const Color(0xFF05010A)
-          ..strokeWidth = max(1.4, w * 0.020);
-        canvas.drawLine(Offset(w * 0.38, h * 0.44), Offset(w * 0.38, h * 0.84), seamPaint);
-        canvas.drawLine(Offset(w * 0.62, h * 0.44), Offset(w * 0.62, h * 0.84), seamPaint);
-
-        // Specular purple nebula rim highlight
-        final rimPaint = Paint()
-          ..color = const Color(0xFFE040FB).withValues(alpha: 0.35 * pulse)
+        // Ametist mor ahşap haresi
+        final epicGlow = Paint()
+          ..color = const Color(0xFFE040FB).withValues(alpha: 0.32 * pulse)
           ..strokeWidth = max(0.9, w * 0.012);
-        canvas.drawLine(Offset(w * 0.395, h * 0.44), Offset(w * 0.395, h * 0.84), rimPaint);
-        canvas.drawLine(Offset(w * 0.635, h * 0.44), Offset(w * 0.635, h * 0.84), rimPaint);
-
-        // Diagonal mirror specular highlight across obsidian slab
-        final mirrorPaint = Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white.withValues(alpha: 0.18),
-              Colors.transparent,
-            ],
-            stops: const [0.0, 0.45],
-          ).createShader(baseRect);
-        canvas.drawRRect(baseRRect, mirrorPaint);
+        canvas.drawLine(Offset(w * 0.27, h * 0.48), Offset(w * 0.35, h * 0.78), epicGlow);
+        canvas.drawLine(Offset(w * 0.50, h * 0.50), Offset(w * 0.56, h * 0.80), epicGlow);
         break;
-
       case Rarity.legendary:
-        // Deep carved obsidian chassis bordered by warm terracotta-amber underglow
-        final goldBaseGrad = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF2E190E),
-            Color(0xFF1C0D05),
-            Color(0xFF0B0401),
-          ],
-          stops: [0.0, 0.50, 1.0],
-        );
-        canvas.drawRRect(baseRRect, Paint()..shader = goldBaseGrad.createShader(baseRect));
-
-        // Warm terracotta-amber underglow along bottom seam
-        final underglowPaint = Paint()
-          ..shader = RadialGradient(
-            center: const Alignment(0.0, 0.9),
-            radius: 0.8,
-            colors: [
-              const Color(0xFFFFB300).withValues(alpha: 0.45 * pulse),
-              Colors.transparent,
-            ],
-          ).createShader(baseRect);
-        canvas.drawRRect(baseRRect, underglowPaint);
-
-        // Seams
-        final seamPaint = Paint()
-          ..color = const Color(0xFF050200)
-          ..strokeWidth = max(1.4, w * 0.020);
-        canvas.drawLine(Offset(w * 0.38, h * 0.44), Offset(w * 0.38, h * 0.84), seamPaint);
-        canvas.drawLine(Offset(w * 0.62, h * 0.44), Offset(w * 0.62, h * 0.84), seamPaint);
-
-        // 24k gold leaf seam reflection
+        // 24k altın yaldızlı ahşap damarları ve parıltı
         final goldSeamPaint = Paint()
-          ..color = const Color(0xFFFFD54F).withValues(alpha: 0.45)
-          ..strokeWidth = max(0.9, w * 0.012);
-        canvas.drawLine(Offset(w * 0.395, h * 0.44), Offset(w * 0.395, h * 0.84), goldSeamPaint);
-        canvas.drawLine(Offset(w * 0.635, h * 0.44), Offset(w * 0.635, h * 0.84), goldSeamPaint);
+          ..color = const Color(0xFFFFD54F).withValues(alpha: 0.45 * pulse)
+          ..strokeWidth = max(1.1, w * 0.015);
+        canvas.drawLine(Offset(w * 0.25, h * 0.46), Offset(w * 0.36, h * 0.80), goldSeamPaint);
+        canvas.drawLine(Offset(w * 0.50, h * 0.48), Offset(w * 0.57, h * 0.82), goldSeamPaint);
+        canvas.drawLine(Offset(w * 0.64, h * 0.46), Offset(w * 0.74, h * 0.80), goldSeamPaint);
         break;
     }
   }
@@ -575,65 +527,38 @@ class _ChestPainter extends CustomPainter {
       bottomRight: Radius.circular(w * 0.03),
     );
 
-    // Domed Lid body shading per tier
-    final Shader lidShader;
+    // Domed Lid body shading per tier (Rich curved wood planks matching base chassis)
+    final Color lidWoodTop;
+    final Color lidWoodMid;
+    final Color lidWoodBot;
     switch (tier) {
       case Rarity.common:
-        lidShader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF2C3246),
-            Color(0xFF1E2333),
-            Color(0xFF141724),
-            Color(0xFF0C0E17),
-          ],
-          stops: [0.0, 0.30, 0.70, 1.0],
-        ).createShader(lidRect);
+        lidWoodTop = const Color(0xFF755145);
+        lidWoodMid = const Color(0xFF543831);
+        lidWoodBot = const Color(0xFF33201B);
         break;
-
       case Rarity.rare:
-        lidShader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF1A4550),
-            Color(0xFF0F2E36),
-            Color(0xFF0A1E24),
-            Color(0xFF040F13),
-          ],
-          stops: [0.0, 0.30, 0.70, 1.0],
-        ).createShader(lidRect);
+        lidWoodTop = const Color(0xFF65473E);
+        lidWoodMid = const Color(0xFF452E27);
+        lidWoodBot = const Color(0xFF241510);
         break;
-
       case Rarity.epic:
-        lidShader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF3D1F5E),
-            Color(0xFF281340),
-            Color(0xFF180B28),
-            Color(0xFF090312),
-          ],
-          stops: [0.0, 0.30, 0.70, 1.0],
-        ).createShader(lidRect);
+        lidWoodTop = const Color(0xFF553B32);
+        lidWoodMid = const Color(0xFF39241E);
+        lidWoodBot = const Color(0xFF1E100C);
         break;
-
       case Rarity.legendary:
-        lidShader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF452718),
-            Color(0xFF2E190E),
-            Color(0xFF1C0D05),
-            Color(0xFF0B0401),
-          ],
-          stops: [0.0, 0.30, 0.70, 1.0],
-        ).createShader(lidRect);
+        lidWoodTop = const Color(0xFF63412E);
+        lidWoodMid = const Color(0xFF432617);
+        lidWoodBot = const Color(0xFF231109);
         break;
     }
+    final lidShader = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [lidWoodTop, lidWoodMid, lidWoodBot],
+      stops: const [0.0, 0.45, 1.0],
+    ).createShader(lidRect);
     canvas.drawRRect(lidRRect, Paint()..shader = lidShader);
 
     // Lid vertical seams
@@ -787,6 +712,69 @@ class _ChestPainter extends CustomPainter {
   }
 
   void _drawTopHandle(Canvas canvas, double w, double h, double lidTop, Shader bandShader, double pulse) {
+    final normType = crateType?.toLowerCase() ?? '';
+    if (normType.contains('ball')) {
+      // Ball crate: Heavy curved metal arch with central solid orb
+      final handlePaint = Paint()
+        ..shader = bandShader
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = max(2.4, w * 0.034)
+        ..strokeCap = StrokeCap.round;
+      canvas.drawArc(
+        Rect.fromCenter(center: Offset(w * 0.5, lidTop + h * 0.02), width: w * 0.24, height: h * 0.08),
+        pi,
+        pi,
+        false,
+        handlePaint,
+      );
+      // Central metal sphere
+      canvas.drawCircle(Offset(w * 0.5, lidTop - h * 0.02), max(2.4, w * 0.032), Paint()..shader = bandShader);
+      canvas.drawCircle(Offset(w * 0.5 - 0.8, lidTop - h * 0.02 - 0.8), max(0.9, w * 0.012), Paint()..color = Colors.white70);
+      return;
+    }
+    if (normType.contains('paddle')) {
+      // Paddle crate: Horizontal crossguard bar with side brackets
+      final paddleHandlePaint = Paint()
+        ..shader = bandShader
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = max(2.6, w * 0.036)
+        ..strokeCap = StrokeCap.square;
+      canvas.drawLine(Offset(w * 0.36, lidTop - h * 0.018), Offset(w * 0.64, lidTop - h * 0.018), paddleHandlePaint);
+      canvas.drawLine(Offset(w * 0.40, lidTop + h * 0.015), Offset(w * 0.40, lidTop - h * 0.018), paddleHandlePaint);
+      canvas.drawLine(Offset(w * 0.60, lidTop + h * 0.015), Offset(w * 0.60, lidTop - h * 0.018), paddleHandlePaint);
+      return;
+    }
+    if (normType.contains('trail')) {
+      // Trail crate: Aerodynamic twin swept speed-wings
+      final trailPath = Path()
+        ..moveTo(w * 0.36, lidTop + h * 0.02)
+        ..quadraticBezierTo(w * 0.42, lidTop - h * 0.035, w * 0.50, lidTop - h * 0.015)
+        ..quadraticBezierTo(w * 0.58, lidTop - h * 0.035, w * 0.64, lidTop + h * 0.02);
+      final trailPaint = Paint()
+        ..shader = bandShader
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = max(2.4, w * 0.034)
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPath(trailPath, trailPaint);
+      return;
+    }
+    if (normType.contains('octopus')) {
+      // Octopus crate: Dual curling forged tentacle crowns with sea pearl
+      final tentaclePath = Path()
+        ..moveTo(w * 0.36, lidTop + h * 0.02)
+        ..cubicTo(w * 0.38, lidTop - h * 0.038, w * 0.45, lidTop - h * 0.042, w * 0.50, lidTop - h * 0.018)
+        ..cubicTo(w * 0.55, lidTop - h * 0.042, w * 0.62, lidTop - h * 0.038, w * 0.64, lidTop + h * 0.02);
+      final tentaclePaint = Paint()
+        ..shader = bandShader
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = max(2.6, w * 0.038)
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPath(tentaclePath, tentaclePaint);
+      canvas.drawCircle(Offset(w * 0.5, lidTop - h * 0.026), max(2.2, w * 0.028), Paint()..color = const Color(0xFFE1BEE7));
+      canvas.drawCircle(Offset(w * 0.5 - 0.7, lidTop - h * 0.026 - 0.7), max(0.8, w * 0.010), Paint()..color = Colors.white);
+      return;
+    }
+
     switch (tier) {
       case Rarity.common:
         // Arched heavy forged iron handle
@@ -912,6 +900,118 @@ class _ChestPainter extends CustomPainter {
       ),
       Paint()..color = const Color(0xAA000000),
     );
+
+    final normType = crateType?.toLowerCase() ?? '';
+    if (normType.contains('ball')) {
+      // Ball crate clasp: Heavy circular metal plate with spherical central orb & concentric ring
+      final circlePaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            tier == Rarity.common ? const Color(0xFF78909C) : _tierAccentColor,
+            const Color(0xFF263238),
+          ],
+        ).createShader(Rect.fromCircle(center: lockCenter, radius: lockW * 0.46));
+      canvas.drawCircle(lockCenter, lockW * 0.46, circlePaint);
+      canvas.drawCircle(lockCenter, lockW * 0.40, Paint()..color = const Color(0xFF0F151B));
+
+      // Concentric inner orb emitting tier glow
+      final orbGlow = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            _tierAccentColor.withValues(alpha: 0.9 * pulse),
+            _tierAccentColor.withValues(alpha: 0.0),
+          ],
+        ).createShader(Rect.fromCircle(center: lockCenter, radius: lockW * 0.32));
+      canvas.drawCircle(lockCenter, lockW * 0.32, orbGlow);
+      canvas.drawCircle(lockCenter, lockW * 0.22, Paint()..color = _tierAccentColor);
+      canvas.drawCircle(Offset(lockCenter.dx - lockW * 0.06, lockCenter.dy - lockW * 0.06), max(1.0, w * 0.014), Paint()..color = Colors.white);
+      return;
+    }
+    if (normType.contains('paddle')) {
+      // Paddle crate clasp: Wide elongated crossguard plate with dual bracket rivets and centered gem
+      final paddleClaspRect = Rect.fromCenter(center: lockCenter, width: lockW * 1.35, height: lockH * 0.65);
+      final paddleClaspRRect = RRect.fromRectAndRadius(paddleClaspRect, Radius.circular(w * 0.025));
+      final paddleClaspPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            tier == Rarity.common ? const Color(0xFF90A4AE) : _tierAccentColor,
+            const Color(0xFF37474F),
+            const Color(0xFF1E272C),
+          ],
+        ).createShader(paddleClaspRect);
+      canvas.drawRRect(paddleClaspRRect, paddleClaspPaint);
+
+      final rivetP = Paint()..color = Colors.black87;
+      canvas.drawCircle(Offset(lockCenter.dx - lockW * 0.50, lockCenter.dy), max(1.2, w * 0.014), rivetP);
+      canvas.drawCircle(Offset(lockCenter.dx + lockW * 0.50, lockCenter.dy), max(1.2, w * 0.014), rivetP);
+
+      final gemR = Rect.fromCenter(center: lockCenter, width: lockW * 0.32, height: lockH * 0.40);
+      canvas.drawRRect(RRect.fromRectAndRadius(gemR, const Radius.circular(2)), Paint()..color = _tierAccentColor);
+      canvas.drawCircle(Offset(lockCenter.dx - 1, lockCenter.dy - 1), max(0.9, w * 0.012), Paint()..color = Colors.white);
+      return;
+    }
+    if (normType.contains('trail')) {
+      // Trail crate clasp: Swept aerodynamic speed wings with streamline grooves
+      final wingPath = Path()
+        ..moveTo(lockCenter.dx, lockCenter.dy - lockH * 0.40)
+        ..lineTo(lockCenter.dx + lockW * 0.65, lockCenter.dy - lockH * 0.10)
+        ..lineTo(lockCenter.dx + lockW * 0.45, lockCenter.dy + lockH * 0.35)
+        ..lineTo(lockCenter.dx, lockCenter.dy + lockH * 0.20)
+        ..lineTo(lockCenter.dx - lockW * 0.45, lockCenter.dy + lockH * 0.35)
+        ..lineTo(lockCenter.dx - lockW * 0.65, lockCenter.dy - lockH * 0.10)
+        ..close();
+      final wingPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            tier == Rarity.common ? const Color(0xFF78909C) : _tierAccentColor,
+            const Color(0xFF212121),
+          ],
+        ).createShader(Rect.fromCenter(center: lockCenter, width: lockW * 1.3, height: lockH));
+      canvas.drawPath(wingPath, wingPaint);
+
+      final lineP = Paint()
+        ..color = _tierAccentColor.withValues(alpha: 0.85 * pulse)
+        ..strokeWidth = max(1.0, w * 0.012);
+      canvas.drawLine(Offset(lockCenter.dx - lockW * 0.35, lockCenter.dy), Offset(lockCenter.dx + lockW * 0.35, lockCenter.dy), lineP);
+      canvas.drawCircle(lockCenter, max(1.8, w * 0.022), Paint()..color = Colors.white);
+      return;
+    }
+    if (normType.contains('octopus')) {
+      // Octopus crate clasp: Forged tentacle arms curling around central abyssal pearl
+      final octPath = Path()
+        ..moveTo(lockCenter.dx - lockW * 0.60, lockCenter.dy - lockH * 0.20)
+        ..cubicTo(lockCenter.dx - lockW * 0.20, lockCenter.dy - lockH * 0.50, lockCenter.dx + lockW * 0.20, lockCenter.dy - lockH * 0.50, lockCenter.dx + lockW * 0.60, lockCenter.dy - lockH * 0.20)
+        ..cubicTo(lockCenter.dx + lockW * 0.35, lockCenter.dy + lockH * 0.45, lockCenter.dx - lockW * 0.35, lockCenter.dy + lockH * 0.45, lockCenter.dx - lockW * 0.60, lockCenter.dy - lockH * 0.20);
+      final octPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: const [
+            Color(0xFFCE93D8),
+            Color(0xFF7B1FA2),
+            Color(0xFF311B92),
+          ],
+        ).createShader(Rect.fromCenter(center: lockCenter, width: lockW * 1.2, height: lockH));
+      canvas.drawPath(octPath, octPaint);
+
+      final pearlGlow = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFFEA80FC).withValues(alpha: 0.9 * pulse),
+            Colors.transparent,
+          ],
+        ).createShader(Rect.fromCircle(center: lockCenter, radius: lockW * 0.35));
+      canvas.drawCircle(lockCenter, lockW * 0.35, pearlGlow);
+      canvas.drawCircle(lockCenter, lockW * 0.22, Paint()..color = const Color(0xFFEDE7F6));
+      canvas.drawCircle(Offset(lockCenter.dx - 1.2, lockCenter.dy - 1.2), max(1.0, w * 0.014), Paint()..color = Colors.white);
+      return;
+    }
 
     switch (tier) {
       case Rarity.common:
@@ -1204,6 +1304,7 @@ class _ChestPainter extends CustomPainter {
         oldDelegate.openProgress != openProgress ||
         oldDelegate.showGlow != showGlow ||
         oldDelegate.time != time ||
-        oldDelegate.tier != tier;
+        oldDelegate.tier != tier ||
+        oldDelegate.crateType != crateType;
   }
 }

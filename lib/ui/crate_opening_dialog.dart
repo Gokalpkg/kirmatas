@@ -96,6 +96,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   bool _openJingleFired = false;
   bool _isHitStopFreeze = false;
   Timer? _autoOpenTimer;
+  final List<Timer> _arpeggioTimers = [];
 
   int _tapCount = 0; // 0 (start), 1, 2, 3 (open)
   bool _vaultUnlocked = false;
@@ -115,6 +116,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   bool _isDuplicate = false;
   bool _isShardReward = false;
   bool _isFoodBonus = false;
+  int _bonusGold = 0;
+  int _bonusFood = 0;
+  int _bonusPearls = 0;
 
   double get _chestScale {
     switch (_currentRarity) {
@@ -247,6 +251,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
   @override
   void initState() {
     super.initState();
+    _currentRarity = _effectiveCrate?.tier ?? Rarity.common;
     if (widget.preUnlockedVault) {
       _vaultUnlocked = true;
     }
@@ -440,34 +445,81 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     // Step 3 Sound: Thump as lid reaches its hinge stop
     if (!_openThumpFired && _openController.value >= 0.25) {
       _openThumpFired = true;
-      AudioManager.instance.playSfx(GameSfx.bossHit, playbackRate: 0.82);
-      HapticFeedback.heavyImpact();
+      if (_rewardRarity == Rarity.legendary) {
+        AudioManager.instance.playSfx(GameSfx.explosion, playbackRate: 0.75);
+        AudioManager.instance.playSfx(GameSfx.bossHit, playbackRate: 0.85);
+        HapticFeedback.heavyImpact();
+      } else if (_rewardRarity == Rarity.epic) {
+        AudioManager.instance.playSfx(GameSfx.bossHit, playbackRate: 1.05);
+        HapticFeedback.heavyImpact();
+      } else if (_rewardRarity == Rarity.rare) {
+        AudioManager.instance.playSfx(GameSfx.steel, playbackRate: 1.10);
+        HapticFeedback.mediumImpact();
+      } else {
+        // Sıradan: subtle warm wooden thump sound
+        AudioManager.instance.playSfx(GameSfx.hitBrick, playbackRate: 0.90);
+        HapticFeedback.lightImpact();
+      }
     }
     // Step 3 Sound: Little jingle as treasure is exposed
     if (!_openJingleFired && _openController.value >= 0.48) {
       _openJingleFired = true;
-      AudioManager.instance.playSfx(GameSfx.bubble, playbackRate: 1.6);
-      AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.45);
+      if (_rewardRarity == Rarity.legendary) {
+        AudioManager.instance.playSfx(GameSfx.bubble, playbackRate: 1.80);
+        AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.60);
+      } else if (_rewardRarity == Rarity.epic) {
+        AudioManager.instance.playSfx(GameSfx.bubble, playbackRate: 1.50);
+        AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.45);
+      } else if (_rewardRarity == Rarity.rare) {
+        AudioManager.instance.playSfx(GameSfx.bubble, playbackRate: 1.35);
+        AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.25);
+      } else {
+        AudioManager.instance.playSfx(GameSfx.hitPaddle, playbackRate: 1.20);
+      }
     }
   }
 
   void _onCardFlipTick() {
     if (!_impactTriggered && _cardFlipController.value >= 0.52 && mounted) {
       _impactTriggered = true;
-      _floorRunesController.forward(from: 0.0);
-      _lightningController.forward(from: 0.0);
-      _chromaticController.forward(from: 0.0);
-      _shineSweepController.forward(from: 0.0);
-      _volumetricRaysController.forward(from: 0.0);
-      _starsPopController.forward(from: 0.0);
+      final isLegendary = _rewardRarity == Rarity.legendary;
+      final isEpic = _rewardRarity == Rarity.epic;
+      final isRare = _rewardRarity == Rarity.rare;
 
-      // Arcane climax audio & tactile burst:
-      // Bass drop + Boss rumble + Celestial choir chime + Victory
-      AudioManager.instance.playSfx(GameSfx.explosion, playbackRate: 0.75);
-      AudioManager.instance.playSfx(GameSfx.bossHit, playbackRate: 0.85);
-      AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.4);
-      AudioManager.instance.playSfx(GameSfx.victory);
-      HapticFeedback.heavyImpact();
+      _shineSweepController.forward(from: 0.0);
+
+      if (isRare || isEpic || isLegendary) {
+        _volumetricRaysController.forward(from: 0.0);
+        _starsPopController.forward(from: 0.0);
+      }
+
+      if (isEpic || isLegendary) {
+        _chromaticController.forward(from: 0.0);
+        _lightningController.forward(from: 0.0);
+      }
+
+      if (isLegendary) {
+        _floorRunesController.forward(from: 0.0);
+        // Arcane climax audio & tactile burst:
+        // Bass drop + Boss rumble + Celestial choir chime + Victory
+        AudioManager.instance.playSfx(GameSfx.explosion, playbackRate: 0.75);
+        AudioManager.instance.playSfx(GameSfx.bossHit, playbackRate: 0.85);
+        AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.4);
+        AudioManager.instance.playSfx(GameSfx.victory);
+        HapticFeedback.heavyImpact();
+      } else if (isEpic) {
+        AudioManager.instance.playSfx(GameSfx.bossHit, playbackRate: 1.1);
+        AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.35);
+        HapticFeedback.heavyImpact();
+      } else if (isRare) {
+        AudioManager.instance.playSfx(GameSfx.bubble, playbackRate: 1.3);
+        AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 1.15);
+        HapticFeedback.mediumImpact();
+      } else {
+        // Common: calm, understated reveal
+        AudioManager.instance.playSfx(GameSfx.hitPaddle, playbackRate: 1.25);
+        HapticFeedback.lightImpact();
+      }
     }
   }
 
@@ -500,6 +552,10 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     _bouncingLootController.dispose();
     _autoOpenTimer?.cancel();
     _autoOpenTimer = null;
+    for (final t in _arpeggioTimers) {
+      t.cancel();
+    }
+    _arpeggioTimers.clear();
     super.dispose();
   }
 
@@ -610,16 +666,34 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
   /// Step 4 Audio: Escalating 16-bit synth arpeggio fanfare synced to item ascent.
   void _play16BitSynthArpeggioFanfare() {
-    const notes = <double>[1.0, 1.125, 1.26, 1.50, 1.78, 2.0];
+    final List<double> notes;
+    switch (_rewardRarity) {
+      case Rarity.common:
+        // Modest warm tone
+        notes = const <double>[1.0, 1.15];
+        break;
+      case Rarity.rare:
+        // Light chime fanfare
+        notes = const <double>[1.0, 1.25, 1.50];
+        break;
+      case Rarity.epic:
+        // Dramatic ascending pitch
+        notes = const <double>[1.0, 1.20, 1.45, 1.75, 2.0];
+        break;
+      case Rarity.legendary:
+        // Celestial victory fanfare
+        notes = const <double>[1.0, 1.125, 1.26, 1.50, 1.78, 2.05];
+        break;
+    }
     for (int i = 0; i < notes.length; i++) {
-      Future.delayed(Duration(milliseconds: i * 95), () {
+      _arpeggioTimers.add(Timer(Duration(milliseconds: i * 95), () {
         if (!mounted) return;
         AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: notes[i]);
-        if (i.isEven) {
+        if (i.isEven && _rewardRarity.index >= Rarity.rare.index) {
           AudioManager.instance.playSfx(GameSfx.bubble, playbackRate: notes[i] * 1.15);
         }
         HapticFeedback.selectionClick();
-      });
+      }));
     }
   }
 
@@ -636,49 +710,127 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
     try {
       final isLegendary = _rewardRarity == Rarity.legendary;
+      final isEpic = _rewardRarity == Rarity.epic;
+      final isRare = _rewardRarity == Rarity.rare;
+      final isCommon = _rewardRarity == Rarity.common;
+
+      setState(() {
+        _currentRarity = _rewardRarity;
+      });
+
       if (isLegendary) {
-        setState(() {
-          _currentRarity = Rarity.legendary;
-        });
         AudioManager.instance.playSfx(GameSfx.cornerBoost);
         HapticFeedback.heavyImpact();
+      } else if (isEpic) {
+        AudioManager.instance.playSfx(GameSfx.laser, playbackRate: 1.25);
+        HapticFeedback.heavyImpact();
+      } else if (isRare) {
+        AudioManager.instance.playSfx(GameSfx.steel, playbackRate: 1.15);
+        HapticFeedback.mediumImpact();
+      } else {
+        // Sıradan: simple wooden lock snap sound
+        AudioManager.instance.playSfx(GameSfx.hitBrick, playbackRate: 1.10);
+        HapticFeedback.lightImpact();
       }
 
-      // Step 1 (Gerilim & Sıkışma): Slide chest to bottom-center, apply escalating
-      // pixel-snapped tremor (±2px to ±6px) with rising pitch rumble and rapid machine-gun haptic ticks.
-      _shakeController.duration = const Duration(milliseconds: 360);
+      // Step 1: Tremor / Suspense duration based on rarity tier
+      final int tremorMs = switch (_rewardRarity) {
+        Rarity.common => 180,
+        Rarity.rare => 260,
+        Rarity.epic => 460,
+        Rarity.legendary => 620,
+      };
+      _shakeController.duration = Duration(milliseconds: tremorMs);
+
       int lastRumbleTick = -1;
       void onTremorTick() {
         final step = (_shakeController.value * 6).floor();
         if (step != lastRumbleTick && step >= 0 && step < 6) {
           lastRumbleTick = step;
-          AudioManager.instance.playSfx(GameSfx.hitBrick, playbackRate: 0.75 + step * 0.14);
-          HapticFeedback.selectionClick();
+          if (isLegendary) {
+            // Heartbeat rumble suspense
+            AudioManager.instance.playSfx(GameSfx.bossHit, playbackRate: 0.55 + step * 0.10);
+            HapticFeedback.heavyImpact();
+          } else if (isEpic) {
+            // Pulsing suspense shake with ascending pitch sound
+            AudioManager.instance.playSfx(GameSfx.powerupBuff, playbackRate: 0.75 + step * 0.18);
+            HapticFeedback.mediumImpact();
+          } else if (isRare) {
+            // Blue/cyan hum & energetic buzz
+            AudioManager.instance.playSfx(GameSfx.bubble, playbackRate: 0.90 + step * 0.12);
+            HapticFeedback.selectionClick();
+          } else {
+            // Subtle warm wooden clicks
+            AudioManager.instance.playSfx(GameSfx.hitPaddle, playbackRate: 0.95 + step * 0.08);
+            HapticFeedback.selectionClick();
+          }
         }
       }
+
       _shakeController.addListener(onTremorTick);
       await _shakeController.forward(from: 0.0);
       _shakeController.removeListener(onTremorTick);
       if (!mounted) return;
 
-      // Step 1 (60ms Hit-Stop Freeze): Compress chest downward (squash) for a 60ms hit-stop freeze!
-      setState(() => _isHitStopFreeze = true);
-      _squashController.forward(from: 0.0);
-      AudioManager.instance.playSfx(GameSfx.steel, playbackRate: 0.65);
-      HapticFeedback.heavyImpact();
-      await Future.delayed(const Duration(milliseconds: 60));
-      if (!mounted) return;
-      setState(() => _isHitStopFreeze = false);
+      final hasFreeze = isLegendary || isEpic || isRare;
+      if (hasFreeze) {
+        setState(() => _isHitStopFreeze = true);
+        _squashController.forward(from: 0.0);
+        if (isLegendary) {
+          // Slow-motion heartbeat/rumble freeze
+          AudioManager.instance.playSfx(GameSfx.steel, playbackRate: 0.60);
+          AudioManager.instance.playSfx(GameSfx.explosion, playbackRate: 0.70);
+          HapticFeedback.heavyImpact();
+        } else if (isEpic) {
+          AudioManager.instance.playSfx(GameSfx.steel, playbackRate: 0.85);
+          HapticFeedback.heavyImpact();
+        } else {
+          AudioManager.instance.playSfx(GameSfx.steel, playbackRate: 1.10);
+          HapticFeedback.mediumImpact();
+        }
+        _squashController.addStatusListener((status) {
+          if (status == AnimationStatus.completed && mounted && _isHitStopFreeze) {
+            setState(() => _isHitStopFreeze = false);
+          }
+        });
+      }
 
-      // Step 2 (Işık Sütunu & Patlama) & Step 3 (Hazine Fıskiyesi / Loot Piñata 2.5s):
-      // Snap lid open with a 2-frame pure white screen flash, erupt vertical stepped pixel light beam
-      // (palette-cycling gold/cyan/magenta) with heavy ±8px screen shake, and spew 2.5s pixel loot fountain!
-      _shockwaveController.forward(from: 0.0);
-      _pillarController.forward(from: 0.0);
-      _flashController.forward(from: 0.0);
-      _crystalFlareController.forward(from: 0.0);
-      _popDustController.forward(from: 0.0);
-      _bouncingLootController.forward(from: 0.0);
+      // Tier-specific Opening FX progression
+      if (isCommon) {
+        // 1. Least epic (Sıradan / Common): Simple wooden lock snap, gentle dust puff, modest reveal
+        _landingDustController.forward(from: 0.0);
+        _bouncingLootController.forward(from: 0.0);
+      } else if (isRare) {
+        // 2. Ender / Rare: Sturdy iron band glow, blue burst particles, cyan shockwave, light chime
+        _popDustController.forward(from: 0.0);
+        _shockwaveController.forward(from: 0.0);
+        _electricController.forward(from: 0.0);
+        _pillarController.forward(from: 0.0);
+        _bouncingLootController.forward(from: 0.0);
+      } else if (isEpic) {
+        // 3. Destansı / Epic: Rich purple/amethyst runic glow, dramatic multi-beam burst, purple shockwave, starry confetti shower
+        _popDustController.forward(from: 0.0);
+        _shockwaveController.forward(from: 0.0);
+        _pillarController.forward(from: 0.0);
+        _crystalFlareController.forward(from: 0.0);
+        _floorRunesController.forward(from: 0.0);
+        _starsPopController.forward(from: 0.0);
+        _chromaticController.forward(from: 0.0);
+        _bouncingLootController.forward(from: 0.0);
+      } else if (isLegendary) {
+        // 4. Efsanevi / Legendary: Supreme golden/rainbow divine aura, blinding golden explosion shockwaves, god-rays rotating flare, golden crown/star particles
+        _popDustController.forward(from: 0.0);
+        _shockwaveController.forward(from: 0.0);
+        _pillarController.forward(from: 0.0);
+        _crystalFlareController.forward(from: 0.0);
+        _flashController.forward(from: 0.0);
+        _volumetricRaysController.forward(from: 0.0);
+        _lightningController.forward(from: 0.0);
+        _floorRunesController.forward(from: 0.0);
+        _starsPopController.forward(from: 0.0);
+        _chromaticController.forward(from: 0.0);
+        _bouncingLootController.forward(from: 0.0);
+      }
 
       // Pop the lid! Thump & Little Jingle are executed on precise hinge ticks via _onOpenTick
       await _openController.forward(from: 0.0);
@@ -714,6 +866,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     _isDuplicate = pending.isDuplicate;
     _isShardReward = pending.isShardReward;
     _isFoodBonus = pending.isFoodBonus;
+    _bonusGold = pending.bonusGoldCount;
+    _bonusFood = pending.bonusFoodCount;
+    _bonusPearls = pending.bonusPearlCount;
 
     switch (pending.rewardType) {
       case 'fish':
@@ -827,6 +982,12 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         _isFoodBonus = false;
         _rewardSubtitle = I18n.tr('new_fish_unlocked');
       }
+      final bonusGold = 2000;
+      final bonusFood = 8;
+      final bonusPearls = 1;
+      _bonusGold = bonusGold;
+      _bonusFood = bonusFood;
+      _bonusPearls = bonusPearls;
       save.savePendingCrate(PendingCrate(
         crateType: 'aquarium',
         crateId: crateDef.id,
@@ -840,16 +1001,21 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         isShardReward: _isShardReward,
         shardCount: shardYield > 0 ? shardYield : 1,
         isFoodBonus: _isFoodBonus,
-        bonusFoodCount: _isFoodBonus ? 3 : 0,
+        bonusFoodCount: _isFoodBonus ? 3 : bonusFood,
+        bonusGoldCount: bonusGold,
+        bonusPearlCount: bonusPearls,
       ));
       return;
     }
 
-    // Fish candidate selection
-    final available = FishItem.allFish.where((f) => f.rarity == rolledRarity).toList();
+    // Fish candidate selection (Octopus is strictly exclusive to CrateDef.octopusVault)
+    final pool = FishItem.allFish
+        .where((f) => f.id != 'octopus' && f.kind != FishKind.octopus)
+        .toList();
+    final available = pool.where((f) => f.rarity == rolledRarity).toList();
     // Prioritize fish that player has 0 copies of
     final unownedInRarity = available.where((f) => save.getFishCount(f.id) == 0).toList();
-    final allUnowned = FishItem.allFish.where((f) => save.getFishCount(f.id) == 0).toList();
+    final allUnowned = pool.where((f) => save.getFishCount(f.id) == 0).toList();
 
     FishItem fish;
     if (unownedInRarity.isNotEmpty) {
@@ -859,7 +1025,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       fish = allUnowned[rand.nextInt(allUnowned.length)];
       _rewardRarity = fish.rarity;
     } else {
-      fish = available.isNotEmpty ? available[rand.nextInt(available.length)] : FishItem.allFish.first;
+      fish = available.isNotEmpty ? available[rand.nextInt(available.length)] : pool.first;
     }
 
     _reward = fish;
@@ -893,6 +1059,28 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       _rewardSubtitle = I18n.tr('new_fish_unlocked');
     }
 
+    final bonusGold = switch (_rewardRarity) {
+      Rarity.common => 80,
+      Rarity.rare => 250,
+      Rarity.epic => 600,
+      Rarity.legendary => 1500,
+    };
+    final bonusFood = switch (_rewardRarity) {
+      Rarity.common => 0,
+      Rarity.rare => 1,
+      Rarity.epic => 3,
+      Rarity.legendary => 6,
+    };
+    final bonusPearls = switch (_rewardRarity) {
+      Rarity.common => 0,
+      Rarity.rare => 0,
+      Rarity.epic => 0,
+      Rarity.legendary => 1,
+    };
+    _bonusGold = bonusGold;
+    _bonusFood = bonusFood;
+    _bonusPearls = bonusPearls;
+
     save.savePendingCrate(PendingCrate(
       crateType: 'aquarium',
       crateId: crateDef.id,
@@ -906,7 +1094,9 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       isShardReward: _isShardReward,
       shardCount: shardYield > 0 ? shardYield : 1,
       isFoodBonus: _isFoodBonus,
-      bonusFoodCount: _isFoodBonus ? 3 : 0,
+      bonusFoodCount: _isFoodBonus ? 3 : bonusFood,
+      bonusGoldCount: bonusGold,
+      bonusPearlCount: bonusPearls,
     ));
   }
 
@@ -1042,6 +1232,34 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         break;
     }
 
+    final bonusGold = switch (_rewardRarity) {
+      Rarity.common => 100,
+      Rarity.rare => 300,
+      Rarity.epic => 750,
+      Rarity.legendary => 1800,
+    };
+    final bonusFood = switch (_rewardRarity) {
+      Rarity.common => 0,
+      Rarity.rare => 1,
+      Rarity.epic => 3,
+      Rarity.legendary => 6,
+    };
+    final bonusPearls = switch (_rewardRarity) {
+      Rarity.common => 0,
+      Rarity.rare => 0,
+      Rarity.epic => 0,
+      Rarity.legendary => 1,
+    };
+    final shardYield = switch (_rewardRarity) {
+      Rarity.common => 1,
+      Rarity.rare => 1,
+      Rarity.epic => 2,
+      Rarity.legendary => 3,
+    };
+    _bonusGold = bonusGold;
+    _bonusFood = bonusFood;
+    _bonusPearls = bonusPearls;
+
     save.savePendingCrate(PendingCrate(
       crateType: 'category',
       category: category,
@@ -1052,7 +1270,11 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       rarityIndex: _rewardRarity.index,
       isDuplicate: _isDuplicate,
       isShardReward: _isShardReward,
+      shardCount: _isShardReward ? shardYield : 1,
       isFoodBonus: false,
+      bonusFoodCount: bonusFood,
+      bonusGoldCount: bonusGold,
+      bonusPearlCount: bonusPearls,
     ));
   }
 
@@ -1142,8 +1364,11 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
       case 'fish':
         rewardType = 'fish';
-        // Priority: fish where player owns 0 copies
-        final unownedFish = FishItem.allFish.where((f) => save.getFishCount(f.id) == 0).toList();
+        // Priority: fish where player owns 0 copies (octopus strictly drops from octopus chest only)
+        final nonOctopusFish = FishItem.allFish
+            .where((f) => f.id != 'octopus' && f.kind != FishKind.octopus)
+            .toList();
+        final unownedFish = nonOctopusFish.where((f) => save.getFishCount(f.id) == 0).toList();
         if (unownedFish.isNotEmpty) {
           final chosen = unownedFish[rand.nextInt(unownedFish.length)];
           rewardId = chosen.id;
@@ -1153,7 +1378,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
           _rewardSubtitle = I18n.tr('guaranteed_fish_unlocked');
         } else {
           // If player has at least 1 of every fish, check if any have < 2 copies
-          final canDuplicateFish = FishItem.allFish.where((f) => save.canAcquireFish(f.id)).toList();
+          final canDuplicateFish = nonOctopusFish.where((f) => save.canAcquireFish(f.id)).toList();
           if (canDuplicateFish.isNotEmpty) {
             final chosen = canDuplicateFish[rand.nextInt(canDuplicateFish.length)];
             rewardId = chosen.id;
@@ -1496,6 +1721,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                             painter: _BouncingLootPainter(
                                               progress: _bouncingLootController.value,
                                               color: _rewardRarity.primaryColor,
+                                              rarity: _rewardRarity,
                                             ),
                                           );
                                         },
@@ -1552,6 +1778,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                                 showGlow: true,
                                                 time: _auraController.value * 2 * pi,
                                                 tier: _currentRarity,
+                                                crateType: _effectiveCrate?.id ?? widget.category ?? _effectiveCategoryCrate?.category,
                                               ),
                                             ),
                                           ),
@@ -1647,6 +1874,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                   painter: _BouncingLootPainter(
                                     progress: _bouncingLootController.value,
                                     color: _rewardRarity.primaryColor,
+                                    rarity: _rewardRarity,
                                   ),
                                 ),
                               ),
@@ -2020,6 +2248,89 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
                                           ],
                                         ),
                                       ),
+                                    ),
+                                  ],
+
+                                  if (_bonusGold > 0 || _bonusPearls > 0 || (_bonusFood > 0 && !_isFoodBonus)) ...[
+                                    const SizedBox(height: 10),
+                                    Wrap(
+                                      alignment: WrapAlignment.center,
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      children: [
+                                        if (_bonusGold > 0)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0x33FFD54F),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: const Color(0xFFFFD54F), width: 1.2),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.monetization_on_rounded, color: Color(0xFFFFD54F), size: 15),
+                                                const SizedBox(width: 5),
+                                                Text(
+                                                  '+$_bonusGold ${I18n.tr('gold')}',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFFFD54F),
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w900,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        if (_bonusPearls > 0)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0x3300E5FF),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: const Color(0xFF00E5FF), width: 1.2),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.lens_rounded, color: Color(0xFF00E5FF), size: 13),
+                                                const SizedBox(width: 5),
+                                                Text(
+                                                  '+$_bonusPearls ${I18n.tr('pearls')}',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFF00E5FF),
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w900,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        if (_bonusFood > 0 && !_isFoodBonus)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0x334CAF50),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: const Color(0xFF66BB6A), width: 1.2),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.set_meal_rounded, color: Color(0xFF81C784), size: 15),
+                                                const SizedBox(width: 5),
+                                                Text(
+                                                  '+$_bonusFood ${I18n.tr('fish_food')}',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFF81C784),
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w900,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ],
                                 ],
@@ -3183,49 +3494,66 @@ class _MythicStarsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final count = _starCount;
-    return Row(
+    return Column(
       mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(count, (index) {
-        final startThreshold = index * 0.12;
-        final starP = ((progress - startThreshold) / 0.40).clamp(0.0, 1.0);
-        final scale = starP > 0.0 ? Curves.elasticOut.transform(starP) : 0.0;
-        final opacity = starP.clamp(0.0, 1.0);
-
-        return Transform.scale(
-          scale: scale,
-          child: Opacity(
-            opacity: opacity,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (starP > 0.2 && starP < 0.95)
-                    Transform.rotate(
-                      angle: starP * pi,
-                      child: Icon(
-                        Icons.flare_rounded,
-                        size: 26,
-                        color: const Color(0xFFFFD54F).withValues(alpha: (1.0 - starP).clamp(0.0, 1.0)),
-                      ),
-                    ),
-                  const Icon(
-                    Icons.star_rounded,
-                    size: 22,
-                    color: Color(0xFFFF8F00),
-                  ),
-                  const Icon(
-                    Icons.star_rounded,
-                    size: 19,
-                    color: Color(0xFFFFD54F),
-                  ),
-                ],
+      children: [
+        if (rarity == Rarity.legendary && progress > 0.25)
+          Transform.scale(
+            scale: Curves.elasticOut.transform(((progress - 0.25) / 0.45).clamp(0.0, 1.0)),
+            child: const Padding(
+              padding: EdgeInsets.only(bottom: 2),
+              child: Icon(
+                Icons.workspace_premium_rounded,
+                size: 26,
+                color: Color(0xFFFFD54F),
               ),
             ),
           ),
-        );
-      }),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(count, (index) {
+            final startThreshold = index * 0.12;
+            final starP = ((progress - startThreshold) / 0.40).clamp(0.0, 1.0);
+            final scale = starP > 0.0 ? Curves.elasticOut.transform(starP) : 0.0;
+            final opacity = starP.clamp(0.0, 1.0);
+
+            return Transform.scale(
+              scale: scale,
+              child: Opacity(
+                opacity: opacity,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (starP > 0.2 && starP < 0.95)
+                        Transform.rotate(
+                          angle: starP * pi,
+                          child: Icon(
+                            Icons.flare_rounded,
+                            size: 26,
+                            color: const Color(0xFFFFD54F).withValues(alpha: (1.0 - starP).clamp(0.0, 1.0)),
+                          ),
+                        ),
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 22,
+                        color: Color(0xFFFF8F00),
+                      ),
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 19,
+                        color: Color(0xFFFFD54F),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
 }
@@ -3367,8 +3695,13 @@ class _ChestInteriorGlowPainter extends CustomPainter {
 class _BouncingLootPainter extends CustomPainter {
   final double progress;
   final Color color;
+  final Rarity rarity;
 
-  _BouncingLootPainter({required this.progress, required this.color});
+  _BouncingLootPainter({
+    required this.progress,
+    required this.color,
+    this.rarity = Rarity.legendary,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -3380,7 +3713,12 @@ class _BouncingLootPainter extends CustomPainter {
     final alpha = (1.0 - (progress - 0.65).clamp(0.0, 0.35) / 0.35).clamp(0.0, 1.0);
     final rand = Random(99);
 
-    const count = 16;
+    final count = switch (rarity) {
+      Rarity.common => 4,
+      Rarity.rare => 8,
+      Rarity.epic => 14,
+      Rarity.legendary => 24,
+    };
     for (int i = 0; i < count; i++) {
       final angle = -pi * 0.5 + (rand.nextDouble() - 0.5) * 1.45;
       final speed = 110.0 + rand.nextDouble() * 140.0;
@@ -3459,5 +3797,5 @@ class _BouncingLootPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BouncingLootPainter oldDelegate) =>
-      oldDelegate.progress != progress || oldDelegate.color != color;
+      oldDelegate.progress != progress || oldDelegate.color != color || oldDelegate.rarity != rarity;
 }

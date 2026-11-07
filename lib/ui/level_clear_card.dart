@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../engine/i18n.dart';
+import '../engine/in_app_review_manager.dart';
 import 'kaunos_ui.dart';
 
 /// Kaunos-styled badge displayed on flawless (3-star) level clear or victory.
@@ -117,6 +118,16 @@ class _LevelClearCardState extends State<LevelClearCard>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.stars >= 3 && (widget.level == 6 || widget.level == 10)) {
+        InAppReviewManager.instance.checkAndRequestReview(
+          context: context,
+          level: widget.level,
+          stars: widget.stars,
+        );
+      }
+    });
   }
 
   @override
@@ -409,14 +420,14 @@ class _LevelClearCardState extends State<LevelClearCard>
 
     if (level == 3) {
       title = 'YENİ ÖZELLİK AÇILDI!';
-      desc = 'Şans Çarkı artık Ana Menüde seni bekliyor!';
-      icon = Icons.casino_rounded;
-      color = const Color(0xFFFF9100);
-    } else if (level == 5) {
-      title = 'YENİ ÖZELLİK AÇILDI!';
-      desc = 'Kaunos Akvaryumu kilitleri kalktı!';
+      desc = 'Kaunos Akvaryumu ve Şans Çarkı kilitleri kalktı!';
       icon = Icons.water_drop_rounded;
       color = const Color(0xFF00E5FF);
+    } else if (level == 5) {
+      title = 'YENİ ÖZELLİK AÇILDI!';
+      desc = 'Kaos Modu kilitleri kalktı!';
+      icon = Icons.flash_on_rounded;
+      color = const Color(0xFFFF5252);
     } else if (level == 10) {
       title = 'YENİ ÖZELLİK AÇILDI!';
       desc = 'Haftalık Kaunos Turnuvası aktifleşti!';

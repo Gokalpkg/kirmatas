@@ -709,7 +709,7 @@ class CrateDef {
     CrateDef(
       id: 'abyss',
       cost: 2800,
-      tier: Rarity.legendary,
+      tier: Rarity.epic,
       primaryColor: Color(0xFF7C4DFF),
       weights: {
         Rarity.common: 12.0,

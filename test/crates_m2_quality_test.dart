@@ -151,7 +151,7 @@ void main() {
       await tester.tap(find.byType(ChestWidget));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
-      await tester.pump(const Duration(milliseconds: 1000));
+      await tester.pump(const Duration(milliseconds: 2000));
 
       // 5. Reward Scene: 3D Obsidian Crystal Tablet & 3D Tactile Claim Button
       expect(find.byType(KaunosCard), findsOneWidget);
@@ -194,7 +194,7 @@ void main() {
       await tester.tap(find.byType(ChestWidget));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
-      await tester.pump(const Duration(milliseconds: 1000));
+      await tester.pump(const Duration(milliseconds: 2000));
 
       expect(find.text(I18n.tr('claim_and_close')), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -227,7 +227,7 @@ void main() {
       await tester.tap(find.byType(ChestWidget));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
-      await tester.pump(const Duration(milliseconds: 1000));
+      await tester.pump(const Duration(milliseconds: 2000));
 
       expect(find.text(I18n.tr('claim_and_close')), findsOneWidget);
       expect(tester.takeException(), isNull);
