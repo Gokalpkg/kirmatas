@@ -83,7 +83,7 @@ void main() {
   });
 
   group('Ball Proliferation & Multiball Cap Tests', () {
-    test('applyPowerUp(PowerUpType.multi) caps at 3 balls in Classic mode', () {
+    test('applyPowerUp(PowerUpType.multi) and mirror are functional even when 3 balls are active', () {
       final ctrl = GameController();
       ctrl.setDimensions(360, 640);
       ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
@@ -95,19 +95,17 @@ void main() {
       ctrl.applyPowerUp(PowerUpType.multi);
       expect(ctrl.balls.length, equals(3));
 
-      final scoreBefore = ctrl.stats.score;
-
-      // 2nd multi: already at 3 balls, must remain 3 balls and award bonus score
+      // 2nd multi: ekranda 3 top varken alınan çoklu top kapsülü İŞLEVLİ OLMALIDIR (top eklemelidir)
       ctrl.applyPowerUp(PowerUpType.multi);
-      expect(ctrl.balls.length, equals(3), reason: 'Classic mode must hard cap at 3 balls');
-      expect(ctrl.stats.score, greaterThan(scoreBefore));
+      expect(ctrl.balls.length, greaterThan(3), reason: 'Multi-ball must remain functional when taken with 3 balls');
 
-      // Mirror powerup must also respect the 3-ball cap
+      // Mirror powerup: ekranda 3+ top varken de İŞLEVLİ OLMALIDIR (ayna topu eklemelidir)
+      final countBeforeMirror = ctrl.balls.length;
       ctrl.applyPowerUp(PowerUpType.mirror);
-      expect(ctrl.balls.length, equals(3), reason: 'Mirror powerup must not exceed 3 balls cap');
+      expect(ctrl.balls.length, equals(countBeforeMirror + 1), reason: 'Mirror powerup must add a mirrored ball');
     });
 
-    test('Opposite element powerup converts to multi without exceeding 3-ball cap and preserves primary element', () {
+    test('Frost and Fireball powerups smoothly replace each other without converting to multiBall', () {
       final ctrl = GameController();
       ctrl.setDimensions(360, 640);
       ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
@@ -118,15 +116,17 @@ void main() {
       expect(ctrl.balls.first.isFireball, isTrue);
       expect(ctrl.balls.length, equals(1));
 
-      // Apply Frost: converts to multi without giving frost, stays fireball, capped at 3
+      // Apply Frost: smoothly extinguishes Fireball and applies Frost without converting to multi-ball
       ctrl.applyPowerUp(PowerUpType.frost);
-      expect(ctrl.balls.first.isFireball, isTrue);
-      expect(ctrl.balls.any((b) => b.isFrost), isFalse);
-      expect(ctrl.balls.length, equals(3), reason: 'Opposite element capsule converts to multi-ball');
+      expect(ctrl.balls.any((b) => b.isFireball), isFalse, reason: 'Fireball should be extinguished');
+      expect(ctrl.balls.any((b) => b.isFrost), isTrue, reason: 'Frost should be active');
+      expect(ctrl.balls.length, equals(1), reason: 'Must not create extra balls when opposing elements meet');
 
-      // Subsequent opposite element powerups must not exceed 3 balls cap
-      ctrl.applyPowerUp(PowerUpType.frost);
-      expect(ctrl.balls.length, equals(3), reason: 'Must not exceed 3 balls cap in classic mode');
+      // Apply Fireball again: extinguishes Frost and applies Fireball
+      ctrl.applyPowerUp(PowerUpType.fireball);
+      expect(ctrl.balls.any((b) => b.isFrost), isFalse, reason: 'Frost should be extinguished');
+      expect(ctrl.balls.any((b) => b.isFireball), isTrue, reason: 'Fireball should be active');
+      expect(ctrl.balls.length, equals(1), reason: 'Must not create extra balls when opposing elements meet');
     });
 
     test('Prismatic Splitter blessing does not spontaneously clone balls on paddle hit', () {
@@ -158,6 +158,45 @@ void main() {
 
       // Ball count must strictly remain 1
       expect(ctrl.balls.length, equals(1), reason: 'Ball must never clone spontaneously on paddle bounces');
+    });
+
+    test('Multi and Mirror drop chances decrease drastically as ball count increases', () {
+      final ctrl = GameController();
+      ctrl.setDimensions(360, 640);
+      ctrl.startNewGame(GameMode.classic, explicitStartLevel: 5);
+      ctrl.status = GameStatus.playing;
+
+      // Helper to count multi and mirror drops out of N rolls
+      int countBallMultiplierDrops(int ballCount, int totalTrials) {
+        ctrl.balls.clear();
+        for (int i = 0; i < ballCount; i++) {
+          ctrl.balls.add(Ball(x: 100.0 + i * 20, y: 300.0, vx: 50.0, vy: -100.0));
+        }
+
+        int count = 0;
+        for (int i = 0; i < totalTrials; i++) {
+          ctrl.capsules.clear();
+          ctrl.activePowerUps.clear();
+          final dropped = ctrl.rollCapsuleDropForTest(180, 200, force: true, forceBuff: true);
+          if (dropped && ctrl.capsules.isNotEmpty) {
+            final type = ctrl.capsules.first.type;
+            if (type == PowerUpType.multi || type == PowerUpType.mirror) {
+              count++;
+            }
+          }
+        }
+        return count;
+      }
+
+      // 1000 trials each
+      final dropsWith1Ball = countBallMultiplierDrops(1, 1000);
+      final dropsWith2Balls = countBallMultiplierDrops(2, 1000);
+      final dropsWith3Balls = countBallMultiplierDrops(3, 1000);
+
+      // Verify steep reduction
+      expect(dropsWith1Ball, greaterThan(dropsWith2Balls), reason: 'Drop rate must decrease significantly with 2 balls');
+      expect(dropsWith2Balls, greaterThan(dropsWith3Balls), reason: 'Drop rate must decrease drastically with 3 balls');
+      expect(dropsWith3Balls, lessThanOrEqualTo(10), reason: 'Drop rate with 3 balls must be extremely rare (< 1%)');
     });
   });
 }

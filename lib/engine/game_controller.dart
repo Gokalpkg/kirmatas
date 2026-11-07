@@ -1124,6 +1124,10 @@ class GameController extends ChangeNotifier {
   @visibleForTesting
   void flushPendingBallsForTest() => _flushPendingBalls();
 
+  @visibleForTesting
+  bool rollCapsuleDropForTest(double x, double y, {bool force = false, bool forceBuff = false}) =>
+      _rollCapsuleDrop(x, y, force: force, forceBuff: forceBuff);
+
   void resetPaddleAndBall() {
     // Step 7: Aquarium Synergy - Passive buffs based on unlocked fish in Eco-Tank
     final fishBuffs = FishSynergyBuffs.calculate(save);
@@ -3799,7 +3803,7 @@ class GameController extends ChangeNotifier {
 
         if (!firstCornerHitShown) {
           firstCornerHitShown = true;
-          // ZERO-LAG: Oyunu yavaşlatmadan saf arcade hızı ve altın kutlama!
+          stats.bulletTimeLeft = 0.75;
           particles.triggerShake(6.0, 0.28);
           particles.spawnShockwave(ball.x, pr.top, const Color(0xFFFFD700), maxRadius: 85.0);
           particles.spawnFloatingText(
@@ -4032,7 +4036,7 @@ class GameController extends ChangeNotifier {
               return;
             }
             // Aşırı hız vb. nedeniyle dikişin içine sızmış topu güvenli dış tarafa tahliye etme:
-            if (bx >= overlapLeft && bx <= overlapRight) {
+            if (by > seamTop && by < seamBottom && ball.vx != 0 && bx >= overlapLeft && bx <= overlapRight) {
               _hitBrick(targetBrick, ball);
               if (ball.isFireball || ball.isPierce) {
                 ball.fireballPierceCount--;
@@ -4232,8 +4236,8 @@ class GameController extends ChangeNotifier {
 
         if (ball.isFrost || activePowerUps.any((p) => p.type == PowerUpType.frost)) {
           if (b.isIce) {
-            // Frost striking a true ice brick flash-freezes localized adjacent area!
-            _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 80.0, freezeAll: true);
+            // Frost striking a true ice brick flash-freezes a huge area!
+            _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 210.0, freezeAll: true);
             particles.spawnFloatingText(b.x + b.width / 2, b.y - 12, 'BUZ PATLAMASI!', const Color(0xFF80D8FF), isLarge: true);
           } else {
             _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 55.0);
@@ -5744,10 +5748,10 @@ class GameController extends ChangeNotifier {
     if (!force && _rand.nextDouble() > dropChance) return false;
 
     final allTypes = PowerUpType.values;
-    // Luck tilts towards buffs (exclude mirror and pierce; multi allowed with healthy ~4% rate)
+    // Luck tilts towards buffs (mirror is included; multi & mirror drop chances scale sharply with ball count)
     PowerUpType chosen;
     if (forceBuff || (currentMode == GameMode.classic && stats.level <= 10) || _rand.nextDouble() < 0.78 + luckLevel * 0.05) {
-      var buffs = allTypes.where((t) => t.kind == PowerUpKind.buff && t != PowerUpType.mirror && t != PowerUpType.pierce && t != PowerUpType.drone && t != PowerUpType.food).toList();
+      var buffs = allTypes.where((t) => t.kind == PowerUpKind.buff && t != PowerUpType.pierce && t != PowerUpType.drone && t != PowerUpType.food).toList();
       if (currentMode == GameMode.classic && stats.level < 4) {
         buffs = buffs.where((t) => t != PowerUpType.vortex).toList();
       }
@@ -5772,35 +5776,62 @@ class GameController extends ChangeNotifier {
       if (buffs.isEmpty) return false;
       chosen = buffs[_rand.nextInt(buffs.length)];
 
-      // Nadir dörtlü (Çoklu Top, Ateş, Roket, Buz): seçilirlerse %75
-      // ihtimalle zar yeniden atılır, böylece dördü de seyrek gelir.
-      if (chosen == PowerUpType.multi && balls.length > 1) {
-        if (currentMode != GameMode.chaos || _rand.nextDouble() >= (balls.length >= 6 ? 0.10 : 0.25)) {
-          final noMulti = buffs.where((t) => t != PowerUpType.multi).toList();
-          if (noMulti.isNotEmpty) {
-            chosen = noMulti[_rand.nextInt(noMulti.length)];
-          }
-        }
-      } else if ((chosen == PowerUpType.multi ||
-              chosen == PowerUpType.fireball ||
+      if ((chosen == PowerUpType.fireball ||
               chosen == PowerUpType.rocket ||
               chosen == PowerUpType.frost ||
               chosen == PowerUpType.bomb ||
               chosen == PowerUpType.shrapnel) &&
           _rand.nextDouble() < 0.75) {
-        chosen = buffs[_rand.nextInt(buffs.length)];
+        final safePool = (balls.length > 1)
+            ? buffs.where((t) => t != PowerUpType.multi && t != PowerUpType.mirror).toList()
+            : buffs;
+        if (safePool.isNotEmpty) chosen = safePool[_rand.nextInt(safePool.length)];
       } else if (chosen == PowerUpType.life && _rand.nextDouble() < 0.75) {
-        final noLife = buffs.where((t) => t != PowerUpType.life).toList();
+        final noLife = buffs.where((t) => t != PowerUpType.life && (balls.length <= 1 || (t != PowerUpType.multi && t != PowerUpType.mirror))).toList();
         if (noLife.isNotEmpty) chosen = noLife[_rand.nextInt(noLife.length)];
       }
 
       // Eşzamanlı bomba & mükerrer kapsül koruması (Aynı anda 2 bomba veya mükerrer kapsül düşmesini engeller)
       if (chosen == PowerUpType.bomb && capsules.any((c) => c.type == PowerUpType.bomb)) {
-        final noBomb = buffs.where((t) => t != PowerUpType.bomb).toList();
+        final noBomb = buffs.where((t) => t != PowerUpType.bomb && (balls.length <= 1 || (t != PowerUpType.multi && t != PowerUpType.mirror))).toList();
         if (noBomb.isNotEmpty) chosen = noBomb[_rand.nextInt(noBomb.length)];
       } else if (capsules.any((c) => c.type == chosen)) {
-        final unspawned = buffs.where((t) => !capsules.any((c) => c.type == t)).toList();
+        final unspawned = buffs.where((t) => !capsules.any((c) => c.type == t) && (balls.length <= 1 || (t != PowerUpType.multi && t != PowerUpType.mirror))).toList();
         if (unspawned.isNotEmpty) chosen = unspawned[_rand.nextInt(unspawned.length)];
+      }
+
+      // Top çoğaltıcı kapsüller (Çoklu Top ve Ayna):
+      // Ekrandaki top sayısı arttıkça düşme şansı AŞIRI derecede azalır (çok nadir olur).
+      if (chosen == PowerUpType.multi || chosen == PowerUpType.mirror) {
+        // 1. Havada zaten süzülen bir top çoğaltıcı kapsül varsa ikincisi kesinlikle düşmez
+        final hasBallCapsuleInFlight = capsules.any((c) => c.type == PowerUpType.multi || c.type == PowerUpType.mirror);
+        if (hasBallCapsuleInFlight) {
+          final noBallBuffs = buffs.where((t) => t != PowerUpType.multi && t != PowerUpType.mirror).toList();
+          if (noBallBuffs.isNotEmpty) chosen = noBallBuffs[_rand.nextInt(noBallBuffs.length)];
+        } else {
+          // 2. Ekrandaki top sayısına göre sert ve dik azalan tutma şansı:
+          // 1 top: %35 tutma şansı (standart, tatlı arcade sıklığı)
+          // 2 top: %8 tutma şansı (%92 elenip başka faydalı buff'a çevrilir)
+          // 3 top: %1.5 tutma şansı (%98.5 elenir - aşırı nadir)
+          // 4+ top: %0.1 tutma şansı (%99.9 elenir - neredeyse imkansız)
+          final double keepChance;
+          if (balls.length <= 1) {
+            keepChance = 0.35;
+          } else if (balls.length == 2) {
+            keepChance = 0.08;
+          } else if (balls.length == 3) {
+            keepChance = 0.015;
+          } else {
+            keepChance = 0.001;
+          }
+
+          if (_rand.nextDouble() >= keepChance) {
+            final noBallBuffs = buffs.where((t) => t != PowerUpType.multi && t != PowerUpType.mirror).toList();
+            if (noBallBuffs.isNotEmpty) {
+              chosen = noBallBuffs[_rand.nextInt(noBallBuffs.length)];
+            }
+          }
+        }
       }
     } else {
       final debuffs = allTypes.where((t) => t.kind == PowerUpKind.debuff).toList();
@@ -5905,6 +5936,11 @@ class GameController extends ChangeNotifier {
   }
 
   void applyPowerUp(PowerUpType type) {
+    // Klasik modda 1-3 seviyelerde vortex kapsülü yutulur (erken seviye oyuncu koruması)
+    if (type == PowerUpType.vortex && currentMode == GameMode.classic && stats.level <= 3) {
+      return;
+    }
+
     // Alev ve buz zıt elementtir: biri aktifken diğeri yakalanırsa önceki elementi söndürür.
     // Asla gizlice çoklu topa (multi) dönüşüp sebepsiz top çoğaltmaz!
     if (type == PowerUpType.frost) {
@@ -5950,7 +5986,9 @@ class GameController extends ChangeNotifier {
           break;
         case PowerUpType.mirror:
           if (balls.isNotEmpty) {
-            if (currentMode != GameMode.chaos && balls.length >= 3) {
+            // Ekranda 3 veya daha fazla top varken de Ayna kapsülü işlevlidir!
+            // Yalnızca aşırı uç top sayılarında (>= 10) puan koruması devreye girer.
+            if (balls.length >= 10) {
               stats.score += 200;
               particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, '+200 PUAN', const Color(0xFFFFD700), isLarge: true);
               audio.playSfx(GameSfx.powerupBuff);
@@ -6115,7 +6153,6 @@ class GameController extends ChangeNotifier {
         stats.bulletTimeLeft = 4.5;
         break;
       case PowerUpType.vortex:
-        if (!_blackHolesAllowed) break;
         paddle.hasVortex = true;
         double lowestAliveBrickY = 0.0;
         for (final b in bricks) {
@@ -6240,8 +6277,9 @@ class GameController extends ChangeNotifier {
 
   void _splitBalls() {
     if (balls.isEmpty) return;
-    if (currentMode != GameMode.chaos && balls.length >= 3) {
-      // Non-chaos modlarda en fazla 3 top sınırı (ekranda kontrolsüz top çoğalmasını önler)
+    // Ekranda 3 veya daha fazla top varken de Çoklu Top kapsülü kesinlikle işlevlidir!
+    // Yalnızca aşırı uç top sayılarında (>= 10) puan koruması devreye girer.
+    if (balls.length >= 10) {
       stats.score += 250;
       particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 24.0, '+250 PUAN', const Color(0xFFFFD700), isLarge: true);
       audio.playSfx(GameSfx.powerupBuff);
@@ -6266,7 +6304,7 @@ class GameController extends ChangeNotifier {
       particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 30.0, 'TETRA SÜRÜSÜ!', const Color(0xFF00E5FF));
     }
 
-    final int ballsToAdd = (currentMode != GameMode.chaos && balls.length == 2) ? 1 : 2;
+    final int ballsToAdd = (currentMode != GameMode.chaos && balls.length >= 4) ? 1 : 2;
 
     _pendingBallsToAdd.add(
       Ball(
