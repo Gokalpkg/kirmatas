@@ -207,13 +207,16 @@ class _UpgradesViewState extends State<UpgradesView> {
               ),
 
               // --- SECTION 1: ATTRIBUTE MASTERY (Yetenek Ağacı) ---
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 6,
                 children: [
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.bolt_rounded, color: Color(0xFF00E5FF), size: 18),
+                      const Icon(Icons.bolt_rounded, color: Color(0xFF00E5FF), size: 18),
                       const SizedBox(width: 6),
                       Text(
                         I18n.tr('stat_tree'),
@@ -226,8 +229,10 @@ class _UpgradesViewState extends State<UpgradesView> {
                       ),
                     ],
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       InkWell(
                         borderRadius: BorderRadius.circular(10),
@@ -256,7 +261,6 @@ class _UpgradesViewState extends State<UpgradesView> {
                         ),
                       ),
                       if (save.calculateTotalSpentOnUpgrades() > 0) ...[
-                        const SizedBox(width: 6),
                         InkWell(
                           borderRadius: BorderRadius.circular(10),
                           onTap: () => _confirmResetUpgrades(context, save),
@@ -270,7 +274,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.restart_alt_rounded, color: Color(0xFFFF5252), size: 14),
+                                const Icon(Icons.restart_alt_rounded, color: Color(0xFFFF5252), size: 14),
                                 const SizedBox(width: 4),
                                 Text(
                                   'SIFIRLA (+${save.calculateTotalSpentOnUpgrades()})',
@@ -348,16 +352,18 @@ class _UpgradesViewState extends State<UpgradesView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              alignment: WrapAlignment.spaceBetween,
+                              spacing: 4,
+                              runSpacing: 4,
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    I18n.tr(stat.nameKey),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 14,
-                                    ),
+                                Text(
+                                  I18n.tr(stat.nameKey),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 14,
                                   ),
                                 ),
                                 if (currentLvl >= 10) ...[

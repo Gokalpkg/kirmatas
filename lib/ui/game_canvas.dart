@@ -97,6 +97,15 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
           onPointerDown: (event) {
             final c = widget.controller;
             final nowMs = DateTime.now().millisecondsSinceEpoch;
+            if (_lastPointerDownPos != null &&
+                nowMs - _lastPointerDownMs < 350 &&
+                (event.localPosition - _lastPointerDownPos!).distance < 25.0) {
+              if (c.isUltiReady) {
+                c.triggerUlti();
+              } else if (c.status == GameStatus.playing && !c.hasStuckBall) {
+                c.triggerGravityPulse(targetX: event.localPosition.dx, targetY: event.localPosition.dy);
+              }
+            }
             _lastPointerDownMs = nowMs;
             _lastPointerDownPos = event.localPosition;
             _pointerDownMs = nowMs;

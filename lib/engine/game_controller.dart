@@ -3925,31 +3925,11 @@ class GameController extends ChangeNotifier {
         particles.spawnShockwave(ball.x, pr.top, const Color(0xFFFFD54F), maxRadius: 45.0);
       }
 
-      // Prismatic Splitter: chance to duplicate ball when lone ball hits paddle
-      if (activeSectorBlessing?.type == SectorBlessingType.prismaticSplitter &&
-          (balls.length + _pendingBallsToAdd.length) == 1) {
-        if (_rand.nextDouble() < 0.22) {
-          final clone = Ball(
-            x: ball.x,
-            y: paddle.y - ball.radius - 2.0,
-            vx: (-ball.vx * 0.85).clamp(-500.0, 500.0),
-            vy: -ball.vy.abs(),
-            radius: ball.radius,
-            isFireball: ball.isFireball,
-            isBomb: ball.isBomb,
-            isPierce: ball.isPierce,
-            isFrost: ball.isFrost,
-            isShrapnel: ball.isShrapnel,
-          );
-          final minSpeed = getBaseBallSpeed();
-          if (clone.speed < minSpeed) {
-            clone.setSpeed(minSpeed);
-          }
-          _pendingBallsToAdd.add(clone);
-          particles.spawnBurst(ball.x, pr.top, const Color(0xFFE040FB), count: 14, speed: 120.0);
-          particles.spawnFloatingText(ball.x, pr.top - 24, I18n.tr('blessing_prismatic_title'), const Color(0xFFE040FB));
-          audio.playSfx(GameSfx.powerupBuff);
-        }
+      // Prismatic Splitter: Visual prismatic burst on paddle hit without spontaneous ball proliferation
+      if (activeSectorBlessing?.type == SectorBlessingType.prismaticSplitter) {
+        particles.spawnBurst(ball.x, pr.top, const Color(0xFFE040FB), count: 14, speed: 120.0);
+        particles.spawnFloatingText(ball.x, pr.top - 24, I18n.tr('blessing_prismatic_title'), const Color(0xFFE040FB));
+        audio.playSfx(GameSfx.powerupBuff);
       }
 
       // Alev topunun raket sekme dayanıklılığı: 3 raket dönüşünden sonra söner
@@ -5201,28 +5181,7 @@ class GameController extends ChangeNotifier {
     }
 
     if (b.isDynamite && !b.isFrozen) {
-      final fireballInPlay = balls.any((ball) => ball.isFireball) || activePowerUps.any((p) => p.type == PowerUpType.fireball);
-      final double bombRadius = currentMode == GameMode.chaos
-          ? (fireballInPlay ? 180.0 : 130.0)
-          : (fireballInPlay ? 160.0 : 80.0);
-      if (fireballInPlay || currentMode == GameMode.chaos) {
-        particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFF9100), maxRadius: bombRadius + 15.0);
-        particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD54F), maxRadius: bombRadius * 0.7);
-        particles.spawnFloatingText(
-          b.x + b.width / 2,
-          b.y - 14,
-          currentMode == GameMode.chaos ? 'MEGA BOMBA!' : '2X MEGA PATLAMA!',
-          const Color(0xFFFF9100),
-          isLarge: true,
-        );
-        particles.triggerShake(currentMode == GameMode.chaos ? 7.0 : 6.5, 0.32);
-      }
-      _explodeArea(
-        b.x + b.width / 2,
-        b.y + b.height / 2,
-        radius: bombRadius,
-        chainDepth: max(chainDepth, b.chainExplosionDepth),
-      );
+      _explodeClassicDynamite(b, max(chainDepth, b.chainExplosionDepth));
     } else if (b.isIce) {
       if (currentMode == GameMode.chaos) {
         _freezeArea(b.x + b.width / 2, b.y + b.height / 2, radius: 125.0, freezeAll: true);
@@ -5242,16 +5201,23 @@ class GameController extends ChangeNotifier {
     bool actionDropped = false;
     if (b.isChest) {
       // Guaranteed high-tier action capsule drop from cracked treasure chest!
-      const chestPowerUps = [
-        PowerUpType.multi,
-        PowerUpType.fireball,
-        PowerUpType.laser,
-        PowerUpType.wide,
-      ];
+      final chestPowerUps = (balls.length >= 2)
+          ? const [
+              PowerUpType.fireball,
+              PowerUpType.laser,
+              PowerUpType.wide,
+              PowerUpType.shield,
+            ]
+          : const [
+              PowerUpType.multi,
+              PowerUpType.fireball,
+              PowerUpType.laser,
+              PowerUpType.wide,
+            ];
       final chosenPower = chestPowerUps[_rand.nextInt(chestPowerUps.length)];
       capsules.add(FallingCapsule(x: b.x + b.width / 2, y: b.y + b.height / 2, type: chosenPower));
       actionDropped = true;
-    } else if (stats.level <= 10 && !isChaosMode && !isZenMode && !earlyActionDropGranted) {
+    } else if (stats.level <= 5 && !isChaosMode && !isZenMode && !earlyActionDropGranted) {
       if (levelBricksBroken <= 3) {
         final shouldDrop = levelBricksBroken == 1 || (levelBricksBroken == 3 && !earlyActionDropGranted);
         if (shouldDrop) {
@@ -5261,9 +5227,11 @@ class GameController extends ChangeNotifier {
           // while frost is in play (the normal roll below enforces the rest).
           final frostInPlay = balls.any((ball) => ball.isFrost) ||
               activePowerUps.any((p) => p.type == PowerUpType.frost);
-          final actionType = frostInPlay
-              ? PowerUpType.multiBall
-              : (_rand.nextBool() ? PowerUpType.multiBall : PowerUpType.fireball);
+          final actionType = (balls.length >= 2)
+              ? PowerUpType.fireball
+              : (frostInPlay
+                  ? PowerUpType.multiBall
+                  : (_rand.nextBool() ? PowerUpType.multiBall : PowerUpType.fireball));
           capsules.add(FallingCapsule(x: b.x + b.width / 2, y: b.y + b.height / 2, type: actionType));
         }
       }
@@ -5457,6 +5425,72 @@ class GameController extends ChangeNotifier {
     }
   }
 
+  void _explodeClassicDynamite(Brick b, int chainDepth) {
+    // Klasik ve diğer modlarda dinamit: SADECE hemen 1 blok yanındaki komşularına 1 HASAR verir!
+    // Asla devasa zincirleme harita temizliği yapmaz.
+    final cx = b.x + b.width / 2;
+    final cy = b.y + b.height / 2;
+
+    particles.spawnBurst(cx, cy, const Color(0xFFFF5722), count: 20, speed: 200.0);
+    particles.spawnShockwave(cx, cy, const Color(0xFFFF9100), maxRadius: 55.0);
+    particles.spawnPixelCrossBlast(cx, cy, 55.0, const Color(0xFFFF5722));
+    particles.triggerShake(4.5, 0.20);
+    final pitch = min(1.85, 1.0 + chainDepth * 0.08);
+    audio.playSfx(GameSfx.explosion, playbackRate: pitch);
+
+    particles.spawnFloatingText(
+      cx,
+      b.y - 14,
+      'BOMBA! -1',
+      const Color(0xFFFF9100),
+      isLarge: true,
+    );
+
+    // Sadece 1 blok komşuluğundaki bloklar (dx ve dy mesafesi en fazla 1 blok genişliği/yüksekliği + tolerans)
+    final maxDx = b.width + 32.0;
+    final maxDy = b.height + 15.0;
+
+    final neighbors = bricks.where((other) =>
+        other.isAlive &&
+        other != b &&
+        !other.isBallPickup &&
+        (other.x - b.x).abs() <= maxDx &&
+        (other.y - b.y).abs() <= maxDy).toList();
+
+    for (final neighbor in neighbors) {
+      if (neighbor.isSteel) continue;
+      if (neighbor.isFrozen) {
+        neighbor.isFrozen = false;
+      }
+      neighbor.hp -= 1; // SADECE 1 HASAR!
+      neighbor.jelly = 0.35;
+      neighbor.triggerWhiteFlash(0.035);
+      particles.spawnBurst(
+        neighbor.x + neighbor.width / 2,
+        neighbor.y + neighbor.height / 2,
+        neighbor.color,
+        count: 6,
+      );
+      particles.spawnFloatingText(
+        neighbor.x + neighbor.width / 2,
+        neighbor.y - 8,
+        '-1',
+        const Color(0xFFFF5252),
+      );
+      if (neighbor.hp <= 0) {
+        if (neighbor.isDynamite && !neighbor.isFrozen) {
+          if (!neighbor.isPrimedDynamite) {
+            final delay = 0.080;
+            neighbor.primeDynamite(delay: delay, depth: chainDepth + 1);
+            _primedDynamites.add(neighbor);
+          }
+        } else {
+          _destroyBrick(neighbor, chainDepth + 1);
+        }
+      }
+    }
+  }
+
   void _explodeArea(double cx, double cy, {double radius = 60.0, int chainDepth = 0}) {
     final fishBuffs = FishSynergyBuffs.calculate(save);
     final discusBonus = fishBuffs.hasDiscusBlast ? 0.50 : 0.0;
@@ -5510,14 +5544,14 @@ class GameController extends ChangeNotifier {
               b.color = LevelDesign.getChaosDynamiteBaseColor(b.hp);
             }
           } else {
-            // Cascading domino chain reaction!
-            if (!b.isPrimedDynamite) {
-              final distFactor = (dist / max(1.0, effectiveRadius)).clamp(0.0, 1.0);
-              final delay = 0.065 + distFactor * 0.035; // 65ms - 100ms
-              b.primeDynamite(delay: delay, depth: chainDepth + 1);
-              particles.spawnShockwave(bx, by, const Color(0xFFFF9100), maxRadius: 22.0);
-              particles.spawnBurst(bx, by, const Color(0xFFFFD54F), count: 8, speed: 130.0);
-              _primedDynamites.add(b);
+            b.hp -= 1;
+            b.triggerWhiteFlash(0.035);
+            b.jelly = 0.35;
+            if (b.hp <= 0) {
+              if (!b.isPrimedDynamite) {
+                b.primeDynamite(delay: 0.08, depth: chainDepth + 1);
+                _primedDynamites.add(b);
+              }
             }
           }
         } else {
@@ -5529,7 +5563,12 @@ class GameController extends ChangeNotifier {
               b.color = LevelDesign.getChaosBrickColor(b.hp);
             }
           } else {
-            _destroyBrick(b, chainDepth);
+            b.hp -= 1;
+            b.triggerWhiteFlash(0.035);
+            b.jelly = 0.35;
+            if (b.hp <= 0) {
+              _destroyBrick(b, chainDepth);
+            }
           }
         }
       } else if (dist <= effectiveRadius + 48.0) {
@@ -5736,9 +5775,7 @@ class GameController extends ChangeNotifier {
       // Nadir dörtlü (Çoklu Top, Ateş, Roket, Buz): seçilirlerse %75
       // ihtimalle zar yeniden atılır, böylece dördü de seyrek gelir.
       if (chosen == PowerUpType.multi && balls.length > 1) {
-        // Ekranda birden fazla top varken Çoklu Top'a adil düşüş oranı (%25 taban şans)
-        final keepChance = balls.length >= 6 ? 0.10 : 0.25;
-        if (_rand.nextDouble() >= keepChance) {
+        if (currentMode != GameMode.chaos || _rand.nextDouble() >= (balls.length >= 6 ? 0.10 : 0.25)) {
           final noMulti = buffs.where((t) => t != PowerUpType.multi).toList();
           if (noMulti.isNotEmpty) {
             chosen = noMulti[_rand.nextInt(noMulti.length)];
@@ -5869,13 +5906,18 @@ class GameController extends ChangeNotifier {
 
   void applyPowerUp(PowerUpType type) {
     // Alev ve buz aynı anda alınamaz: biri aktifken diğeri yakalanırsa
-    // kapsül boşa gitmez, çoklu topa dönüşür.
-    final fireInPlayNow = balls.any((b) => b.isFireball) ||
-        activePowerUps.any((p) => p.type == PowerUpType.fireball);
-    final frostInPlayNow = balls.any((b) => b.isFrost) ||
-        activePowerUps.any((p) => p.type == PowerUpType.frost);
-    if ((type == PowerUpType.frost && fireInPlayNow) || (type == PowerUpType.fireball && frostInPlayNow)) {
-      type = PowerUpType.multi;
+    // önceki zıt elementi söndürür (asla gizlice çoklu topa dönüşüp top çoğaltmaz!).
+    if (type == PowerUpType.frost) {
+      activePowerUps.removeWhere((p) => p.type == PowerUpType.fireball);
+      for (final b in balls) {
+        b.isFireball = false;
+        b.isPierce = false;
+      }
+    } else if (type == PowerUpType.fireball) {
+      activePowerUps.removeWhere((p) => p.type == PowerUpType.frost);
+      for (final b in balls) {
+        b.isFrost = false;
+      }
     }
 
     audio.playSfx(type.kind == PowerUpKind.buff ? GameSfx.powerupBuff : GameSfx.powerupDebuff);
@@ -5908,6 +5950,12 @@ class GameController extends ChangeNotifier {
           break;
         case PowerUpType.mirror:
           if (balls.isNotEmpty) {
+            if (currentMode != GameMode.chaos && balls.length >= 3) {
+              stats.score += 200;
+              particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 20, '+200 PUAN', const Color(0xFFFFD700), isLarge: true);
+              audio.playSfx(GameSfx.powerupBuff);
+              break;
+            }
             final first = balls.first;
             final hasFireball = activePowerUps.any((p) => p.type == PowerUpType.fireball) || first.isFireball;
             final hasBomb = activePowerUps.any((p) => p.type == PowerUpType.bomb) || first.isBomb;
@@ -6192,6 +6240,13 @@ class GameController extends ChangeNotifier {
 
   void _splitBalls() {
     if (balls.isEmpty) return;
+    if (currentMode != GameMode.chaos && balls.length >= 3) {
+      // Non-chaos modlarda en fazla 3 top sınırı (ekranda kontrolsüz top çoğalmasını önler)
+      stats.score += 250;
+      particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 24.0, '+250 PUAN', const Color(0xFFFFD700), isLarge: true);
+      audio.playSfx(GameSfx.powerupBuff);
+      return;
+    }
     final first = balls.first;
     final spd = first.speed > 0 ? first.speed : getBaseBallSpeed();
 
@@ -6211,6 +6266,8 @@ class GameController extends ChangeNotifier {
       particles.spawnFloatingText(paddle.x + paddle.width / 2, paddle.y - 30.0, 'TETRA SÜRÜSÜ!', const Color(0xFF00E5FF));
     }
 
+    final int ballsToAdd = (currentMode != GameMode.chaos && balls.length == 2) ? 1 : 2;
+
     _pendingBallsToAdd.add(
       Ball(
         x: isInitialStuck ? paddle.x + paddle.width * 0.35 : first.x,
@@ -6227,22 +6284,24 @@ class GameController extends ChangeNotifier {
         isShrapnel: hasShrapnel,
       ),
     );
-    _pendingBallsToAdd.add(
-      Ball(
-        x: isInitialStuck ? paddle.x + paddle.width * 0.65 : first.x,
-        y: isInitialStuck ? paddle.y - first.radius - 2.0 : first.y,
-        vx: isInitialStuck ? 0.0 : splitVx,
-        vy: isInitialStuck ? 0.0 : splitVy,
-        radius: first.radius,
-        isStuck: isInitialStuck,
-        stuckOffsetX: isInitialStuck ? paddle.width * 0.65 : 0.0,
-        isFireball: hasFireball,
-        isBomb: hasBomb,
-        isPierce: hasPierce,
-        isFrost: hasFrost,
-        isShrapnel: hasShrapnel,
-      ),
-    );
+    if (ballsToAdd >= 2) {
+      _pendingBallsToAdd.add(
+        Ball(
+          x: isInitialStuck ? paddle.x + paddle.width * 0.65 : first.x,
+          y: isInitialStuck ? paddle.y - first.radius - 2.0 : first.y,
+          vx: isInitialStuck ? 0.0 : splitVx,
+          vy: isInitialStuck ? 0.0 : splitVy,
+          radius: first.radius,
+          isStuck: isInitialStuck,
+          stuckOffsetX: isInitialStuck ? paddle.width * 0.65 : 0.0,
+          isFireball: hasFireball,
+          isBomb: hasBomb,
+          isPierce: hasPierce,
+          isFrost: hasFrost,
+          isShrapnel: hasShrapnel,
+        ),
+      );
+    }
     if (!_isUpdatingBalls) {
       _flushPendingBalls();
     }
