@@ -870,35 +870,43 @@ class HudOverlay extends StatelessWidget {
 
   Widget _buildSpeedBoostButton(GameController controller) {
     final isActive = controller.isSpeedBoostActive;
+    final isPulsing = controller.shouldPulseSpeedBoost;
     return GestureDetector(
       onTap: () {
         AudioManager.instance.triggerHaptic(() async => AudioManager.instance.playSfx(GameSfx.click));
         controller.toggleSpeedBoost();
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: 52,
-        height: 44,
+        duration: const Duration(milliseconds: 220),
+        width: isPulsing ? 56 : 52,
+        height: isPulsing ? 46 : 44,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: isActive
                 ? const [Color(0xFFFFD54F), Color(0xFFFF8F00)]
-                : const [Color(0xFF1C2234), Color(0xFF101422)],
+                : (isPulsing
+                    ? const [Color(0xFF2E2612), Color(0xFF1F1A0B)]
+                    : const [Color(0xFF1C2234), Color(0xFF101422)]),
           ),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isActive ? const Color(0xFFFFF59D) : const Color(0xFF00E5FF).withValues(alpha: 0.45),
-            width: isActive ? 2.0 : 1.2,
+            color: isActive
+                ? const Color(0xFFFFF59D)
+                : (isPulsing ? const Color(0xFFFFD54F) : const Color(0xFF00E5FF).withValues(alpha: 0.45)),
+            width: isActive || isPulsing ? 2.0 : 1.2,
           ),
           boxShadow: [
             BoxShadow(
               color: isActive
                   ? const Color(0xFFFF8F00).withValues(alpha: 0.6)
-                  : const Color(0xFF00E5FF).withValues(alpha: 0.15),
+                  : (isPulsing
+                      ? const Color(0xFFFFD54F).withValues(alpha: 0.55)
+                      : const Color(0xFF00E5FF).withValues(alpha: 0.15)),
               offset: const Offset(0, 3),
-              blurRadius: isActive ? 8 : 4,
+              blurRadius: isActive || isPulsing ? 10 : 4,
+              spreadRadius: isPulsing ? 1.5 : 0.0,
             ),
           ],
         ),

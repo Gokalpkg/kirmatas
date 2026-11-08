@@ -23,10 +23,11 @@ class AppUpdateManager {
   bool isPostponedThisSession = false;
 
   /// Checks Firestore for remote version config and prompts if a newer version exists.
-  Future<void> checkAndPromptUpdate(BuildContext context) async {
-    if (_checkedThisSession || isPostponedThisSession) return;
+  /// Returns true if an update dialog was presented.
+  Future<bool> checkAndPromptUpdate(BuildContext context) async {
+    if (_checkedThisSession || isPostponedThisSession) return false;
     final save = SaveManager.instance;
-    if (save.isUpdatePostponedRecently()) return;
+    if (save.isUpdatePostponedRecently()) return false;
 
     _checkedThisSession = true;
 
@@ -37,17 +38,19 @@ class AppUpdateManager {
           .get()
           .timeout(const Duration(milliseconds: 2500));
 
-      if (!doc.exists || doc.data() == null) return;
+      if (!doc.exists || doc.data() == null) return false;
       final data = doc.data()!;
       final latestCode = (data['latest_version_code'] as num?)?.toInt() ?? currentVersionCode;
       final remoteStoreUrl = (data['update_url'] as String?) ?? defaultStoreUrl;
 
       if (latestCode > currentVersionCode && context.mounted) {
         await showUpdateDialog(context, storeUrl: remoteStoreUrl);
+        return true;
       }
     } catch (_) {
       // Defensive fallback: runs smoothly offline or if Firestore is unprovisioned
     }
+    return false;
   }
 
   /// Opens the store page via native market intent or web URL.

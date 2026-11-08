@@ -78,7 +78,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
         setState(() {});
       }
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (MainMenuScreen.suppressBootPopups) return;
       if (PlayGamesManager.instance.wasCloudRestored && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -119,12 +119,20 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
         return;
       }
 
-      if (_save.currentAvailableFishGold > 0 && mounted && _activeGame == null) {
+      bool modalShown = false;
+      final updateShown = await AppUpdateManager.instance.checkAndPromptUpdate(context);
+      if (updateShown) modalShown = true;
+
+      if (!modalShown && _save.currentAvailableFishGold > 0 && mounted && _activeGame == null) {
+        modalShown = true;
         OfflineEarningsDialog.show(context, save: _save);
       }
-      LuckyFishNotificationManager.instance.checkAndShowDailyReminder(context);
-      _checkStarvedFishNotice();
-      AppUpdateManager.instance.checkAndPromptUpdate(context);
+
+      await _checkStarvedFishNotice(asToast: modalShown);
+
+      if (!modalShown && mounted) {
+        LuckyFishNotificationManager.instance.checkAndShowDailyReminder(context);
+      }
 
       if (!_hasAutoShownWheelThisSession && mounted && _save.isShopUnlocked && _save.isNextWheelSpinFree) {
         _hasAutoShownWheelThisSession = true;
@@ -278,35 +286,66 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
     );
   }
 
-  Future<void> _checkStarvedFishNotice() async {
-    final departed = await _save.checkAndProcessStarvedFish();
-    if (departed.isEmpty || !mounted || _activeGame != null) return;
-    final fishNames = departed
+  Future<void> _checkStarvedFishNotice({bool asToast = false}) async {
+    final resting = await _save.checkAndProcessStarvedFish();
+    if (resting.isEmpty || !mounted || _activeGame != null) return;
+    final fishNames = resting
         .map((id) => FishItem.allFish.firstWhere((f) => f.id == id, orElse: () => FishItem.allFish.first).name)
         .toSet()
         .join(', ');
+
+    if (asToast) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF161A29),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Color(0xFFFFD54F), width: 1.2),
+          ),
+          content: Row(
+            children: [
+              const Icon(Icons.bedtime_rounded, color: Color(0xFFFFD54F), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  I18n.bi(
+                    'Balıkların ($fishNames) dinlenmeye çekildi. Yem vererek üretimi başlat!',
+                    'Your fish ($fishNames) are resting. Feed them to resume gold production!',
+                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF161A29),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFFFF5252), width: 1.5),
+          side: const BorderSide(color: Color(0xFFFFD54F), width: 1.5),
         ),
         title: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: Color(0xFFFF5252), size: 24),
+            const Icon(Icons.bedtime_rounded, color: Color(0xFFFFD54F), size: 24),
             const SizedBox(width: 8),
             Text(
-              I18n.bi('Balıklar Havuzdan Ayrıldı', 'Fish Departed'),
+              I18n.bi('Balıklar Dinlenmeye Çekildi', 'Fish are Resting'),
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ],
         ),
         content: Text(
           I18n.bi(
-            '3 gün boyunca beslenmeyen balıklar ($fishNames) havuzdan ayrıldı. Balıklarını düzenli beslemeyi unutma!',
-            'Fish that were not fed for 3 days ($fishNames) have departed. Remember to feed your fish regularly!',
+            '3 gün boyunca beslenmeyen balıkların ($fishNames) uykuya çekildi. Koleksiyonun güvende! Onları besleyerek tekrar altın üretmelerini sağlayabilirsin.',
+            'Fish that were not fed for 3 days ($fishNames) have gone to rest. Your collection is completely safe! Feed them to resume gold production.',
           ),
           style: const TextStyle(color: Color(0xFFB0BEC5), fontSize: 14),
         ),
@@ -434,7 +473,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
     if (game != null && game.pendingLevelInterstitial && !_levelAdBusy) {
       game.pendingLevelInterstitial = false;
       _levelAdBusy = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) {
           _levelAdBusy = false;
           return;

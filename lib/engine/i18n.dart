@@ -68,6 +68,8 @@ class I18n {
       'rate_us_desc': 'Would you like to rate us 5 stars on Google Play? Your support means the world to us!',
       'rate_us_5_stars_btn': 'Rate 5 Stars',
       'rate_us_later_btn': 'Maybe Later',
+      'near_miss_revive_cta': 'SO CLOSE! FINISH WITH 1 LIFE',
+      'near_miss_bricks_left': 'BRICKS REMAINING',
 
       'app_title': 'Brick Breaker: Ball Crusher',
       'play': 'PLAY',
@@ -601,6 +603,8 @@ class I18n {
       'rate_us_desc': '5 yıldız vermek ister misiniz? Bizi değerlendirir misiniz? Desteğiniz bizim için çok değerli!',
       'rate_us_5_stars_btn': 'Puan Ver',
       'rate_us_later_btn': 'Daha Sonra',
+      'near_miss_revive_cta': 'ÇOK YAKLAŞTIN! 1 CANLA BİTİR',
+      'near_miss_bricks_left': 'BLOK KALDI',
 
       'app_title': 'Kırmataş: Blok Kırma Oyunu',
       'play': 'OYNA',
@@ -1117,6 +1121,8 @@ class I18n {
       'rate_us_desc': 'Souhaitez-vous nous attribuer 5 étoiles sur Google Play ? Votre soutien est précieux !',
       'rate_us_5_stars_btn': 'Donner 5 étoiles',
       'rate_us_later_btn': 'Plus tard',
+      'near_miss_revive_cta': 'SI PRÈS DU BUT ! FINIS AVEC 1 VIE',
+      'near_miss_bricks_left': 'BRIQUES RESTANTES',
 
       'app_title': 'Casse-Briques: Tir de Balles',
       'app_subtitle': 'Cassez des briques & Arcade',
@@ -1357,6 +1363,8 @@ class I18n {
       'rate_us_desc': 'Möchtest du uns mit 5 Sternen im Google Play Store bewerten? Deine Unterstützung hilft uns sehr!',
       'rate_us_5_stars_btn': '5 Sterne geben',
       'rate_us_later_btn': 'Später',
+      'near_miss_revive_cta': 'FAST GESCHAFFT! MIT 1 LEBEN BEENDEN',
+      'near_miss_bricks_left': 'STEINE ÜBRIG',
 
       'play': 'SPIELEN',
       'app_title': 'Brick Breaker: Block Smash',
@@ -1597,6 +1605,8 @@ class I18n {
       'rate_us_desc': '¿Te gustaría calificarnos con 5 estrellas en Google Play? ¡Tu apoyo es muy importante!',
       'rate_us_5_stars_btn': 'Calificar 5 estrellas',
       'rate_us_later_btn': 'Más tarde',
+      'near_miss_revive_cta': '¡CASI LO LOGRAS! TERMINA CON 1 VIDA',
+      'near_miss_bricks_left': 'BLOQUES RESTANTES',
 
       'play': 'JUGAR',
       'app_title': 'Rompe Bloques: Juego de Bolas',
@@ -1837,6 +1847,8 @@ class I18n {
       'rate_us_desc': 'Vorresti valutarci con 5 stelle su Google Play? Il tuo supporto è fondamentale!',
       'rate_us_5_stars_btn': 'Valuta con 5 stelle',
       'rate_us_later_btn': 'Più tardi',
+      'near_miss_revive_cta': 'QUASI FATTO! FINISCI CON 1 VITA',
+      'near_miss_bricks_left': 'MATTONI RIMASTI',
 
       'play': 'GIOCA',
       'app_title': 'Rompi Mattoni: Gioco Palline',
@@ -2077,6 +2089,8 @@ class I18n {
       'rate_us_desc': 'Хотите поставить нам 5 звезд в Google Play? Ваша поддержка очень важна для нас!',
       'rate_us_5_stars_btn': 'Поставить 5 звезд',
       'rate_us_later_btn': 'Позже',
+      'near_miss_revive_cta': 'ТАК БЛИЗКО! ДОБЕЙ С 1 ЖИЗНЬЮ',
+      'near_miss_bricks_left': 'КИРПИЧЕЙ ОСТАЛОСЬ',
 
       'play': 'ИГРАТЬ',
       'app_title': 'Разбей Кирпичи: Аркада',
@@ -2317,6 +2331,8 @@ class I18n {
       'rate_us_desc': 'Google Play에서 별점 5점을 주시겠습니까? 여러분의 피드백은 큰 힘이 됩니다!',
       'rate_us_5_stars_btn': '별점 5점 주기',
       'rate_us_later_btn': '나중에',
+      'near_miss_revive_cta': '거의 다 왔어요! 목숨 1개로 끝내기',
+      'near_miss_bricks_left': '개 남음',
 
       'play': '플레이',
       'app_title': '벽돌깨기: 볼 슈팅 아케이드',
@@ -2557,6 +2573,8 @@ class I18n {
       'rate_us_desc': 'Google Playで星5つの評価をしていただけますか？皆様の応援が大きな力になります！',
       'rate_us_5_stars_btn': '星5つで評価',
       'rate_us_later_btn': 'あとで',
+      'near_miss_revive_cta': 'あと少し！ライフ1でクリア',
+      'near_miss_bricks_left': '個残り',
 
       'play': 'プレイ',
       'app_title': 'ブロック崩し: ボールクラッシャー',
@@ -2799,6 +2817,8 @@ class I18n {
       'rate_us_desc': 'Gostaria de nos avaliar com 5 estrelas no Google Play? Seu apoio é muito importante para nós!',
       'rate_us_5_stars_btn': 'Avaliar 5 estrelas',
       'rate_us_later_btn': 'Mais tarde',
+      'near_miss_revive_cta': 'QUASE LÁ! TERMINE COM 1 VIDA',
+      'near_miss_bricks_left': 'BLOCOS RESTANTES',
       'play': 'JOGAR',
       'classic': 'Clássico',
       'mode_classic': 'Clássico',

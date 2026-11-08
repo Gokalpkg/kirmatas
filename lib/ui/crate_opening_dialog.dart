@@ -974,7 +974,18 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       _rewardTitle = fish.name;
       final owned = save.getFishCount(fish.id);
       int shardYield = 0;
-      if (owned >= 2) {
+      int bonusGold = 0;
+      if (owned >= 5) {
+        shardYield = fish.rarity == Rarity.common ? 1 : 2;
+        bonusGold = 150;
+        _isDuplicate = true;
+        _isShardReward = true;
+        _isFoodBonus = false;
+        _rewardSubtitle = I18n.bi(
+          '5/5 MAKS! +150 ALTIN DÖNÜŞÜMÜ',
+          '5/5 MAX! +150 GOLD CONVERSION',
+        );
+      } else if (owned >= 2) {
         shardYield = 2;
         _isDuplicate = true;
         _isShardReward = true;
@@ -993,7 +1004,6 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         _isFoodBonus = false;
         _rewardSubtitle = I18n.tr('new_fish_unlocked');
       }
-      final bonusGold = 0;
       final bonusFood = 1;
       final bonusPearls = 1;
       _bonusGold = bonusGold;
@@ -1013,7 +1023,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         shardCount: shardYield > 0 ? shardYield : 1,
         isFoodBonus: _isFoodBonus,
         bonusFoodCount: _isFoodBonus ? 1 : bonusFood,
-        bonusGoldCount: 0,
+        bonusGoldCount: bonusGold,
         bonusPearlCount: bonusPearls,
       ));
       return;
@@ -1048,17 +1058,19 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
 
     final currentOwnedCount = save.getFishCount(fish.id);
     int shardYield = 0;
+    int bonusGold = 0;
 
     if (currentOwnedCount >= 5) {
-      // 5 copies max reached: convert to Shards
+      // 5 copies max reached: convert to Shards + 150 Gold duplicate conversion
       shardYield = fish.rarity == Rarity.common ? 1 : 2;
+      bonusGold = 150;
       _isDuplicate = true;
       _isShardReward = true;
       _isFoodBonus = false;
-      final newTotalShards = save.fishShards + shardYield;
-      _rewardSubtitle = I18n.tr('fish_duplicate_shards')
-          .replaceAll('{yield}', '$shardYield')
-          .replaceAll('{total}', '$newTotalShards');
+      _rewardSubtitle = I18n.bi(
+        '5/5 MAKS! +150 ALTIN DÖNÜŞÜMÜ',
+        '5/5 MAX! +150 GOLD CONVERSION',
+      );
     } else if (currentOwnedCount >= 1) {
       // 2nd through 5th copy: Joins aquarium
       _isDuplicate = true;
@@ -1076,7 +1088,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       _rewardSubtitle = I18n.tr('new_fish_unlocked');
     }
 
-    final bonusGold = 0;
+    _bonusGold = bonusGold;
     final bonusFood = switch (_rewardRarity) {
       Rarity.common => 0,
       Rarity.rare => 1,

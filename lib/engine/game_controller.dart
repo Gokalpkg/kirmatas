@@ -427,8 +427,14 @@ class GameController extends ChangeNotifier {
   /// After 10 consecutive misses, the 11th broken brick guarantees a positive capsule.
   int capsulePityCounter = 0;
 
-  /// Overdrive homing is disabled in normal gameplay so ball trajectory follows purely physics.
-  bool enableOverdriveHoming = false;
+  /// Overdrive homing is active by default to prevent last brick stagnation.
+  bool enableOverdriveHoming = true;
+  double _timeWithoutBrickHit = 0.0;
+  bool get shouldPulseSpeedBoost =>
+      stats.level <= 3 &&
+      _timeWithoutBrickHit >= 6.0 &&
+      !isSpeedBoostActive &&
+      status == GameStatus.playing;
 
   /// Target lock-on state (PowerUpType.lock): homing missile steering and visual reticle
   Brick? lockedTargetBrick;
@@ -1198,6 +1204,7 @@ class GameController extends ChangeNotifier {
     levelHeartsDropped = 0;
     capsulePityCounter = 0;
     _lastBrickHitTimer = 0.0;
+    _timeWithoutBrickHit = 0.0;
     switch (currentMode) {
       case GameMode.classic:
         bricks = LevelDesign.buildClassicLevel(stats.level, screenWidth, screenHeight);
@@ -1664,6 +1671,10 @@ class GameController extends ChangeNotifier {
     // Balanced base speed starting at 420.0 px/s at Level 1, gradually scaling up to Level 10
     const base = 420.0;
     double levelSpeed = base + min(max(stats.level - 1, 0) * 10.0, 90.0);
+    // FTUE speed boost: levels 1-3 feel crisper and responsive
+    if (stats.level <= 3) {
+      levelSpeed *= 1.12;
+    }
     if (save.hasPermanentRelic && save.activeRelicStyle == 'overdrive') {
       levelSpeed *= 1.06;
     }
@@ -3040,12 +3051,16 @@ class GameController extends ChangeNotifier {
   }
 
   void _updateBalls(double dt) {
-    // Overdrive Homing & Fail-safe Lightning (Disabled by default so ball moves purely by physics)
+    if (status == GameStatus.playing && balls.any((b) => !b.isStuck)) {
+      _timeWithoutBrickHit += dt;
+    }
+
+    // Overdrive Homing & Fail-safe Lightning (prevents stagnation on final bricks)
     if (enableOverdriveHoming) {
       final aliveBreakable = bricks.where((b) => b.isAlive && !b.isSteel && !b.isHeavySteel).toList();
-      if (aliveBreakable.isNotEmpty && aliveBreakable.length == 1 && status == GameStatus.playing && currentMode != GameMode.chaos) {
+      if (aliveBreakable.isNotEmpty && aliveBreakable.length <= 2 && status == GameStatus.playing && currentMode != GameMode.chaos) {
         _lastBrickHitTimer += dt;
-        if (_lastBrickHitTimer >= 18.0) {
+        if (_lastBrickHitTimer >= 8.0) {
           for (final b in balls) {
             b.isOverdriveHoming = true;
           }
@@ -3066,7 +3081,7 @@ class GameController extends ChangeNotifier {
             }
           }
         }
-        if (_lastBrickHitTimer >= 25.0) {
+        if (_lastBrickHitTimer >= 12.0) {
           final targetBrick = aliveBreakable.first;
           final tx = targetBrick.x + targetBrick.width / 2;
           final ty = targetBrick.y + targetBrick.height / 2;
@@ -3085,6 +3100,7 @@ class GameController extends ChangeNotifier {
           audio.playSfx(GameSfx.ulti);
           _destroyBrick(targetBrick);
           _lastBrickHitTimer = 0.0;
+          _timeWithoutBrickHit = 0.0;
           for (final b in balls) {
             b.isOverdriveHoming = false;
           }
@@ -3166,9 +3182,11 @@ class GameController extends ChangeNotifier {
         }
       }
 
-      // Anti-softlock: prevent ball from getting stuck horizontally or vertically forever
-      if (!ball.isStuck && ball.vy.abs() < 28.0) {
-        ball.vy = ball.vy >= 0 ? 35.0 : -35.0;
+      // Anti-softlock & horizontal bounce anti-trap: preserve active vertical gameplay
+      final minVerticalVy = (ball.speed * 0.28).clamp(35.0, 160.0);
+      if (!ball.isStuck && ball.vy.abs() < minVerticalVy) {
+        ball.vy = ball.vy >= 0 ? minVerticalVy : -minVerticalVy;
+        ball.setSpeed(ball.speed);
       }
       if (!ball.isStuck && ball.vx != 0.0 && ball.vx.abs() < 8.0) {
         ball.vx = ball.vx >= 0 ? 8.0 : -8.0;
@@ -3487,9 +3505,14 @@ class GameController extends ChangeNotifier {
           audio.playSfx(GameSfx.hitWall);
           ball.sideWallBounceCount++;
           // Ensure ball never gets trapped in purely horizontal oscillation (preserves natural vertical direction)
-          if (ball.vy.abs() < 24.0) {
+          final minVyLeft = (ball.speed * 0.28).clamp(35.0, 160.0);
+          if (ball.vy.abs() < minVyLeft) {
             final dir = ball.vy >= 0 ? 1.0 : -1.0;
-            ball.vy = dir * 28.0;
+            ball.vy = dir * minVyLeft;
+            ball.setSpeed(ball.speed);
+          } else if (ball.sideWallBounceCount >= 3 && ball.vy.abs() < minVyLeft * 1.35) {
+            final dir = ball.vy >= 0 ? 1.0 : -1.0;
+            ball.vy = dir * (minVyLeft * 1.35);
             ball.setSpeed(ball.speed);
           }
           if (ball.sideWallBounceCount >= 8) {
@@ -3506,9 +3529,14 @@ class GameController extends ChangeNotifier {
           audio.playSfx(GameSfx.hitWall);
           ball.sideWallBounceCount++;
           // Ensure ball never gets trapped in purely horizontal oscillation (preserves natural vertical direction)
-          if (ball.vy.abs() < 24.0) {
+          final minVyRight = (ball.speed * 0.28).clamp(35.0, 160.0);
+          if (ball.vy.abs() < minVyRight) {
             final dir = ball.vy >= 0 ? 1.0 : -1.0;
-            ball.vy = dir * 28.0;
+            ball.vy = dir * minVyRight;
+            ball.setSpeed(ball.speed);
+          } else if (ball.sideWallBounceCount >= 3 && ball.vy.abs() < minVyRight * 1.35) {
+            final dir = ball.vy >= 0 ? 1.0 : -1.0;
+            ball.vy = dir * (minVyRight * 1.35);
             ball.setSpeed(ball.speed);
           }
           if (ball.sideWallBounceCount >= 8) {
@@ -3790,10 +3818,6 @@ class GameController extends ChangeNotifier {
 
       ball.y = pr.top - ball.radius - 1.0;
       ball.triggerSquash(-pi / 2);
-      _lastBrickHitTimer = 0.0;
-      for (final b in balls) {
-        b.isOverdriveHoming = false;
-      }
       paddle.triggerHitReaction(isCorner: isCornerHit);
       particles.spawnBrickShards(
         ball.x - 8.0,
@@ -4710,6 +4734,7 @@ class GameController extends ChangeNotifier {
         audio.playSfx(GameSfx.hitBrick, combo: stats.combo, playbackRate: AudioManager.getPentatonicPitch(stats.combo));
       }
       _lastBrickHitTimer = 0.0;
+      _timeWithoutBrickHit = 0.0;
       for (final ball in balls) {
         ball.isOverdriveHoming = false;
       }
@@ -4958,6 +4983,7 @@ class GameController extends ChangeNotifier {
     }
     triggerHitStop(hitStopDur);
     _lastBrickHitTimer = 0.0;
+    _timeWithoutBrickHit = 0.0;
     for (final ball in balls) {
       ball.isOverdriveHoming = false;
     }

@@ -793,24 +793,33 @@ class PauseGameOverOverlay extends StatelessWidget {
   Widget _buildReviveButton(BuildContext context) {
     final adManager = AdManager.instance;
     final isLoading = adManager.isShowing;
+    final remainingBreakable = controller.bricks
+        .where((b) => b.isAlive && !b.isSteel && !b.isHeavySteel)
+        .length;
+    final isNearMiss = remainingBreakable > 0 && remainingBreakable <= 5;
 
     return KaunosPressGlow(
       borderRadius: 20,
-      waveColor: const Color(0xFFFF1744),
+      waveColor: isNearMiss ? const Color(0xFFFFD54F) : const Color(0xFFFF1744),
       child: Container(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFF1744), Color(0xFFFF5252), Color(0xFFFF8A80)],
+          gradient: LinearGradient(
+            colors: isNearMiss
+                ? const [Color(0xFFFF6D00), Color(0xFFFF1744), Color(0xFFFF8A80)]
+                : const [Color(0xFFFF1744), Color(0xFFFF5252), Color(0xFFFF8A80)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFFF8A80), width: 1.5),
-          boxShadow: const [
+          border: Border.all(
+            color: isNearMiss ? const Color(0xFFFFD54F) : const Color(0xFFFF8A80),
+            width: isNearMiss ? 2.2 : 1.5,
+          ),
+          boxShadow: [
             BoxShadow(
-              color: Color(0x66FF1744),
-              blurRadius: 18,
-              offset: Offset(0, 4),
+              color: isNearMiss ? const Color(0x99FF8F00) : const Color(0x66FF1744),
+              blurRadius: isNearMiss ? 22 : 18,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -939,7 +948,9 @@ class PauseGameOverOverlay extends StatelessWidget {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
-                              'CANLAN / ${I18n.tr('save_record_title')}',
+                              isNearMiss
+                                  ? I18n.tr('near_miss_revive_cta')
+                                  : 'CANLAN / ${I18n.tr('save_record_title')}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w900,
@@ -979,7 +990,9 @@ class PauseGameOverOverlay extends StatelessWidget {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              '${I18n.tr('extra_life_badge')} (${controller.revivesUsed + 1}/${GameController.maxRevivesPerGame})',
+                              isNearMiss
+                                  ? '$remainingBreakable ${I18n.tr('near_miss_bricks_left')}'
+                                  : '${I18n.tr('extra_life_badge')} (${controller.revivesUsed + 1}/${GameController.maxRevivesPerGame})',
                               style: const TextStyle(
                                 color: Color(0xFFFFEB3B),
                                 fontWeight: FontWeight.w900,

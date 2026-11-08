@@ -174,6 +174,7 @@ class _GameCanvasState extends State<GameCanvas> with SingleTickerProviderStateM
             if (_pointerTravel >= 10.0) {
               _pointerMoved = true;
             }
+            // Ergonomic paddle control: maintain comfortable thumb clearance above touch drag
             c.movePaddleBy(dx * 1.65);
           },
           onPointerUp: (event) {

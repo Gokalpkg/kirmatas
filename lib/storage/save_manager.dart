@@ -2057,10 +2057,12 @@ class SaveManager extends ChangeNotifier {
   }
 
   /// Checks for fish that haven't been fed for 3 days (72 hours).
-  /// Starved fish depart from the aquarium back into the ocean.
+  /// ZERO-DELETION SAFETY: Starved fish (unfed for 72 hours) NEVER permanently depart.
+  /// Instead, they enter a resting/sleeping state where gold production pauses until fed with food.
+  /// Player unlocks, fish counts, and collections are 100% preserved.
   Future<List<String>> checkAndProcessStarvedFish() async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final departedIds = <String>[];
+    final restingIds = <String>[];
     final fishToCheck = List<String>.from(unlockedFish);
 
     for (final fishId in fishToCheck) {
@@ -2069,24 +2071,19 @@ class SaveManager extends ChangeNotifier {
       }
       final lastFed = fishFedTimestamps[fishId] ?? fishAcquiredTimestamps[fishId]!;
       if (now - lastFed >= fishStarvationDurationMs) {
-        departedIds.add(fishId);
-        unlockedFish.remove(fishId);
-        ownedFishCounts.remove(fishId);
+        restingIds.add(fishId);
+        // Pause gold production by clearing active feeding cycle; NEVER remove from unlockedFish or ownedFishCounts!
         fishFedTimestamps.remove(fishId);
-        fishAcquiredTimestamps.remove(fishId);
       }
     }
 
-    if (departedIds.isNotEmpty) {
-      lastDepartedFishNames = List<String>.from(departedIds);
-      await _prefs?.setStringList('unlockedFish', unlockedFish);
-      await _prefs?.setString('ownedFishCounts', jsonEncode(ownedFishCounts));
+    if (restingIds.isNotEmpty) {
+      lastDepartedFishNames = List<String>.from(restingIds);
       await _prefs?.setString('fishFedTimestamps', jsonEncode(fishFedTimestamps));
-      await _prefs?.setString('fishAcquiredTimestamps', jsonEncode(fishAcquiredTimestamps));
       notifyListeners();
     }
 
-    return departedIds;
+    return restingIds;
   }
 
   Future<void> unlockFish(String fishId) async {

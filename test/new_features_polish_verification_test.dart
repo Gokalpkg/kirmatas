@@ -90,10 +90,11 @@ void main() {
       final pastMs = DateTime.now().millisecondsSinceEpoch - (73 * 3600 * 1000);
       save.fishFedTimestamps[testFishId] = pastMs;
 
-      // Process starvation
+      // Process starvation (Zero-Deletion Policy: fish enters resting state, counts preserved)
       final departed = await save.checkAndProcessStarvedFish();
       expect(departed.contains(testFishId), true);
-      expect(save.getFishCount(testFishId), 0);
+      expect(save.getFishCount(testFishId), 1, reason: 'Zero-Deletion Policy: fish is not deleted');
+      expect(save.fishFedTimestamps.containsKey(testFishId), false, reason: 'Feeding production cycle pauses');
     });
 
     test('5. Upgrades & boosts i18n keys resolve cleanly without raw developer strings', () async {
