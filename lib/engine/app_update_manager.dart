@@ -11,9 +11,9 @@ class AppUpdateManager {
   static final AppUpdateManager instance = AppUpdateManager._internal();
   AppUpdateManager._internal();
 
-  /// Current build version code (pubspec: 1.0.118+119)
-  static const int currentVersionCode = 119;
-  static const String currentVersionName = '1.0.118';
+  /// Current build version code (pubspec: 1.0.119+120)
+  static const int currentVersionCode = 120;
+  static const String currentVersionName = '1.0.119';
   static const String defaultStoreUrl =
       'https://play.google.com/store/apps/details?id=com.kaunos.kirmatas';
   static const String marketUrl =
