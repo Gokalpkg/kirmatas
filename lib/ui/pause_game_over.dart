@@ -51,7 +51,7 @@ class PauseGameOverOverlay extends StatelessWidget {
             (stats.score > controller.sessionStartingBestScore ||
                 (controller.sessionStartingBestScore == 0 && stats.score >= 50));
 
-        if (isVictory && (controller.stats.level == 6 || controller.stats.level == 10) && controller.lastClearedLevelStars >= 3) {
+        if (isVictory && (controller.stats.level == 6 || (controller.stats.level % 5 == 0 && controller.stats.level > 5)) && controller.lastClearedLevelStars >= 3) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (context.mounted) {
               InAppReviewManager.instance.checkAndRequestReview(

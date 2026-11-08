@@ -120,7 +120,7 @@ class _LevelClearCardState extends State<LevelClearCard>
     )..forward();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && widget.stars >= 3 && (widget.level == 6 || widget.level == 10)) {
+      if (mounted && widget.stars >= 3 && (widget.level == 6 || (widget.level % 5 == 0 && widget.level > 5))) {
         InAppReviewManager.instance.checkAndRequestReview(
           context: context,
           level: widget.level,

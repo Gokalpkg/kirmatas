@@ -25,6 +25,7 @@ import 'kaunos_ui.dart';
 import 'crate_opening_dialog.dart';
 import 'offline_earnings_dialog.dart';
 import '../engine/lucky_fish_notification_manager.dart';
+import '../engine/app_update_manager.dart';
 import '../models/cosmetics.dart';
 import 'main_menu_tour_overlay.dart';
 import 'settings_dialog.dart';
@@ -123,6 +124,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
       }
       LuckyFishNotificationManager.instance.checkAndShowDailyReminder(context);
       _checkStarvedFishNotice();
+      AppUpdateManager.instance.checkAndPromptUpdate(context);
 
       if (!_hasAutoShownWheelThisSession && mounted && _save.isShopUnlocked && _save.isNextWheelSpinFree) {
         _hasAutoShownWheelThisSession = true;

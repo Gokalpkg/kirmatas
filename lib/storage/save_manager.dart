@@ -438,6 +438,9 @@ class SaveManager extends ChangeNotifier {
   bool get isLeagueUnlocked => highestLevel >= 7;
 
   bool hasRequestedReview = false;
+  bool hasRatedGame = false;
+  int lastReviewPromptMs = 0;
+  int lastUpdatePostponedMs = 0;
   int friendInvitesSent = 0;
 
   // --- R5: COSMIC MASTERY & PEARLS ---
@@ -1156,6 +1159,9 @@ class SaveManager extends ChangeNotifier {
     statBossesDefeated = _prefs?.getInt('statBossesDefeated') ?? 0;
     cratePityCounter = _prefs?.getInt('cratePityCounter') ?? 0;
     hasRequestedReview = _prefs?.getBool('hasRequestedReview') ?? false;
+    hasRatedGame = _prefs?.getBool('hasRatedGame') ?? false;
+    lastReviewPromptMs = _prefs?.getInt('lastReviewPromptMs') ?? 0;
+    lastUpdatePostponedMs = _prefs?.getInt('lastUpdatePostponedMs') ?? 0;
     friendInvitesSent = _prefs?.getInt('friendInvitesSent') ?? 0;
     unlockedAchievements = (_prefs?.getStringList('unlockedAchievements') ?? []).toSet();
     final stepsJson = _prefs?.getString('achievementSteps');
@@ -1520,6 +1526,47 @@ class SaveManager extends ChangeNotifier {
     hasRequestedReview = true;
     await _prefs?.setBool('hasRequestedReview', true);
     notifyListeners();
+  }
+
+  Future<void> markGameRated() async {
+    hasRatedGame = true;
+    hasRequestedReview = true;
+    await _prefs?.setBool('hasRatedGame', true);
+    await _prefs?.setBool('hasRequestedReview', true);
+    notifyListeners();
+  }
+
+  Future<void> recordReviewPromptShown() async {
+    lastReviewPromptMs = DateTime.now().millisecondsSinceEpoch;
+    await _prefs?.setInt('lastReviewPromptMs', lastReviewPromptMs);
+    notifyListeners();
+  }
+
+  bool canPromptForReview() {
+    if (hasRatedGame) return false;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    // 2-3 days interval (48 hours = 172,800,000 ms)
+    const intervalMs = 48 * 60 * 60 * 1000;
+    if (lastReviewPromptMs > 0 && (now - lastReviewPromptMs < intervalMs)) {
+      return false;
+    }
+    if (hasRequestedReview && lastReviewPromptMs == 0) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> postponeUpdate() async {
+    lastUpdatePostponedMs = DateTime.now().millisecondsSinceEpoch;
+    await _prefs?.setInt('lastUpdatePostponedMs', lastUpdatePostponedMs);
+    notifyListeners();
+  }
+
+  bool isUpdatePostponedRecently() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    // Postpone for at least 12 hours
+    const postponeIntervalMs = 12 * 60 * 60 * 1000;
+    return (now - lastUpdatePostponedMs) < postponeIntervalMs;
   }
 
   Future<bool> claimFriendInviteReward({int amount = 150}) async {
