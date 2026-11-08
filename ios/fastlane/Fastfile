@@ -29,7 +29,7 @@ platform :ios do
       adhoc: false,
       output_path: "#{Dir.home}/Library/MobileDevice/Provisioning Profiles",
       filename: "Kirmatas_AppStore.mobileprovision",
-      force: false
+      force: true
     )
   end
 
