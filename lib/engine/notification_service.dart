@@ -97,39 +97,41 @@ class NotificationService {
       }
     }
 
-    // 4. Firebase Cloud Messaging setup (Remote pushes)
-    try {
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-      final messaging = FirebaseMessaging.instance;
+    // 4. Firebase Cloud Messaging setup (Remote pushes - Android only)
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+        final messaging = FirebaseMessaging.instance;
 
-      // Request iOS / Web notification permissions
-      await messaging.requestPermission(
-        alert: true,
-        announcement: false,
-        badge: true,
-        carPlay: false,
-        criticalAlert: false,
-        provisional: false,
-        sound: true,
-      );
+        // Request notification permissions
+        await messaging.requestPermission(
+          alert: true,
+          announcement: false,
+          badge: true,
+          carPlay: false,
+          criticalAlert: false,
+          provisional: false,
+          sound: true,
+        );
 
-      // Subscribe to topic: 'all_players' (Allows 1-click broadcast from Firebase Console!)
-      await messaging.subscribeToTopic('all_players');
+        // Subscribe to topic: 'all_players' (Allows 1-click broadcast from Firebase Console!)
+        await messaging.subscribeToTopic('all_players');
 
-      // In-app foreground push handler: display a native banner when notification arrives while app is open
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        final notification = message.notification;
-        if (notification != null) {
-          showInstantNotification(
-            title: notification.title ?? I18n.tr('app_title'),
-            body: notification.body ?? '',
-            channelId: eventsChannelId,
-            channelName: eventsChannelName,
-          );
-        }
-      });
-    } catch (e) {
-      debugPrint('[NotificationService] FCM init warning: $e');
+        // In-app foreground push handler: display a native banner when notification arrives while app is open
+        FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+          final notification = message.notification;
+          if (notification != null) {
+            showInstantNotification(
+              title: notification.title ?? I18n.tr('app_title'),
+              body: notification.body ?? '',
+              channelId: eventsChannelId,
+              channelName: eventsChannelName,
+            );
+          }
+        });
+      } catch (e) {
+        debugPrint('[NotificationService] FCM init warning: $e');
+      }
     }
 
     _initialized = true;

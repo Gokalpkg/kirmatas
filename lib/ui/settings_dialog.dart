@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../engine/audio_manager.dart';
 import '../engine/i18n.dart';
-import '../engine/remove_ads_billing.dart';
 import '../storage/save_manager.dart';
 import 'kaunos_ui.dart';
 import 'stats_dialog.dart';
@@ -45,7 +44,7 @@ class SettingsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([save, RemoveAdsBilling.instance]),
+      listenable: save,
       builder: (context, _) {
         return AlertDialog(
           backgroundColor: const Color(0xF2101320),
@@ -531,19 +530,18 @@ class SettingsDialog extends StatelessWidget {
                   'Uygulama: Kırmataş: Blok Kırma Oyunu / Brick Breaker: Ball Crusher (com.kaunos.kirmatas)\n'
                   'Yürürlük Tarihi: Ekim 2026 (Güncelleme: Kasım 2026)\n\n'
                   '1. Veri Toplama ve Kullanımı:\n'
-                  'Kırmataş oyunu, adınız, adresiniz veya telefon numaranız gibi doğrudan kişisel kimlik bilgilerinizi toplamaz. Oyun içi ilerlemeniz (bölümler, altın, inci, balıklar) cihazınızda yerel olarak saklanır. İsteğe bağlı olarak bulut servisleri (Google Play Games / Game Center) üzerinden yedekleme yapılabilir.\n\n'
+                  'Kırmataş oyunu, adınız, adresiniz veya telefon numaranız gibi doğrudan kişisel kimlik bilgilerinizi toplamaz. Oyun içi ilerlemeniz (bölümler, altın, inci, balıklar) cihazınızda yerel olarak saklanır. İsteğe bağlı olarak bulut servisleri üzerinden yedekleme yapılabilir.\n\n'
                   '2. Entegre Edilen Üçüncü Taraf Hizmetleri:\n'
                   'Oyun deneyimini sunabilmek, kilitlenmeleri çözmek, bildirim iletmek ve ödüllü reklam sunmak amacıyla aşağıdaki güvenilir servisler kullanılmaktadır:\n'
-                  '• Oyun Hizmetleri (Google Play Games / Game Center - Liderlik tablosu, başarımlar ve bulut kayıtları)\n'
-                  '• Google AdMob (Ödüllü ve geçiş reklamları - Cihaz reklam kimliğini kullanabilir)\n'
+                  '• Oyun Hizmetleri (Liderlik tablosu, başarımlar ve bulut kayıtları)\n'
+                  '• Reklam Servisleri (Ödüllü ve geçiş reklamları - Cihaz reklam kimliğini kullanabilir)\n'
                   '• Firebase Cloud Messaging & Yerel Bildirimler (Etkinlik ve ödül hatırlatıcıları - Anonim rastgele token kullanılır)\n'
                   '• Firebase Analytics (Anonim oyun performansı ve bölüm istatistikleri)\n'
-                  '• Firebase Crashlytics (Kilitlenme ve hata teşhisi raporları)\n'
-                  '• Uygulama İçi Satın Alma Hizmetleri (Google Play In-App Billing / Apple StoreKit - Güvenli uygulama içi satın alımlar)\n\n'
+                  '• Firebase Crashlytics (Kilitlenme ve hata teşhisi raporları)\n\n'
                   '3. Bildirimler ve Tercihler:\n'
                   'Uygulama, akvaryum kasanız dolduğunda veya çark ödülleriniz hazır olduğunda size bildirim gönderebilir. Bildirim izinlerini dilediğiniz an cihaz ayarlarınızdan kapatabilirsiniz; bildirimleri kapatmak çevrimdışı oynanışı etkilemez.\n\n'
                   '4. Reklamlar ve Reklam Kimliği:\n'
-                  'AdMob servisleri, dolandırıcılığı önlemek ve uygun reklamları gösterebilmek için cihazınızın Reklam Kimliğini (AAID/IDFA) kullanabilir. Dilediğiniz zaman cihazınızın gizlilik ayarlarından reklam kişiselleştirmesini yönetebilirsiniz.\n\n'
+                  'AdMob servisleri, dolandırıcılığı önlemek ve uygun reklamları gösterebilmek için cihazınızın Reklam Kimliğini kullanabilir. Dilediğiniz zaman cihazınızın gizlilik ayarlarından reklam kişiselleştirmesini yönetebilirsiniz.\n\n'
                   '5. Çocukların Gizliliği:\n'
                   'Uygulamamız 13 yaşın altındaki çocuklardan bilerek herhangi bir kişisel veri talep etmez.\n\n'
                   '6. Veri Güvenliği ve Silme Talebi:\n'

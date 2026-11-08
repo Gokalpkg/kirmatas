@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kirmatas/engine/i18n.dart';
 import 'package:kirmatas/engine/remove_ads_billing.dart';
 import 'package:kirmatas/storage/save_manager.dart';
 import 'package:kirmatas/ui/settings_dialog.dart';
@@ -47,6 +48,26 @@ void main() {
       expect(content.contains('NSUserTrackingUsageDescription'), isFalse);
     });
 
+    test('RemoveAdsBilling.isIapEnabled is false', () {
+      expect(RemoveAdsBilling.isIapEnabled, isFalse);
+    });
+
+    test('Info.plist has iOS AdMob App ID and does not have Android AdMob App ID', () {
+      final file = File('ios/Runner/Info.plist');
+      expect(file.existsSync(), isTrue);
+      final content = file.readAsStringSync();
+      expect(content.contains('ca-app-pub-3940256099942544~1458002511'), isTrue);
+      expect(content.contains('ca-app-pub-9694275729123906~2311223088'), isFalse);
+    });
+
+    test('project.pbxproj sets TARGETED_DEVICE_FAMILY to 1 (iPhone only)', () {
+      final file = File('ios/Runner.xcodeproj/project.pbxproj');
+      expect(file.existsSync(), isTrue);
+      final content = file.readAsStringSync();
+      expect(content.contains('TARGETED_DEVICE_FAMILY = "1";'), isTrue);
+      expect(content.contains('TARGETED_DEVICE_FAMILY = "1,2";'), isFalse);
+    });
+
     testWidgets('SettingsDialog does not render Remove Ads or Restore Purchases buttons when disabled', (tester) async {
       final save = SaveManager.instance;
 
@@ -63,6 +84,22 @@ void main() {
       expect(find.textContaining('REKLAMLARI KALDIR'), findsNothing);
       expect(find.text('SATIN ALIMLARI GERİ YÜKLE'), findsNothing);
       expect(find.text('REKLAMLAR KALDIRILDI'), findsNothing);
+    });
+
+    test('I18n rate_us_desc does not reference Google Play in any locale', () {
+      final file = File('lib/engine/i18n.dart');
+      expect(file.existsSync(), isTrue);
+      final content = file.readAsStringSync();
+      expect(content.contains('Google Play'), isFalse);
+    });
+
+    test('SettingsDialog privacy policy does not contain IDFA or store mentions', () {
+      final file = File('lib/ui/settings_dialog.dart');
+      expect(file.existsSync(), isTrue);
+      final content = file.readAsStringSync();
+      expect(content.contains('IDFA'), isFalse);
+      expect(content.contains('Google Play In-App Billing'), isFalse);
+      expect(content.contains('Apple StoreKit'), isFalse);
     });
   });
 }

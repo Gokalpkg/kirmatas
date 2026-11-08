@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -53,6 +54,10 @@ class PlayGamesManager extends ChangeNotifier {
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
+    if (kIsWeb || !Platform.isAndroid) {
+      _statusText = 'Oyun Servisleri kapalı';
+      return;
+    }
     try {
       GameAuth.player.listen((data) {
         _signedIn = data != null;

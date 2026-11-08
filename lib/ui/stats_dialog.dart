@@ -231,6 +231,13 @@ class _StatsDialogState extends State<StatsDialog> {
                   if (!kIsWeb && Platform.isAndroid) ...[
                     const SizedBox(height: 18),
                     _playGamesCard(),
+                  ] else ...[
+                    const SizedBox(height: 18),
+                    _gamesButton(
+                      label: 'BAŞARIMLAR (42 HEDEF)',
+                      icon: Icons.emoji_events_rounded,
+                      onTap: () => AchievementsDialog.show(context, save: save),
+                    ),
                   ],
                 ],
               ),

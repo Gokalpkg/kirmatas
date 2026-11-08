@@ -10,8 +10,9 @@ class RemoveAdsBilling extends ChangeNotifier {
   RemoveAdsBilling._();
 
   static const productId = 'remove_ads';
+  static const bool isIapEnabled = false;
 
-  final InAppPurchase _iap = InAppPurchase.instance;
+  InAppPurchase get _iap => InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _sub;
   ProductDetails? product;
   bool available = false;
@@ -19,6 +20,10 @@ class RemoveAdsBilling extends ChangeNotifier {
   String get priceLabel => product?.price ?? r'$1.99';
 
   Future<void> init() async {
+    if (!isIapEnabled) {
+      available = false;
+      return;
+    }
     _sub ??= _iap.purchaseStream.listen(_onPurchases, onError: (Object err) {
       debugPrint('[Billing] purchaseStream error: $err');
     });
@@ -49,6 +54,10 @@ class RemoveAdsBilling extends ChangeNotifier {
   /// Triggers a manual purchase restoration requested by the user.
   /// Must NOT be called automatically on app launch to satisfy Apple App Store StoreKit guidelines.
   Future<bool> restorePurchasesManually() async {
+    if (!isIapEnabled) {
+      debugPrint('[Billing] IAP is currently disabled; manual restore skipped.');
+      return false;
+    }
     try {
       if (!available) {
         available = await _iap.isAvailable();
@@ -69,6 +78,10 @@ class RemoveAdsBilling extends ChangeNotifier {
   Future<bool> restorePurchases() => restorePurchasesManually();
 
   Future<bool> buy() async {
+    if (!isIapEnabled) {
+      debugPrint('[Billing] IAP is currently disabled; purchase skipped.');
+      return false;
+    }
     if (SaveManager.instance.adsRemoved) return true;
 
     try {

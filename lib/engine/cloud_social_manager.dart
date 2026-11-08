@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
 import '../models/game_state.dart';
 import '../storage/save_manager.dart';
@@ -35,7 +36,7 @@ class CloudSocialManager {
 
   /// Syncs player's current scores, rank, and name to Firestore.
   Future<void> syncProfileToCloud() async {
-    if (_syncing) return;
+    if (_syncing || Firebase.apps.isEmpty) return;
     _syncing = true;
     try {
       final save = SaveManager.instance;
@@ -127,7 +128,7 @@ class CloudSocialManager {
   /// Refreshes all added friends' scores from Firestore.
   Future<void> refreshFriendsFromCloud() async {
     final save = SaveManager.instance;
-    if (save.realFriends.isEmpty) return;
+    if (save.realFriends.isEmpty || Firebase.apps.isEmpty) return;
 
     try {
       bool anyUpdated = false;
@@ -164,6 +165,7 @@ class CloudSocialManager {
   /// Seamlessly falls back to local cached real players when offline.
   Future<List<LeagueRival>> fetchWeeklyLeagueRivals({int? tier}) async {
     final save = SaveManager.instance;
+    if (Firebase.apps.isEmpty) return save.cachedLeagueRivals;
     final targetTier = (tier ?? save.leagueTier).clamp(0, 4);
     final cleanPlayerTag = save.playerTag.replaceAll('#', '').toUpperCase();
 

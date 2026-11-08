@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -46,6 +48,17 @@ class InAppReviewManager {
 
   /// Opens the store listing page directly.
   Future<void> openStoreListing() async {
+    if (!kIsWeb && Platform.isIOS) {
+      try {
+        final isAvailable = await _inAppReview.isAvailable();
+        if (isAvailable) {
+          await _inAppReview.requestReview();
+          return;
+        }
+      } catch (_) {}
+      return;
+    }
+
     try {
       final isAvailable = await _inAppReview.isAvailable();
       if (isAvailable) {
@@ -54,18 +67,20 @@ class InAppReviewManager {
       }
     } catch (_) {}
 
-    try {
-      final marketUri = Uri.parse(marketUrl);
-      if (await canLaunchUrl(marketUri)) {
-        await launchUrl(marketUri, mode: LaunchMode.externalApplication);
-        return;
-      }
-    } catch (_) {}
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final marketUri = Uri.parse(marketUrl);
+        if (await canLaunchUrl(marketUri)) {
+          await launchUrl(marketUri, mode: LaunchMode.externalApplication);
+          return;
+        }
+      } catch (_) {}
 
-    try {
-      final webUri = Uri.parse(storeUrl);
-      await launchUrl(webUri, mode: LaunchMode.externalApplication);
-    } catch (_) {}
+      try {
+        final webUri = Uri.parse(storeUrl);
+        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      } catch (_) {}
+    }
   }
 
   /// Interactive 5-star rating dialog designed specifically for high-satisfaction moments.

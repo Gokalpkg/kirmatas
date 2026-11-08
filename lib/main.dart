@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'engine/ad_manager.dart';
-import 'engine/remove_ads_billing.dart';
 import 'engine/asset_cache.dart';
 import 'engine/audio_manager.dart';
 import 'storage/save_manager.dart';
@@ -39,20 +40,21 @@ void main() async {
 }
 
 Future<void> _initBackgroundServices() async {
-  try {
-    await Firebase.initializeApp().timeout(const Duration(milliseconds: 2500));
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-    PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true;
-    };
-    unawaited(AnalyticsManager.instance.init());
-  } catch (_) {}
+  if (!kIsWeb && Platform.isAndroid) {
+    try {
+      await Firebase.initializeApp().timeout(const Duration(milliseconds: 2500));
+      FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+      unawaited(AnalyticsManager.instance.init());
+    } catch (_) {}
+  }
 
   unawaited(AssetCache.instance.init());
   unawaited(AudioManager.instance.init());
   unawaited(AdManager.instance.init());
-  unawaited(RemoveAdsBilling.instance.init());
   unawaited(CloudSocialManager.instance.syncProfileToCloud());
   unawaited(CloudSocialManager.instance.refreshFriendsFromCloud());
   unawaited(CloudSocialManager.instance.fetchWeeklyLeagueRivals());
@@ -60,7 +62,9 @@ Future<void> _initBackgroundServices() async {
   // Defer intrusive system permission & sign-in prompts on first-ever launch
   // until the player has completed at least 1 game.
   if (SaveManager.instance.highestLevel > 1 || SaveManager.instance.totalGold > 300) {
-    unawaited(PlayGamesManager.instance.init());
+    if (!kIsWeb && Platform.isAndroid) {
+      unawaited(PlayGamesManager.instance.init());
+    }
     unawaited(NotificationService.instance.initialize());
   }
 }

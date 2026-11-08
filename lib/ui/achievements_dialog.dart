@@ -180,7 +180,9 @@ class _AchievementsDialogState extends State<AchievementsDialog> {
                 ),
               ),
               Text(
-                'Play Games Services • 42 Hedef',
+                (!kIsWeb && Platform.isAndroid)
+                    ? 'Play Games Services • 42 Hedef'
+                    : 'Kırmataş Başarımları • 42 Hedef',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.65),
                   fontSize: 12,
