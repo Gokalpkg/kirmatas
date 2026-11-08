@@ -2,11 +2,14 @@ default_platform(:ios)
 
 platform :ios do
   before_all do
-    xcode_path = Dir["/Applications/Xcode_16.2.app", "/Applications/Xcode_16.1.app", "/Applications/Xcode_16.0.app"].first
-    if xcode_path && File.directory?(xcode_path)
-      ENV["DEVELOPER_DIR"] = "#{xcode_path}/Contents/Developer"
+    all_xcodes = Dir["/Applications/Xcode*.app"].sort
+    puts "Available Xcode installations: #{all_xcodes.inspect}"
+    selected_xcode = all_xcodes.reverse.find { |p| p.include?("26") } || all_xcodes.reverse.find { |p| !p.include?("16.2") } || all_xcodes.last
+    if selected_xcode && File.directory?(selected_xcode)
+      puts "Selected Xcode for iOS build: #{selected_xcode}"
+      ENV["DEVELOPER_DIR"] = "#{selected_xcode}/Contents/Developer"
       if ENV["GITHUB_ENV"] && File.exist?(ENV["GITHUB_ENV"])
-        File.open(ENV["GITHUB_ENV"], "a") { |f| f.puts("DEVELOPER_DIR=#{xcode_path}/Contents/Developer") }
+        File.open(ENV["GITHUB_ENV"], "a") { |f| f.puts("DEVELOPER_DIR=#{selected_xcode}/Contents/Developer") }
       end
     end
   end
