@@ -145,8 +145,8 @@ class _LevelClearCardState extends State<LevelClearCard>
 
     return Container(
       width: 320,
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: const Color(0xF0101320),
         borderRadius: BorderRadius.circular(28),
@@ -163,28 +163,29 @@ class _LevelClearCardState extends State<LevelClearCard>
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Banner Title
-          Text(
-            '${I18n.tr('level_clear_banner')} (Lv.${widget.level})',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontFamily: 'Rajdhani',
-              fontFamilyFallback: ['Segoe UI Emoji', 'Segoe UI Symbol'],
-              color: Color(0xFFFFD54F),
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
-              shadows: [
-                Shadow(
-                  color: Color(0xFFFFD54F),
-                  blurRadius: 10,
-                ),
-              ],
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Banner Title
+            Text(
+              '${I18n.tr('level_clear_banner')} (Lv.${widget.level})',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Rajdhani',
+                color: Color(0xFFFFD54F),
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5,
+                shadows: [
+                  Shadow(
+                    color: Color(0xFFFFD54F),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: 14),
 
           // 3 Bursting Golden Stars
@@ -304,53 +305,58 @@ class _LevelClearCardState extends State<LevelClearCard>
                 ],
               ),
             ),
-          if (widget.onRestart != null || widget.onMainMenu != null) ...[
+          if (widget.onMainMenu != null) ...[
+            const SizedBox(height: 10),
+            KaunosTactileButton(
+              onTap: widget.onMainMenu,
+              gradientColors: const [Color(0xFF263238), Color(0xFF1B2428)],
+              borderColor: const Color(0xFF37474F),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.home_rounded, color: Colors.white, size: 20),
+                  const SizedBox(width: 6),
+                  Text(
+                    I18n.tr('menu'),
+                    style: const TextStyle(
+                      fontFamily: 'Rajdhani',
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (widget.onRestart != null) ...[
             const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (widget.onRestart != null)
-                  Expanded(
-                    child: KaunosTactileButton(
-                      onTap: widget.onRestart,
-                      child: Center(
-                        child: Text(
-                          I18n.tr('restart'),
-                          style: const TextStyle(
-                            fontFamily: 'Rajdhani',
-                            color: Colors.black,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
+            KaunosTactileButton(
+              onTap: widget.onRestart,
+              gradientColors: const [Color(0xFF1E242B), Color(0xFF14191E)],
+              borderColor: const Color(0xFF2E3842),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.refresh_rounded, color: Colors.white70, size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    I18n.tr('restart'),
+                    style: const TextStyle(
+                      fontFamily: 'Rajdhani',
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
                     ),
                   ),
-                if (widget.onRestart != null && widget.onMainMenu != null)
-                  const SizedBox(width: 8),
-                if (widget.onMainMenu != null)
-                  Expanded(
-                    child: KaunosTactileButton(
-                      onTap: widget.onMainMenu,
-                      child: Center(
-                        child: Text(
-                          I18n.tr('menu'),
-                          style: const TextStyle(
-                            fontFamily: 'Rajdhani',
-                            color: Colors.black,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ],
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildBurstStar(int index, double size, bool isEarned, double delayProgress) {

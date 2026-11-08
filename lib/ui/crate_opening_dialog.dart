@@ -130,6 +130,8 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         return 1.30;
       case Rarity.legendary:
         return 1.48;
+      case Rarity.mythic:
+        return 1.60;
     }
   }
 
@@ -222,6 +224,8 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         return const Color(0xFFE040FB);
       case Rarity.legendary:
         return const Color(0xFFFFD54F);
+      case Rarity.mythic:
+        return const Color(0xFFFF2A6D);
     }
   }
 
@@ -235,6 +239,8 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         return const Color(0xFF4A148C);
       case Rarity.legendary:
         return const Color(0xFFE65100);
+      case Rarity.mythic:
+        return const Color(0xFF4A0033);
     }
   }
 
@@ -684,6 +690,10 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         // Celestial victory fanfare
         notes = const <double>[1.0, 1.125, 1.26, 1.50, 1.78, 2.05];
         break;
+      case Rarity.mythic:
+        // Mythic astral synth arpeggio
+        notes = const <double>[1.0, 1.20, 1.40, 1.60, 1.85, 2.15, 2.50];
+        break;
     }
     for (int i = 0; i < notes.length; i++) {
       _arpeggioTimers.add(Timer(Duration(milliseconds: i * 95), () {
@@ -739,6 +749,7 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         Rarity.rare => 260,
         Rarity.epic => 460,
         Rarity.legendary => 620,
+        Rarity.mythic => 750,
       };
       _shakeController.duration = Duration(milliseconds: tremorMs);
 
@@ -982,8 +993,8 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         _isFoodBonus = false;
         _rewardSubtitle = I18n.tr('new_fish_unlocked');
       }
-      final bonusGold = 2000;
-      final bonusFood = 8;
+      final bonusGold = 0;
+      final bonusFood = 1;
       final bonusPearls = 1;
       _bonusGold = bonusGold;
       _bonusFood = bonusFood;
@@ -1001,17 +1012,21 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
         isShardReward: _isShardReward,
         shardCount: shardYield > 0 ? shardYield : 1,
         isFoodBonus: _isFoodBonus,
-        bonusFoodCount: _isFoodBonus ? 3 : bonusFood,
-        bonusGoldCount: bonusGold,
+        bonusFoodCount: _isFoodBonus ? 1 : bonusFood,
+        bonusGoldCount: 0,
         bonusPearlCount: bonusPearls,
       ));
       return;
     }
 
     // Fish candidate selection (Octopus is strictly exclusive to CrateDef.octopusVault)
-    final pool = FishItem.allFish
-        .where((f) => f.id != 'octopus' && f.kind != FishKind.octopus)
+    // Filter out fish that already reached max 5 copies
+    final eligiblePool = FishItem.allFish
+        .where((f) => f.id != 'octopus' && f.kind != FishKind.octopus && save.getFishCount(f.id) < 5)
         .toList();
+    final pool = eligiblePool.isNotEmpty
+        ? eligiblePool
+        : FishItem.allFish.where((f) => f.id != 'octopus' && f.kind != FishKind.octopus).toList();
     final available = pool.where((f) => f.rarity == rolledRarity).toList();
     // Prioritize fish that player has 0 copies of
     final unownedInRarity = available.where((f) => save.getFishCount(f.id) == 0).toList();
@@ -1034,9 +1049,8 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
     final currentOwnedCount = save.getFishCount(fish.id);
     int shardYield = 0;
 
-    if (currentOwnedCount >= 2) {
-      // 3rd+ copy: Converted to Balık Eklentisi (Fish Shard)!
-      // Sıradan balıklar (common) -> +1 shard, ender ve üstü -> +2 shards
+    if (currentOwnedCount >= 5) {
+      // 5 copies max reached: convert to Shards
       shardYield = fish.rarity == Rarity.common ? 1 : 2;
       _isDuplicate = true;
       _isShardReward = true;
@@ -1045,12 +1059,15 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       _rewardSubtitle = I18n.tr('fish_duplicate_shards')
           .replaceAll('{yield}', '$shardYield')
           .replaceAll('{total}', '$newTotalShards');
-    } else if (currentOwnedCount == 1) {
-      // 2nd copy: Joins aquarium
+    } else if (currentOwnedCount >= 1) {
+      // 2nd through 5th copy: Joins aquarium
       _isDuplicate = true;
       _isShardReward = false;
       _isFoodBonus = true;
-      _rewardSubtitle = I18n.tr('fish_second_copy').replaceAll('{name}', fish.name);
+      _rewardSubtitle = I18n.bi(
+        '${fish.name} akvaryuma katıldı (${currentOwnedCount + 1}/5)',
+        '${fish.name} joined the aquarium (${currentOwnedCount + 1}/5)',
+      );
     } else {
       // 1st copy: Newly unlocked fish
       _isDuplicate = false;
@@ -1059,23 +1076,20 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       _rewardSubtitle = I18n.tr('new_fish_unlocked');
     }
 
-    final bonusGold = switch (_rewardRarity) {
-      Rarity.common => 80,
-      Rarity.rare => 250,
-      Rarity.epic => 600,
-      Rarity.legendary => 1500,
-    };
+    final bonusGold = 0;
     final bonusFood = switch (_rewardRarity) {
       Rarity.common => 0,
       Rarity.rare => 1,
-      Rarity.epic => 3,
-      Rarity.legendary => 6,
+      Rarity.epic => 1,
+      Rarity.legendary => 1,
+      Rarity.mythic => 2,
     };
     final bonusPearls = switch (_rewardRarity) {
       Rarity.common => 0,
       Rarity.rare => 0,
       Rarity.epic => 0,
       Rarity.legendary => 1,
+      Rarity.mythic => 2,
     };
     _bonusGold = bonusGold;
     _bonusFood = bonusFood;
@@ -1094,8 +1108,8 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       isShardReward: _isShardReward,
       shardCount: shardYield > 0 ? shardYield : 1,
       isFoodBonus: _isFoodBonus,
-      bonusFoodCount: _isFoodBonus ? 3 : bonusFood,
-      bonusGoldCount: bonusGold,
+      bonusFoodCount: _isFoodBonus ? 1 : bonusFood,
+      bonusGoldCount: 0,
       bonusPearlCount: bonusPearls,
     ));
   }
@@ -1237,24 +1251,28 @@ class _CrateOpeningDialogState extends State<CrateOpeningDialog> with TickerProv
       Rarity.rare => 300,
       Rarity.epic => 750,
       Rarity.legendary => 1800,
+      Rarity.mythic => 3000,
     };
     final bonusFood = switch (_rewardRarity) {
       Rarity.common => 0,
       Rarity.rare => 1,
-      Rarity.epic => 3,
-      Rarity.legendary => 6,
+      Rarity.epic => 1,
+      Rarity.legendary => 2,
+      Rarity.mythic => 2,
     };
     final bonusPearls = switch (_rewardRarity) {
       Rarity.common => 0,
       Rarity.rare => 0,
       Rarity.epic => 0,
       Rarity.legendary => 1,
+      Rarity.mythic => 2,
     };
     final shardYield = switch (_rewardRarity) {
       Rarity.common => 1,
       Rarity.rare => 1,
       Rarity.epic => 2,
       Rarity.legendary => 3,
+      Rarity.mythic => 4,
     };
     _bonusGold = bonusGold;
     _bonusFood = bonusFood;
@@ -3488,6 +3506,8 @@ class _MythicStarsRow extends StatelessWidget {
         return 3;
       case Rarity.legendary:
         return 5;
+      case Rarity.mythic:
+        return 6;
     }
   }
 
@@ -3718,6 +3738,7 @@ class _BouncingLootPainter extends CustomPainter {
       Rarity.rare => 8,
       Rarity.epic => 14,
       Rarity.legendary => 24,
+      Rarity.mythic => 32,
     };
     for (int i = 0; i < count; i++) {
       final angle = -pi * 0.5 + (rand.nextDouble() - 0.5) * 1.45;

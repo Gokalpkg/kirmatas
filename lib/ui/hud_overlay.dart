@@ -22,11 +22,13 @@ bool _showFirstShot(GameController controller) {
 class HudOverlay extends StatelessWidget {
   final GameController controller;
   final VoidCallback onPause;
+  final VoidCallback? onMainMenu;
 
   const HudOverlay({
     super.key,
     required this.controller,
     required this.onPause,
+    this.onMainMenu,
   });
 
   @override
@@ -728,6 +730,7 @@ class HudOverlay extends StatelessWidget {
                             HapticFeedback.heavyImpact();
                             controller.skipLevelTransition();
                           },
+                          onMainMenu: onMainMenu,
                         ),
                       ),
                     ),
@@ -873,34 +876,54 @@ class HudOverlay extends StatelessWidget {
         controller.toggleSpeedBoost();
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        width: 46,
-        height: 46,
+        duration: const Duration(milliseconds: 180),
+        width: 52,
+        height: 44,
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFFFB300) : const Color(0xFF1E1B4B),
-          borderRadius: BorderRadius.circular(10),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isActive
+                ? const [Color(0xFFFFD54F), Color(0xFFFF8F00)]
+                : const [Color(0xFF1C2234), Color(0xFF101422)],
+          ),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isActive ? const Color(0xFFFFF176) : const Color(0xFF475569),
-            width: isActive ? 2.5 : 1.5,
+            color: isActive ? const Color(0xFFFFF59D) : const Color(0xFF00E5FF).withValues(alpha: 0.45),
+            width: isActive ? 2.0 : 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: isActive ? const Color(0xFFB45309) : const Color(0xFF0F172A),
-              offset: const Offset(0, 3.5),
-              blurRadius: 0,
+              color: isActive
+                  ? const Color(0xFFFF8F00).withValues(alpha: 0.6)
+                  : const Color(0xFF00E5FF).withValues(alpha: 0.15),
+              offset: const Offset(0, 3),
+              blurRadius: isActive ? 8 : 4,
             ),
           ],
         ),
         child: Center(
-          child: Text(
-            '2',
-            style: TextStyle(
-              fontFamily: 'Rajdhani',
-              fontWeight: FontWeight.w900,
-              fontSize: 24,
-              color: isActive ? const Color(0xFF181425) : const Color(0xFFE2E8F0),
-              letterSpacing: 0.5,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.fast_forward_rounded,
+                size: 16,
+                color: isActive ? const Color(0xFF181425) : const Color(0xFF00E5FF),
+              ),
+              const SizedBox(width: 2),
+              Text(
+                '2X',
+                style: TextStyle(
+                  fontFamily: 'Rajdhani',
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  color: isActive ? const Color(0xFF181425) : Colors.white,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -365,10 +365,14 @@ class SaveManager extends ChangeNotifier {
   int lastFishFedTimestamp = 0;
   String? lastFishFedDay;
   Map<String, int> fishFedTimestamps = {}; // fishId -> epoch ms when 6h cycle started
+  Map<String, int> fishAcquiredTimestamps = {}; // fishId -> epoch ms when acquired
+  List<String> lastDepartedFishNames = [];
   static const int fishFedDurationHours = 6;
   static const int fishSatietyDurationHours = 3;
+  static const int fishStarvationDurationHours = 72; // 3 days
   static const int fishPayoutDurationMs = fishFedDurationHours * 3600 * 1000;
   static const int fishSatietyDurationMs = fishSatietyDurationHours * 3600 * 1000;
+  static const int fishStarvationDurationMs = fishStarvationDurationHours * 3600 * 1000;
   String? lastDailyFishFoodAdDate;
 
   // --- 7-DAY LOGIN STREAK ---
@@ -1167,7 +1171,7 @@ class SaveManager extends ChangeNotifier {
     if (fishCountsStr != null) {
       try {
         final Map<String, dynamic> decoded = jsonDecode(fishCountsStr);
-        ownedFishCounts = decoded.map((k, v) => MapEntry(k, (v as num).toInt().clamp(1, 2)));
+        ownedFishCounts = decoded.map((k, v) => MapEntry(k, (v as num).toInt().clamp(1, 5)));
       } catch (_) {}
     } else {
       // Migrate from unlockedFish
@@ -1206,6 +1210,13 @@ class SaveManager extends ChangeNotifier {
       try {
         final Map<String, dynamic> decoded = jsonDecode(fedMapStr);
         fishFedTimestamps = decoded.map((k, v) => MapEntry(k, v as int));
+      } catch (_) {}
+    }
+    final acquiredMapStr = _prefs?.getString('fishAcquiredTimestamps');
+    if (acquiredMapStr != null) {
+      try {
+        final Map<String, dynamic> decoded = jsonDecode(acquiredMapStr);
+        fishAcquiredTimestamps = decoded.map((k, v) => MapEntry(k, v as int));
       } catch (_) {}
     }
 
@@ -1958,16 +1969,17 @@ class SaveManager extends ChangeNotifier {
     return ownedFishCounts[fishId] ?? (unlockedFish.contains(fishId) ? 1 : 0);
   }
 
-  /// Returns whether a player can acquire another copy of this fish (< 2)
+  /// Returns whether a player can acquire another copy of this fish (< 5)
   bool canAcquireFish(String fishId) {
-    return getFishCount(fishId) < 2;
+    return getFishCount(fishId) < 5;
   }
 
-  /// List of all owned fish instances (a fish with count 2 appears twice)
+  /// List of all owned fish instances (a fish with count N appears N times, max 5)
   List<String> get allOwnedFishInstances {
     final list = <String>[];
     for (final entry in ownedFishCounts.entries) {
-      for (int i = 0; i < entry.value; i++) {
+      final count = entry.value.clamp(1, 5);
+      for (int i = 0; i < count; i++) {
         list.add(entry.key);
       }
     }
@@ -1977,22 +1989,57 @@ class SaveManager extends ChangeNotifier {
     return list;
   }
 
-  /// Adds a fish copy (max 2 per fish color/species).
-  /// Returns true if a new copy was added, false if already at max (2).
+  /// Adds a fish copy (max 5 per fish color/species).
+  /// Returns true if a new copy was added, false if already at max (5).
   Future<bool> addFishInstance(String fishId) async {
     final currentCount = getFishCount(fishId);
-    if (currentCount >= 2) {
+    if (currentCount >= 5) {
       return false;
     }
     ownedFishCounts[fishId] = currentCount + 1;
     if (!unlockedFish.contains(fishId)) {
       unlockedFish.add(fishId);
     }
+    fishAcquiredTimestamps[fishId] = DateTime.now().millisecondsSinceEpoch;
     await _prefs?.setStringList('unlockedFish', unlockedFish);
     await _prefs?.setString('ownedFishCounts', jsonEncode(ownedFishCounts));
+    await _prefs?.setString('fishAcquiredTimestamps', jsonEncode(fishAcquiredTimestamps));
     notifyListeners();
     AchievementManager.instance.onFishAcquired(fishId);
     return true;
+  }
+
+  /// Checks for fish that haven't been fed for 3 days (72 hours).
+  /// Starved fish depart from the aquarium back into the ocean.
+  Future<List<String>> checkAndProcessStarvedFish() async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final departedIds = <String>[];
+    final fishToCheck = List<String>.from(unlockedFish);
+
+    for (final fishId in fishToCheck) {
+      if (!fishAcquiredTimestamps.containsKey(fishId)) {
+        fishAcquiredTimestamps[fishId] = now;
+      }
+      final lastFed = fishFedTimestamps[fishId] ?? fishAcquiredTimestamps[fishId]!;
+      if (now - lastFed >= fishStarvationDurationMs) {
+        departedIds.add(fishId);
+        unlockedFish.remove(fishId);
+        ownedFishCounts.remove(fishId);
+        fishFedTimestamps.remove(fishId);
+        fishAcquiredTimestamps.remove(fishId);
+      }
+    }
+
+    if (departedIds.isNotEmpty) {
+      lastDepartedFishNames = List<String>.from(departedIds);
+      await _prefs?.setStringList('unlockedFish', unlockedFish);
+      await _prefs?.setString('ownedFishCounts', jsonEncode(ownedFishCounts));
+      await _prefs?.setString('fishFedTimestamps', jsonEncode(fishFedTimestamps));
+      await _prefs?.setString('fishAcquiredTimestamps', jsonEncode(fishAcquiredTimestamps));
+      notifyListeners();
+    }
+
+    return departedIds;
   }
 
   Future<void> unlockFish(String fishId) async {

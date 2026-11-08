@@ -1086,7 +1086,7 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog> with SingleTick
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      ' ${I18n.tr('spin_ad_btn').replaceAll('{current}', '${save.fortuneWheelSpinsToday + 1}').replaceAll('{max}', '${SaveManager.maxDailyWheelSpins}')}',
+                                      ' ${I18n.tr('spin_ad_btn').replaceAll('{current}', '${(save.fortuneWheelSpinsToday + 1).clamp(1, SaveManager.maxDailyWheelSpins)}').replaceAll('{max}', '${SaveManager.maxDailyWheelSpins}')}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(

@@ -136,12 +136,12 @@ class _UpgradesViewState extends State<UpgradesView> {
                           children: [
                             const Icon(Icons.savings_rounded, color: Color(0xFFFFD54F), size: 20),
                             const SizedBox(width: 8),
-                            const Expanded(
+                            Expanded(
                               child: Text(
-                                'Akvaryum Altın Kasası',
+                                I18n.tr('aquarium_gold_vault'),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: Color(0xFFFFD54F),
                                   fontWeight: FontWeight.w900,
                                   fontSize: 14,
@@ -156,7 +156,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                '${save.unlockedFish.length} Balık',
+                                I18n.tr('aquarium_fishes_count').replaceAll('{count}', '${save.unlockedFish.length}'),
                                 style: const TextStyle(
                                   color: Color(0xFFFFD54F),
                                   fontWeight: FontWeight.w900,
@@ -191,7 +191,9 @@ class _UpgradesViewState extends State<UpgradesView> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      readyGold > 0 ? '+$readyGold Altın Hazır!' : 'Altın Üretimi Aktif',
+                                      readyGold > 0
+                                          ? I18n.tr('gold_production_ready').replaceAll('{gold}', '$readyGold')
+                                          : I18n.tr('gold_production_active'),
                                       style: TextStyle(
                                         color: readyGold > 0 ? const Color(0xFFFFD54F) : Colors.white,
                                         fontWeight: FontWeight.w900,
@@ -201,8 +203,10 @@ class _UpgradesViewState extends State<UpgradesView> {
                                     const SizedBox(height: 2),
                                     Text(
                                       readyGold > 0
-                                          ? 'Kasada biriken altınları hemen topla.'
-                                          : '${save.producingFishCount} balık üretimde (${save.pendingFishGold} altın hazırlanıyor)',
+                                          ? I18n.tr('gold_vault_collect_sub')
+                                          : I18n.tr('gold_vault_producing_sub')
+                                              .replaceAll('{count}', '${save.producingFishCount}')
+                                              .replaceAll('{pending}', '${save.pendingFishGold}'),
                                       style: const TextStyle(
                                         color: Colors.white60,
                                         fontSize: 11,
@@ -218,7 +222,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                                     if (context.mounted && collected > 0) {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
-                                          content: Text('+$collected Altın kasadan toplandı!'),
+                                          content: Text('+$collected ${I18n.tr('gold')}'),
                                           backgroundColor: const Color(0xFF1B5E20),
                                           duration: const Duration(seconds: 2),
                                         ),
@@ -231,9 +235,9 @@ class _UpgradesViewState extends State<UpgradesView> {
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
-                                  child: const Text(
-                                    'TOPLA',
-                                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                                  child: Text(
+                                    I18n.tr('collect_btn'),
+                                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
                                   ),
                                 ),
                             ],
@@ -272,9 +276,9 @@ class _UpgradesViewState extends State<UpgradesView> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text(
-                                        'Ahtapot Vantuz Kurtarışı',
-                                        style: TextStyle(
+                                      Text(
+                                        I18n.tr('octopus_clutch_title'),
+                                        style: const TextStyle(
                                           color: Color(0xFFE040FB),
                                           fontWeight: FontWeight.w900,
                                           fontSize: 12,
@@ -282,8 +286,8 @@ class _UpgradesViewState extends State<UpgradesView> {
                                       ),
                                       Text(
                                         save.canUseDailyOctopusClutch
-                                            ? 'Son canında top kaçarsa vantuzla fırlatır'
-                                            : 'Bugünkü kurtarış kullanıldı (Yarın yenilenir)',
+                                            ? I18n.tr('octopus_clutch_ready_sub')
+                                            : I18n.tr('octopus_clutch_used_sub'),
                                         style: const TextStyle(
                                           color: Colors.white70,
                                           fontSize: 10,
@@ -306,7 +310,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                                     ),
                                   ),
                                   child: Text(
-                                    save.canUseDailyOctopusClutch ? 'HAZIR' : 'KULLANILDI',
+                                    save.canUseDailyOctopusClutch ? I18n.tr('ready_status') : I18n.tr('used_status'),
                                     style: TextStyle(
                                       color: save.canUseDailyOctopusClutch
                                           ? const Color(0xFF00E676)
@@ -965,9 +969,9 @@ class _UpgradesViewState extends State<UpgradesView> {
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(color: const Color(0x88FFD54F)),
                                 ),
-                                child: const Text(
-                                  'x5 AL',
-                                  style: TextStyle(
+                                child: Text(
+                                  I18n.tr('bulk_buy_5'),
+                                  style: const TextStyle(
                                     color: Color(0xFFFFD54F),
                                     fontSize: 9.5,
                                     fontWeight: FontWeight.w900,
@@ -986,15 +990,15 @@ class _UpgradesViewState extends State<UpgradesView> {
               const SizedBox(height: 24),
               // --- SECTION 4: COSMIC MASTERY (Sonsuz Seviye) ---
               Row(
-                children: const [
-                  Icon(Icons.auto_awesome_rounded, color: Color(0xFFE040FB), size: 18),
-                  SizedBox(width: 6),
+                children: [
+                  const Icon(Icons.auto_awesome_rounded, color: Color(0xFFE040FB), size: 18),
+                  const SizedBox(width: 6),
                   Flexible(
                     child: Text(
-                      'KOZMİK USTALIK (SONSUZ SEVİYE)',
+                      I18n.tr('cosmic_mastery_title'),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Color(0xFFE040FB),
                         fontWeight: FontWeight.w900,
                         fontSize: 13,
@@ -1039,12 +1043,12 @@ class _UpgradesViewState extends State<UpgradesView> {
                         children: [
                           Row(
                             children: [
-                              const Flexible(
+                              Flexible(
                                 child: Text(
-                                  'Kozmik Altın Ustalığı',
+                                  I18n.tr('cosmic_gold_mastery_title'),
                                   overflow: TextOverflow.ellipsis,
                                   maxLines: 1,
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
                                 ),
                               ),
                               const SizedBox(width: 6),
@@ -1055,7 +1059,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'Sv. ${save.cosmicGoldMasteryLevel}',
+                                  '${I18n.tr('lvl')} ${save.cosmicGoldMasteryLevel}',
                                   style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 10, fontWeight: FontWeight.bold),
                                 ),
                               ),
@@ -1063,7 +1067,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            '+${save.cosmicGoldMasteryLevel * 2}% Tuğla/Kritik Hasar & +${save.cosmicGoldMasteryLevel * 2}% Altın Kazancı',
+                            I18n.tr('cosmic_gold_mastery_desc').replaceAll('{pct}', '${save.cosmicGoldMasteryLevel * 2}'),
                             style: const TextStyle(color: Colors.white70, fontSize: 11),
                           ),
                         ],
@@ -1114,9 +1118,9 @@ class _UpgradesViewState extends State<UpgradesView> {
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: const Color(0x88FFD54F)),
                               ),
-                              child: const Text(
-                                'x5 BAS',
-                                style: TextStyle(
+                              child: Text(
+                                I18n.tr('bulk_buy_5'),
+                                style: const TextStyle(
                                   color: Color(0xFFFFD54F),
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w900,
@@ -1164,12 +1168,12 @@ class _UpgradesViewState extends State<UpgradesView> {
                         children: [
                           Row(
                             children: [
-                              const Flexible(
+                              Flexible(
                                 child: Text(
-                                  'Kozmik İnci Ustalığı',
+                                  I18n.tr('cosmic_pearl_mastery_title'),
                                   overflow: TextOverflow.ellipsis,
                                   maxLines: 1,
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
                                 ),
                               ),
                               const SizedBox(width: 6),
@@ -1180,7 +1184,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'Sv. ${save.cosmicPearlMasteryLevel}',
+                                  '${I18n.tr('lvl')} ${save.cosmicPearlMasteryLevel}',
                                   style: const TextStyle(color: Color(0xFFE040FB), fontSize: 10, fontWeight: FontWeight.bold),
                                 ),
                               ),
@@ -1188,7 +1192,7 @@ class _UpgradesViewState extends State<UpgradesView> {
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            '+${save.cosmicPearlMasteryLevel * 2}% Ulti Dolum Hızı & +${save.cosmicPearlMasteryLevel}% Şans Bonusu',
+                            I18n.tr('cosmic_pearl_mastery_desc').replaceAll('{pct}', '${save.cosmicPearlMasteryLevel * 2}'),
                             style: const TextStyle(color: Colors.white70, fontSize: 11),
                           ),
                         ],
@@ -1239,9 +1243,9 @@ class _UpgradesViewState extends State<UpgradesView> {
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: const Color(0x88E040FB)),
                               ),
-                              child: const Text(
-                                'x5 BAS',
-                                style: TextStyle(
+                              child: Text(
+                                I18n.tr('bulk_buy_5'),
+                                style: const TextStyle(
                                   color: Color(0xFFE040FB),
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w900,

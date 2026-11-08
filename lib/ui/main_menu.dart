@@ -25,6 +25,7 @@ import 'kaunos_ui.dart';
 import 'crate_opening_dialog.dart';
 import 'offline_earnings_dialog.dart';
 import '../engine/lucky_fish_notification_manager.dart';
+import '../models/cosmetics.dart';
 import 'main_menu_tour_overlay.dart';
 import 'settings_dialog.dart';
 
@@ -121,6 +122,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
         OfflineEarningsDialog.show(context, save: _save);
       }
       LuckyFishNotificationManager.instance.checkAndShowDailyReminder(context);
+      _checkStarvedFishNotice();
 
       if (!_hasAutoShownWheelThisSession && mounted && _save.isShopUnlocked && _save.isNextWheelSpinFree) {
         _hasAutoShownWheelThisSession = true;
@@ -270,6 +272,51 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
         backgroundColor: const Color(0xFF161A29),
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _checkStarvedFishNotice() async {
+    final departed = await _save.checkAndProcessStarvedFish();
+    if (departed.isEmpty || !mounted || _activeGame != null) return;
+    final fishNames = departed
+        .map((id) => FishItem.allFish.firstWhere((f) => f.id == id, orElse: () => FishItem.allFish.first).name)
+        .toSet()
+        .join(', ');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF161A29),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Color(0xFFFF5252), width: 1.5),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Color(0xFFFF5252), size: 24),
+            const SizedBox(width: 8),
+            Text(
+              I18n.bi('Balıklar Havuzdan Ayrıldı', 'Fish Departed'),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+        ),
+        content: Text(
+          I18n.bi(
+            '3 gün boyunca beslenmeyen balıklar ($fishNames) havuzdan ayrıldı. Balıklarını düzenli beslemeyi unutma!',
+            'Fish that were not fed for 3 days ($fishNames) have departed. Remember to feed your fish regularly!',
+          ),
+          style: const TextStyle(color: Color(0xFFB0BEC5), fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              I18n.bi('Anladım', 'Understood'),
+              style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -791,6 +838,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
               child: HudOverlay(
                 controller: _activeGame!,
                 onPause: () => _activeGame!.pause(),
+                onMainMenu: _exitGameToMenu,
               ),
             ),
             RepaintBoundary(

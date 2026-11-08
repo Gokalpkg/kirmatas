@@ -109,6 +109,8 @@ class _ChestPainter extends CustomPainter {
         return const Color(0xFFE040FB); // Astral amethyst
       case Rarity.legendary:
         return const Color(0xFFFFD54F); // 24k Sun gold
+      case Rarity.mythic:
+        return const Color(0xFFFF2A6D); // Bioluminescent crimson magenta
     }
   }
 
@@ -167,6 +169,7 @@ class _ChestPainter extends CustomPainter {
       Rarity.rare => const Color(0xFF031014),
       Rarity.epic => const Color(0xFF07020E),
       Rarity.legendary => const Color(0xFF381403),
+      Rarity.mythic => const Color(0xFF1B0311),
     };
     final bevelRect = Rect.fromLTWH(w * 0.14, h * 0.44 + bevelDepth, w * 0.72, h * 0.42);
     final bevelRRect = RRect.fromRectAndCorners(
@@ -214,6 +217,14 @@ class _ChestPainter extends CustomPainter {
     // 4. FRONT LOCK & REACTOR CLASP (Centerpiece)
     // -------------------------------------------------------------
     _drawLockClasp(canvas, w, h, pulse);
+
+    // -------------------------------------------------------------
+    // 5. WRAPPING OCTOPUS TENTACLES (For Mythic / Octopus Vault)
+    // -------------------------------------------------------------
+    final norm = (crateType ?? '').toLowerCase();
+    if (norm.contains('octopus') || tier == Rarity.mythic) {
+      _drawOctopusTentacles(canvas, w, h, pulse);
+    }
   }
 
   void _drawBasePlanks(Canvas canvas, Rect baseRect, RRect baseRRect, double w, double h, double pulse) {
@@ -246,6 +257,12 @@ class _ChestPainter extends CustomPainter {
         woodTop = const Color(0xFF5D3823);
         woodMid = const Color(0xFF3A1E0D);
         woodBot = const Color(0xFF1D0A02);
+        break;
+      case Rarity.mythic:
+        // Abisal derinlik gül ağacı / kozmik obsidyen
+        woodTop = const Color(0xFF3B1226);
+        woodMid = const Color(0xFF260A18);
+        woodBot = const Color(0xFF13030C);
         break;
     }
 
@@ -305,6 +322,15 @@ class _ChestPainter extends CustomPainter {
         canvas.drawLine(Offset(w * 0.25, h * 0.46), Offset(w * 0.36, h * 0.80), goldSeamPaint);
         canvas.drawLine(Offset(w * 0.50, h * 0.48), Offset(w * 0.57, h * 0.82), goldSeamPaint);
         canvas.drawLine(Offset(w * 0.64, h * 0.46), Offset(w * 0.74, h * 0.80), goldSeamPaint);
+        break;
+      case Rarity.mythic:
+        // Biyolüminesans neon eflatun & siyan kozmik damarlar
+        final mythicSeamPaint = Paint()
+          ..color = const Color(0xFFFF2A6D).withValues(alpha: 0.55 * pulse)
+          ..strokeWidth = max(1.2, w * 0.016);
+        canvas.drawLine(Offset(w * 0.25, h * 0.46), Offset(w * 0.36, h * 0.80), mythicSeamPaint);
+        canvas.drawLine(Offset(w * 0.50, h * 0.48), Offset(w * 0.57, h * 0.82), mythicSeamPaint);
+        canvas.drawLine(Offset(w * 0.64, h * 0.46), Offset(w * 0.74, h * 0.80), mythicSeamPaint);
         break;
     }
   }
@@ -372,12 +398,27 @@ class _ChestPainter extends CustomPainter {
           stops: [0.0, 0.25, 0.55, 0.82, 1.0],
         ).createShader(baseRect);
         break;
+
+      case Rarity.mythic:
+        // Abisal biyolüminesans krimson & neon magenta zırh
+        bandShader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFF80AB),
+            Color(0xFFFF2A6D),
+            Color(0xFFC2185B),
+            Color(0xFF4A0033),
+          ],
+          stops: [0.0, 0.30, 0.70, 1.0],
+        ).createShader(baseRect);
+        break;
     }
 
     final bandPaint = Paint()..shader = bandShader;
 
-    // Physical 3D Stepped Bevel for armor bands (especially prominent on Legendary & Epic)
-    if (tier == Rarity.legendary || tier == Rarity.epic) {
+    // Physical 3D Stepped Bevel for armor bands (especially prominent on Legendary, Mythic & Epic)
+    if (tier == Rarity.legendary || tier == Rarity.epic || tier == Rarity.mythic) {
       final bevelShadowPaint = Paint()..color = const Color(0xFF050302);
       canvas.drawRRect(
         RRect.fromRectAndCorners(
@@ -481,6 +522,10 @@ class _ChestPainter extends CustomPainter {
         rivetBasePaint = Paint()..color = const Color(0xFF451A03);
         rivetCorePaint = Paint()..color = const Color(0xFFFFD54F);
         break;
+      case Rarity.mythic:
+        rivetBasePaint = Paint()..color = const Color(0xFF4A0033);
+        rivetCorePaint = Paint()..color = const Color(0xFFFF2A6D);
+        break;
     }
 
     final baseRivets = [
@@ -552,6 +597,11 @@ class _ChestPainter extends CustomPainter {
         lidWoodMid = const Color(0xFF432617);
         lidWoodBot = const Color(0xFF231109);
         break;
+      case Rarity.mythic:
+        lidWoodTop = const Color(0xFF42162B);
+        lidWoodMid = const Color(0xFF2A0D1B);
+        lidWoodBot = const Color(0xFF16040E);
+        break;
     }
     final lidShader = LinearGradient(
       begin: Alignment.topCenter,
@@ -616,6 +666,17 @@ class _ChestPainter extends CustomPainter {
           ],
         ).createShader(lidRect);
         break;
+      case Rarity.mythic:
+        lidBandShader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFF80AB),
+            Color(0xFFFF2A6D),
+            Color(0xFF880E4F),
+          ],
+        ).createShader(lidRect);
+        break;
     }
     final lidBandPaint = Paint()..shader = lidBandShader;
 
@@ -660,6 +721,7 @@ class _ChestPainter extends CustomPainter {
       Rarity.rare => const Color(0xFF00E5FF),
       Rarity.epic => const Color(0xFFE040FB),
       Rarity.legendary => const Color(0xFFFFD54F),
+      Rarity.mythic => const Color(0xFFFF2A6D),
     };
     final neonTrimPaint = Paint()
       ..color = neonColor.withValues(alpha: 0.88 * pulse)
@@ -697,6 +759,10 @@ class _ChestPainter extends CustomPainter {
       case Rarity.legendary:
         rivetBasePaint = Paint()..color = const Color(0xFF451A03);
         rivetCorePaint = Paint()..color = const Color(0xFFFFD54F);
+        break;
+      case Rarity.mythic:
+        rivetBasePaint = Paint()..color = const Color(0xFF4A0033);
+        rivetCorePaint = Paint()..color = const Color(0xFFFF2A6D);
         break;
     }
     for (final pos in lidRivets) {
@@ -883,6 +949,22 @@ class _ChestPainter extends CustomPainter {
         final gLen = w * 0.040;
         canvas.drawLine(Offset(centerPeak.dx - gLen, centerPeak.dy), Offset(centerPeak.dx + gLen, centerPeak.dy), glintPaint);
         canvas.drawLine(Offset(centerPeak.dx, centerPeak.dy - gLen), Offset(centerPeak.dx, centerPeak.dy + gLen), glintPaint);
+        break;
+
+      case Rarity.mythic:
+        // Dual curling mythic tentacle horns with glowing magenta core
+        final mythicPath = Path()
+          ..moveTo(w * 0.34, lidTop + h * 0.02)
+          ..cubicTo(w * 0.38, lidTop - h * 0.045, w * 0.46, lidTop - h * 0.040, w * 0.50, lidTop - h * 0.020)
+          ..cubicTo(w * 0.54, lidTop - h * 0.040, w * 0.62, lidTop - h * 0.045, w * 0.66, lidTop + h * 0.02);
+        final mythicPaint = Paint()
+          ..shader = bandShader
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = max(2.6, w * 0.038)
+          ..strokeCap = StrokeCap.round;
+        canvas.drawPath(mythicPath, mythicPaint);
+        canvas.drawCircle(Offset(w * 0.5, lidTop - h * 0.028), max(2.4, w * 0.032), Paint()..color = const Color(0xFFFF2A6D));
+        canvas.drawCircle(Offset(w * 0.5 - 0.7, lidTop - h * 0.028 - 0.7), max(0.9, w * 0.012), Paint()..color = Colors.white);
         break;
     }
   }
@@ -1264,7 +1346,119 @@ class _ChestPainter extends CustomPainter {
         canvas.drawLine(Offset(lockCenter.dx, lockCenter.dy - flareLen), Offset(lockCenter.dx, lockCenter.dy + flareLen), flarePaint);
         canvas.drawCircle(lockCenter, max(1.2, w * 0.018), Paint()..color = Colors.white);
         break;
+
+      case Rarity.mythic:
+        // Mythic Bioluminescent Octopus Seal Clasp
+        final lockRect = Rect.fromCenter(center: lockCenter, width: lockW * 1.05, height: lockH * 1.05);
+        final sealShader = const RadialGradient(
+          colors: [Color(0xFFFF80AB), Color(0xFFFF2A6D), Color(0xFF880E4F), Color(0xFF2A001E)],
+          stops: [0.15, 0.45, 0.75, 1.0],
+        ).createShader(lockRect);
+        canvas.drawCircle(lockCenter, lockW * 0.40, Paint()..shader = sealShader);
+
+        // Dark abyssal core
+        canvas.drawCircle(lockCenter, lockW * 0.28, Paint()..color = const Color(0xFF0F000B));
+
+        // Bioluminescent Core Pulse
+        final bioGlow = Paint()
+          ..shader = RadialGradient(
+            colors: [
+              const Color(0xFFFF2A6D).withValues(alpha: 0.95 * pulse),
+              Colors.transparent,
+            ],
+          ).createShader(Rect.fromCircle(center: lockCenter, radius: lockW * 0.28));
+        canvas.drawCircle(lockCenter, lockW * 0.28, bioGlow);
+
+        // Core eye / cosmic pearl
+        canvas.drawCircle(lockCenter, max(1.8, w * 0.024), Paint()..color = Colors.white);
+        canvas.drawCircle(Offset(lockCenter.dx - 0.6, lockCenter.dy - 0.6), max(0.8, w * 0.010), Paint()..color = const Color(0xFFFF80AB));
+        break;
     }
+  }
+
+  void _drawOctopusTentacles(Canvas canvas, double w, double h, double pulse) {
+    // Bioluminescent tentacles curling around the chest body
+    final tentacleShader = const LinearGradient(
+      begin: Alignment.bottomLeft,
+      end: Alignment.topRight,
+      colors: [
+        Color(0xFF880E4F),
+        Color(0xFFFF2A6D),
+        Color(0xFFFF80AB),
+        Color(0xFF00E5FF),
+      ],
+      stops: [0.0, 0.45, 0.85, 1.0],
+    ).createShader(Rect.fromLTWH(0, 0, w, h));
+
+    // Shadow underneath tentacles
+    final shadowPaint = Paint()
+      ..color = Colors.black54
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = max(3.5, w * 0.052)
+      ..strokeCap = StrokeCap.round;
+
+    final tentaclePaint = Paint()
+      ..shader = tentacleShader
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = max(3.0, w * 0.046)
+      ..strokeCap = StrokeCap.round;
+
+    final suckerPaint = Paint()..color = const Color(0xFFFF80AB);
+    final suckerCore = Paint()..color = const Color(0xFF3F0A28);
+    final suckerGlint = Paint()..color = Colors.white;
+
+    // Tentacle 1: Curling from bottom-left corner across to center
+    final t1 = Path()
+      ..moveTo(w * 0.06, h * 0.88)
+      ..cubicTo(w * 0.12, h * 0.72, w * 0.18, h * 0.65, w * 0.32, h * 0.62)
+      ..cubicTo(w * 0.38, h * 0.60, w * 0.42, h * 0.54, w * 0.38, h * 0.50);
+
+    // Tentacle 2: Curling from bottom-right corner up towards lid edge
+    final t2 = Path()
+      ..moveTo(w * 0.94, h * 0.88)
+      ..cubicTo(w * 0.88, h * 0.74, w * 0.82, h * 0.62, w * 0.68, h * 0.60)
+      ..cubicTo(w * 0.62, h * 0.58, w * 0.58, h * 0.52, w * 0.62, h * 0.46);
+
+    // Tentacle 3: Small tentacle tip wrapping the bottom-center rim
+    final t3 = Path()
+      ..moveTo(w * 0.44, h * 0.86)
+      ..cubicTo(w * 0.48, h * 0.76, w * 0.52, h * 0.76, w * 0.56, h * 0.84);
+
+    // Draw drop shadows
+    canvas.drawPath(t1.shift(const Offset(0, 1.8)), shadowPaint);
+    canvas.drawPath(t2.shift(const Offset(0, 1.8)), shadowPaint);
+    canvas.drawPath(t3.shift(const Offset(0, 1.2)), shadowPaint);
+
+    // Draw main tentacle bodies
+    canvas.drawPath(t1, tentaclePaint);
+    canvas.drawPath(t2, tentaclePaint);
+    canvas.drawPath(t3, tentaclePaint);
+
+    // Draw suction cups along tentacles
+    final suckers = [
+      Offset(w * 0.14, h * 0.74),
+      Offset(w * 0.22, h * 0.67),
+      Offset(w * 0.30, h * 0.63),
+      Offset(w * 0.36, h * 0.56),
+      Offset(w * 0.86, h * 0.76),
+      Offset(w * 0.78, h * 0.65),
+      Offset(w * 0.70, h * 0.61),
+      Offset(w * 0.63, h * 0.53),
+      Offset(w * 0.50, h * 0.79),
+    ];
+    final sR = max(1.2, w * 0.016);
+    for (final s in suckers) {
+      canvas.drawCircle(s, sR, suckerPaint);
+      canvas.drawCircle(s, sR * 0.60, suckerCore);
+      canvas.drawCircle(Offset(s.dx - sR * 0.3, s.dy - sR * 0.3), sR * 0.35, suckerGlint);
+    }
+
+    // Glowing bioluminescent sparkles
+    final sparklePaint = Paint()
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.85 * pulse)
+      ..strokeWidth = max(0.9, w * 0.012);
+    canvas.drawCircle(Offset(w * 0.38, h * 0.49), max(1.2, w * 0.016), sparklePaint);
+    canvas.drawCircle(Offset(w * 0.62, h * 0.45), max(1.2, w * 0.016), sparklePaint);
   }
 
   void _drawVolumetricRays(Canvas canvas, double w, double h, double progress, double pulse, Color accent) {

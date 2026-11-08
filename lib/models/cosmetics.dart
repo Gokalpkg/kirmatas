@@ -6,7 +6,8 @@ enum Rarity {
   common(Color(0xFF90A4AE), Color(0xFF37474F)),
   rare(Color(0xFF40C4FF), Color(0xFF0277BD)),
   epic(Color(0xFFE040FB), Color(0xFF7B1FA2)),
-  legendary(Color(0xFFFFD54F), Color(0xFFFF8F00));
+  legendary(Color(0xFFFFD54F), Color(0xFFFF8F00)),
+  mythic(Color(0xFFFF2A6D), Color(0xFF880E4F));
 
   final Color primaryColor;
   final Color darkColor;
@@ -420,6 +421,8 @@ class FishItem {
           return 75;
         case Rarity.legendary:
           return 160;
+        case Rarity.mythic:
+          return 320;
       }
     }
     if (id == 'tetra') return 20;
@@ -432,6 +435,8 @@ class FishItem {
         return 40;
       case Rarity.legendary:
         return 80;
+      case Rarity.mythic:
+        return 180;
     }
   }
 
@@ -446,6 +451,8 @@ class FishItem {
         return 35;
       case Rarity.legendary:
         return 75;
+      case Rarity.mythic:
+        return 150;
     }
   }
 
@@ -637,10 +644,10 @@ class FishItem {
     FishItem(
       id: 'octopus',
       name: 'Kozmik Ahtapot',
-      rarity: Rarity.legendary,
+      rarity: Rarity.mythic,
       size: 1.5,
-      color: Color(0xFFB388FF),
-      secondaryColor: Color(0xFF7E57C2),
+      color: Color(0xFFFF2A6D),
+      secondaryColor: Color(0xFF9C27B0),
       kind: FishKind.octopus,
     ),
     FishItem(
@@ -684,14 +691,15 @@ class CrateDef {
   static const List<CrateDef> allCrates = [
     CrateDef(
       id: 'wood',
-      cost: 600,
+      cost: 750,
       tier: Rarity.common,
       primaryColor: Color(0xFF8D6E63),
       weights: {
-        Rarity.common: 72.0,
-        Rarity.rare: 22.0,
-        Rarity.epic: 5.5,
-        Rarity.legendary: 0.5,
+        Rarity.common: 82.0,
+        Rarity.rare: 16.0,
+        Rarity.epic: 2.0,
+        Rarity.legendary: 0.0,
+        Rarity.mythic: 0.0,
       },
     ),
     CrateDef(
@@ -704,18 +712,20 @@ class CrateDef {
         Rarity.rare: 38.0,
         Rarity.epic: 17.0,
         Rarity.legendary: 3.0,
+        Rarity.mythic: 0.0,
       },
     ),
     CrateDef(
       id: 'abyss',
-      cost: 2800,
+      cost: 2400,
       tier: Rarity.epic,
       primaryColor: Color(0xFF7C4DFF),
       weights: {
-        Rarity.common: 12.0,
-        Rarity.rare: 38.0,
-        Rarity.epic: 38.0,
-        Rarity.legendary: 12.0,
+        Rarity.common: 0.0,
+        Rarity.rare: 28.0,
+        Rarity.epic: 54.0,
+        Rarity.legendary: 18.0,
+        Rarity.mythic: 0.0,
       },
     ),
   ];
@@ -728,19 +738,20 @@ class CrateDef {
   /// from the fortune wheel or bought in the shop.
   static const int octopusVaultPearlCost = 8;
 
-  /// The Octopus Treasure: a legendary divine chest guarded by the octopus.
+  /// The Octopus Treasure: a mythic divine chest guarded by the octopus.
   /// Sits at the end of the shop catalog and opens exclusively for 8 pearls.
   static const CrateDef octopusVault = CrateDef(
     id: 'octopus',
     nameKey: 'divine_octopus_vault',
     cost: 0,
-    tier: Rarity.legendary,
-    primaryColor: Color(0xFFAB47BC),
+    tier: Rarity.mythic,
+    primaryColor: Color(0xFFFF2A6D),
     weights: {
       Rarity.common: 0.0,
-      Rarity.rare: 20.0,
-      Rarity.epic: 50.0,
+      Rarity.rare: 10.0,
+      Rarity.epic: 40.0,
       Rarity.legendary: 30.0,
+      Rarity.mythic: 20.0,
     },
   );
 }
@@ -767,8 +778,15 @@ class UpgradeDef {
     required this.costs,
   }) : _name = name, _description = description;
 
-  String get name => _name != null ? I18n.tr('${id}_title') : I18n.tr('${id}_title');
-  String get description => _description != null ? I18n.tr('${id}_desc') : I18n.tr('${id}_desc');
+  String get name {
+    final tr = I18n.tr('${id}_title');
+    return (tr.isNotEmpty && tr != '${id}_title') ? tr : (_name ?? id);
+  }
+
+  String get description {
+    final tr = I18n.tr('${id}_desc');
+    return (tr.isNotEmpty && tr != '${id}_desc') ? tr : (_description ?? '');
+  }
 
   static const List<UpgradeDef> allUpgrades = [
     UpgradeDef(
@@ -815,8 +833,15 @@ class BoostItem {
     required this.color,
   }) : _name = name, _description = description;
 
-  String get name => _name != null ? I18n.tr('${id}_boost_title') : I18n.tr('${id}_boost_title');
-  String get description => _description != null ? I18n.tr('${id}_boost_desc') : I18n.tr('${id}_boost_desc');
+  String get name {
+    final tr = I18n.tr('${id}_boost_title');
+    return (tr.isNotEmpty && tr != '${id}_boost_title') ? tr : (_name ?? id);
+  }
+
+  String get description {
+    final tr = I18n.tr('${id}_boost_desc');
+    return (tr.isNotEmpty && tr != '${id}_boost_desc') ? tr : (_description ?? '');
+  }
 
   static const List<BoostItem> allBoosts = [
     BoostItem(
