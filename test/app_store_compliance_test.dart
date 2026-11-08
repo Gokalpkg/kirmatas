@@ -60,12 +60,11 @@ void main() {
       expect(content.contains('ca-app-pub-9694275729123906~2311223088'), isFalse);
     });
 
-    test('project.pbxproj sets TARGETED_DEVICE_FAMILY to 1 (iPhone only)', () {
+    test('project.pbxproj sets TARGETED_DEVICE_FAMILY to 1,2 (Apple QA1623 mandatory update rule)', () {
       final file = File('ios/Runner.xcodeproj/project.pbxproj');
       expect(file.existsSync(), isTrue);
       final content = file.readAsStringSync();
-      expect(content.contains('TARGETED_DEVICE_FAMILY = "1";'), isTrue);
-      expect(content.contains('TARGETED_DEVICE_FAMILY = "1,2";'), isFalse);
+      expect(content.contains('TARGETED_DEVICE_FAMILY = "1,2";'), isTrue);
     });
 
     testWidgets('SettingsDialog does not render Remove Ads or Restore Purchases buttons when disabled', (tester) async {
