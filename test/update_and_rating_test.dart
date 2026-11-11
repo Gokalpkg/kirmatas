@@ -13,8 +13,8 @@ void main() {
 
   group('Update and Rating Systems Verification', () {
     test('1. AppUpdateManager constants and configuration', () {
-      expect(AppUpdateManager.currentVersionCode, 121);
-      expect(AppUpdateManager.currentVersionName, '1.0.120');
+      expect(AppUpdateManager.currentVersionCode, 122);
+      expect(AppUpdateManager.currentVersionName, '1.0.121');
       expect(AppUpdateManager.defaultStoreUrl, contains('com.kaunos.kirmatas'));
       expect(AppUpdateManager.marketUrl, contains('com.kaunos.kirmatas'));
     });
