@@ -16,7 +16,7 @@ void main() {
       final octopus = FishItem.getById('octopus');
       expect(octopus.kind, equals(FishKind.octopus));
       expect(octopus.isBottomDweller, isTrue);
-      expect(octopus.rarity, equals(Rarity.legendary));
+      expect(octopus.rarity, equals(Rarity.mythic));
       expect(octopus.name, isNotEmpty);
     });
 

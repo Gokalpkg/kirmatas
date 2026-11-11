@@ -1,0 +1,2797 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Kırmataş - Oynanabilir Reklam (Playable Ad)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #030611;
+      font-family: 'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #ffffff;
+    }
+    #ad-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at 50% 25%, #0d1b3e 0%, #030611 100%);
+    }
+    #game-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 10;
+    }
+
+    /* Top HUD */
+    #top-hud {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .hud-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .hud-chip {
+      background: rgba(13, 24, 48, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      border-radius: 12px;
+      padding: 5px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(0, 240, 255, 0.1);
+    }
+    .hud-title {
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      color: #67e8f9;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .hud-val {
+      font-size: 17px;
+      font-weight: 800;
+      color: #f8fafc;
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+      line-height: 1.1;
+    }
+    .lives-row {
+      display: flex;
+      gap: 3px;
+      font-size: 13px;
+    }
+
+    /* Mode Selector Pill */
+    .mode-toggle-btn {
+      pointer-events: auto;
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(147, 51, 234, 0.4));
+      border: 1.5px solid rgba(0, 240, 255, 0.65);
+      border-radius: 20px;
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0, 240, 255, 0.3);
+      transition: all 0.2s ease;
+    }
+    .mode-toggle-btn:active {
+      transform: scale(0.95);
+    }
+    .mode-badge-icon {
+      font-size: 14px;
+      animation: spinMode 6s linear infinite;
+    }
+    .mode-label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.8);
+    }
+    @keyframes spinMode {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .audio-btn {
+      pointer-events: auto;
+      background: rgba(13, 24, 48, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      color: #38bdf8;
+    }
+
+    /* Bottom Aquarium Vault HUD */
+    #aquarium-vault {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      height: 52px;
+      background: linear-gradient(180deg, rgba(8, 28, 58, 0.88) 0%, rgba(3, 12, 26, 0.96) 100%);
+      border: 1.5px solid rgba(56, 189, 248, 0.35);
+      border-radius: 16px;
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 -4px 20px rgba(6, 182, 212, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+      z-index: 20;
+      pointer-events: none;
+    }
+    .aquarium-fish-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .fish-icon-pulse {
+      font-size: 22px;
+      filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.8));
+      animation: floatFish 2.5s ease-in-out infinite alternate;
+    }
+    @keyframes floatFish {
+      0% { transform: translateY(-2px) rotate(-3deg); }
+      100% { transform: translateY(2px) rotate(3deg); }
+    }
+    .aquarium-text-col {
+      display: flex;
+      flex-direction: column;
+    }
+    .aquarium-name {
+      font-size: 11px;
+      font-weight: 800;
+      color: #38bdf8;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .aquarium-sub {
+      font-size: 10px;
+      color: #94a3b8;
+      font-weight: 600;
+    }
+    .aquarium-perk-pill {
+      background: rgba(234, 179, 8, 0.15);
+      border: 1px solid rgba(234, 179, 8, 0.4);
+      padding: 3px 8px;
+      border-radius: 16px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #fef08a;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 0 10px rgba(234, 179, 8, 0.2);
+    }
+
+    /* Active Powerups Bar */
+    #active-powerups-hud {
+      position: absolute;
+      top: 60px;
+      left: 12px;
+      display: flex;
+      gap: 6px;
+      z-index: 22;
+      pointer-events: none;
+    }
+    .power-pill {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 20px;
+      padding: 3px 8px;
+      font-size: 10px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      animation: popIn 0.3s ease;
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.6); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Tutorial Drag / Swipe Prompt */
+    #swipe-prompt {
+      position: absolute;
+      bottom: 95px;
+      left: 0;
+      right: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 25;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .prompt-hand {
+      font-size: 34px;
+      filter: drop-shadow(0 0 12px rgba(0, 240, 255, 0.9));
+      animation: swipeHandAnim 1.6s ease-in-out infinite;
+    }
+    @keyframes swipeHandAnim {
+      0% { transform: translateX(-35px); }
+      50% { transform: translateX(35px); }
+      100% { transform: translateX(-35px); }
+    }
+    .prompt-text {
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #e0f2fe;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      padding: 4px 14px;
+      border-radius: 14px;
+      text-transform: uppercase;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Boss Warning Overlay */
+    #boss-warning {
+      position: absolute;
+      top: 35%;
+      left: 0;
+      right: 0;
+      transform: translateY(-50%);
+      background: linear-gradient(90deg, transparent 0%, rgba(220, 38, 38, 0.9) 20%, rgba(185, 28, 28, 0.95) 50%, rgba(220, 38, 38, 0.9) 80%, transparent 100%);
+      padding: 16px 0;
+      text-align: center;
+      z-index: 30;
+      display: none;
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.8);
+      animation: warningPulse 0.4s ease-in-out infinite alternate;
+    }
+    @keyframes warningPulse {
+      0% { opacity: 0.85; transform: translateY(-50%) scale(0.98); }
+      100% { opacity: 1; transform: translateY(-50%) scale(1.02); }
+    }
+    .warning-title {
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #fef08a;
+      text-shadow: 0 0 10px rgba(0,0,0,0.8);
+    }
+    .warning-sub {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #ffffff;
+    }
+
+    /* Screen Red Flash on Damage */
+    #damage-flash {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: radial-gradient(circle, transparent 40%, rgba(239, 68, 68, 0.45) 100%);
+      opacity: 0;
+      z-index: 28;
+      transition: opacity 0.1s ease;
+    }
+
+    /* Victory End-Card */
+    #end-card {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 40%, rgba(15, 23, 42, 0.96) 0%, rgba(3, 6, 17, 0.98) 100%);
+      z-index: 50;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      animation: fadeIn 0.4s ease-out;
+    }
+    @keyframes fadeIn {
+      0% { opacity: 0; transform: scale(0.95); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .victory-stars {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .star-icon {
+      font-size: 32px;
+      filter: drop-shadow(0 0 12px rgba(234, 179, 8, 0.9));
+      animation: starPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards;
+    }
+    .star-icon:nth-child(1) { animation-delay: 0.1s; }
+    .star-icon:nth-child(2) { animation-delay: 0.25s; }
+    .star-icon:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes starPop {
+      0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    .victory-title {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #38bdf8;
+      text-shadow: 0 0 20px rgba(56, 189, 248, 0.8);
+      margin-bottom: 4px;
+    }
+    .victory-sub {
+      font-size: 14px;
+      color: #cbd5e1;
+      font-weight: 600;
+      margin-bottom: 18px;
+    }
+
+    /* Chest Crate Box */
+    #crate-box {
+      position: relative;
+      width: 110px;
+      height: 110px;
+      background: radial-gradient(circle, #f59e0b 0%, #b45309 100%);
+      border: 3px solid #fef08a;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 35px rgba(245, 158, 11, 0.6), inset 0 0 20px rgba(254, 240, 138, 0.4);
+      animation: crateFloat 2s ease-in-out infinite alternate;
+      margin-bottom: 18px;
+    }
+    @keyframes crateFloat {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-8px); }
+    }
+    .crate-pulse-glow {
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      right: -10px;
+      bottom: -10px;
+      border-radius: 26px;
+      background: radial-gradient(circle, rgba(234, 179, 8, 0.5) 0%, transparent 70%);
+      z-index: -1;
+      animation: pulseGlow 1.4s ease-in-out infinite;
+    }
+    @keyframes pulseGlow {
+      0% { transform: scale(0.9); opacity: 0.5; }
+      50% { transform: scale(1.15); opacity: 0.9; }
+      100% { transform: scale(0.9); opacity: 0.5; }
+    }
+    .crate-emoji {
+      font-size: 50px;
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+    }
+    .tap-to-open-pill {
+      position: absolute;
+      bottom: -10px;
+      background: #ef4444;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 12px;
+      letter-spacing: 0.5px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    #reward-unlocked {
+      display: none;
+      animation: rewardPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      margin-bottom: 18px;
+    }
+    @keyframes rewardPop {
+      0% { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .reward-badge-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(30, 41, 59, 0.85);
+      border: 1.5px solid #38bdf8;
+      border-radius: 16px;
+      padding: 10px 18px;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.3);
+    }
+    .reward-icon-huge {
+      font-size: 38px;
+    }
+    .reward-details {
+      text-align: left;
+    }
+    .reward-name {
+      font-size: 15px;
+      font-weight: 800;
+      color: #f8fafc;
+    }
+    .reward-desc {
+      font-size: 11px;
+      color: #38bdf8;
+      font-weight: 700;
+    }
+
+    /* CTA Button */
+    .cta-btn {
+      position: relative;
+      width: 85%;
+      max-width: 320px;
+      height: 52px;
+      background: linear-gradient(135deg, #00f0ff 0%, #3b82f6 50%, #8b5cf6 100%);
+      border: none;
+      border-radius: 26px;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 8px 30px rgba(0, 240, 255, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+      animation: ctaPulse 1.8s ease-in-out infinite;
+      margin-bottom: 14px;
+    }
+    @keyframes ctaPulse {
+      0% { transform: scale(1); box-shadow: 0 8px 30px rgba(0, 240, 255, 0.5); }
+      50% { transform: scale(1.04); box-shadow: 0 12px 40px rgba(0, 240, 255, 0.85); }
+      100% { transform: scale(1); box-shadow: 0 8px 30px rgba(0, 240, 255, 0.5); }
+    }
+    .store-badges {
+      display: flex;
+      gap: 8px;
+    }
+    .store-pill {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="ad-container">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Red Damage Flash -->
+    <div id="damage-flash"></div>
+
+    <!-- Top HUD -->
+    <div id="top-hud">
+      <div class="hud-group">
+        <div class="hud-chip">
+          <span class="hud-title">SKOR</span>
+          <span class="hud-val" id="score-val">0</span>
+        </div>
+        <div class="hud-chip" id="lives-chip">
+          <span class="hud-title" id="lives-title">DALGA</span>
+          <div class="lives-row" id="lives-row">DALGA 1 (50 🔮)</div>
+        </div>
+      </div>
+
+      <!-- Mode Selector (Classic Paddle / Chaos) -->
+      <button class="mode-toggle-btn" id="mode-toggle-btn" onclick="toggleGameMode()">
+        <span class="mode-badge-icon">🔄</span>
+        <span class="mode-label" id="mode-label">KAOS MODU</span>
+      </button>
+
+      <div class="hud-group">
+        <button class="audio-btn" id="audio-toggle" aria-label="Ses Aç/Kapat">
+          <svg id="audio-on-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+          <svg id="audio-off-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <line x1="23" y1="9" x2="17" y2="15"></line>
+            <line x1="17" y1="9" x2="23" y2="15"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Powerups Bar -->
+    <div id="active-powerups-hud"></div>
+
+    <!-- Bottom Aquarium Vault -->
+    <div id="aquarium-vault">
+      <div class="aquarium-fish-badge">
+        <div class="fish-icon-pulse">🐠</div>
+        <div class="aquarium-text-col">
+          <span class="aquarium-name">Akvaryum Kasası</span>
+          <span class="aquarium-sub">Kozmik Lepistes &bull; Sinerji Aktif</span>
+        </div>
+      </div>
+      <div class="aquarium-perk-pill">
+        <span>⚡</span>
+        <span>Pasif Torpido</span>
+      </div>
+    </div>
+
+    <!-- Swipe Tutorial Prompt -->
+    <div id="swipe-prompt">
+      <div class="prompt-hand" id="prompt-hand">👈👉</div>
+      <div class="prompt-text" id="prompt-text">Raketi Sağa-Sola Kaydır &amp; Topu Fırlat!</div>
+    </div>
+
+    <!-- Boss Warning Overlay -->
+    <div id="boss-warning">
+      <div class="warning-title">⚠️ DİKKAT! SEKTÖR BOSSU BELİRDİ! ⚠️</div>
+      <div class="warning-sub">DEV MEKA-KRAKEN SALDIRIYOR</div>
+    </div>
+
+    <!-- Victory End-Card -->
+    <div id="end-card">
+      <div class="victory-stars">
+        <span class="star-icon">⭐</span>
+        <span class="star-icon">⭐</span>
+        <span class="star-icon">⭐</span>
+      </div>
+      <h1 class="victory-title">SEKTÖR 1 TEMİZLENDİ!</h1>
+      <p class="victory-sub">Tuğlalar Parçalandı &bull; Akvaryum Sandığı Hazır</p>
+
+      <div id="crate-box" onclick="openVictoryCrate()">
+        <div class="crate-pulse-glow"></div>
+        <div class="crate-emoji">📦</div>
+        <div class="tap-to-open-pill">DOKUN VE AÇ!</div>
+      </div>
+
+      <div id="reward-unlocked">
+        <div class="reward-badge-row">
+          <div class="reward-icon-huge" style="display:flex;align-items:center;justify-content:center;">
+    <img src="data:image/png;base64,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" style="width:64px;height:64px;object-fit:contain;filter:drop-shadow(0 0 16px rgba(168,85,247,0.85));" alt="Kozmik Ahtapot" />
+  </div>
+          <div class="reward-details">
+            <div class="reward-name">Efsanevi Kozmik Ahtapot!</div>
+            <div class="reward-desc">+5.000 Altın &bull; Otomatik Can Kurtarma</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="cta-btn" onclick="handleAdClick()">
+        <span>HEMEN ÜCRETSİZ İNDİR</span>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </button>
+
+      <div class="store-badges">
+        <div class="store-pill"><span>🍏</span> App Store</div>
+        <div class="store-pill"><span>🤖</span> Google Play</div>
+        <div class="store-pill"><span>⭐</span> 4.9 Puan</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    
+    // Authentic In-Game Visual Assets (Embedded Base64)
+    const ASSETS = {
+      laser: new Image(),
+      bomb: new Image(),
+      fireball: new Image(),
+      multi: new Image(),
+      octopus: new Image()
+    };
+    ASSETS.laser.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAMMSURBVHhe7dndS5NhGAbwnQY5pzU6j9zeqVPTzSmeBKnoQUeFJ35t79wkNz2ITvsTOgz8mBH9A3UQnsyPwA4MCiEoQRApKKKkjgTdx3vHfW2P5Z1BgRo+zy74HTzvfU+eXWww0OX6TynEI8T2YhbIufYxvgAaChHbH20AOdc+xhdQHGolSIRAzrWP8QXsx1qJ5eMhkHPtY3wB+fFOYpRoAznXPpUCyh99J9oGcq59jC+gmGgntptoATnXPpUC7BAxJx4GOdc+xhfgxCPEcnYXyLn2Mb4AGmsnVoy1gJxrH+MLyEdbiOWSHSDn2sf4ApxkhFjOvgpyrn2ML0D9FC5EgyDn2sf4AnJ2GzEn1g5yrn2ML4DsCLF8rBnkXPsYX4CT6CRWGAuDnGsf4wugRIRgpBPkXPsYV8Dq640bTJ2LYx3EHLsVDm9rGOMLkCnEwsT2UiVyrn2MK+Dl4LVVps7q3+OFZAgOb7tcX3b3PzP5/MzG+AJkaLyDwA6DnH/4uhtm8rk2Mb6A3LMuYh8f+EDOtY+xBYzfvUfs/uxjmH6YgdtTd0DuaxftCqiyRom5/VE4f6Wkxh8Hty8JNXVROGeNwPkGG6qtEfD4bKj1J0G9vqouBtVWSa1ll/hHQN7n1GNsAd7GKLGbc++gOb0CwfTikZpSy9CYykIwtQz1qSw0TS6WpFcgOJEtKe81TiyB+nsD02/hQl0c5P1OPMYW4Km7RczXPw/q4s1Ty9A0uQTy/Cdy7/dz2eTzkvK8eSoL/t5puGgNg7zvscf4Ai41DBPzdc+CfEP/6uArcsTs17n66sjngb458AaGQN732GN8ATWXB4hZffOgLiQ/ulIwnQX5/G+pNywF+h+BNzAI8r7HHuMLUKm1xojV92Qg0DMDB+fuObB6M6DOitpTc3/PXEnvDPzcnQfregbUnq9nGtQPJnm/E4/xBahsfnK8LJvdqmZrmztutr1NHvb0xUYVU+fNHcfN1PP17e8epl7/ausbqP2FhTU3e/Oeapjaf7KyDvI+px7jC6ikkkrOdH4Av7R0q43tpnAAAAAASUVORK5CYII=';
+    ASSETS.bomb.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAJMSURBVHhe7di/bxJhGAfwrkbjSLmDWsWk5RQXB5Oi9EfSGFGMJjVAa1qO1nKU0a3dnB2Mf4CJUI3QxMZ2cnJ3cHB3cjQx6l/wmud795TwdnHzuOf5Jp+Bl5f38n5zHHdMTGg0Go1Go9HENIcvg11ij4uJ+AI0UvNzLm3I9/tnwX4/8RFbwLdeL0X+vCgY8rt7BX5cPw8879enpiGjn05AxBbwvLNkyOd3z4DHv6amDBmdncCILeDL+z1D7HExEVeAM+UZ4mbz8OjBCqSzs2DPT1zEF+Be8AxZ9VtQnC+DFiClACcza0hpoQIpdwbS2TzY8xMXcQW4bu4jqa4Hhqw1d6DeCKC20Ybi/F2YK5Uhlyv0iL3e2EVsAYPB4Azhjb7pH8H+wTGs+m2o+QHwRfFG8TbcWqxAp9M5R+z1Yx/xBWQuXTNk/+ADvB6Euv1D6A2OgAs4sfEE+KuQvVgAe/3YR2wBfEMz3FALXr3tQ7d/DDzO8+qN7Uj4lbm5cG/EZGYG7OPFLuIL4Iec0xe56HV0ilcbrVAzgOHPYvg+b5x/HsfmVlkL4Mfcx9tgF/GveONchBYwNgU4niGLyw+hur4FNX8H6s02cDF88as1NmGz9RS4AH5cnnQ9sI8Xu4gvgONMXzWET+HSUgXq/lYo2vhaZPnOCpw69ac9sNePfcQXwA9Dw1M52lgpNHxdBnse43Xs9WMf8QXY4b+87BuckyKi8ZSTB/vzYx/xBXCcTN4QLiTlXga+gbLnJy7iC9BoNBqNRqPRaDQajUbz3/MXVc/sojXFU7cAAAAASUVORK5CYII=';
+    ASSETS.fireball.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAKdSURBVHhe7djNS1RRGMfxkXm7OjYvjs5c7zgvDSRBRFCL3qBCLLRRcwYFUcNCSGoXQYugtatBKYkMcnybRHETLqNNtI8osnThIlLErAQ3Ws6J52eXmPMX3PE8X/gs5tx7z+E+DAyMzcZxHMdxHMdxHMdxluvTq8dBIq8rk3IDWMkN+Ym8rkzKDeDHwjVBzM+z2WyENNrDghTffQBTZgCLg6lJIubrBZGvm81ms+WkxV0niHy9ZFN+AKvPLubJ+4fnnxD5+tzISCW5rwUFSVUkQL6vZFN2AN8Hzwoir1/RwoI0aSH4lfbBu9bjYN53whl4TYqfLqGUH4DZubLgT3LBWbNAllLHBPl4yYD8YQ26PJEFYj73IHpyh6TtUUGKdy2hlB1AyhkV5LojBM0VUdjs8MNGmwfG9DhcdibA/Bkc15OQ1upB3t/yKTuAXC6nQSwpyB2PDzY6dRBjSShMhCBXm4AXiWpYT3uhtywI8v6WT/kBDNgCgmx2eGFcp69zndjOVMPulA6FqRhMGGH4NuCH50YcRkdHnSTjjgkin2PZlB1AY3lEkPm4BzYzfli94Ya9yRoQb0/DVkcAxEQtfG2PQpOmw3D8CDQ760A+z3IpP4A2V0yQuZgPzBdeuecCMWXA7kwEfk+HoTCtw1NfCOZOBWDSMOCMUx8m8nmWS/kBtLhigvQ7bLAzUwNisQcKn/9Z6gOxvO9P3oD1W15Y66qCm/YIyOdYNuUHYHa3IRUh25kKQcSH9n1feost9UNhugrWehzwMnEIbqe6A0Te3/IpPwDzz818bVKQvaEE/H/xPthb3rfV44M3RxNw1REDed+SSfkByDXYKh+RbptfkFaXF9rdfui0GyA/d2BSfgAcx3Ecx3Ecx3Ecx3GcRfoLQ0zL/lXSyT8AAAAASUVORK5CYII=';
+    ASSETS.multi.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAJ3SURBVHhe7dnLbhJRHMdxXLiqdSgzAyXGxMTGNL1wq8/gwjfkPUx8BWNLuAwz5TIMbawLQyu6KreZY84P/l0cghATKPX8v8lnQVIOZ/6BuaSxGMdxHMdxHMdxHMdx3JrbfflWSHYqB6adgRfGG1D//r9LuwEcvMuVpEgIIQ0GA1AbDEOoeV1Ipw/OJXW9J5f2A7hsfheSmNxDv3cFVBRFQFWcBnz6/AXU9Z5c2g5gL5UX0vyBjmb+Xs0NwLAKoK6/9Wk/gHjqTEhChDOrFYZjqNbbEDcLoK6/9fEA7IKQRsMIlja7TpY9H2gAO4kMqOtvfdoOwE4XhGTun8COcQgXZQ/mfxJjoBuliuPD7l4G6GRqJbOgft7Wpe0ArOSpkNSazTbErSx8LflQ9VpQqXfgvNSC1Kv38NBsMjXXBzNVAPXzHz1tBxCFYwHRBPq9LizKubwCOpB4MgN0o9S/7Uz9/AFqdbcFbuMa1P1sPO0HMJwIIf2+u4H+7TdYFD3s7L/Og2EdAtW/C+BXvweLql12QN3PxtN2AIlkVkirN7380cmv7ASgPg6vWlXeLHm+MOxTUPe39rQfAJ28wjCEVQ/E8bpw4bThfiSAWraO67WABkC33Or+1p72A4jFYs+kVudGSMvymgHQySt/9hGOcx/A9wNYluO1pxoBFIvF55K6uU2k/QAQHVC90QY1eqylryy9pn+M0Fe44jZg/mFpto4bgON0oFqfUvez8bQfAGVaOSHNHfDsskeXTfV9aqZ9JCR6+Hl4aHLbYFhHoL7v0dN+AFQidSokwzyZ+scblbh9LCQa3NYfOKX9ADiO4ziO4ziO4ziO2/r+AMlgwOAmGzsoAAAAAElFTkSuQmCC';
+    ASSETS.octopus.src = 'data:image/png;base64,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';
+
+    // Cosmic Synergy Creature Visual Animation State
+    const synergyCreature = {
+      active: false,
+      x: 0,
+      y: 0,
+      targetY: 0,
+      scale: 1,
+      alpha: 0,
+      rotation: 0
+    };
+
+    /* =====================================================================
+       KIRMATAŞ PLAYABLE AD ENGINE
+       Real-Time Paddle Brick Breaker + Authentic Kaos Mode
+       Physics matched to Flutter GameController & GameCanvas
+       ===================================================================== */
+
+    // 1. AD NETWORK & STORE REDIRECTION HOOKS
+    const STORE_URL_ANDROID = 'https://play.google.com/store/apps/details?id=com.kaunos.kirmatas';
+    const STORE_URL_IOS = 'https://apps.apple.com/app/id6738928036';
+
+    function getStoreUrl() {
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+        return STORE_URL_IOS;
+      }
+      return STORE_URL_ANDROID;
+    }
+
+    function handleAdClick() {
+      const url = getStoreUrl();
+      console.log('Playable Ad CTA Triggered -> Opening Store:', url);
+
+      if (typeof mraid !== 'undefined' && typeof mraid.open === 'function') {
+        mraid.open(url);
+        return;
+      }
+      if (typeof ExitApi !== 'undefined' && typeof ExitApi.exit === 'function') {
+        ExitApi.exit();
+        return;
+      }
+      if (typeof FbPlayableAd !== 'undefined' && typeof FbPlayableAd.onCTAClick === 'function') {
+        FbPlayableAd.onCTAClick();
+        return;
+      }
+      window.open(url, '_blank');
+    }
+
+    // 2. PROCEDURAL ZERO-LATENCY WEB AUDIO SYNTHESIZER
+    let audioCtx = null;
+    let audioEnabled = true;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioClass) {
+          audioCtx = new AudioClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    const Sound = {
+      paddleHit(isCorner = false) {
+        if (!audioEnabled || !audioCtx) return;
+        try {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          const baseFreq = isCorner ? 580 : 340;
+          osc.type = isCorner ? 'triangle' : 'sine';
+          osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, audioCtx.currentTime + 0.08);
+
+          gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.11);
+        } catch (e) {}
+      },
+
+      brickHit(combo = 0) {
+        if (!audioEnabled || !audioCtx) return;
+        try {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          const freq = Math.min(260 * Math.pow(1.05946, (combo % 18) + 8), 1600);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(freq * 1.35, audioCtx.currentTime + 0.06);
+
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.09);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.1);
+        } catch (e) {}
+      },
+
+      dynamiteBoom() {
+        if (!audioEnabled || !audioCtx) return;
+        try {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.38);
+
+          gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.42);
+        } catch (e) {}
+      },
+
+      laser() {
+        if (!audioEnabled || !audioCtx) return;
+        try {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(980, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(220, audioCtx.currentTime + 0.15);
+
+          gain.gain.setValueAtTime(0.22, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.2);
+        } catch (e) {}
+      },
+
+      powerup() {
+        if (!audioEnabled || !audioCtx) return;
+        try {
+          [523.25, 659.25, 783.99].forEach((freq, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const t = audioCtx.currentTime + idx * 0.06;
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.2, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.16);
+          });
+        } catch (e) {}
+      },
+
+      hazardMiss() {
+        if (!audioEnabled || !audioCtx) return;
+        try {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.25);
+
+          gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.26);
+        } catch (e) {}
+      },
+
+      alarm() {
+        if (!audioEnabled || !audioCtx) return;
+        try {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+          osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.15);
+          osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.3);
+
+          gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.45);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.45);
+        } catch (e) {}
+      },
+
+      victory() {
+        if (!audioEnabled || !audioCtx) return;
+        try {
+          [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const t = audioCtx.currentTime + idx * 0.12;
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.28, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.45);
+          });
+        } catch (e) {}
+      }
+    };
+
+    document.getElementById('audio-toggle').addEventListener('click', (e) => {
+      e.stopPropagation();
+      initAudio();
+      audioEnabled = !audioEnabled;
+      document.getElementById('audio-on-icon').style.display = audioEnabled ? 'block' : 'none';
+      document.getElementById('audio-off-icon').style.display = audioEnabled ? 'none' : 'block';
+    });
+
+    // 3. CANVAS & ENGINE SETUP
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let W = 0;
+    let H = 0;
+    let scaleRatio = 1;
+
+    function resizeCanvas() {
+      const container = document.getElementById('ad-container');
+      W = container.clientWidth || window.innerWidth;
+      H = container.clientHeight || window.innerHeight;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      scaleRatio = dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Reposition paddle & chaos floor
+      paddle.y = H - 90;
+      paddle.x = Math.max(10, Math.min(W - paddle.w - 10, paddle.x));
+      chaos.floorY = H - 85;
+      if (!chaos.homeX || chaos.homeX <= 0) chaos.homeX = W / 2;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // 4. GAME STATE & ENTITIES
+    const MODES = {
+      NORMAL: 'NORMAL', // Real-time paddle sliding (Kırmataş core)
+      CHAOS: 'CHAOS'    // BBTAN-style volley aim & wave survival
+    };
+
+    let currentMode = MODES.CHAOS;
+    let score = 0;
+    let lives = 3;
+    let combo = 0;
+    let screenShake = 0;
+    let hitStopTimer = 0; // Crunch freeze on heavy hits
+    let gamePhase = 'PLAYING'; // PLAYING, BOSS_INTRO, BOSS_FIGHT, VICTORY
+
+    // Cyber Paddle Entity (Exact match to Flutter Paddle)
+    const paddle = {
+      x: 100,
+      y: 500,
+      w: 88,
+      baseW: 88,
+      h: 15,
+      prevX: 100,
+      vx: 0,
+      tiltAngle: 0,
+      flashTimer: 0,
+      bounceOffsetY: 0,
+      bounceVy: 0,
+      squashScaleX: 1.0,
+      squashScaleY: 1.0,
+      // Powerups on paddle
+      hasLaser: false,
+      laserAmmo: 0,
+      laserTimer: 0,
+      hasShieldNet: false,
+      isWide: false,
+      wideTimer: 0
+    };
+
+    // Balls Array
+    let balls = [];
+    const BASE_BALL_SPEED = 430;
+
+    class Ball {
+      constructor(x, y, vx, vy) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.radius = 6.2;
+        this.isStuck = false; // Stuck on paddle before launch
+        this.isFireball = false;
+        this.fireballTimer = 0;
+        this.isOverdrive = false;
+        this.overdriveTimer = 0;
+        this.trail = [];
+        this.returningToHome = false;
+      }
+
+      get speed() {
+        return Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+      }
+
+      setSpeed(spd) {
+        const cur = this.speed;
+        if (cur > 0.0001) {
+          this.vx = (this.vx / cur) * spd;
+          this.vy = (this.vy / cur) * spd;
+        } else {
+          this.vy = -spd;
+        }
+      }
+
+      update(dt) {
+        if (this.isStuck) {
+          this.x = paddle.x + paddle.w / 2;
+          this.y = paddle.y - this.radius - 2;
+          return;
+        }
+
+        // Record glowing trail
+        this.trail.push({ x: this.x, y: this.y, alpha: 1.0 });
+        if (this.trail.length > 12) {
+          this.trail.shift();
+        }
+        for (let i = 0; i < this.trail.length; i++) {
+          this.trail[i].alpha -= dt * 3.8;
+        }
+
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+
+        if (this.fireballTimer > 0) {
+          this.fireballTimer -= dt;
+          if (this.fireballTimer <= 0) this.isFireball = false;
+        }
+        if (this.overdriveTimer > 0) {
+          this.overdriveTimer -= dt;
+          if (this.overdriveTimer <= 0) this.isOverdrive = false;
+        }
+      }
+    }
+
+    // Bricks Array
+    let bricks = [];
+    const BRICK_ROWS = 4;
+
+    const BRICK_COLORS = [
+      { fill: '#00f0ff', stroke: '#a5f3fc', text: '#083344' }, // Cyan
+      { fill: '#f43f5e', stroke: '#fecdd3', text: '#4c0519' }, // Magenta
+      { fill: '#eab308', stroke: '#fef08a', text: '#422006' }, // Gold
+      { fill: '#10b981', stroke: '#a7f3d0', text: '#022c22' }, // Emerald
+      { fill: '#a855f7', stroke: '#f3e8ff', text: '#3b0764' }  // Purple
+    ];
+
+    class Brick {
+      constructor(x, y, w, h, hp, type = 'normal') {
+        this.x = x;
+        this.y = y;
+        this.targetY = y;
+        this.w = w;
+        this.h = h;
+        this.hp = hp;
+        this.maxHp = hp;
+        this.type = type; // normal, dynamite, laser_drop, multi_drop, fireball_drop, wide_drop, plus_ball
+        this.isAlive = true;
+        this.jelly = 0;
+        this.flash = 0;
+        this.color = BRICK_COLORS[Math.floor(Math.random() * BRICK_COLORS.length)];
+      }
+
+      hit(damage = 1) {
+        this.hp -= damage;
+        this.jelly = 1.0;
+        this.flash = 0.08;
+        if (this.hp <= 0) {
+          this.isAlive = false;
+          return true; // Destroyed
+        }
+        return false;
+      }
+    }
+
+    // Falling Powerup Capsule
+    class Capsule {
+      constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.vy = 160;
+        this.type = type; // 'multi_drop', 'laser_drop', 'fireball_drop', 'wide_drop', 'shield_drop'
+        this.size = 28;
+        this.animTimer = 0;
+        this.isAlive = true;
+      }
+
+      update(dt) {
+        this.y += this.vy * dt;
+        this.animTimer += dt;
+        if (this.y > H + 40) this.isAlive = false;
+      }
+    }
+
+    let capsules = [];
+    let projectiles = []; // Lasers, boss hazard bullets & deflected rockets
+    let particles = [];
+    let shockwaves = [];
+    let floatTexts = [];
+    let ambientBubbles = [];
+
+    // Boss Entity (Dev Meka-Kraken)
+    const boss = {
+      active: false,
+      x: 0,
+      y: -150,
+      targetY: 90,
+      w: 220,
+      h: 85,
+      hp: 120,
+      maxHp: 120,
+      flash: 0,
+      tentacleAnim: 0,
+      shootCooldown: 2.2
+    };
+
+    // Kaos Mode State & Mechanics
+    const chaos = {
+      readyToAim: true,
+      aiming: false,
+      aimX: 0,
+      aimY: 0,
+      stock: 18,
+      toLaunch: 0,
+      launchTimer: 0,
+      returnedCount: 0,
+      homeX: 0,
+      newHomeX: 0,
+      homeLocked: false,
+      floorY: 520,
+      wave: 1,
+      pendingExtraBalls: 0,
+      shotVx: 0,
+      shotVy: 0
+    };
+
+    // Ambient Bubbles (Kırmataş Eco-Tank underwater feel)
+    class AmbientBubble {
+      constructor(initRandomY = false) {
+        this.reset(initRandomY);
+      }
+      reset(initRandomY = false) {
+        this.x = Math.random() * (W || 360);
+        this.y = initRandomY ? Math.random() * (H || 640) : (H || 640) + 10;
+        this.r = 1.5 + Math.random() * 3.5;
+        this.vy = -(14 + Math.random() * 22);
+        this.wobble = Math.random() * Math.PI * 2;
+        this.wobbleSpeed = 1.2 + Math.random() * 1.8;
+        this.alpha = 0.12 + Math.random() * 0.22;
+      }
+      update(dt) {
+        this.y += this.vy * dt;
+        this.wobble += dt * this.wobbleSpeed;
+        this.x += Math.sin(this.wobble) * 0.4;
+        if (this.y < -10) this.reset();
+      }
+      draw(c) {
+        c.save();
+        c.strokeStyle = `rgba(0, 240, 255, ${this.alpha})`;
+        c.lineWidth = 1;
+        c.beginPath();
+        c.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        c.stroke();
+        c.restore();
+      }
+    }
+
+    // 5. INITIALIZE LEVEL
+    function initLevel() {
+      resizeCanvas();
+      bricks = [];
+      capsules = [];
+      projectiles = [];
+      particles = [];
+      shockwaves = [];
+      floatTexts = [];
+      boss.active = false;
+      gamePhase = 'PLAYING';
+
+      // Setup ambient bubbles
+      if (ambientBubbles.length === 0) {
+        for (let i = 0; i < 22; i++) {
+          ambientBubbles.push(new AmbientBubble(true));
+        }
+      }
+
+      // Reset paddle
+      paddle.w = paddle.baseW;
+      paddle.isWide = false;
+      paddle.hasLaser = false;
+      paddle.hasShieldNet = false;
+      paddle.x = (W - paddle.w) / 2;
+      paddle.prevX = paddle.x;
+      paddle.tiltAngle = 0;
+
+      if (currentMode === MODES.NORMAL) {
+        initNormalLevel();
+      } else {
+        initChaosLevel();
+      }
+
+      updateHud();
+    }
+
+    function initNormalLevel() {
+      const marginX = 16;
+      const topY = 84;
+      const colCount = Math.min(6, Math.floor((W - marginX * 2) / 48));
+      const brickW = (W - marginX * 2 - (colCount - 1) * 6) / colCount;
+      const brickH = 26;
+
+      for (let r = 0; r < BRICK_ROWS; r++) {
+        for (let c = 0; c < colCount; c++) {
+          let hp = (r === 0) ? 3 : (r === 1) ? 2 : 1;
+          let type = 'normal';
+
+          // Strategic placement of special bricks
+          if (r === 1 && c === 2) type = 'dynamite';
+          else if (r === 2 && c === 1) type = 'multi_drop';
+          else if (r === 1 && c === colCount - 2) type = 'laser_drop';
+          else if (r === 0 && c === 3) type = 'fireball_drop';
+          else if (r === 2 && c === colCount - 1) type = 'wide_drop';
+
+          bricks.push(new Brick(
+            marginX + c * (brickW + 6),
+            topY + r * (brickH + 6),
+            brickW,
+            brickH,
+            hp,
+            type
+          ));
+        }
+      }
+
+      // Initial ball stuck on paddle
+      balls = [];
+      const initBall = new Ball(paddle.x + paddle.w / 2, paddle.y - 8, 0, 0);
+      initBall.isStuck = true;
+      balls.push(initBall);
+    }
+
+    function initChaosLevel() {
+      chaos.wave = 1;
+      chaos.stock = 50;
+      chaos.pendingExtraBalls = 0;
+      chaos.readyToAim = true;
+      chaos.aiming = false;
+      chaos.toLaunch = 0;
+      chaos.returnedCount = 0;
+      chaos.homeX = W / 2;
+      chaos.newHomeX = W / 2;
+      chaos.floorY = H - 85;
+
+      setupHandcraftedWave1();
+      balls = [];
+    }
+
+    function setupHandcraftedWave1() {
+      bricks = [];
+      const marginX = 14;
+      const topY = 88;
+      const cols = 6;
+      const brickW = (W - marginX * 2 - (cols - 1) * 6) / cols;
+      const brickH = 26;
+
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < cols; c++) {
+          // Sweet spot tunnel at column 4: empty gap at row 0 and 1!
+          if (c === 4 && r <= 1) continue;
+
+          let type = 'normal';
+          let hp = 15 + r * 5;
+
+          if (r === 1 && c === 2) {
+            type = 'dynamite';
+            hp = 10;
+          } else if (r === 0 && c === 1) {
+            type = 'laser_drop';
+            hp = 12;
+          } else if (r === 2 && (c === 0 || c === 3)) {
+            type = 'plus_ball';
+            hp = 1;
+          }
+
+          bricks.push(new Brick(
+            marginX + c * (brickW + 6),
+            topY + r * (brickH + 8),
+            brickW,
+            brickH,
+            hp,
+            type
+          ));
+        }
+      }
+    }
+
+    function spawnChaosRow(rowIndex, waveNumber) {
+      const marginX = 14;
+      const startY = 88 + rowIndex * 34;
+      const colCount = Math.min(6, Math.floor((W - marginX * 2) / 48));
+      const brickW = (W - marginX * 2 - (colCount - 1) * 6) / colCount;
+      const brickH = 26;
+
+      for (let c = 0; c < colCount; c++) {
+        const rand = Math.random();
+        if (rand < 0.25) continue; // Natural gaps for authentic layout
+
+        if (rand < 0.40) {
+          // +1 Ball pickup item
+          bricks.push(new Brick(
+            marginX + c * (brickW + 6),
+            startY,
+            brickW,
+            brickH,
+            1,
+            'plus_ball'
+          ));
+        } else {
+          const hp = Math.max(1, waveNumber + Math.floor(Math.random() * 2));
+          bricks.push(new Brick(
+            marginX + c * (brickW + 6),
+            startY,
+            brickW,
+            brickH,
+            hp,
+            'normal'
+          ));
+        }
+      }
+    }
+
+    function toggleGameMode() {
+      initAudio();
+      if (currentMode === MODES.NORMAL) {
+        currentMode = MODES.CHAOS;
+        document.getElementById('mode-label').innerText = 'KAOS MODU';
+        document.getElementById('lives-title').innerText = 'DALGA';
+        document.getElementById('prompt-text').innerText = 'Parmağını Kaydır & Nişan Al!';
+        document.getElementById('prompt-hand').innerText = '🎯';
+      } else {
+        currentMode = MODES.NORMAL;
+        document.getElementById('mode-label').innerText = 'KLASİK RAKET';
+        document.getElementById('lives-title').innerText = 'CANLAR';
+        document.getElementById('prompt-text').innerText = 'Raketi Sağa-Sola Kaydır & Topu Fırlat!';
+        document.getElementById('prompt-hand').innerText = '👈👉';
+      }
+      document.getElementById('swipe-prompt').style.opacity = '1';
+      initLevel();
+    }
+
+    function updateHud() {
+      document.getElementById('score-val').innerText = score;
+
+      if (currentMode === MODES.NORMAL) {
+        let hearts = '';
+        for (let i = 0; i < lives; i++) hearts += '❤️';
+        document.getElementById('lives-row').innerText = hearts || '💀';
+      } else {
+        document.getElementById('lives-row').innerText = `WAVE ${chaos.wave} (${chaos.stock} 🔮)`;
+      }
+
+      // Update active powerups pill
+      const powerHud = document.getElementById('active-powerups-hud');
+      powerHud.innerHTML = '';
+      if (paddle.hasLaser) {
+        powerHud.innerHTML += '<div class="power-pill" style="border-color:#ffd740; color:#fef08a">⚡ ÇİFT LAZER</div>';
+      }
+      if (paddle.isWide) {
+        powerHud.innerHTML += '<div class="power-pill" style="border-color:#40c4ff; color:#67e8f9">📏 GENİŞLETİLMİŞ</div>';
+      }
+      if (paddle.hasShieldNet) {
+        powerHud.innerHTML += '<div class="power-pill" style="border-color:#26c6da; color:#a7f3d0">🛡️ KALKAN</div>';
+      }
+      if (balls.some(b => b.isFireball)) {
+        powerHud.innerHTML += '<div class="power-pill" style="border-color:#ff6d00; color:#fdba74">🔥 ATEŞ TOPU</div>';
+      }
+    }
+
+    // 6. INPUT HANDLING (Touch & Mouse Drag with Ergonomic Thumb Clearance)
+    let isPointerDown = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let paddleStartX = 0;
+
+    function onPointerDown(px, py) {
+      initAudio();
+      isPointerDown = true;
+      touchStartX = px;
+      touchStartY = py;
+      paddleStartX = paddle.x;
+      document.getElementById('swipe-prompt').style.opacity = '0';
+
+      if (currentMode === MODES.NORMAL) {
+        // If ball is stuck on paddle, launch it immediately!
+        let launched = false;
+        balls.forEach(b => {
+          if (b.isStuck) {
+            b.isStuck = false;
+            b.vx = (Math.random() - 0.5) * 140;
+            b.vy = -BASE_BALL_SPEED;
+            b.setSpeed(BASE_BALL_SPEED);
+            launched = true;
+          }
+        });
+        if (launched) Sound.paddleHit();
+
+        // Direct grab if touching directly near paddle
+        if (Math.abs(py - paddle.y) < 70) {
+          movePaddleTo(px);
+          paddleStartX = paddle.x;
+          touchStartX = px;
+        }
+      } else if (currentMode === MODES.CHAOS) {
+        if (chaos.readyToAim) {
+          chaos.aiming = true;
+          chaos.aimX = px;
+          chaos.aimY = py;
+        }
+      }
+    }
+
+    function onPointerMove(px, py) {
+      if (!isPointerDown) return;
+      if (currentMode === MODES.NORMAL) {
+        // Relative horizontal dragging with 1.35x responsiveness allows comfortable control anywhere on screen!
+        const deltaX = (px - touchStartX) * 1.35;
+        const targetX = paddleStartX + deltaX;
+        paddle.x = Math.max(8, Math.min(W - paddle.w - 8, targetX));
+      } else if (currentMode === MODES.CHAOS && chaos.aiming) {
+        chaos.aimX = px;
+        chaos.aimY = py;
+      }
+    }
+
+    function onPointerUp() {
+      if (!isPointerDown) return;
+      isPointerDown = false;
+
+      if (currentMode === MODES.CHAOS && chaos.aiming) {
+        chaos.aiming = false;
+        fireChaosVolley();
+      }
+    }
+
+    function movePaddleTo(targetCenterX) {
+      const targetLeft = targetCenterX - paddle.w / 2;
+      paddle.x = Math.max(8, Math.min(W - paddle.w - 8, targetLeft));
+    }
+
+    window.addEventListener('mousedown', (e) => onPointerDown(e.clientX, e.clientY));
+    window.addEventListener('mousemove', (e) => onPointerMove(e.clientX, e.clientY));
+    window.addEventListener('mouseup', onPointerUp);
+
+    window.addEventListener('touchstart', (e) => {
+      if (e.touches.length > 0) onPointerDown(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) onPointerMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
+    window.addEventListener('touchend', onPointerUp);
+
+    // 7. POWER-UP APPLICATION
+    function applyPowerUp(type, x, y) {
+      Sound.powerup();
+      spawnFloatingText(x, y, getPowerUpTitle(type), '#38bdf8');
+      spawnShockwave(x, y, '#38bdf8', 60);
+
+      switch (type) {
+        case 'multi_drop':
+          // Split active balls into 3
+          const currentCount = balls.length;
+          for (let i = 0; i < currentCount; i++) {
+            const b = balls[i];
+            const spd = b.speed || BASE_BALL_SPEED;
+            const b1 = new Ball(b.x, b.y, b.vx * 0.8 - 120, b.vy * 0.8);
+            const b2 = new Ball(b.x, b.y, b.vx * 0.8 + 120, b.vy * 0.8);
+            b1.setSpeed(spd);
+            b2.setSpeed(spd);
+            b1.isFireball = b.isFireball;
+            b2.isFireball = b.isFireball;
+            balls.push(b1, b2);
+          }
+          break;
+
+        case 'laser_drop':
+          paddle.hasLaser = true;
+          paddle.laserAmmo = 18;
+          paddle.laserTimer = 8.0;
+          break;
+
+        case 'fireball_drop':
+          balls.forEach(b => {
+            b.isFireball = true;
+            b.fireballTimer = 8.5;
+          });
+          break;
+
+        case 'wide_drop':
+          paddle.isWide = true;
+          paddle.wideTimer = 9.0;
+          paddle.w = paddle.baseW * 1.4;
+          paddle.squashScaleX = 1.25;
+          break;
+
+        case 'shield_drop':
+          paddle.hasShieldNet = true;
+          break;
+      }
+      updateHud();
+    }
+
+    function getPowerUpTitle(type) {
+      switch (type) {
+        case 'multi_drop': return 'ÇOKLU TOP x3!';
+        case 'laser_drop': return 'ÇİFT LAZER AKTİF!';
+        case 'fireball_drop': return 'DELİCİ ATEŞ TOPU!';
+        case 'wide_drop': return 'GENİŞLETİLMİŞ RAKET!';
+        case 'shield_drop': return 'GÜVENLİK KALKANI!';
+        case 'plus_ball': return '+1 TOP KAZANILDI!';
+        default: return 'GÜÇLENDİRME!';
+      }
+    }
+
+    // 8. CHAOS MODE AIMING & VOLLEY FIRE
+    function getChaosAimVector() {
+      let dx = chaos.aimX - chaos.homeX;
+      let dy = chaos.aimY - chaos.floorY;
+
+      // Natural handling: if dragging below floor, treat as slingshot pull-back!
+      if (dy > 0) {
+        dx = -dx;
+        dy = -dy;
+      }
+      if (dy > -15) dy = -15;
+
+      const angle = Math.atan2(dy, dx);
+      // Clamp angle between -170 deg and -10 deg
+      const clamped = Math.max(-Math.PI + 0.18, Math.min(-0.18, angle));
+      return {
+        dx: Math.cos(clamped),
+        dy: Math.sin(clamped),
+        angle: clamped
+      };
+    }
+
+    function fireChaosVolley() {
+      if (!chaos.readyToAim || chaos.stock <= 0) return;
+      const aim = getChaosAimVector();
+      const spd = 720;
+
+      chaos.readyToAim = false;
+      chaos.toLaunch = chaos.stock;
+      chaos.returnedCount = 0;
+      chaos.homeLocked = false;
+      chaos.shotVx = aim.dx * spd;
+      chaos.shotVy = aim.dy * spd;
+      chaos.launchTimer = 0;
+      balls = [];
+
+      Sound.paddleHit();
+    }
+
+    function advanceChaosTurn() {
+      chaos.wave++;
+      chaos.stock += chaos.pendingExtraBalls;
+      chaos.pendingExtraBalls = 0;
+      chaos.homeX = chaos.newHomeX || chaos.homeX;
+      chaos.homeLocked = false;
+      chaos.readyToAim = true;
+
+      // Step existing bricks down by 34px (LevelDesign.chaosStep)
+      const step = 34;
+      let breached = false;
+      for (let b of bricks) {
+        if (!b.isAlive) continue;
+        b.y += step;
+        b.targetY = b.y;
+        if (b.y + b.h >= chaos.floorY - 10) {
+          breached = true;
+        }
+      }
+
+      // If floor breached, trigger automatic floor sweep rescue!
+      if (breached) {
+        screenShake = 10;
+        Sound.dynamiteBoom();
+        spawnFloatingText(W / 2, chaos.floorY - 40, 'ALT SIRA TEMİZLENDİ!', '#22c55e');
+        bricks.forEach(b => {
+          if (b.isAlive && b.y + b.h >= chaos.floorY - 20) {
+            b.isAlive = false;
+            spawnSparks(b.x + b.w / 2, b.y + b.h / 2, b.color.fill, 8);
+          }
+        });
+      }
+
+      // Check if all bricks cleared -> Boss Intro!
+      const aliveBricks = bricks.filter(b => b.isAlive);
+      if (aliveBricks.length === 0 && !boss.active) {
+        chaos.stock += 15;
+        triggerBossIntro();
+        return;
+      }
+
+      // If not yet boss, spawn next wave or advance
+      if (!boss.active) {
+        if (chaos.wave >= 2) {
+          triggerBossIntro();
+          return;
+        }
+        spawnChaosRow(0, chaos.wave);
+      }
+      updateHud();
+    }
+
+    // 9. BOSS ENCOUNTER TRIGGERS
+    function triggerBossIntro() {
+      gamePhase = 'BOSS_INTRO';
+      boss.active = true;
+      boss.x = (W - boss.w) / 2;
+      boss.y = -120;
+      boss.targetY = 85;
+      boss.hp = boss.maxHp;
+
+      document.getElementById('boss-warning').style.display = 'block';
+      Sound.alarm();
+
+      setTimeout(() => {
+        document.getElementById('boss-warning').style.display = 'none';
+        gamePhase = 'BOSS_FIGHT';
+      }, 2200);
+    }
+
+    function checkVictory() {
+      if (gamePhase === 'VICTORY') return;
+      gamePhase = 'VICTORY';
+      Sound.victory();
+      spawnConfettiBurst();
+      document.getElementById('end-card').style.display = 'flex';
+    }
+
+    function openVictoryCrate() {
+      document.getElementById('crate-box').style.display = 'none';
+      document.getElementById('reward-unlocked').style.display = 'block';
+      Sound.powerup();
+      spawnConfettiBurst();
+    }
+
+    // 10. PHYSICS & GAME UPDATE LOOP
+    let lastTime = 0;
+
+    function gameLoop(time) {
+      if (!lastTime) lastTime = time;
+      let dt = (time - lastTime) / 1000;
+      lastTime = time;
+      dt = Math.min(dt, 0.05);
+
+      update(dt);
+      render();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function update(dt) {
+      // Hit-stop crunch freeze
+      if (hitStopTimer > 0) {
+        hitStopTimer -= dt;
+        return;
+      }
+
+      if (screenShake > 0) screenShake = Math.max(0, screenShake - dt * 25);
+
+      // Ambient bubbles
+      for (let ab of ambientBubbles) {
+        ab.update(dt);
+      }
+
+      // Paddle physics update
+      const currentVx = (paddle.x - paddle.prevX) / (dt > 0.0001 ? dt : 0.016);
+      paddle.vx = currentVx;
+      paddle.prevX = paddle.x;
+
+      // Dynamic tilt angle from velocity (matching Flutter GameCanvas)
+      const targetTilt = Math.max(-0.16, Math.min(0.16, paddle.vx * 0.00035));
+      paddle.tiltAngle += (targetTilt - paddle.tiltAngle) * Math.min(1.0, dt * 15);
+
+      // Side thruster propulsion particles when sliding fast
+      if (Math.abs(paddle.vx) > 120 && Math.random() < dt * 25) {
+        const exhaustX = paddle.vx > 0 ? paddle.x : paddle.x + paddle.w;
+        particles.push({
+          x: exhaustX,
+          y: paddle.y + paddle.h / 2,
+          vx: -paddle.vx * 0.3 + (Math.random() - 0.5) * 50,
+          vy: (Math.random() - 0.5) * 40,
+          color: '#00f0ff',
+          size: 2.2 + Math.random() * 2,
+          life: 0.25
+        });
+      }
+
+      if (paddle.flashTimer > 0) paddle.flashTimer = Math.max(0, paddle.flashTimer - dt);
+
+      // Damped spring oscillation for paddle recoil bounce
+      if (Math.abs(paddle.bounceOffsetY) > 0.01 || Math.abs(paddle.bounceVy) > 0.01) {
+        const springForce = -260.0 * paddle.bounceOffsetY;
+        const damping = -18.0 * paddle.bounceVy;
+        paddle.bounceVy += (springForce + damping) * dt;
+        paddle.bounceOffsetY += paddle.bounceVy * dt;
+        if (Math.abs(paddle.bounceOffsetY) < 0.05 && Math.abs(paddle.bounceVy) < 0.5) {
+          paddle.bounceOffsetY = 0;
+          paddle.bounceVy = 0;
+        }
+      }
+
+      // Elastic recovery of paddle squash & stretch
+      paddle.squashScaleX += (1.0 - paddle.squashScaleX) * Math.min(1.0, dt * 14.0);
+      paddle.squashScaleY += (1.0 - paddle.squashScaleY) * Math.min(1.0, dt * 14.0);
+
+      // Paddle powerups countdown
+      if (paddle.isWide) {
+        paddle.wideTimer -= dt;
+        if (paddle.wideTimer <= 0) {
+          paddle.isWide = false;
+          paddle.w = paddle.baseW;
+        }
+      }
+
+      if (paddle.hasLaser) {
+        paddle.laserTimer -= dt;
+        paddle.laserAmmo -= dt * 2.5;
+        // Auto-fire twin lasers from paddle tips
+        if (Math.random() < dt * 7.0) {
+          fireTwinLasers();
+        }
+        if (paddle.laserTimer <= 0 || paddle.laserAmmo <= 0) {
+          paddle.hasLaser = false;
+        }
+      }
+
+      // Chaos volley stream spawner
+      if (currentMode === MODES.CHAOS && chaos.toLaunch > 0) {
+        chaos.launchTimer -= dt;
+        if (chaos.launchTimer <= 0) {
+          chaos.launchTimer = 0.022;
+          const b = new Ball(chaos.homeX, chaos.floorY - 6, chaos.shotVx, chaos.shotVy);
+          balls.push(b);
+          chaos.toLaunch--;
+        }
+      }
+
+      // Update Projectiles (Lasers, deflected rockets, boss hazards)
+      for (let i = projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+
+        // Laser vs Bricks
+        if (p.isLaser) {
+          for (let b of bricks) {
+            if (!b.isAlive) continue;
+            if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) {
+              const destroyed = b.hit(1);
+              spawnSparks(p.x, p.y, '#00f0ff', 6);
+              p.alive = false;
+              if (destroyed) onBrickDestroyed(b);
+              break;
+            }
+          }
+          // Laser vs Boss
+          if (boss.active && p.x >= boss.x && p.x <= boss.x + boss.w && p.y >= boss.y && p.y <= boss.y + boss.h) {
+            damageBoss(2);
+            spawnSparks(p.x, p.y, '#00f0ff', 8);
+            p.alive = false;
+          }
+        } else if (p.isRocket) {
+          // Deflected rocket hitting boss
+          if (boss.active && p.x >= boss.x && p.x <= boss.x + boss.w && p.y >= boss.y && p.y <= boss.y + boss.h) {
+            damageBoss(16);
+            spawnShockwave(p.x, p.y, '#ff0055', 75);
+            Sound.dynamiteBoom();
+            p.alive = false;
+          }
+        } else if (p.isHazard) {
+          // Boss bullet coming down towards paddle!
+          if (p.y + p.radius >= paddle.y && p.y - p.radius <= paddle.y + paddle.h &&
+              p.x >= paddle.x && p.x <= paddle.x + paddle.w) {
+            // Bullet Tennis! Deflect back as a super rocket!
+            p.isHazard = false;
+            p.isRocket = true;
+            p.vy = -Math.abs(p.vy) * 1.6;
+            p.vx = ((p.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2)) * 160;
+            paddle.bounceVy = 55;
+            paddle.flashTimer = 0.05;
+            spawnFloatingText(p.x, paddle.y - 20, 'ROKET SAPTIRMA!', '#00e5ff');
+            Sound.paddleHit(true);
+            continue;
+          } else if (p.y > H - 35) {
+            // Missed hazard bullet hits bottom floor!
+            p.alive = false;
+            Sound.hazardMiss();
+            screenShake = 6;
+            triggerDamageFlash();
+            lives--;
+            updateHud();
+            if (lives <= 0) lives = 1; // Clutch revive so player finishes ad!
+            continue;
+          }
+        }
+
+        if (p.y < -30 || p.y > H + 40 || !p.alive) {
+          projectiles.splice(i, 1);
+        }
+      }
+
+      // Update Falling Capsules
+      for (let i = capsules.length - 1; i >= 0; i--) {
+        const c = capsules[i];
+        c.update(dt);
+
+        // Catch with paddle!
+        if (c.y + c.size / 2 >= paddle.y && c.y - c.size / 2 <= paddle.y + paddle.h &&
+            c.x + c.size / 2 >= paddle.x && c.x - c.size / 2 <= paddle.x + paddle.w) {
+          applyPowerUp(c.type, c.x, c.y);
+          capsules.splice(i, 1);
+          continue;
+        }
+
+        if (!c.isAlive) {
+          capsules.splice(i, 1);
+        }
+      }
+
+      // Update Boss
+      if (boss.active) {
+        if (boss.y < boss.targetY) {
+          boss.y += (boss.targetY - boss.y) * dt * 3.5;
+        } else {
+          // Gentle hovering oscillation
+          boss.tentacleAnim += dt * 4;
+          boss.x = (W - boss.w) / 2 + Math.sin(boss.tentacleAnim * 0.7) * 35;
+
+          // Boss shoots energy hazard bullets
+          if (gamePhase === 'BOSS_FIGHT') {
+            boss.shootCooldown -= dt;
+            if (boss.shootCooldown <= 0) {
+              boss.shootCooldown = 2.3;
+              spawnBossHazardBullet();
+            }
+          }
+        }
+        if (boss.flash > 0) boss.flash = Math.max(0, boss.flash - dt);
+      }
+
+      // Update Balls & Collisions
+      for (let i = balls.length - 1; i >= 0; i--) {
+        const b = balls[i];
+        b.update(dt);
+
+        if (b.isStuck) continue;
+
+        // In Kaos Mode: if returning to locked home base
+        if (currentMode === MODES.CHAOS && b.returningToHome) {
+          const dx = chaos.newHomeX - b.x;
+          const dy = chaos.floorY - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 12) {
+            balls.splice(i, 1);
+            chaos.returnedCount++;
+            if (chaos.toLaunch <= 0 && balls.length === 0) {
+              advanceChaosTurn();
+            }
+          } else {
+            b.vx = (dx / dist) * 750;
+            b.vy = (dy / dist) * 750;
+          }
+          continue;
+        }
+
+        // Side walls collision
+        if (b.x - b.radius <= 0) {
+          b.x = b.radius;
+          b.vx = Math.abs(b.vx);
+          Sound.brickHit(0);
+        } else if (b.x + b.radius >= W) {
+          b.x = W - b.radius;
+          b.vx = -Math.abs(b.vx);
+          Sound.brickHit(0);
+        }
+
+        // Ceiling collision
+        if (b.y - b.radius <= 40) {
+          b.y = 40 + b.radius;
+          b.vy = Math.abs(b.vy);
+          Sound.brickHit(0);
+        }
+
+        // Safety Net Shield collision at bottom (Normal Mode)
+        if (currentMode === MODES.NORMAL && paddle.hasShieldNet && b.y + b.radius >= H - 45) {
+          b.vy = -Math.abs(b.vy);
+          paddle.hasShieldNet = false;
+          spawnShockwave(b.x, H - 45, '#26c6da', 60);
+          Sound.paddleHit(true);
+          updateHud();
+        }
+
+        // Paddle Collision (Normal Mode - Authentic Kırmataş Math)
+        if (currentMode === MODES.NORMAL && b.vy > 0 &&
+            b.y + b.radius >= paddle.y + paddle.bounceOffsetY &&
+            b.y - b.radius <= paddle.y + paddle.h + paddle.bounceOffsetY &&
+            b.x + b.radius >= paddle.x &&
+            b.x - b.radius <= paddle.x + paddle.w) {
+
+          // Hit offset (-1.0 left to 1.0 right)
+          const hitOffset = ((b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2));
+          const clampedOffset = Math.max(-1.0, Math.min(1.0, hitOffset));
+          const isCornerHit = Math.abs(clampedOffset) >= 0.78;
+          const isNearDeathClutch = b.y + b.radius >= (paddle.y + paddle.h - 5);
+
+          // Bounce angle: -66 deg to +66 deg
+          const bounceAngle = clampedOffset * (Math.PI / 2.7);
+          const currentSpd = b.speed;
+          const boostSpd = isCornerHit ? Math.min(currentSpd * 1.25, 620) : Math.max(currentSpd, BASE_BALL_SPEED);
+
+          let newVx = Math.sin(bounceAngle) * boostSpd;
+          let newVy = -Math.cos(bounceAngle) * boostSpd;
+
+          // Spin momentum transfer from moving paddle
+          newVx += Math.max(-120, Math.min(120, paddle.vx * 0.18));
+          const mag = Math.sqrt(newVx * newVx + newVy * newVy);
+          b.vx = (newVx / mag) * boostSpd;
+          b.vy = (newVy / mag) * boostSpd;
+
+          b.y = paddle.y - b.radius - 1;
+
+          // Recoil & Elastic reaction
+          paddle.flashTimer = 0.04;
+          paddle.bounceVy = isCornerHit ? 65 : 45;
+          paddle.squashScaleX = isCornerHit ? 1.15 : 1.08;
+          paddle.squashScaleY = isCornerHit ? 0.78 : 0.85;
+
+          if (isCornerHit || isNearDeathClutch) {
+            b.isOverdrive = true;
+            b.overdriveTimer = 3.2;
+            screenShake = 6;
+            spawnFloatingText(b.x, paddle.y - 25, isNearDeathClutch ? 'CLUTCH SAVE!' : 'SÜPER KÖŞE VURUŞU!', '#ffd700');
+            spawnShockwave(b.x, paddle.y, '#ffd700', 50);
+            Sound.paddleHit(true);
+          } else {
+            Sound.paddleHit(false);
+          }
+          combo = 0;
+        }
+
+        // Kaos Mode Floor Return
+        if (currentMode === MODES.CHAOS && b.y >= chaos.floorY) {
+          if (!chaos.homeLocked) {
+            chaos.newHomeX = Math.max(20, Math.min(W - 20, b.x));
+            chaos.homeLocked = true;
+            spawnShockwave(chaos.newHomeX, chaos.floorY, '#00e5ff', 35);
+          }
+          b.returningToHome = true;
+          continue;
+        }
+
+        // Brick Collisions
+        for (let bIndex = bricks.length - 1; bIndex >= 0; bIndex--) {
+          const br = bricks[bIndex];
+          if (!br.isAlive) continue;
+
+          // Circle to AABB collision
+          const nearestX = Math.max(br.x, Math.min(b.x, br.x + br.w));
+          const nearestY = Math.max(br.y, Math.min(b.y, br.y + br.h));
+          const deltaX = b.x - nearestX;
+          const deltaY = b.y - nearestY;
+
+          if (deltaX * deltaX + deltaY * deltaY <= b.radius * b.radius) {
+            if (br.type === 'plus_ball') {
+              // Collected +1 extra ball in Kaos mode
+              br.isAlive = false;
+              chaos.pendingExtraBalls++;
+              spawnFloatingText(br.x + br.w / 2, br.y, '+1 TOP!', '#67e8f9');
+              Sound.powerup();
+              break;
+            }
+
+            const destroyed = br.hit(b.isFireball ? 3 : 1);
+
+            combo++;
+            score += 50 * combo;
+            updateHud();
+
+            if (!b.isFireball) {
+              const overlapLeft = (b.x + b.radius) - br.x;
+              const overlapRight = (br.x + br.w) - (b.x - b.radius);
+              const overlapTop = (b.y + b.radius) - br.y;
+              const overlapBottom = (br.y + br.h) - (b.y - b.radius);
+
+              const minOverlapX = Math.min(overlapLeft, overlapRight);
+              const minOverlapY = Math.min(overlapTop, overlapBottom);
+
+              if (minOverlapX < minOverlapY) {
+                b.vx = -b.vx;
+              } else {
+                b.vy = -b.vy;
+              }
+            }
+
+            Sound.brickHit(combo);
+            spawnSparks(b.x, b.y, br.color.fill, 8);
+
+            if (destroyed) {
+              onBrickDestroyed(br);
+            }
+            break;
+          }
+        }
+
+        // Ball vs Boss Collision
+        if (boss.active && gamePhase === 'BOSS_FIGHT') {
+          if (b.x >= boss.x && b.x <= boss.x + boss.w && b.y >= boss.y && b.y <= boss.y + boss.h) {
+            b.vy = Math.abs(b.vy);
+            damageBoss(b.isFireball ? 8 : 4);
+            Sound.dynamiteBoom();
+          }
+        }
+
+        // Ball Fell Below Screen in Normal Mode
+        if (currentMode === MODES.NORMAL && b.y - b.radius > H) {
+          balls.splice(i, 1);
+        }
+      }
+
+      // If all balls lost in Normal mode
+      if (currentMode === MODES.NORMAL && balls.length === 0) {
+        lives--;
+        triggerDamageFlash();
+        updateHud();
+        if (lives > 0) {
+          const respawnBall = new Ball(paddle.x + paddle.w / 2, paddle.y - 8, 0, 0);
+          respawnBall.isStuck = true;
+          balls.push(respawnBall);
+        } else {
+          // Emergency revive with 1 heart to let player finish ad
+          lives = 1;
+          updateHud();
+          const respawnBall = new Ball(paddle.x + paddle.w / 2, paddle.y - 8, 0, 0);
+          respawnBall.isStuck = true;
+          balls.push(respawnBall);
+        }
+      }
+
+      // Check if all bricks cleared in Normal Mode -> Boss intro
+      if (currentMode === MODES.NORMAL && gamePhase === 'PLAYING' && bricks.every(b => !b.isAlive)) {
+        triggerBossIntro();
+      }
+
+      // Update Particles, Shockwaves, Floating Texts
+      updateVfx(dt);
+    }
+
+    function triggerDamageFlash() {
+      const flash = document.getElementById('damage-flash');
+      if (flash) {
+        flash.style.opacity = '1';
+        setTimeout(() => { flash.style.opacity = '0'; }, 180);
+      }
+    }
+
+    function fireTwinLasers() {
+      Sound.laser();
+      projectiles.push({
+        x: paddle.x + 8,
+        y: paddle.y - 4,
+        vx: 0,
+        vy: -750,
+        radius: 3,
+        isLaser: true,
+        alive: true
+      });
+      projectiles.push({
+        x: paddle.x + paddle.w - 8,
+        y: paddle.y - 4,
+        vx: 0,
+        vy: -750,
+        radius: 3,
+        isLaser: true,
+        alive: true
+      });
+    }
+
+    function spawnBossHazardBullet() {
+      projectiles.push({
+        x: boss.x + boss.w * (0.2 + Math.random() * 0.6),
+        y: boss.y + boss.h,
+        vx: (Math.random() - 0.5) * 60,
+        vy: 240,
+        radius: 7,
+        isHazard: true,
+        alive: true
+      });
+    }
+
+    let cosmicSynergyFired = false;
+
+    function triggerCosmicSynergy() {
+      if (cosmicSynergyFired) return;
+      cosmicSynergyFired = true;
+      Sound.powerup();
+      Sound.laser();
+      screenShake = 16;
+      spawnShockwave(W / 2, H / 2, '#a855f7', 180);
+      spawnFloatingText(W / 2, H / 2 - 40, '🌟 KOZMİK AHTAPOT SİNERJİSİ! 🌟', '#e9d5ff');
+
+      // Activate authentic creature visual animation
+      synergyCreature.active = true;
+      synergyCreature.x = W / 2;
+      synergyCreature.y = H + 60;
+      synergyCreature.targetY = boss.active ? boss.y + boss.h / 2 + 30 : H / 2;
+      synergyCreature.scale = 0.4;
+      synergyCreature.alpha = 1;
+      synergyCreature.rotation = 0;
+
+      // Turn all active balls into super piercing fireballs
+      balls.forEach(b => {
+        b.isFireball = true;
+        b.fireballTimer = 12;
+        b.radius = 8.5;
+      });
+
+      // Massive laser blast & damage to boss
+      setTimeout(() => {
+        if (boss.active) {
+          damageBoss(55);
+          spawnShockwave(boss.x + boss.w / 2, boss.y + boss.h / 2, '#a855f7', 160);
+          Sound.dynamiteBoom();
+        }
+      }, 700);
+    }
+
+    function damageBoss(dmg) {
+      boss.hp -= dmg;
+      boss.flash = 0.1;
+      screenShake = 5;
+      score += dmg * 40;
+      updateHud();
+
+      // Trigger Aquarium Synergy at 50% HP!
+      if (!cosmicSynergyFired && boss.hp <= Math.floor(boss.maxHp / 2) && boss.hp > 0) {
+        triggerCosmicSynergy();
+      }
+
+      if (boss.hp <= 0) {
+        boss.active = false;
+        spawnShockwave(boss.x + boss.w / 2, boss.y + boss.h / 2, '#00f0ff', 120);
+        checkVictory();
+      }
+    }
+
+    function onBrickDestroyed(br) {
+      score += 100;
+      hitStopTimer = 0.035; // 35ms crunch freeze
+      screenShake = 4;
+      spawnShockwave(br.x + br.w / 2, br.y + br.h / 2, br.color.fill, 35);
+
+      if (br.type === 'dynamite') {
+        Sound.dynamiteBoom();
+        screenShake = 12;
+        spawnFloatingText(br.x + br.w / 2, br.y - 10, '💥 DİNAMİT!', '#ff3d00');
+        spawnShockwave(br.x + br.w / 2, br.y + br.h / 2, '#ff3d00', 95);
+
+        // Chain explosion destroys adjacent bricks
+        for (let other of bricks) {
+          if (!other.isAlive) continue;
+          const dx = (other.x + other.w / 2) - (br.x + br.w / 2);
+          const dy = (other.y + other.h / 2) - (br.y + br.h / 2);
+          if (dx * dx + dy * dy < 85 * 85) {
+            other.hit(3);
+            if (!other.isAlive) onBrickDestroyed(other);
+          }
+        }
+      } else if (br.type !== 'normal' && br.type !== 'plus_ball') {
+        // Drop powerup capsule
+        capsules.push(new Capsule(br.x + br.w / 2, br.y + br.h / 2, br.type));
+      }
+    }
+
+    // 11. VFX & FLOATING COMBAT TEXT
+    function spawnSparks(x, y, color, count = 6) {
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 60 + Math.random() * 120;
+        particles.push({
+          x: x,
+          y: y,
+          vx: Math.cos(angle) * spd,
+          vy: Math.sin(angle) * spd,
+          color: color,
+          size: 2.5 + Math.random() * 2,
+          life: 0.35
+        });
+      }
+    }
+
+    function spawnShockwave(x, y, color, maxR = 50) {
+      shockwaves.push({
+        x: x,
+        y: y,
+        color: color,
+        r: 6,
+        maxR: maxR,
+        life: 1.0
+      });
+    }
+
+    function spawnFloatingText(x, y, text, color = '#ffffff') {
+      floatTexts.push({
+        x: x,
+        y: y,
+        text: text,
+        color: color,
+        alpha: 1.0,
+        vy: -40
+      });
+    }
+
+    function spawnConfettiBurst() {
+      const colors = ['#00f0ff', '#ffd700', '#ff0055', '#a855f7', '#10b981'];
+      for (let i = 0; i < 45; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 100 + Math.random() * 250;
+        particles.push({
+          x: W / 2,
+          y: H * 0.45,
+          vx: Math.cos(angle) * spd,
+          vy: Math.sin(angle) * spd - 60,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          size: 4 + Math.random() * 3,
+          life: 1.8
+        });
+      }
+    }
+
+    function updateVfx(dt) {
+      // Particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= dt;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+
+      // Shockwaves
+      for (let i = shockwaves.length - 1; i >= 0; i--) {
+        const s = shockwaves[i];
+        s.r += (s.maxR - s.r) * dt * 8;
+        s.life -= dt * 2.5;
+        if (s.life <= 0) shockwaves.splice(i, 1);
+      }
+
+      // Floating Texts
+      for (let i = floatTexts.length - 1; i >= 0; i--) {
+        const f = floatTexts[i];
+        f.y += f.vy * dt;
+        f.alpha -= dt * 1.5;
+        if (f.alpha <= 0) floatTexts.splice(i, 1);
+      }
+    }
+
+    // 12. CANVAS RENDERING
+    function render() {
+      ctx.save();
+
+      // Screen Shake
+      if (screenShake > 0) {
+        const shakeX = (Math.random() - 0.5) * screenShake;
+        const shakeY = (Math.random() - 0.5) * screenShake;
+        ctx.translate(shakeX, shakeY);
+      }
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Background ambient grid & floating bubbles
+      drawBackground();
+
+      // Draw Safety Net Shield (Normal Mode)
+      if (currentMode === MODES.NORMAL && paddle.hasShieldNet) {
+        ctx.strokeStyle = '#26c6da';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#26c6da';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.moveTo(10, H - 45);
+        ctx.lineTo(W - 10, H - 45);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      // Draw Bricks
+      drawBricks();
+
+      // Draw Boss
+      if (boss.active) drawBoss();
+      drawSynergyCreature();
+
+      // Draw Projectiles
+      drawProjectiles();
+
+      // Draw Falling Capsules
+      drawCapsules();
+
+      // Draw Paddle or Chaos Launcher
+      if (currentMode === MODES.NORMAL) {
+        drawCyberPaddle();
+      } else if (currentMode === MODES.CHAOS) {
+        drawChaosLauncher();
+      }
+
+      // Draw Balls & Glow Trails
+      drawBalls();
+
+      // Draw VFX (Shockwaves, Sparks, Floating Texts)
+      drawVfx();
+
+      ctx.restore();
+    }
+
+    function drawBackground() {
+      // Subtle cyber grid lines
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.04)';
+      ctx.lineWidth = 1;
+      const step = 36;
+      for (let x = 0; x < W; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, H);
+        ctx.stroke();
+      }
+      for (let y = 0; y < H; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y);
+        ctx.stroke();
+      }
+
+      // Ambient rising bubbles
+      for (let ab of ambientBubbles) {
+        ab.draw(ctx);
+      }
+    }
+
+    function drawBricks() {
+      for (let b of bricks) {
+        if (!b.isAlive) continue;
+
+        ctx.save();
+        const cx = b.x + b.w / 2;
+        const cy = b.y + b.h / 2;
+        ctx.translate(cx, cy);
+
+        // Jelly squash on hit
+        if (b.jelly > 0) {
+          const s = 1.0 + Math.sin(b.jelly * Math.PI * 3) * 0.15;
+          ctx.scale(s, 1.0 / s);
+          b.jelly = Math.max(0, b.jelly - 0.05);
+        }
+
+        const hw = b.w / 2;
+        const hh = b.h / 2;
+
+        if (b.flash > 0) {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.roundRect(-hw, -hh, b.w, b.h, 6);
+          ctx.fill();
+          b.flash -= 0.016;
+          ctx.restore();
+          continue;
+        }
+
+        if (b.type === 'dynamite') {
+          // TNT Brick with red-orange pulsing glow
+          const pulse = Math.sin(Date.now() * 0.008) * 0.3 + 0.7;
+          ctx.fillStyle = `rgba(239, 68, 68, ${pulse})`;
+          ctx.strokeStyle = '#fca5a5';
+          ctx.lineWidth = 2;
+          ctx.shadowColor = '#ef4444';
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.roundRect(-hw, -hh, b.w, b.h, 6);
+          ctx.fill();
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 12px Rajdhani, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('💣 TNT', 0, 0);
+        } else if (b.type === 'plus_ball') {
+          // +1 Ball pickup item in Kaos mode
+          ctx.fillStyle = 'rgba(6, 182, 212, 0.25)';
+          ctx.strokeStyle = '#00f0ff';
+          ctx.lineWidth = 2;
+          ctx.shadowColor = '#00f0ff';
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.arc(0, 0, 11, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 11px Rajdhani, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('+1', 0, 0);
+        } else {
+          // Normal / Powerup Brick
+          ctx.fillStyle = b.color.fill;
+          ctx.strokeStyle = b.color.stroke;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(-hw, -hh, b.w, b.h, 6);
+          ctx.fill();
+          ctx.stroke();
+
+          // HP / Icon indicator
+          ctx.fillStyle = b.color.text;
+          ctx.font = 'bold 12px Rajdhani, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          if (b.type === 'multi_drop') ctx.fillText('🔮', 0, 0);
+          else if (b.type === 'laser_drop') ctx.fillText('⚡', 0, 0);
+          else if (b.type === 'fireball_drop') ctx.fillText('🔥', 0, 0);
+          else if (b.type === 'wide_drop') ctx.fillText('📏', 0, 0);
+          else ctx.fillText(b.hp > 1 ? b.hp : '', 0, 0);
+        }
+
+        ctx.restore();
+      }
+    }
+
+    function drawCyberPaddle() {
+      ctx.save();
+      const cx = paddle.x + paddle.w / 2;
+      const cy = paddle.y + paddle.bounceOffsetY + paddle.h / 2;
+      ctx.translate(cx, cy);
+
+      // Dynamic tilt rotation
+      if (paddle.tiltAngle !== 0) {
+        ctx.rotate(paddle.tiltAngle);
+      }
+
+      ctx.scale(paddle.squashScaleX, paddle.squashScaleY);
+
+      const hw = paddle.w / 2;
+      const hh = paddle.h / 2;
+
+      if (paddle.flashTimer > 0) {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.roundRect(-hw, -hh, paddle.w, paddle.h, 6);
+        ctx.fill();
+        ctx.restore();
+        return;
+      }
+
+      // Cyber Chassis Gradient
+      const grad = ctx.createLinearGradient(-hw, -hh, hw, hh);
+      grad.addColorStop(0, '#00e5ff');
+      grad.addColorStop(0.5, '#3b82f6');
+      grad.addColorStop(1, '#8b5cf6');
+
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = '#e0f2fe';
+      ctx.lineWidth = 1.8;
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 12;
+
+      ctx.beginPath();
+      ctx.roundRect(-hw, -hh, paddle.w, paddle.h, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Side Thrusters
+      ctx.fillStyle = '#00e5ff';
+      ctx.fillRect(-hw + 3, -hh + 3, 4, paddle.h - 6);
+      ctx.fillRect(hw - 7, -hh + 3, 4, paddle.h - 6);
+
+      // Central LED meter bars
+      const barW = 4;
+      const barSpacing = 3;
+      const totalBarW = 5 * barW + 4 * barSpacing;
+      const startX = -totalBarW / 2;
+      for (let i = 0; i < 5; i++) {
+        const pulse = Math.sin(Date.now() * 0.008 - i * 0.7) * 0.5 + 0.5;
+        ctx.fillStyle = pulse > 0.5 ? '#ffffff' : '#00e5ff';
+        ctx.fillRect(startX + i * (barW + barSpacing), -2, barW, 4);
+      }
+
+      // Mounted Twin Lasers
+      if (paddle.hasLaser) {
+        ctx.fillStyle = '#ffd740';
+        ctx.fillRect(-hw - 4, -hh - 6, 6, 10);
+        ctx.fillRect(hw - 2, -hh - 6, 6, 10);
+      }
+
+      ctx.restore();
+    }
+
+    function drawChaosLauncher() {
+      ctx.save();
+      const hx = chaos.homeX;
+      const hy = chaos.floorY;
+
+      // Floor guard boundary line
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, hy);
+      ctx.lineTo(W, hy);
+      ctx.stroke();
+
+      // Animated sweet-spot guide arrow before first touch!
+      if (chaos.readyToAim && !chaos.aiming && chaos.wave === 1 && !boss.active) {
+        const pulse = Math.sin(Date.now() * 0.006) * 5;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.65)';
+        ctx.fillStyle = '#00f0ff';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+
+        const targetX = W * 0.74 + pulse;
+        const targetY = 100;
+        ctx.beginPath();
+        ctx.moveTo(hx, hy - 10);
+        ctx.lineTo(targetX, targetY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.beginPath();
+        ctx.arc(targetX, targetY, 12, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 13px Rajdhani, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = '#ffd700';
+        ctx.shadowBlur = 8;
+        ctx.fillText('🎯 BOŞLUĞA NİŞAN AL!', targetX, targetY - 18);
+        ctx.restore();
+      }
+
+      // Draw Aim Trajectory Line with Wall Bounce Reflection
+      if (chaos.aiming && chaos.readyToAim) {
+        const aim = getChaosAimVector();
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 6]);
+
+        let startX = hx;
+        let startY = hy;
+        let dirX = aim.dx;
+        let dirY = aim.dy;
+
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+
+        // First segment to wall or ceiling
+        let tWall = dirX > 0 ? (W - 10 - startX) / dirX : (10 - startX) / dirX;
+        let tCeil = (50 - startY) / dirY;
+        let tHit = Math.min(Math.abs(tWall), Math.abs(tCeil));
+
+        let hitX = startX + dirX * tHit;
+        let hitY = startY + dirY * tHit;
+        ctx.lineTo(hitX, hitY);
+
+        // Reflection bounce segment
+        let reflectDirX = (tHit === Math.abs(tWall)) ? -dirX : dirX;
+        let reflectDirY = (tHit === Math.abs(tCeil)) ? -dirY : dirY;
+        ctx.lineTo(hitX + reflectDirX * 120, hitY + reflectDirY * 120);
+
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Target reticle dot
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        ctx.arc(hitX, hitY, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Base Launcher Pod
+      ctx.fillStyle = '#00e5ff';
+      ctx.shadowColor = '#00e5ff';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(hx, hy, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(hx, hy, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Stock ball indicator pill above launcher
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(hx - 24, hy + 8, 48, 16, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px Rajdhani, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`x${chaos.stock}`, hx, hy + 16);
+
+      ctx.restore();
+    }
+
+    function drawBalls() {
+      for (let b of balls) {
+        ctx.save();
+
+        // Trail effect
+        for (let t of b.trail) {
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, b.radius * t.alpha, 0, Math.PI * 2);
+          ctx.fillStyle = b.isFireball
+            ? `rgba(255, 109, 0, ${t.alpha * 0.6})`
+            : b.isOverdrive
+            ? `rgba(255, 215, 0, ${t.alpha * 0.6})`
+            : `rgba(0, 229, 255, ${t.alpha * 0.4})`;
+          ctx.fill();
+        }
+
+        // Ball Core
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+
+        if (b.isFireball) {
+          ctx.fillStyle = '#ff3d00';
+          ctx.shadowColor = '#ff6d00';
+          ctx.shadowBlur = 14;
+        } else if (b.isOverdrive) {
+          ctx.fillStyle = '#ffd700';
+          ctx.shadowColor = '#ffe082';
+          ctx.shadowBlur = 12;
+        } else {
+          ctx.fillStyle = '#ffffff';
+          ctx.shadowColor = '#00f0ff';
+          ctx.shadowBlur = 10;
+        }
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.restore();
+      }
+    }
+
+    function drawBoss() {
+      ctx.save();
+      ctx.translate(boss.x, boss.y);
+
+      if (boss.flash > 0) {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.roundRect(0, 0, boss.w, boss.h, 12);
+        ctx.fill();
+        ctx.restore();
+        return;
+      }
+
+      // Boss Body (Kraken Mecha)
+      const grad = ctx.createLinearGradient(0, 0, 0, boss.h);
+      grad.addColorStop(0, '#1e1b4b');
+      grad.addColorStop(0.5, '#4c1d95');
+      grad.addColorStop(1, '#831843');
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#f43f5e';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, boss.w, boss.h, 12);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Boss Eye
+      const eyeX = boss.w / 2;
+      const eyeY = boss.h * 0.45;
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(eyeX, eyeY, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath();
+      ctx.arc(eyeX, eyeY, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Animated tentacles underneath
+      ctx.fillStyle = '#6b21a8';
+      for (let t = 0; t < 5; t++) {
+        const tx = 20 + t * 45;
+        const ty = boss.h;
+        const wave = Math.sin(boss.tentacleAnim + t) * 12;
+        ctx.beginPath();
+        ctx.moveTo(tx, ty);
+        ctx.quadraticCurveTo(tx + wave, ty + 18, tx, ty + 30);
+        ctx.lineTo(tx + 12, ty);
+        ctx.fill();
+      }
+
+      // Segmented HP Bar
+      const hpRatio = Math.max(0, boss.hp / boss.maxHp);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+      ctx.fillRect(10, 8, boss.w - 20, 8);
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(10, 8, (boss.w - 20) * hpRatio, 8);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(10, 8, boss.w - 20, 8);
+
+      ctx.restore();
+    }
+
+    function drawProjectiles() {
+      for (let p of projectiles) {
+        ctx.save();
+        if (p.isLaser) {
+          ctx.fillStyle = '#00f0ff';
+          ctx.shadowColor = '#00f0ff';
+          ctx.shadowBlur = 10;
+          ctx.fillRect(p.x - 2, p.y - 10, 4, 16);
+        } else if (p.isRocket) {
+          ctx.fillStyle = '#ffd700';
+          ctx.shadowColor = '#ff3d00';
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (p.isHazard) {
+          ctx.fillStyle = '#ef4444';
+          ctx.shadowColor = '#ef4444';
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    function drawCapsules() {
+      for (let c of capsules) {
+        ctx.save();
+        const bob = Math.sin(c.animTimer * 6.0) * 3;
+        ctx.translate(c.x, c.y + bob);
+
+        // Glowing pill background
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(0, 0, c.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Icon inside capsule
+        ctx.font = '16px Rajdhani, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        if (c.type === 'multi_drop') ctx.fillText('🔮', 0, 0);
+        else if (c.type === 'laser_drop') ctx.fillText('⚡', 0, 0);
+        else if (c.type === 'fireball_drop') ctx.fillText('🔥', 0, 0);
+        else if (c.type === 'wide_drop') ctx.fillText('📏', 0, 0);
+        else ctx.fillText('⭐', 0, 0);
+
+        ctx.restore();
+      }
+    }
+
+    function drawVfx() {
+      // Shockwaves
+      for (let s of shockwaves) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.strokeStyle = s.color;
+        ctx.globalAlpha = Math.max(0, s.life);
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Particles
+      for (let p of particles) {
+        ctx.save();
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Floating Texts
+      for (let f of floatTexts) {
+        ctx.save();
+        ctx.font = 'bold 15px Rajdhani, sans-serif';
+        ctx.fillStyle = f.color;
+        ctx.globalAlpha = Math.max(0, f.alpha);
+        ctx.textAlign = 'center';
+        ctx.shadowColor = '#000000';
+        ctx.shadowBlur = 6;
+        ctx.fillText(f.text, f.x, f.y);
+        ctx.restore();
+      }
+    }
+
+    // Start Engine
+    initLevel();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>

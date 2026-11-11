@@ -4,6 +4,7 @@ import '../engine/i18n.dart';
 import '../storage/save_manager.dart';
 import 'kaunos_ui.dart';
 import 'stats_dialog.dart';
+import 'more_games_dialog.dart';
 
 /// Dedicated Settings dialog for audio, haptics, language, game tour,
 /// and isolated progress code backup/restore.
@@ -248,6 +249,58 @@ class SettingsDialog extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: Color(0xFFA5D6A7),
+                                fontFamily: 'Rajdhani',
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13.0,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // More Games (Kaunos Games) trigger button
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      MoreGamesDialog.show(context);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF261836), Color(0xFF130B1C)],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color(0xFFB388FF).withValues(alpha: 0.7),
+                          width: 1.2,
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x337C4DFF),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.sports_esports_rounded, color: Color(0xFFD1C4E9), size: 20),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              I18n.bi('DİĞER OYUNLARIMIZ (KAUNOS GAMES)', 'OUR OTHER GAMES (KAUNOS GAMES)'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFFD1C4E9),
                                 fontFamily: 'Rajdhani',
                                 fontWeight: FontWeight.w900,
                                 fontSize: 13.0,

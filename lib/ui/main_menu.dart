@@ -29,6 +29,7 @@ import '../engine/app_update_manager.dart';
 import '../models/cosmetics.dart';
 import 'main_menu_tour_overlay.dart';
 import 'settings_dialog.dart';
+import 'more_games_dialog.dart';
 
 class MainMenuScreen extends StatefulWidget {
   // Item 3: Zero-Popup Boot Policy - Never interrupt players with forced popups on launch
@@ -842,6 +843,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
     SettingsDialog.show(context, onOpenTour: _startMainMenuTour, save: _save);
   }
 
+  void _showMoreGamesDialog() {
+    _autoWheelTimer?.cancel();
+    MoreGamesDialog.show(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_activeGame != null) {
@@ -1010,48 +1016,92 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
               child: Column(
                 children: [
                   // Top Header Bar
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        KaunosPressGlow(
-                          borderRadius: 14,
-                          child: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: KaunosPalette.obsidianGlassElevated,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: KaunosPalette.crystalBorderStarlight.withValues(alpha: 0.6),
-                                width: 1.2,
+                  Builder(
+                    builder: (context) {
+                      final screenWidth = MediaQuery.sizeOf(context).width;
+                      final headerPadH = screenWidth < 360 ? 8.0 : 18.0;
+                      return Padding(
+                        padding: EdgeInsets.symmetric(horizontal: headerPadH, vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            KaunosPressGlow(
+                              borderRadius: 14,
+                              child: Container(
+                                key: const Key('btn_settings_header'),
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: KaunosPalette.obsidianGlassElevated,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: KaunosPalette.crystalBorderStarlight.withValues(alpha: 0.6),
+                                    width: 1.2,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0xFF020308),
+                                      offset: Offset(0, 3),
+                                      blurRadius: 0,
+                                    ),
+                                    BoxShadow(
+                                      color: Color(0x25FFFFFF),
+                                      offset: Offset(0, 1),
+                                      blurRadius: 0,
+                                    ),
+                                  ],
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(14),
+                                    onTap: _showSettingsDialog,
+                                    child: const Center(
+                                      child: Icon(Icons.settings_rounded, color: KaunosPalette.goldHighlight, size: 20),
+                                    ),
+                                  ),
+                                ),
                               ),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0xFF020308),
-                                  offset: Offset(0, 3),
-                                  blurRadius: 0,
-                                ),
-                                BoxShadow(
-                                  color: Color(0x25FFFFFF),
-                                  offset: Offset(0, 1),
-                                  blurRadius: 0,
-                                ),
-                              ],
                             ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(14),
-                                onTap: _showSettingsDialog,
-                                child: const Center(
-                                  child: Icon(Icons.settings_rounded, color: KaunosPalette.goldHighlight, size: 20),
+                            const SizedBox(width: 6),
+                            KaunosPressGlow(
+                              borderRadius: 14,
+                              child: Container(
+                                key: const Key('btn_more_games_header'),
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: KaunosPalette.obsidianGlassElevated,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: KaunosPalette.crystalBorderStarlight.withValues(alpha: 0.6),
+                                    width: 1.2,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0xFF020308),
+                                      offset: Offset(0, 3),
+                                      blurRadius: 0,
+                                    ),
+                                    BoxShadow(
+                                      color: Color(0x25FFFFFF),
+                                      offset: Offset(0, 1),
+                                      blurRadius: 0,
+                                    ),
+                                  ],
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(14),
+                                    onTap: _showMoreGamesDialog,
+                                    child: const Center(
+                                      child: Icon(Icons.sports_esports_rounded, color: KaunosPalette.goldHighlight, size: 20),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
                         if (_save.pendingCrate != null) ...[
                           const SizedBox(width: 6),
                           KaunosPressGlow(
@@ -1205,7 +1255,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
                         ),
                       ],
                     ),
-                  ),
+                  );
+                },
+              ),
 
                   // Brand Title Crest (Handcrafted carved amber-gold crest with crystal ornaments)
                   FittedBox(

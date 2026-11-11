@@ -18,7 +18,7 @@ void main() {
       final vault = CrateDef.octopusVault;
       expect(vault.id, 'octopus');
       expect(vault.name, isNotEmpty);
-      expect(vault.tier, Rarity.legendary);
+      expect(vault.tier, Rarity.mythic);
       expect(vault.cost, 0); // opened exclusively with 8 pearls
       expect(CrateDef.octopusVaultPearlCost, 8); // pearls to open
       // What comes out is decided in one place: the octopus itself.
@@ -56,7 +56,7 @@ void main() {
     test('vaultRewardFish currently guarantees the octopus', () {
       final save = SaveManager.instance;
       expect(FortuneWheelDialog.vaultRewardFish(save).id, 'octopus');
-      expect(FortuneWheelDialog.vaultRewardFish(save).rarity, Rarity.legendary);
+      expect(FortuneWheelDialog.vaultRewardFish(save).rarity, Rarity.mythic);
     });
 
     test('pearl gate math: 8 pearls unlock, fewer do not', () {
