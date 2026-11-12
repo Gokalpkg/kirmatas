@@ -294,6 +294,14 @@ class SaveManager extends ChangeNotifier {
   int? chaosSavedScore;
   int? chaosSavedStock;
 
+  // --- PIGGY BANK (ALTIN KUMBARA) ---
+  int piggyBankGold = 0;
+  static const int piggyBankMax = 500;
+  int piggyBankFullCount = 0;
+
+  bool get isPiggyBankFull => piggyBankGold >= piggyBankMax;
+  bool get canSmashPiggyBank => piggyBankGold >= 50;
+
   List<String> unlockedFish = ['guppy', 'tetra'];
   Map<String, int> ownedFishCounts = {'guppy': 1, 'tetra': 1};
   int fishShards = 0; // 0..8 (8 unlocks guaranteed unowned fish chest)
@@ -1054,6 +1062,8 @@ class SaveManager extends ChangeNotifier {
     questClutchSaves = 0;
     unlockedFish = ['guppy', 'tetra'];
     ownedFishCounts = {'guppy': 1, 'tetra': 1};
+    piggyBankGold = 0;
+    piggyBankFullCount = 0;
   }
 
   Future<void> init() async {
@@ -1143,6 +1153,8 @@ class SaveManager extends ChangeNotifier {
 
     unlockedFish = _prefs?.getStringList('unlockedFish') ?? ['guppy', 'tetra'];
     fishShards = _prefs?.getInt('fishShards') ?? 0;
+    piggyBankGold = _prefs?.getInt('piggyBankGold') ?? 0;
+    piggyBankFullCount = _prefs?.getInt('piggyBankFullCount') ?? 0;
     statTotalRuns = _prefs?.getInt('statTotalRuns') ?? 0;
     statTotalDeaths = _prefs?.getInt('statTotalDeaths') ?? 0;
     statTotalClears = _prefs?.getInt('statTotalClears') ?? 0;
@@ -1483,6 +1495,29 @@ class SaveManager extends ChangeNotifier {
     }
     await _prefs?.setInt('gold', gold);
     notifyListeners();
+  }
+
+  void addPiggyBankGold(int amount) {
+    if (amount <= 0) return;
+    final next = (piggyBankGold + amount).clamp(0, piggyBankMax);
+    if (next != piggyBankGold) {
+      piggyBankGold = next;
+      _prefs?.setInt('piggyBankGold', piggyBankGold);
+      notifyListeners();
+    }
+  }
+
+  Future<int> smashPiggyBank({bool doubleReward = false}) async {
+    final baseClaimed = piggyBankGold;
+    if (baseClaimed <= 0) return 0;
+    final awarded = doubleReward ? (baseClaimed * 2) : baseClaimed;
+    piggyBankGold = 0;
+    piggyBankFullCount++;
+    await _prefs?.setInt('piggyBankGold', 0);
+    await _prefs?.setInt('piggyBankFullCount', piggyBankFullCount);
+    await addGold(awarded);
+    notifyListeners();
+    return awarded;
   }
 
   Map<int, int> _loadIntMap(String key) {

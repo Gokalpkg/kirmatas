@@ -273,6 +273,30 @@ class _LevelClearCardState extends State<LevelClearCard>
                       ),
                     ],
                   ),
+                Column(
+                  children: [
+                    const Text(
+                      'Kumbara',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.savings_rounded, color: Color(0xFFFFD54F), size: 14),
+                        const SizedBox(width: 3),
+                        Text(
+                          '+${(widget.goldEarned > 0 ? (widget.goldEarned * 0.4).round() : 1).clamp(1, 50)}',
+                          style: const TextStyle(
+                            color: Color(0xFFFFD54F),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

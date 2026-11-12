@@ -30,6 +30,7 @@ import '../models/cosmetics.dart';
 import 'main_menu_tour_overlay.dart';
 import 'settings_dialog.dart';
 import 'more_games_dialog.dart';
+import 'piggy_bank_dialog.dart';
 
 class MainMenuScreen extends StatefulWidget {
   // Item 3: Zero-Popup Boot Policy - Never interrupt players with forced popups on launch
@@ -1096,7 +1097,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
                                     borderRadius: BorderRadius.circular(14),
                                     onTap: _showMoreGamesDialog,
                                     child: const Center(
-                                      child: Icon(Icons.sports_esports_rounded, color: KaunosPalette.goldHighlight, size: 20),
+                                      child: Icon(Icons.apps_rounded, color: KaunosPalette.goldHighlight, size: 20),
                                     ),
                                   ),
                                 ),
@@ -1180,79 +1181,150 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
                                     ),
                                   ],
                             ),
-                            child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                              children: [
-                                    KaunosEmblem.crest(size: 15, crestColor: _save.leagueTierColor),
-                                    const SizedBox(width: 5),
-                                    Flexible(
-                                      child: Text.rich(
-                                        TextSpan(
-                                          children: [
-                                            TextSpan(
-                                              text: _save.playerName,
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11.5),
-                                            ),
-                                            const TextSpan(
-                                              text: ' • ',
-                                              style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w700, fontSize: 10.5),
-                                            ),
-                                            TextSpan(
-                                              text: _save.seasonalTitle,
-                                              style: TextStyle(color: _save.leagueTierColor, fontWeight: FontWeight.w800, fontSize: 10.5, letterSpacing: 0.3),
-                                            ),
-                                          ],
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                        style: const TextStyle(fontFamily: 'Rajdhani', height: 1.0),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  KaunosEmblem.crest(size: 15, crestColor: _save.leagueTierColor),
+                                  const SizedBox(width: 5),
+                                  Flexible(
+                                    child: Text.rich(
+                                      TextSpan(
+                                        children: [
+                                          TextSpan(
+                                            text: _save.playerName,
+                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11.5),
+                                          ),
+                                          const TextSpan(
+                                            text: ' • ',
+                                            style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w700, fontSize: 10.5),
+                                          ),
+                                          TextSpan(
+                                            text: _save.seasonalTitle,
+                                            style: TextStyle(color: _save.leagueTierColor, fontWeight: FontWeight.w800, fontSize: 10.5, letterSpacing: 0.3),
+                                          ),
+                                        ],
                                       ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                      style: const TextStyle(fontFamily: 'Rajdhani', height: 1.0),
                                     ),
-                                    const SizedBox(width: 3),
-                                    Icon(Icons.edit_rounded, color: _save.leagueTierColor.withValues(alpha: 0.8), size: 11),
-                              ],
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Icon(Icons.edit_rounded, color: _save.leagueTierColor.withValues(alpha: 0.8), size: 11),
+                                ],
+                              ),
                             ),
                           ),
                             ),
                           ),
                         ),
 
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: KaunosPalette.obsidianGlassElevated,
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: KaunosPalette.goldBorder.withValues(alpha: 0.6), width: 1.2),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0xFF451A03),
-                                offset: Offset(0, 3),
-                                blurRadius: 0,
+                            onTap: () => PiggyBankDialog.show(context, save: _save),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: KaunosPalette.obsidianGlassElevated,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: KaunosPalette.goldBorder.withValues(alpha: 0.6), width: 1.2),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0xFF451A03),
+                                    offset: Offset(0, 3),
+                                    blurRadius: 0,
+                                  ),
+                                  BoxShadow(
+                                    color: Color(0x35FFFFFF),
+                                    offset: Offset(0, 1),
+                                    blurRadius: 0,
+                                  ),
+                                ],
                               ),
-                              BoxShadow(
-                                color: Color(0x35FFFFFF),
-                                offset: Offset(0, 1),
-                                blurRadius: 0,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const KaunosEmblem.coin(size: 16),
+                                  const SizedBox(width: 5),
+                                  RollingNumberText(
+                                    value: _save.gold,
+                                    style: const TextStyle(
+                                      color: KaunosPalette.goldHighlight,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 14,
+                                      fontFamily: 'Rajdhani',
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const KaunosEmblem.coin(size: 16),
-                              const SizedBox(width: 5),
-                              RollingNumberText(
-                                value: _save.gold,
-                                style: const TextStyle(
-                                  color: KaunosPalette.goldHighlight,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 14,
-                                  fontFamily: 'Rajdhani',
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
+                        if (screenWidth >= 400) ...[
+                          const SizedBox(width: 6),
+                          KaunosPressGlow(
+                            borderRadius: 14,
+                            child: Container(
+                              key: const Key('btn_piggy_bank_header'),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: _save.isPiggyBankFull
+                                    ? const Color(0xFF332005)
+                                    : KaunosPalette.obsidianGlassElevated,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: _save.isPiggyBankFull
+                                      ? KaunosPalette.goldHighlight
+                                      : KaunosPalette.goldBorder.withValues(alpha: 0.5),
+                                  width: 1.2,
+                                ),
+                                boxShadow: [
+                                  if (_save.isPiggyBankFull)
+                                    BoxShadow(
+                                      color: KaunosPalette.goldHighlight.withValues(alpha: 0.4),
+                                      blurRadius: 8,
+                                    ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: () => PiggyBankDialog.show(context, save: _save),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.savings_rounded,
+                                        color: _save.isPiggyBankFull
+                                            ? KaunosPalette.goldHighlight
+                                            : Colors.white70,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${_save.piggyBankGold}',
+                                        style: TextStyle(
+                                          color: _save.isPiggyBankFull
+                                              ? KaunosPalette.goldHighlight
+                                              : Colors.white70,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 12,
+                                          fontFamily: 'Rajdhani',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   );
@@ -2202,6 +2274,50 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
                           ),
                         ),
                       ],
+                      if (_save.piggyBankGold > 0) ...[
+                        const SizedBox(height: 3),
+                        GestureDetector(
+                          onTap: () => PiggyBankDialog.show(context, save: _save),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: _save.isPiggyBankFull
+                                  ? const Color(0xFF332005)
+                                  : KaunosPalette.obsidianGlassElevated,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: _save.isPiggyBankFull
+                                    ? KaunosPalette.goldHighlight
+                                    : KaunosPalette.goldBorder.withValues(alpha: 0.35),
+                                width: 0.9,
+                              ),
+                            ),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.savings_rounded,
+                                    size: 11,
+                                    color: _save.isPiggyBankFull ? KaunosPalette.goldHighlight : Colors.white60,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Kumbara: ${_save.piggyBankGold}/500',
+                                    style: TextStyle(
+                                      color: _save.isPiggyBankFull ? KaunosPalette.goldHighlight : Colors.white70,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w800,
+                                      fontFamily: 'Rajdhani',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -2213,10 +2329,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
                       size: 40.0,
                       onTap: () => _startOrPromptResume(GameMode.classic),
                     ),
-                    const SizedBox(height: 3),
-                    GestureDetector(
-                      onTap: _openSectorMap,
-                      child: Container(
+                    if (_save.highestLevel >= 3) ...[
+                      const SizedBox(height: 3),
+                      GestureDetector(
+                        onTap: _openSectorMap,
+                        child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
                           color: KaunosPalette.obsidianGlassElevated,
@@ -2250,9 +2367,10 @@ class _MainMenuScreenState extends State<MainMenuScreen> with SingleTickerProvid
                       ),
                     ),
                   ],
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
+          ),
           ),
         ),
       ),

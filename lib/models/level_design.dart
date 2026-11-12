@@ -875,11 +875,11 @@ class LevelDesign {
 
   static bool isBossLevelNumber(int level) {
     if (level <= 0) return false;
-    // Bosslar 10-15 bölümde bir gelir: 12, 25, 37, 50, 62, 75, 87, 100, 112, 125, 137, 150, 162, 175, 187, 200, 212, 225, 237...
+    // Bosslar her 10. seviyede ve belirlenen boss sekansında karşılaştırılır
     const bossSequence = [
-      12, 25, 37, 50, 62, 75, 87, 100, 112, 125, 137, 150, 162, 175, 187, 200, 212, 225, 237
+      10, 12, 20, 25, 30, 37, 40, 50, 60, 62, 70, 75, 80, 87, 90, 100, 110, 112, 120, 125, 130, 137, 140, 150, 160, 162, 170, 175, 180, 187, 190, 200, 210, 212, 220, 225, 230, 237
     ];
-    return bossSequence.contains(level);
+    return (level % 10 == 0) || bossSequence.contains(level);
   }
 
   static List<Brick> buildClassicLevel(int level, double screenWidth, double screenHeight) {

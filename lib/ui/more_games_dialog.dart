@@ -380,94 +380,106 @@ class MoreGamesDialog extends StatelessWidget {
           const SizedBox(width: 8),
 
           // Action: Active Badge OR Install/Play Button
-          if (game.isCurrent)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0x2200E676),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: const Color(0xFF00E676).withValues(alpha: 0.8),
-                  width: 1.1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.check_circle_rounded,
-                    color: Color(0xFF00E676),
-                    size: 13,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    I18n.tr('currently_playing'),
-                    style: const TextStyle(
-                      color: Color(0xFF00E676),
-                      fontWeight: FontWeight.w800,
-                      fontSize: 11,
-                      fontFamily: 'Rajdhani',
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            KaunosPressGlow(
-              borderRadius: 10,
-              waveColor: game.accentColor,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: () {
-                    AudioManager.instance.playSfx(GameSfx.click);
-                    launchGameStore(game.packageName);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 130),
+            child: game.isCurrent
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          game.accentColor.withValues(alpha: 0.85),
-                          game.badgeGlow.withValues(alpha: 0.70),
-                        ],
-                      ),
+                      color: const Color(0x2200E676),
                       borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: game.badgeGlow.withValues(alpha: 0.35),
-                          blurRadius: 6,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
+                      border: Border.all(
+                        color: const Color(0xFF00E676).withValues(alpha: 0.8),
+                        width: 1.1,
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(
-                          Icons.download_rounded,
-                          color: Colors.black87,
+                          Icons.check_circle_rounded,
+                          color: Color(0xFF00E676),
                           size: 13,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          I18n.tr('install_or_play'),
-                          style: const TextStyle(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 11,
-                            fontFamily: 'Rajdhani',
-                            letterSpacing: 0.3,
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              I18n.tr('currently_playing'),
+                              style: const TextStyle(
+                                color: Color(0xFF00E676),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 11,
+                                fontFamily: 'Rajdhani',
+                                letterSpacing: 0.3,
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
+                  )
+                : KaunosPressGlow(
+                    borderRadius: 10,
+                    waveColor: game.accentColor,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () {
+                          AudioManager.instance.playSfx(GameSfx.click);
+                          launchGameStore(game.packageName);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                game.accentColor.withValues(alpha: 0.85),
+                                game.badgeGlow.withValues(alpha: 0.70),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: game.badgeGlow.withValues(alpha: 0.35),
+                                blurRadius: 6,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.download_rounded,
+                                color: Colors.black87,
+                                size: 13,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    I18n.tr('install_or_play'),
+                                    style: const TextStyle(
+                                      color: Colors.black87,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 11,
+                                      fontFamily: 'Rajdhani',
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
+          ),
         ],
       ),
     );

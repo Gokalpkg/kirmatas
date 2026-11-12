@@ -496,7 +496,7 @@ class PauseGameOverOverlay extends StatelessWidget {
                                       : stats.level < 5
                                           ? 'HEDEF: Bölüm 5 • Kaos Modu'
                                           : stats.level < 10
-                                              ? 'HEDEF: Bölüm 10 • Kaos Modu'
+                                              ? 'HEDEF: Bölüm 10 • Boss Savaşı'
                                               : stats.level < 15
                                                   ? 'HEDEF: Bölüm 15 • Haftalık Lig'
                                                   : 'HEDEF: Bölüm ${((stats.level ~/ 10) + 1) * 10} • Boss Savaşı',
@@ -2054,6 +2054,7 @@ class _PulsingRematchButtonState extends State<_PulsingRematchButton>
     );
   }
 }
+
 
 
 

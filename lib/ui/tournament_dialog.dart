@@ -901,7 +901,49 @@ class _TournamentDialogState extends State<TournamentDialog> {
           leaderScore,
           rivals,
         ),
-        SizedBox(height: isCompact ? 8 : 12),
+
+        // Footer Action Button
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 16 : 20,
+            vertical: isCompact ? 6 : 10,
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                if (widget.onJoinTournament != null) {
+                  widget.onJoinTournament!();
+                }
+              },
+              icon: Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.black,
+                size: isCompact ? 20 : 22,
+              ),
+              label: Text(
+                I18n.bi('MÜCADELEYE KATIL', 'JOIN TOURNAMENT'),
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.w900,
+                  fontSize: isCompact ? 13 : 14,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: tierColor,
+                padding: EdgeInsets.symmetric(vertical: isCompact ? 10 : 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 6,
+                shadowColor: tierColor.withValues(alpha: 0.5),
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: isCompact ? 4 : 8),
       ] else ...[
         Expanded(
           child: _buildGlobalLeaderboardContent(context, isCompact),

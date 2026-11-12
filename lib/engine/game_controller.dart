@@ -2006,6 +2006,7 @@ class GameController extends ChangeNotifier {
     _updateBalls(effectiveDt);
     _updateDice(effectiveDt);
     endgameStallTimer += effectiveDt;
+    _checkAntiStallMechanics(effectiveDt);
     _checkGameProgress();
     frameTick.ping();
     _syncHud();
@@ -3979,9 +3980,49 @@ class GameController extends ChangeNotifier {
           particles.spawnBurst(ball.x, pr.top, const Color(0xFFFF9100), count: 16, speed: 100.0);
         }
       }
+
+      // Anti-Stall Smart Aim Assist: When only 1-2 bricks remain and ball bounces on paddle after brief stall
+      final remainingBreakable = bricks.where((b) => b.isAlive && !b.isSteel).toList();
+      if (remainingBreakable.isNotEmpty && remainingBreakable.length <= 2 && endgameStallTimer >= 2.5) {
+        final target = remainingBreakable.first;
+        final targetCenterX = target.x + target.width / 2;
+        final targetCenterY = target.y + target.height / 2;
+        final spd = ball.speed;
+        final aimAngle = atan2(targetCenterY - pr.top, targetCenterX - ball.x);
+        final currAngle = atan2(ball.vy, ball.vx);
+        final steeredAngle = currAngle + (aimAngle - currAngle) * 0.65;
+        ball.vx = spd * cos(steeredAngle);
+        ball.vy = spd * sin(steeredAngle);
+        if (ball.vy > -120.0) ball.vy = -spd.abs() * 0.75;
+        particles.spawnBurst(ball.x, pr.top, const Color(0xFF00E5FF), count: 8, speed: 85.0);
+      }
+
       return true;
     }
     return false;
+  }
+
+  void _checkAntiStallMechanics(double dt) {
+    if (status != GameStatus.playing || levelTransitionTimer > 0) return;
+    final remainingBreakable = bricks.where((b) => b.isAlive && !b.isSteel).toList();
+    if (remainingBreakable.isEmpty || remainingBreakable.length > 2) return;
+
+    if (endgameStallTimer >= 6.5) {
+      final target = remainingBreakable.first;
+      final activeBalls = balls.where((b) => !b.isStuck).toList();
+      final sourceBall = activeBalls.isNotEmpty ? activeBalls.first : null;
+
+      final targetX = target.x + target.width / 2;
+      final targetY = target.y + target.height / 2;
+
+      particles.spawnShockwave(targetX, targetY, const Color(0xFF00E5FF), maxRadius: 75.0);
+      particles.spawnBurst(targetX, targetY, const Color(0xFF00E5FF), count: 24, speed: 180.0);
+      particles.spawnFloatingText(targetX, targetY - 22, '⚡ ${I18n.bi('YILDIRIM DARBESİ', 'LIGHTNING STRIKE')}', const Color(0xFF00E5FF), isLarge: true);
+      audio.playSfx(GameSfx.laser);
+
+      _hitBrick(target, sourceBall);
+      endgameStallTimer = 0.0;
+    }
   }
 
   void _checkBallBrickCollision(Ball ball) {
@@ -5189,22 +5230,30 @@ class GameController extends ChangeNotifier {
       return;
     }
 
+    // Piggy Bank accumulation (1 gold for regular brick, 5 for pinata, 10 for boss)
+    final piggyAmount = b.isBoss ? 10 : (b.isGoldPinata ? 5 : 1);
+    save.addPiggyBankGold(piggyAmount);
+
     if (b.isBoss) {
-      particles.triggerShake(9.0, 0.4);
-      particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD700), count: 32, speed: 190.0);
-      particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFF1744), maxRadius: 100.0);
-      particles.spawnFloatingText(b.x + b.width / 2, b.y - 20, I18n.tr('boss_defeated'), const Color(0xFFFFD700), isLarge: true);
-      stats.score += 500;
+      particles.triggerShake(14.0, 0.6);
+      particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD700), count: 54, speed: 220.0);
+      particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFF1744), count: 36, speed: 180.0);
+      particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFF1744), maxRadius: 130.0);
+      particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, const Color(0xFFFFD700), maxRadius: 90.0);
+      particles.spawnFloatingText(b.x + b.width / 2, b.y - 24, '★ ${I18n.tr('boss_defeated')} ★', const Color(0xFFFFD700), isLarge: true);
+      stats.score += 750;
       // Boss kills pay out like a headline moment: gold shower + a pearl.
-      final bossGold = allowsGoldReward ? (6 + (stats.level ~/ 4)) : 0;
+      final bossGold = allowsGoldReward ? (10 + (stats.level ~/ 3)) : 0;
       if (bossGold > 0) {
         stats.goldCollected += bossGold;
         save.addGold(bossGold);
-        particles.spawnCoinOrbs(b.x + b.width / 2, b.y + b.height / 2, count: 4, totalValue: bossGold);
+        particles.spawnCoinOrbs(b.x + b.width / 2, b.y + b.height / 2, count: 6, totalValue: bossGold);
       }
       save.addPearls(1);
-      particles.spawnFloatingText(b.x + b.width / 2, b.y - 38, bossGold > 0 ? '+$bossGold ALTIN! +1 İNCİ!' : '+1 İNCİ!', const Color(0xFFFFD700), isLarge: true);
+      particles.spawnFloatingText(b.x + b.width / 2, b.y - 42, bossGold > 0 ? '+$bossGold ALTIN! +1 İNCİ!' : '+1 İNCİ!', const Color(0xFFFFD700), isLarge: true);
       audio.playSfx(GameSfx.explosion);
+      audio.playSfx(GameSfx.victory);
+      AchievementManager.instance.onBossDefeated(stats.level);
     } else {
       particles.spawnBurst(b.x + b.width / 2, b.y + b.height / 2, b.color, count: 16);
       particles.spawnShockwave(b.x + b.width / 2, b.y + b.height / 2, b.color, maxRadius: 40.0);
