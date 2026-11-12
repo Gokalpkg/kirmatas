@@ -637,6 +637,7 @@ class GameController extends ChangeNotifier {
   bool _chaosAllSolidBroken = false;
   int activeIceVariant = 0;
   double endgameStallTimer = 0.0;
+  double antiStallLightningDelay = 12.0;
   bool octopusClutchUsedThisStage = false;
   double octopusClutchAnimTimer = 0.0;
   double octopusClutchX = 0.0;
@@ -3982,7 +3983,12 @@ class GameController extends ChangeNotifier {
       }
 
       // Anti-Stall Smart Aim Assist: When only 1-2 bricks remain and ball bounces on paddle after brief stall
-      final remainingBreakable = bricks.where((b) => b.isAlive && !b.isSteel).toList();
+      final remainingBreakable = bricks.where((b) {
+        if (!b.isAlive) return false;
+        if (b.isSteel || b.isHeavySteel || b.isChainLocked) return false;
+        if (b.isTuft && b.tuftFilled) return false;
+        return true;
+      }).toList();
       if (remainingBreakable.isNotEmpty && remainingBreakable.length <= 2 && endgameStallTimer >= 2.5) {
         final target = remainingBreakable.first;
         final targetCenterX = target.x + target.width / 2;
@@ -4004,10 +4010,15 @@ class GameController extends ChangeNotifier {
 
   void _checkAntiStallMechanics(double dt) {
     if (status != GameStatus.playing || levelTransitionTimer > 0) return;
-    final remainingBreakable = bricks.where((b) => b.isAlive && !b.isSteel).toList();
+    final remainingBreakable = bricks.where((b) {
+      if (!b.isAlive) return false;
+      if (b.isSteel || b.isHeavySteel || b.isChainLocked) return false;
+      if (b.isTuft && b.tuftFilled) return false;
+      return true;
+    }).toList();
     if (remainingBreakable.isEmpty || remainingBreakable.length > 2) return;
 
-    if (endgameStallTimer >= 6.5) {
+    if (endgameStallTimer >= antiStallLightningDelay) {
       final target = remainingBreakable.first;
       final activeBalls = balls.where((b) => !b.isStuck).toList();
       final sourceBall = activeBalls.isNotEmpty ? activeBalls.first : null;
@@ -4020,8 +4031,13 @@ class GameController extends ChangeNotifier {
       particles.spawnFloatingText(targetX, targetY - 22, '⚡ ${I18n.bi('YILDIRIM DARBESİ', 'LIGHTNING STRIKE')}', const Color(0xFF00E5FF), isLarge: true);
       audio.playSfx(GameSfx.laser);
 
-      _hitBrick(target, sourceBall);
+      if (target.isBoss) {
+        _hitBrick(target, sourceBall);
+      } else {
+        _destroyBrick(target);
+      }
       endgameStallTimer = 0.0;
+      _lastBrickHitTimer = 0.0;
     }
   }
 

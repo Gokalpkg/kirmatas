@@ -20,12 +20,14 @@ class TournamentDialog extends StatefulWidget {
   final SaveManager save;
   final VoidCallback? onJoinTournament;
   final int initialTab;
+  final bool showJoinButton;
 
   const TournamentDialog({
     super.key,
     required this.save,
     this.onJoinTournament,
     this.initialTab = 0,
+    this.showJoinButton = false,
   });
 
   static Future<void> show(
@@ -33,6 +35,7 @@ class TournamentDialog extends StatefulWidget {
     required SaveManager save,
     VoidCallback? onJoinTournament,
     int initialTab = 0,
+    bool showJoinButton = true,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -42,6 +45,7 @@ class TournamentDialog extends StatefulWidget {
         save: save,
         onJoinTournament: onJoinTournament,
         initialTab: initialTab,
+        showJoinButton: showJoinButton,
       ),
     );
   }
@@ -903,46 +907,47 @@ class _TournamentDialogState extends State<TournamentDialog> {
         ),
 
         // Footer Action Button
-        Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: isCompact ? 16 : 20,
-            vertical: isCompact ? 6 : 10,
-          ),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.of(context).pop();
-                if (widget.onJoinTournament != null) {
-                  widget.onJoinTournament!();
-                }
-              },
-              icon: Icon(
-                Icons.play_arrow_rounded,
-                color: Colors.black,
-                size: isCompact ? 20 : 22,
-              ),
-              label: Text(
-                I18n.bi('MÜCADELEYE KATIL', 'JOIN TOURNAMENT'),
-                style: TextStyle(
+        if (widget.onJoinTournament != null || widget.showJoinButton)
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isCompact ? 16 : 20,
+              vertical: isCompact ? 6 : 10,
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  if (widget.onJoinTournament != null) {
+                    widget.onJoinTournament!();
+                  }
+                },
+                icon: Icon(
+                  Icons.play_arrow_rounded,
                   color: Colors.black,
-                  fontWeight: FontWeight.w900,
-                  fontSize: isCompact ? 13 : 14,
-                  letterSpacing: 0.8,
+                  size: isCompact ? 20 : 22,
                 ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: tierColor,
-                padding: EdgeInsets.symmetric(vertical: isCompact ? 10 : 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                label: Text(
+                  I18n.bi('MÜCADELEYE KATIL', 'JOIN TOURNAMENT'),
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w900,
+                    fontSize: isCompact ? 13 : 14,
+                    letterSpacing: 0.8,
+                  ),
                 ),
-                elevation: 6,
-                shadowColor: tierColor.withValues(alpha: 0.5),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: tierColor,
+                  padding: EdgeInsets.symmetric(vertical: isCompact ? 10 : 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 6,
+                  shadowColor: tierColor.withValues(alpha: 0.5),
+                ),
               ),
             ),
           ),
-        ),
         SizedBox(height: isCompact ? 4 : 8),
       ] else ...[
         Expanded(

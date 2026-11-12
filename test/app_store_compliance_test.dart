@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kirmatas/engine/i18n.dart';
 import 'package:kirmatas/engine/remove_ads_billing.dart';
 import 'package:kirmatas/storage/save_manager.dart';
 import 'package:kirmatas/ui/settings_dialog.dart';
