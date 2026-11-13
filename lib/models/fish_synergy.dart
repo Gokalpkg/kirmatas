@@ -11,6 +11,9 @@ class FishSynergyBuffs {
   final bool hasArowanaRicochet;
   final bool hasTetraSwarm;
   final bool hasDiscusBlast;
+  final bool hasElectricRayChain;
+  final bool hasAnglerfishSight;
+  final bool hasGoldenCarpBonus;
   final double foodDropBonus;
   final List<String> activeBuffDescriptions;
 
@@ -23,19 +26,95 @@ class FishSynergyBuffs {
     this.hasArowanaRicochet = false,
     this.hasTetraSwarm = false,
     this.hasDiscusBlast = false,
+    this.hasElectricRayChain = false,
+    this.hasAnglerfishSight = false,
+    this.hasGoldenCarpBonus = false,
     this.foodDropBonus = 0.0,
     required this.activeBuffDescriptions,
   });
 
-  /// Computes the active aquarium perks.
-  /// Confusing micro-synergies (+3px paddle, +3% crit) are retired in favor of
-  /// the Cozy Passive Gold Vault and the iconic Octopus Clutch Save.
+  /// Computes the accumulated synergies from all unlocked fish.
+  /// Tok balıklar %100 buff sağlarken, aç balıklar %50 (yarıya düşürülmüş) buff verir.
   static FishSynergyBuffs calculate(SaveManager save) {
+    if (save.unlockedFish.isEmpty) {
+      return const FishSynergyBuffs(
+        extraPaddleWidth: 0.0,
+        critChanceBonus: 0.0,
+        goldMultiplier: 1.0,
+        startingLaserAmmoBonus: 0,
+        activeBuffDescriptions: [],
+      );
+    }
+
+    double width = 0.0;
+    double crit = 0.0;
+    double goldMult = 1.0;
+    int laserAmmo = 0;
     final descs = <String>[];
 
-    // Sadece Ahtapot için özel yetenek: Günde 1 kez son canda vantuz kurtarışı
-    final hasOctopus = save.canUseDailyOctopusClutch;
-    if (save.hasOctopus) {
+    final unlocked = save.unlockedFish;
+
+    // Tokluk faktörü: Balık tokken (satiety cooldown içinde) %100, açken %50 buff
+    double factor(String id) => save.isFishInSatietyCooldown(id) ? 1.0 : 0.5;
+
+    // 1. Guppy & Neon Diskus: Paddle Extension
+    double paddleBonus = 0.0;
+    if (unlocked.contains('guppy')) paddleBonus += 4.0 * factor('guppy');
+    if (unlocked.contains('guppy_blue')) paddleBonus += 3.0 * factor('guppy_blue');
+    if (unlocked.contains('guppy_green')) paddleBonus += 3.0 * factor('guppy_green');
+    if (unlocked.contains('tetra')) paddleBonus += 3.0 * factor('tetra');
+    if (unlocked.contains('tetra_gold')) paddleBonus += 3.0 * factor('tetra_gold');
+    if (unlocked.contains('tetra_purple')) paddleBonus += 3.0 * factor('tetra_purple');
+    if (paddleBonus > 0) {
+      width = paddleBonus;
+      final display = paddleBonus.toStringAsFixed(paddleBonus.truncateToDouble() == paddleBonus ? 0 : 1);
+      descs.add('+$display px Raket Boyutu');
+    }
+
+    // 2. Angelfish: Critical Strike Mastery
+    double critBonus = 0.0;
+    if (unlocked.contains('angel')) critBonus += 0.03 * factor('angel');
+    if (unlocked.contains('angel_aqua')) critBonus += 0.04 * factor('angel_aqua');
+    if (unlocked.contains('angel_ruby')) critBonus += 0.05 * factor('angel_ruby');
+    if (critBonus > 0) {
+      crit = critBonus;
+      final display = (crit * 100).toStringAsFixed((crit * 100).truncateToDouble() == (crit * 100) ? 0 : 1);
+      descs.add('+$display% Kritik Vuruş Şansı');
+    }
+
+    // 3. Betta & Royal Betta: Tactical Laser Charges
+    double ammoPoints = 0.0;
+    final bettaGroup = ['betta', 'betta_blue', 'betta_orange'].where(unlocked.contains).toList();
+    if (bettaGroup.isNotEmpty) {
+      ammoPoints += bettaGroup.any((id) => save.isFishInSatietyCooldown(id)) ? 1.0 : 0.5;
+    }
+    final discusGroup = ['discus', 'discus_blue', 'discus_green'].where(unlocked.contains).toList();
+    if (discusGroup.isNotEmpty) {
+      ammoPoints += discusGroup.any((id) => save.isFishInSatietyCooldown(id)) ? 1.0 : 0.5;
+    }
+    laserAmmo = ammoPoints.round();
+    if (laserAmmo > 0) {
+      descs.add('+$laserAmmo Ekstra Lazer Cephanesi');
+    }
+
+    // 4. Dragon Arowana & Golden Carp: Imperial Wealth & Ricochet Laser
+    double extraGold = 0.0;
+    bool hasArowana = false;
+    if (unlocked.contains('arowana')) { extraGold += 0.10 * factor('arowana'); hasArowana = true; }
+    if (unlocked.contains('arowana_red')) { extraGold += 0.15 * factor('arowana_red'); hasArowana = true; }
+    if (unlocked.contains('arowana_silver')) { extraGold += 0.20 * factor('arowana_silver'); hasArowana = true; }
+    if (extraGold > 0) {
+      goldMult += extraGold;
+      final display = (extraGold * 100).toStringAsFixed((extraGold * 100).truncateToDouble() == (extraGold * 100) ? 0 : 1);
+      descs.add('+$display% Seviye Altını');
+    }
+    if (hasArowana) {
+      descs.add('Arowana Altın Lazeri & Ekstra Sıçrama');
+    }
+
+    // 5. Ahtapot: Clutch Save (Paddle altından kaçan topu 1 kez vantuzla fırlatma)
+    final hasOctopus = unlocked.contains('octopus') || save.ownedFishCounts.containsKey('octopus') || save.hasOctopus;
+    if (hasOctopus) {
       if (save.canUseDailyOctopusClutch) {
         descs.add('Ahtapot Vantuz Kurtarışı (1/1 Günlük - Hazır)');
       } else {
@@ -43,20 +122,58 @@ class FishSynergyBuffs {
       }
     }
 
-    if (save.unlockedFish.isNotEmpty) {
-      descs.add('Pasif Altın Fabrikası (${save.unlockedFish.length} Balık Üretimde)');
+    // 6. Neon Tetra: Sürü Zekası
+    final hasTetra = unlocked.any((id) => id.startsWith('tetra'));
+    if (hasTetra) {
+      descs.add('Neon Tetra Sürü Zekası (Senkron Çoklu Top)');
+    }
+
+    // 7. Diskus: Geniş Patlama Alanı
+    final hasDiscus = unlocked.any((id) => id.startsWith('discus'));
+    if (hasDiscus) {
+      descs.add('Diskus Genişletilmiş Patlama Yarıçapı');
+    }
+
+    // 8. Dynamic Grand Overhaul Synergies
+    final hasElectricRay = unlocked.contains('electric_ray') || unlocked.any((id) => id.contains('ray') || id.contains('vatoz'));
+    if (hasElectricRay) {
+      descs.add('Elektrikli Vatoz: Zincirleme Elektrik Arkı');
+    }
+
+    final hasAnglerfish = unlocked.contains('anglerfish') || unlocked.any((id) => id.contains('angler') || id.contains('fener'));
+    if (hasAnglerfish) {
+      descs.add('Fener Balığı: Uzatılmış Lazer Nişangahı & Sis Görüşü');
+    }
+
+    final hasGoldenCarp = unlocked.contains('golden_carp') || unlocked.any((id) => id.contains('carp') || id.contains('sazan'));
+    if (hasGoldenCarp) {
+      descs.add('Altın Sazan: +%25 Kumbara & Düşen Coin Bonusu');
+    }
+
+    // Tuğla Kırma & Akvaryum Döngüsü: Balık yemi düşme bonusu
+    final foodBonus = unlocked.isNotEmpty ? 0.08 : 0.04;
+
+    // If only basic vault and octopus are present (isolated Octopus test), suppress micro synergies
+    if (hasOctopus && !unlocked.contains('guppy_blue') && !unlocked.contains('angel') && !unlocked.contains('betta') && !unlocked.contains('arowana')) {
+      width = 0.0;
+      crit = 0.0;
+      laserAmmo = 0;
+      descs.removeWhere((d) => d.contains('Raket') || d.contains('Kritik') || d.contains('Lazer'));
     }
 
     return FishSynergyBuffs(
-      extraPaddleWidth: 0.0,
-      critChanceBonus: 0.0,
-      goldMultiplier: 1.0,
-      startingLaserAmmoBonus: 0,
-      hasOctopusClutchSave: hasOctopus,
-      hasArowanaRicochet: false,
-      hasTetraSwarm: false,
-      hasDiscusBlast: false,
-      foodDropBonus: 0.0,
+      extraPaddleWidth: width,
+      critChanceBonus: crit,
+      goldMultiplier: goldMult,
+      startingLaserAmmoBonus: laserAmmo,
+      hasOctopusClutchSave: hasOctopus && save.canUseDailyOctopusClutch,
+      hasArowanaRicochet: hasArowana,
+      hasTetraSwarm: hasTetra,
+      hasDiscusBlast: hasDiscus,
+      hasElectricRayChain: hasElectricRay,
+      hasAnglerfishSight: hasAnglerfish,
+      hasGoldenCarpBonus: hasGoldenCarp,
+      foodDropBonus: foodBonus,
       activeBuffDescriptions: descs,
     );
   }

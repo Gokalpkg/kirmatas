@@ -659,6 +659,32 @@ class FishItem {
       secondaryColor: Color(0xFFBA68C8),
       kind: FishKind.jellyfish,
     ),
+
+    // 8. Dynamic Synergy Marine Creatures (Grand Overhaul)
+    FishItem(
+      id: 'electric_ray',
+      name: 'Elektrikli Vatoz',
+      rarity: Rarity.epic,
+      size: 1.5,
+      color: Color(0xFF00E5FF),
+      secondaryColor: Color(0xFFFFD740),
+    ),
+    FishItem(
+      id: 'anglerfish',
+      name: 'Derin Deniz Fener Balığı',
+      rarity: Rarity.legendary,
+      size: 1.45,
+      color: Color(0xFF7C4DFF),
+      secondaryColor: Color(0xFF00E5FF),
+    ),
+    FishItem(
+      id: 'golden_carp',
+      name: 'Efsanevi Altın Sazan',
+      rarity: Rarity.rare,
+      size: 1.35,
+      color: Color(0xFFFFD700),
+      secondaryColor: Color(0xFFFF9100),
+    ),
   ];
 
   static FishItem getById(String id) {

@@ -33,11 +33,11 @@ abstract final class BalanceConfig {
   /// Seconds before endgame anti-stall micro-steering nudges the ball toward the last 1-2 bricks.
   static const double endgameStallThresholdSeconds = 3.5;
 
-  /// Base coin drop probability per brick in Classic/Special mode (7%).
-  static const double classicCoinBaseDropRate = 0.07;
+  /// Base coin drop probability per brick in Classic/Special mode (12%).
+  static const double classicCoinBaseDropRate = 0.12;
 
-  /// Base coin drop probability per brick in Chaos mode (4.5%).
-  static const double chaosCoinBaseDropRate = 0.045;
+  /// Base coin drop probability per brick in Chaos mode (8%).
+  static const double chaosCoinBaseDropRate = 0.08;
 
   /// Base capsule power-up drop probability per brick (14%).
   static const double capsuleBaseDropRate = 0.14;
@@ -56,26 +56,26 @@ abstract final class BalanceConfig {
   static const int targetSessionGoldLate = 280;
 
   /// Base cost for core stat upgrades (e.g., paddle width, ball damage, magnet).
-  static const int upgradeBaseCost = 100;
+  static const int upgradeBaseCost = 50;
 
   /// Sub-polynomial progression factor kept for backward compatibility reference.
   static const double upgradeCostExponent = 1.18;
 
   /// Computes the exact gold cost required to upgrade a stat from [currentLevel]
   /// using the sub-polynomial balanced formula:
-  /// `upgradeCost(L) = (100 * (1 + 0.20 * L + 0.03 * math.pow(L, 1.85))).round()`
+  /// `upgradeCost(L) = (50 * (1 + 0.15 * L + 0.02 * math.pow(L, 1.8))).round()`
   ///
   /// Prevents exponential walls while maintaining satisfying progression across all levels.
   static int upgradeCost(int currentLevel, {int baseCost = upgradeBaseCost, double? exponent}) {
     if (currentLevel <= 0) return baseCost;
-    return (baseCost * (1.0 + 0.20 * currentLevel + 0.03 * math.pow(currentLevel, 1.85))).round();
+    return (baseCost * (1.0 + 0.15 * currentLevel + 0.02 * math.pow(currentLevel, 1.8))).round();
   }
 
   /// Base gold reward when clearing a level.
   static int levelClearGold(int levelNumber) {
-    if (levelNumber <= 0) return 30;
-    // Sıkılaştırılmış ve hak edilmiş ödül eğrisi:
-    return 30 + (levelNumber * 7) + (math.pow(levelNumber, 1.15)).round();
+    if (levelNumber <= 0) return 50;
+    // Linear + sub-quadratic curve: early levels reward quick wins, deep levels reward mastery.
+    return 50 + (levelNumber * 12) + (math.pow(levelNumber, 1.25)).round();
   }
 
   /// Base gold awarded for destroying a regular solid brick.
