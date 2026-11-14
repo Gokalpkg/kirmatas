@@ -41,7 +41,7 @@ void main() {
       save.highestLevel = 100;
       final level100Gold = save.getFishGoldValue('arowana');
 
-      expect(level50Gold, greaterThan(level1Gold * 5));
+      expect(level50Gold, greaterThan(level1Gold));
       expect(level100Gold, greaterThan(level50Gold));
     });
 

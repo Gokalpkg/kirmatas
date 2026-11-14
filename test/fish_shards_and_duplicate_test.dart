@@ -8,11 +8,12 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    SaveManager.instance.resetForTesting();
     await SaveManager.instance.init();
   });
 
-  group('Fish Shards & Max 2 Per Color/Species Rule', () {
-    test('Default fish start with count 1 and max 2 allowed', () {
+  group('Fish Shards & Max Copies Per Color/Species Rule', () {
+    test('Default fish start with count 1 and can acquire copies', () {
       final save = SaveManager.instance;
       expect(save.getFishCount('guppy'), equals(1));
       expect(save.canAcquireFish('guppy'), isTrue);
@@ -24,20 +25,20 @@ void main() {
       expect(save.canAcquireFish('guppy_blue'), isTrue);
     });
 
-    test('Acquiring a 2nd copy sets count to 2, 3rd copy returns false', () async {
+    test('Acquiring copies up to max (5) allowed, beyond returns false', () async {
       final save = SaveManager.instance;
       expect(save.getFishCount('guppy'), equals(1));
 
-      // 2nd copy
-      final addedSecond = await save.addFishInstance('guppy');
-      expect(addedSecond, isTrue);
-      expect(save.getFishCount('guppy'), equals(2));
+      for (int i = 2; i <= 5; i++) {
+        final added = await save.addFishInstance('guppy');
+        expect(added, isTrue);
+        expect(save.getFishCount('guppy'), equals(i));
+      }
       expect(save.canAcquireFish('guppy'), isFalse);
 
-      // 3rd copy
-      final addedThird = await save.addFishInstance('guppy');
-      expect(addedThird, isFalse);
-      expect(save.getFishCount('guppy'), equals(2));
+      final addedSixth = await save.addFishInstance('guppy');
+      expect(addedSixth, isFalse);
+      expect(save.getFishCount('guppy'), equals(5));
     });
 
     test('allOwnedFishInstances includes duplicated fish (count = 2)', () async {
@@ -92,8 +93,8 @@ void main() {
 
       await save.claimPendingCrate();
       expect(save.fishShards, equals(2));
-      // Guppy count shouldn't have exceeded 2
-      expect(save.getFishCount('guppy') <= 2, isTrue);
+      // Guppy count shouldn't have exceeded 5
+      expect(save.getFishCount('guppy') <= 5, isTrue);
     });
   });
 }

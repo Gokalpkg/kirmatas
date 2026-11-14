@@ -39,6 +39,7 @@ void main() {
   group('Radical Plan Item 1: Squash & Stretch and Graduated Hit-Stop', () {
     test('Graduated hit-stop durations are configured properly', () {
       final ctrl = GameController();
+      ctrl.enableDolphinLeap = true;
       ctrl.setDimensions(360, 640);
       ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
       ctrl.bricks.clear();
@@ -116,12 +117,14 @@ void main() {
 
       // Simulate 17.5 seconds: not yet homing
       for (int i = 0; i < 175; i++) {
+        ball.y = 250;
         ctrl.update(0.1);
       }
       expect(ctrl.balls.first.isOverdriveHoming, isFalse);
 
       // Advance past 18.0 seconds: homing engages
       for (int i = 0; i < 10; i++) {
+        ball.y = 250;
         ctrl.update(0.1);
       }
       expect(ctrl.balls.first.isOverdriveHoming, isTrue);
@@ -145,6 +148,7 @@ void main() {
 
       // Advance 18.2 seconds: homing is active
       for (int i = 0; i < 182; i++) {
+        ball.y = 250;
         ctrl.update(0.1);
       }
       expect(ctrl.balls.first.isOverdriveHoming, isTrue);
@@ -179,6 +183,7 @@ void main() {
 
       // Simulate 25.5 seconds without paddle hit
       for (int i = 0; i < 255; i++) {
+        ball.y = 250;
         ctrl.update(0.1);
       }
 
@@ -229,6 +234,7 @@ void main() {
 
     test('Phase 2 boss shoots laser-targeted hazard projectile that shrinks paddle on contact', () {
       final ctrl = GameController();
+      ctrl.enableDolphinLeap = true;
       ctrl.setDimensions(360, 640);
       ctrl.startNewGame(GameMode.classic, explicitStartLevel: 10);
       ctrl.launchBall();
@@ -277,6 +283,7 @@ void main() {
       save.unlockedFish = ['guppy', 'tetra'];
 
       final ctrl = GameController();
+      ctrl.enableDolphinLeap = true;
       ctrl.setDimensions(360, 640);
       ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
       ctrl.launchBall();
@@ -313,6 +320,7 @@ void main() {
 
     test('Life powerup hard-caps at maxLivesCap (5) and converts extra hearts to gold', () {
       final ctrl = GameController();
+      ctrl.enableDolphinLeap = true;
       ctrl.setDimensions(360, 640);
       ctrl.startNewGame(GameMode.classic);
       ctrl.stats.lives = 4;
@@ -331,6 +339,7 @@ void main() {
   group('Radical Plan Item 8: Paddle Lerp Inertia & Near-Miss Shockwave', () {
     test('Near-miss save triggers outward shockwave ring', () {
       final ctrl = GameController();
+      ctrl.enableDolphinLeap = true;
       ctrl.setDimensions(360, 640);
       ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
       ctrl.launchBall();
@@ -388,6 +397,7 @@ void main() {
   group('Radical Plan Item 10: Victory Ritual & Rolling Numbers', () {
     testWidgets('PauseGameOverOverlay renders victory stars and rolling numbers', (tester) async {
       final ctrl = GameController();
+      ctrl.enableDolphinLeap = true;
       ctrl.setDimensions(360, 640);
       ctrl.startNewGame(GameMode.classic, explicitStartLevel: 1);
       ctrl.status = GameStatus.victory;

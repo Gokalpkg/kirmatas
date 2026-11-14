@@ -416,6 +416,7 @@ class GameController extends ChangeNotifier {
   bool fishSaveUsedThisRun = false;
   bool get fishSaveUsedThisLevel => fishSaveUsedThisRun;
   set fishSaveUsedThisLevel(bool v) => fishSaveUsedThisRun = v;
+  bool enableDolphinLeap = false;
 
   /// Max hard-cap on player lives to prevent endless stockpiling
   static const int maxLivesCap = 5;
@@ -428,7 +429,7 @@ class GameController extends ChangeNotifier {
   int capsulePityCounter = 0;
 
   /// Overdrive homing is active by default to prevent last brick stagnation.
-  bool enableOverdriveHoming = true;
+  bool enableOverdriveHoming = false;
   double _timeWithoutBrickHit = 0.0;
   bool get shouldPulseSpeedBoost =>
       stats.level <= 3 &&
@@ -1672,10 +1673,6 @@ class GameController extends ChangeNotifier {
     // Balanced base speed starting at 420.0 px/s at Level 1, gradually scaling up to Level 10
     const base = 420.0;
     double levelSpeed = base + min(max(stats.level - 1, 0) * 10.0, 90.0);
-    // FTUE speed boost: levels 1-3 feel crisper and responsive
-    if (stats.level <= 3) {
-      levelSpeed *= 1.12;
-    }
     if (save.hasPermanentRelic && save.activeRelicStyle == 'overdrive') {
       levelSpeed *= 1.06;
     }
@@ -3062,7 +3059,7 @@ class GameController extends ChangeNotifier {
       final aliveBreakable = bricks.where((b) => b.isAlive && !b.isSteel && !b.isHeavySteel).toList();
       if (aliveBreakable.isNotEmpty && aliveBreakable.length <= 2 && status == GameStatus.playing && currentMode != GameMode.chaos) {
         _lastBrickHitTimer += dt;
-        if (_lastBrickHitTimer >= 8.0) {
+        if (_lastBrickHitTimer >= 18.0) {
           for (final b in balls) {
             b.isOverdriveHoming = true;
           }
@@ -3083,7 +3080,7 @@ class GameController extends ChangeNotifier {
             }
           }
         }
-        if (_lastBrickHitTimer >= 12.0) {
+        if (_lastBrickHitTimer >= 25.0) {
           final targetBrick = aliveBreakable.first;
           final tx = targetBrick.x + targetBrick.width / 2;
           final ty = targetBrick.y + targetBrick.height / 2;
@@ -3609,6 +3606,18 @@ class GameController extends ChangeNotifier {
           continue;
         }
       } else if (ball.y - ball.radius > screenHeight) {
+        if (isGoldenOctopusActive && !octopusRescueUsed && balls.length == 1) {
+          octopusRescueUsed = true;
+          ball.y = paddle.y - ball.radius - 8.0;
+          ball.vy = -ball.vy.abs();
+          if (ball.vy.abs() < 280) ball.vy = -340.0;
+          particles.triggerShake(7.0, 0.35);
+          particles.spawnShockwave(ball.x, paddle.y + 10.0, const Color(0xFFE040FB), maxRadius: 120.0);
+          particles.spawnBurst(ball.x, paddle.y + 10.0, const Color(0xFFEA80FC), count: 24, speed: 180.0);
+          particles.spawnFloatingText(ball.x.clamp(80.0, screenWidth - 80.0), paddle.y - 35.0, 'ALTIN AHTAPOT KURTARDI!', const Color(0xFFE040FB), isLarge: true);
+          audio.playSfx(GameSfx.powerupBuff);
+          continue;
+        }
         if (activeSectorBlessing?.type == SectorBlessingType.emergencyClutch &&
             !emergencyClutchUsedThisStage &&
             balls.length == 1) {
@@ -3644,6 +3653,19 @@ class GameController extends ChangeNotifier {
             isLarge: true,
           );
           audio.playSfx(GameSfx.ulti);
+          continue;
+        }
+        // Item 7: Aquarium-Game Bridge: Dolphin Leap / Balık Kurtarışı (Oyun/Run başına strictly 1 kez)
+        if (enableDolphinLeap && balls.length == 1 && !fishSaveUsedThisRun && save.unlockedFish.isNotEmpty) {
+          fishSaveUsedThisRun = true;
+          ball.y = paddle.y - ball.radius - 4.0;
+          ball.vy = -ball.vy.abs();
+          particles.triggerShake(5.0, 0.28);
+          particles.spawnShockwave(ball.x, paddle.y + 10.0, const Color(0xFF00E5FF), maxRadius: 85.0);
+          particles.spawnBurst(ball.x, paddle.y + 10.0, const Color(0xFF80D8FF), count: 20, speed: 160.0);
+          particles.spawnFloatingText(ball.x.clamp(80.0, screenWidth - 80.0), paddle.y - 35.0, 'BALIK KURTARIŞI!', const Color(0xFF00E5FF), isLarge: true);
+          audio.playSfx(GameSfx.victory);
+          AchievementManager.instance.onMiracleDolphinSave();
           continue;
         }
         balls.removeAt(i);
@@ -3820,6 +3842,10 @@ class GameController extends ChangeNotifier {
 
       ball.y = pr.top - ball.radius - 1.0;
       ball.triggerSquash(-pi / 2);
+      if (enableOverdriveHoming) {
+        _lastBrickHitTimer = 0.0;
+        ball.isOverdriveHoming = false;
+      }
       paddle.triggerHitReaction(isCorner: isCornerHit);
       particles.spawnBrickShards(
         ball.x - 8.0,
@@ -4009,6 +4035,7 @@ class GameController extends ChangeNotifier {
   }
 
   void _checkAntiStallMechanics(double dt) {
+    if (enableOverdriveHoming) return;
     if (status != GameStatus.playing || levelTransitionTimer > 0) return;
     final remainingBreakable = bricks.where((b) {
       if (!b.isAlive) return false;
@@ -4506,7 +4533,7 @@ class GameController extends ChangeNotifier {
           final dy = (nb.y + nb.height / 2) - cy;
           if (sqrt(dx * dx + dy * dy) <= 65.0) {
             shatteredNeighbors++;
-            nb.hp -= 1;
+            nb.hp -= 3;
             particles.spawnBurst(nb.x + nb.width / 2, nb.y + nb.height / 2, const Color(0xFF80D8FF), count: 8);
             if (nb.hp <= 0) {
               _destroyBrick(nb, 1, true);

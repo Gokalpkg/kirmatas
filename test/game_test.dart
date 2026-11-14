@@ -3524,8 +3524,8 @@ void main() {
         expect(find.text('KOZMİK USTALIK (SONSUZ SEVİYE)'), findsOneWidget);
         expect(find.text('Kozmik Altın Ustalığı'), findsOneWidget);
         expect(find.text('Kozmik İnci Ustalığı'), findsOneWidget);
-        expect(find.text('Sv. 3'), findsOneWidget);
-        expect(find.text('Sv. 2'), findsOneWidget);
+        expect(find.text('${I18n.tr('lvl')} 3'), findsOneWidget);
+        expect(find.text('${I18n.tr('lvl')} 2'), findsOneWidget);
       });
 
       test('R6: SaveManager Daily Blitz completion, rewards, and calendar reset', () async {

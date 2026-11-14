@@ -659,8 +659,10 @@ class FishItem {
       secondaryColor: Color(0xFFBA68C8),
       kind: FishKind.jellyfish,
     ),
+  ];
 
-    // 8. Dynamic Synergy Marine Creatures (Grand Overhaul)
+  // 8. Dynamic Synergy Marine Creatures (Grand Overhaul)
+  static const List<FishItem> specialSynergyFish = [
     FishItem(
       id: 'electric_ray',
       name: 'Elektrikli Vatoz',
@@ -687,7 +689,12 @@ class FishItem {
     ),
   ];
 
+  static List<FishItem> get allFishWithSynergies => [...allFish, ...specialSynergyFish];
+
   static FishItem getById(String id) {
+    for (final f in specialSynergyFish) {
+      if (f.id == id) return f;
+    }
     return allFish.firstWhere((f) => f.id == id, orElse: () => allFish.first);
   }
 }
@@ -1148,7 +1155,7 @@ class StatUpgrade {
       descKey: 'upgrade_paddle_width_desc',
       icon: Icons.straighten_rounded,
       color: Color(0xFF00E5FF),
-      costs: [1800, 4500, 9000, 16500, 28000],
+      costs: [600, 1500, 3000, 5500, 9500],
     ),
     StatUpgrade(
       id: 'crit_damage',
@@ -1156,7 +1163,7 @@ class StatUpgrade {
       descKey: 'upgrade_crit_desc',
       icon: Icons.electric_bolt_rounded,
       color: Color(0xFFFF5252),
-      costs: [1600, 3600, 7000, 13000, 22000],
+      costs: [800, 1800, 3500, 6500, 11000],
     ),
     StatUpgrade(
       id: 'magnet',
@@ -1164,7 +1171,7 @@ class StatUpgrade {
       descKey: 'magnet_desc',
       icon: Icons.all_inclusive_rounded,
       color: Color(0xFFE040FB),
-      costs: [1500, 3600, 7500, 14400, 25000],
+      costs: [500, 1200, 2500, 4800, 8500],
     ),
     StatUpgrade(
       id: 'luck',
@@ -1172,7 +1179,7 @@ class StatUpgrade {
       descKey: 'luck_desc',
       icon: Icons.stars_rounded,
       color: Color(0xFFFFD54F),
-      costs: [1400, 3200, 6400, 12000, 20000],
+      costs: [700, 1600, 3200, 6000, 10000],
     ),
     StatUpgrade(
       id: 'battery',
@@ -1180,7 +1187,7 @@ class StatUpgrade {
       descKey: 'battery_desc',
       icon: Icons.battery_charging_full_rounded,
       color: Color(0xFF69F0AE),
-      costs: [1000, 2400, 4800, 9000, 16000],
+      costs: [500, 1200, 2400, 4500, 8000],
     ),
     StatUpgrade(
       id: 'u_gold',
@@ -1188,7 +1195,7 @@ class StatUpgrade {
       descKey: 'upgrade_gold_desc',
       icon: Icons.monetization_on_rounded,
       color: Color(0xFFFFB300),
-      costs: [1600, 3800, 8000, 16000, 30000],
+      costs: [800, 1900, 4000, 8000, 15000],
     ),
   ];
 }
