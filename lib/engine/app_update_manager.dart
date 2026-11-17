@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -16,6 +18,8 @@ class AppUpdateManager {
   static const String currentVersionName = '1.0.121';
   static const String defaultStoreUrl =
       'https://play.google.com/store/apps/details?id=com.kaunos.kirmatas';
+  static const String defaultIosStoreUrl =
+      'https://apps.apple.com/app/id6822920423';
   static const String marketUrl =
       'market://details?id=com.kaunos.kirmatas';
 
@@ -55,6 +59,18 @@ class AppUpdateManager {
 
   /// Opens the store page via native market intent or web URL.
   Future<void> openStorePage({String? url}) async {
+    if (!kIsWeb && Platform.isIOS) {
+      final iosUri = Uri.parse(
+        (url != null && url.contains('apple.com')) ? url : defaultIosStoreUrl,
+      );
+      try {
+        if (await canLaunchUrl(iosUri)) {
+          await launchUrl(iosUri, mode: LaunchMode.externalApplication);
+          return;
+        }
+      } catch (_) {}
+    }
+
     final targetUrl = url ?? defaultStoreUrl;
     try {
       final marketUri = Uri.parse(marketUrl);

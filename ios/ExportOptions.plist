@@ -11,7 +11,7 @@
     <key>provisioningProfiles</key>
     <dict>
         <key>com.kaunos.kirmatas</key>
-        <string>com.kaunos.kirmatas AppStore</string>
+        <string>Kirmatas AppStore LocalDist</string>
     </dict>
     <key>stripSwiftSymbols</key>
     <true/>

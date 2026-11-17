@@ -2748,7 +2748,10 @@ class _TournamentDialogState extends State<TournamentDialog> {
 
   Future<void> _shareInvite(BuildContext context, SaveManager save, {bool isWhatsApp = true}) async {
     final tag = save.playerTag;
-    final inviteMsg = "Kırmataş'ta skorumu geçebilir misin? Beni ekle: $tag https://play.google.com/store/apps/details?id=com.kaunos.kirmatas";
+    final inviteUrl = (!kIsWeb && Platform.isIOS)
+        ? 'https://apps.apple.com/app/id6822920423'
+        : 'https://play.google.com/store/apps/details?id=com.kaunos.kirmatas';
+    final inviteMsg = "Kırmataş'ta skorumu geçebilir misin? Beni ekle: $tag $inviteUrl";
     bool launched = false;
 
     if (isWhatsApp) {

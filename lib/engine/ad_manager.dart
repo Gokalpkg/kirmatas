@@ -32,15 +32,15 @@ class AdManager extends ChangeNotifier {
   // Tier 3: Düşük Taban / Standart Geçiş Reklamı (Gecis_Standart)
   static const String tier3InterstitialAdUnitId = 'ca-app-pub-9694275729123906/4863118828';
 
-  // iOS REWARDED ADS WATERFALL (Can be customized via AdMob iOS console)
-  static const String iosTier1RewardedAdUnitId = 'ca-app-pub-9694275729123906/6981270843';
-  static const String iosTier2RewardedAdUnitId = 'ca-app-pub-9694275729123906/8357756685';
-  static const String iosTier3RewardedAdUnitId = 'ca-app-pub-9694275729123906/8685059744';
+  // iOS REWARDED ADS WATERFALL (kaunosgames@gmail.com)
+  static const String iosTier1RewardedAdUnitId = 'ca-app-pub-1103570772752092/7910199979';
+  static const String iosTier2RewardedAdUnitId = 'ca-app-pub-1103570772752092/1469089714';
+  static const String iosTier3RewardedAdUnitId = 'ca-app-pub-1103570772752092/6010969959';
 
-  // iOS INTERSTITIAL ADS WATERFALL
-  static const String iosTier1InterstitialAdUnitId = 'ca-app-pub-9694275729123906/5731593340';
-  static const String iosTier2InterstitialAdUnitId = 'ca-app-pub-9694275729123906/4368294806';
-  static const String iosTier3InterstitialAdUnitId = 'ca-app-pub-9694275729123906/4863118828';
+  // iOS INTERSTITIAL ADS WATERFALL (kaunosgames@gmail.com)
+  static const String iosTier1InterstitialAdUnitId = 'ca-app-pub-1103570772752092/5599906414';
+  static const String iosTier2InterstitialAdUnitId = 'ca-app-pub-1103570772752092/9606425027';
+  static const String iosTier3InterstitialAdUnitId = 'ca-app-pub-1103570772752092/3288428680';
 
   // Backward-compatibility aliases
   static const String tier1HighYieldAdUnitId = tier1RewardedAdUnitId;

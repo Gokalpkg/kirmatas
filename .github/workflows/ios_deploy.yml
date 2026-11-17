@@ -36,7 +36,10 @@ jobs:
           fi
           cp "$KEY_FILE" "/Users/runner/.private_keys/AuthKey_${KEY_ID}.p8"
 
-      - name: Set up temporary Keychain
+      - name: Set up temporary Keychain and Import Certificate
+        env:
+          P12_BASE64: ${{ secrets.P12_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
         run: |
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
           KEYCHAIN_PASSWORD="temp_runner_password_123"
@@ -45,10 +48,25 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security list-keychains -d user -s $KEYCHAIN_PATH $(security list-keychains -d user | tr -d '"')
           security default-keychain -s $KEYCHAIN_PATH
+
+          if [ -n "$P12_BASE64" ]; then
+            echo "$P12_BASE64" | base64 --decode > $RUNNER_TEMP/cert.p12
+            security import $RUNNER_TEMP/cert.p12 -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          fi
+
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
           echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
 
-      - name: Prepare Provisioning Profile via Fastlane
+      - name: Install Provisioning Profile
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          if [ -f "ios/Kirmatas_AppStore.mobileprovision" ]; then
+            cp ios/Kirmatas_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/738d2925-cf0d-43fd-b949-b83be9f4c4ce.mobileprovision
+            cp ios/Kirmatas_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/Kirmatas_AppStore.mobileprovision
+          fi
+
+      - name: Prepare Signing Assets via Fastlane
         env:
           APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
@@ -64,6 +82,9 @@ jobs:
         run: |
           mkdir -p build/ios/SourcePackages
           flutter pub get
+          cd ios
+          pod install
+          cd ..
 
       - name: Build iOS App (Archive)
         env:

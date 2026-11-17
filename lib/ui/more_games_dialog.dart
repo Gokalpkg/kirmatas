@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../engine/audio_manager.dart';
@@ -86,6 +88,25 @@ class MoreGamesDialog extends StatelessWidget {
 
   /// Launch store or fallback search URL via url_launcher.
   static Future<void> launchGameStore(String packageName) async {
+    if (!kIsWeb && Platform.isIOS) {
+      final String iosUrl;
+      if (packageName == 'com.kaunos.neonspace') {
+        iosUrl = 'https://apps.apple.com/app/id6828572180';
+      } else if (packageName == 'com.kaunos.kirmatas') {
+        iosUrl = 'https://apps.apple.com/app/id6822920423';
+      } else {
+        iosUrl = 'https://apps.apple.com/developer/kaunos-games/id1768822000';
+      }
+      try {
+        final uri = Uri.parse(iosUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          return;
+        }
+      } catch (_) {}
+      return;
+    }
+
     final isSearch = packageName.isEmpty;
     final marketUri = isSearch
         ? Uri.parse('market://search?q=pub:Kaunos+Games')

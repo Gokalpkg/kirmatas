@@ -52,8 +52,14 @@ class InAppReviewManager {
       try {
         final isAvailable = await _inAppReview.isAvailable();
         if (isAvailable) {
-          await _inAppReview.requestReview();
+          await _inAppReview.openStoreListing(appStoreId: '6822920423');
           return;
+        }
+      } catch (_) {}
+      try {
+        final iosStoreUri = Uri.parse('https://apps.apple.com/app/id6822920423');
+        if (await canLaunchUrl(iosStoreUri)) {
+          await launchUrl(iosStoreUri, mode: LaunchMode.externalApplication);
         }
       } catch (_) {}
       return;

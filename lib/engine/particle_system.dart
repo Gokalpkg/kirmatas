@@ -72,6 +72,9 @@ class FloatingText {
   final FloatingIconType iconType;
   double life;
   final double maxLife;
+  double? layoutWidth;
+  double? layoutHeight;
+  int? lastAlphaBucket;
 
   FloatingText({
     required this.x,

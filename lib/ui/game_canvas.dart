@@ -557,11 +557,15 @@ class _ScreenVignettePainter extends CustomPainter {
   static final Paint _vignetteEdgePaint = Paint();
   static final Paint _flamePaint = Paint();
   static final Paint _flameBorderStroke = Paint()..style = PaintingStyle.stroke;
+  static final Map<int, Shader> _vignetteShaders = {};
 
   _ScreenVignettePainter(this.c) : super(repaint: c.frameTick);
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (_vignetteShaders.length > 96) {
+      _vignetteShaders.remove(_vignetteShaders.keys.first);
+    }
     double redAlpha = 0.0;
     if (c.currentMode != GameMode.chaos && c.isLowLifeAlertActive) {
       // ~72 bpm double-beat envelope: sharp thump then softer echo.
@@ -583,16 +587,24 @@ class _ScreenVignettePainter extends CustomPainter {
     if (redAlpha <= 0.0 && flash <= 0.0 && !hasStreakBorder) return;
 
     final rect = Offset.zero & size;
+    final wKey = size.width.round();
+    final hKey = size.height.round();
+
     void edge(Color color, double alpha) {
-      _vignetteEdgePaint.shader = RadialGradient(
-        radius: 0.95,
-        colors: [
-          color.withValues(alpha: 0.0),
-          color.withValues(alpha: 0.0),
-          color.withValues(alpha: alpha),
-        ],
-        stops: const [0.0, 0.78, 1.0],
-      ).createShader(rect);
+      final alphaBucket = (alpha * 16).round().clamp(1, 16);
+      final key = Object.hash('vignette_edge', color.toARGB32(), alphaBucket, wKey, hKey);
+      _vignetteEdgePaint.shader = _vignetteShaders.putIfAbsent(key, () {
+        final effAlpha = alphaBucket / 16.0;
+        return RadialGradient(
+          radius: 0.95,
+          colors: [
+            color.withValues(alpha: 0.0),
+            color.withValues(alpha: 0.0),
+            color.withValues(alpha: effAlpha),
+          ],
+          stops: const [0.0, 0.78, 1.0],
+        ).createShader(rect);
+      });
       canvas.drawRect(rect, _vignetteEdgePaint);
     }
 
@@ -600,30 +612,38 @@ class _ScreenVignettePainter extends CustomPainter {
       // Breathing, pulsating translucent orange / golden fire vignette & border (Win Streak x5)
       // Scaled to 38% intensity per design calibration
       final pulse = 0.5 + 0.5 * sin(c.gameTime * 3.5);
-      final flameAlpha = (0.20 + 0.12 * pulse) * 0.38;
-      final flameShader = RadialGradient(
-        radius: 0.96,
-        colors: [
-          const Color(0xFFFF6D00).withValues(alpha: 0.0),
-          const Color(0xFFFF9100).withValues(alpha: flameAlpha * 0.45),
-          const Color(0xFFFF3D00).withValues(alpha: flameAlpha),
-        ],
-        stops: const [0.0, 0.72, 1.0],
-      ).createShader(rect);
-      _flamePaint.shader = flameShader;
+      final pulseBucket = (pulse * 15).round().clamp(0, 15);
+      final effPulse = pulseBucket / 15.0;
+      final flameAlpha = (0.20 + 0.12 * effPulse) * 0.38;
+
+      final flameKey = Object.hash('vignette_flame', pulseBucket, wKey, hKey);
+      _flamePaint.shader = _vignetteShaders.putIfAbsent(flameKey, () {
+        return RadialGradient(
+          radius: 0.96,
+          colors: [
+            const Color(0xFFFF6D00).withValues(alpha: 0.0),
+            const Color(0xFFFF9100).withValues(alpha: flameAlpha * 0.45),
+            const Color(0xFFFF3D00).withValues(alpha: flameAlpha),
+          ],
+          stops: const [0.0, 0.72, 1.0],
+        ).createShader(rect);
+      });
       canvas.drawRect(rect, _flamePaint);
 
+      final strokeKey = Object.hash('vignette_stroke', pulseBucket, wKey, hKey);
       _flameBorderStroke
-        ..strokeWidth = (2.0 + 1.2 * pulse) * 0.65
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.lerp(const Color(0xFFFF6D00), const Color(0xFFFFD600), pulse)!.withValues(alpha: (0.40 + 0.25 * pulse) * 0.38),
-            Color.lerp(const Color(0xFFFF3D00), const Color(0xFFFF9100), 1.0 - pulse)!.withValues(alpha: (0.30 + 0.20 * pulse) * 0.38),
-            Color.lerp(const Color(0xFFFFAB00), const Color(0xFFFF3D00), pulse)!.withValues(alpha: (0.40 + 0.25 * pulse) * 0.38),
-          ],
-        ).createShader(rect);
+        ..strokeWidth = (2.0 + 1.2 * effPulse) * 0.65
+        ..shader = _vignetteShaders.putIfAbsent(strokeKey, () {
+          return LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color.lerp(const Color(0xFFFF6D00), const Color(0xFFFFD600), effPulse)!.withValues(alpha: (0.40 + 0.25 * effPulse) * 0.38),
+              Color.lerp(const Color(0xFFFF3D00), const Color(0xFFFF9100), 1.0 - effPulse)!.withValues(alpha: (0.30 + 0.20 * effPulse) * 0.38),
+              Color.lerp(const Color(0xFFFFAB00), const Color(0xFFFF3D00), effPulse)!.withValues(alpha: (0.40 + 0.25 * effPulse) * 0.38),
+            ],
+          ).createShader(rect);
+        });
       canvas.drawRect(rect.deflate(1.5), _flameBorderStroke);
     }
 
@@ -659,6 +679,30 @@ class _GameWorldPainter extends CustomPainter {
   static final Map<int, Shader> _brickShaders = {};
   static final Map<int, Shader> _bgShaders = {};
   static final Map<int, Color> _hslDerivedColors = {};
+  static const List<List<int>> _flameMatrix0 = [
+    [0, 0, 0, 1, 0, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0, 0],
+    [0, 1, 2, 2, 2, 1, 0, 0],
+    [0, 1, 2, 3, 2, 1, 0, 1],
+    [1, 2, 3, 3, 3, 2, 1, 1],
+    [1, 2, 3, 3, 3, 2, 2, 1],
+    [1, 2, 2, 3, 3, 2, 2, 1],
+    [0, 1, 2, 2, 2, 2, 1, 0],
+    [0, 0, 1, 2, 2, 1, 0, 0],
+    [0, 0, 0, 1, 1, 0, 0, 0],
+  ];
+  static const List<List<int>> _flameMatrix1 = [
+    [0, 0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0, 0],
+    [0, 1, 2, 2, 2, 1, 0, 0],
+    [0, 1, 2, 3, 2, 1, 0, 1],
+    [1, 2, 3, 3, 3, 2, 1, 1],
+    [1, 2, 3, 3, 3, 2, 2, 1],
+    [1, 2, 2, 3, 3, 2, 2, 1],
+    [0, 1, 2, 2, 2, 2, 1, 0],
+    [0, 0, 1, 2, 2, 1, 0, 0],
+    [0, 0, 0, 1, 1, 0, 0, 0],
+  ];
 
   static void _enforceCacheLimits() {
     while (_brickShaders.length > 128) {
@@ -963,16 +1007,21 @@ class _GameWorldPainter extends CustomPainter {
           ? const Color(0xFFFF1744)
           : (ball.isPurple ? const Color(0xFFD500F9) : c.activeBallSkin.glowColor);
       final glowRadius = (ball.radius * 3.5).clamp(24.0, 52.0);
-      final glowShader = RadialGradient(
-        colors: [
-          _ca(ballColor, 0.18),
-          _ca(ballColor, 0.06),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.45, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset(ball.x, ball.y), radius: glowRadius));
-      _fill.shader = glowShader;
-      canvas.drawCircle(Offset(ball.x, ball.y), glowRadius, _fill);
+      final glowKey = Object.hash('ball_glow', ballColor.toARGB32(), glowRadius.round());
+      _fill.shader = _bgShaders.putIfAbsent(glowKey, () {
+        return RadialGradient(
+          colors: [
+            _ca(ballColor, 0.18),
+            _ca(ballColor, 0.06),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.45, 1.0],
+        ).createShader(Rect.fromCircle(center: Offset.zero, radius: glowRadius));
+      });
+      canvas.save();
+      canvas.translate(ball.x, ball.y);
+      canvas.drawCircle(Offset.zero, glowRadius, _fill);
+      canvas.restore();
       _fill.shader = null;
     }
   }
@@ -3762,16 +3811,24 @@ class _GameWorldPainter extends CustomPainter {
         ..strokeWidth = 3.5;
       canvas.drawRRect(leftRRect.inflate(1.5), _stroke);
 
-      // Solid body gradient
-      _paddlePaint.shader = LinearGradient(
-        colors: [
-          c.activePaddleSkin.color1,
-          c.activePaddleSkin.color2,
-        ],
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-      ).createShader(leftRect);
-      canvas.drawRRect(leftRRect, _paddlePaint);
+      // Solid body gradient (cached by dimensions)
+      final leftWKey = leftRect.width.round();
+      final leftHKey = leftRect.height.round();
+      final leftKey = Object.hash('paddle_wing_left', c.activePaddleSkin.id, leftWKey, leftHKey);
+      _paddlePaint.shader = _bgShaders.putIfAbsent(leftKey, () {
+        return LinearGradient(
+          colors: [
+            c.activePaddleSkin.color1,
+            c.activePaddleSkin.color2,
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ).createShader(Rect.fromLTWH(0, 0, leftRect.width, leftRect.height));
+      });
+      canvas.save();
+      canvas.translate(leftRect.left, leftRect.top);
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, leftRect.width, leftRect.height), const Radius.circular(5.0)), _paddlePaint);
+      canvas.restore();
 
       // Specular gloss highlight
       final leftGloss = Rect.fromLTWH(leftRect.left + 2, leftRect.top + 2, leftRect.width - 4, leftRect.height * 0.38);
@@ -3785,16 +3842,24 @@ class _GameWorldPainter extends CustomPainter {
         ..strokeWidth = 3.5;
       canvas.drawRRect(rightRRect.inflate(1.5), _stroke);
 
-      // Solid body gradient
-      _paddlePaint.shader = LinearGradient(
-        colors: [
-          c.activePaddleSkin.color1,
-          c.activePaddleSkin.color2,
-        ],
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-      ).createShader(rightRect);
-      canvas.drawRRect(rightRRect, _paddlePaint);
+      // Solid body gradient (cached by dimensions)
+      final rightWKey = rightRect.width.round();
+      final rightHKey = rightRect.height.round();
+      final rightKey = Object.hash('paddle_wing_right', c.activePaddleSkin.id, rightWKey, rightHKey);
+      _paddlePaint.shader = _bgShaders.putIfAbsent(rightKey, () {
+        return LinearGradient(
+          colors: [
+            c.activePaddleSkin.color1,
+            c.activePaddleSkin.color2,
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ).createShader(Rect.fromLTWH(0, 0, rightRect.width, rightRect.height));
+      });
+      canvas.save();
+      canvas.translate(rightRect.left, rightRect.top);
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, rightRect.width, rightRect.height), const Radius.circular(5.0)), _paddlePaint);
+      canvas.restore();
 
       // Specular gloss highlight
       final rightGloss = Rect.fromLTWH(rightRect.left + 2, rightRect.top + 2, rightRect.width - 4, rightRect.height * 0.38);
@@ -3821,16 +3886,24 @@ class _GameWorldPainter extends CustomPainter {
         ..strokeWidth = 4.0;
       canvas.drawRRect(rrect.inflate(2.0), _stroke);
 
-      // Paddle body gradient
-      _paddlePaint.shader = LinearGradient(
-        colors: [
-          c.activePaddleSkin.color1,
-          c.activePaddleSkin.color2,
-        ],
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-      ).createShader(rect);
-      canvas.drawRRect(rrect, _paddlePaint);
+      // Paddle body gradient (cached by dimensions)
+      final bodyWKey = rect.width.round();
+      final bodyHKey = rect.height.round();
+      final bodyKey = Object.hash('paddle_body', c.activePaddleSkin.id, bodyWKey, bodyHKey);
+      _paddlePaint.shader = _bgShaders.putIfAbsent(bodyKey, () {
+        return LinearGradient(
+          colors: [
+            c.activePaddleSkin.color1,
+            c.activePaddleSkin.color2,
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ).createShader(Rect.fromLTWH(0, 0, rect.width, rect.height));
+      });
+      canvas.save();
+      canvas.translate(rect.left, rect.top);
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, rect.width, rect.height), Radius.circular(rect.height / 2)), _paddlePaint);
+      canvas.restore();
 
       // Specular highlight
       final gloss = Rect.fromLTWH(rect.left + 4, rect.top + 2, rect.width - 8, rect.height * 0.38);
@@ -4100,17 +4173,22 @@ class _GameWorldPainter extends CustomPainter {
       final double pulse = 0.5 + 0.5 * sin(time * 2.4);
 
       // Quiet field wash without outer boundary line.
+      final pulseBucket = (pulse * 12).round().clamp(0, 12);
+      final washKey = Object.hash('bh_wash', accent.toARGB32(), pulseBucket, maxDist.round());
       _fill
         ..style = PaintingStyle.fill
         ..maskFilter = null
-        ..shader = RadialGradient(
-          colors: [
-            _ca(accent, 0.20 + 0.05 * pulse),
-            _ca(mid, 0.07),
-            Colors.transparent,
-          ],
-          stops: const [0.0, 0.46, 1.0],
-        ).createShader(Rect.fromCircle(center: Offset.zero, radius: maxDist));
+        ..shader = _bgShaders.putIfAbsent(washKey, () {
+          final effPulse = pulseBucket / 12.0;
+          return RadialGradient(
+            colors: [
+              _ca(accent, 0.20 + 0.05 * effPulse),
+              _ca(mid, 0.07),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.46, 1.0],
+          ).createShader(Rect.fromCircle(center: Offset.zero, radius: maxDist));
+        });
       canvas.drawCircle(Offset.zero, limit, _fill);
       _fill.shader = null;
 
@@ -4138,7 +4216,9 @@ class _GameWorldPainter extends CustomPainter {
       }
       _tempPath.close();
 
-      _fill.shader = RadialGradient(
+      final bhCoreKey = Object.hash('bh_core', deep.toARGB32(), mid.toARGB32(), rim.toARGB32(), (baseRadius * 1.06).round());
+      _fill.shader = _bgShaders.putIfAbsent(bhCoreKey, () {
+        return RadialGradient(
           colors: [
             const Color(0xFF05060C),
             deep,
@@ -4148,6 +4228,7 @@ class _GameWorldPainter extends CustomPainter {
           ],
           stops: const [0.16, 0.36, 0.60, 0.82, 1.0],
         ).createShader(Rect.fromCircle(center: Offset.zero, radius: baseRadius * 1.06));
+      });
       canvas.drawPath(_tempPath, _fill);
       _fill.shader = null;
 
@@ -4240,17 +4321,22 @@ class _GameWorldPainter extends CustomPainter {
       final double effRadius = p.radius * (1.0 + 0.06 * pulse);
 
       // Outer field aura wash with soft breathing pulse
+      final pulseBucket = (pulse * 12).round().clamp(0, 12);
+      final pAuraKey = Object.hash('portal_aura', p.color.toARGB32(), pulseBucket, (effRadius * 1.95).round());
       _fill
         ..style = PaintingStyle.fill
         ..maskFilter = null
-        ..shader = RadialGradient(
-          colors: [
-            _ca(p.color, 0.22 + 0.06 * pulse),
-            _ca(p.color, 0.06),
-            Colors.transparent,
-          ],
-          stops: const [0.0, 0.48, 1.0],
-        ).createShader(Rect.fromCircle(center: Offset.zero, radius: effRadius * 1.95));
+        ..shader = _bgShaders.putIfAbsent(pAuraKey, () {
+          final effPulse = pulseBucket / 12.0;
+          return RadialGradient(
+            colors: [
+              _ca(p.color, 0.22 + 0.06 * effPulse),
+              _ca(p.color, 0.06),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.48, 1.0],
+          ).createShader(Rect.fromCircle(center: Offset.zero, radius: effRadius * 1.95));
+        });
       canvas.drawCircle(Offset.zero, effRadius * 1.90, _fill);
       _fill.shader = null;
 
@@ -4303,16 +4389,19 @@ class _GameWorldPainter extends CustomPainter {
       }
       _tempPath.close();
 
-      _fill.shader = RadialGradient(
-        colors: [
-          const Color(0xFF03050C),
-          _ca(p.color, 0.35),
-          _ca(p.color, 0.90),
-          _ca(Colors.white, 0.75),
-          _ca(p.color, 0.0),
-        ],
-        stops: const [0.15, 0.38, 0.65, 0.84, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset.zero, radius: baseRadius * 1.06));
+      final pDiskKey = Object.hash('portal_disk', p.color.toARGB32(), (baseRadius * 1.06).round());
+      _fill.shader = _bgShaders.putIfAbsent(pDiskKey, () {
+        return RadialGradient(
+          colors: [
+            const Color(0xFF03050C),
+            _ca(p.color, 0.35),
+            _ca(p.color, 0.90),
+            _ca(Colors.white, 0.75),
+            _ca(p.color, 0.0),
+          ],
+          stops: const [0.15, 0.38, 0.65, 0.84, 1.0],
+        ).createShader(Rect.fromCircle(center: Offset.zero, radius: baseRadius * 1.06));
+      });
       canvas.drawPath(_tempPath, _fill);
       _fill.shader = null;
 
@@ -6287,48 +6376,62 @@ class _GameWorldPainter extends CustomPainter {
     if (c.currentMode == GameMode.chaos) return;
     // Ultra-subtle, unobtrusive warm fever breathing glow (toned down to 38% intensity)
     final pulse = 0.65 + sin(time * 3.2) * 0.35;
+    final pulseBucket = (pulse * 15).round().clamp(0, 15);
+    final effPulse = pulseBucket / 15.0;
     final w = size.width;
     final h = size.height;
     final rect = Offset.zero & size;
+    final wKey = w.round();
+    final hKey = h.round();
 
     // 1. Very faint outer perimeter radial vignette (center 72% remains completely clear)
+    final radialKey = Object.hash('fever_radial', pulseBucket, wKey, hKey);
     _fill
       ..style = PaintingStyle.fill
-      ..shader = RadialGradient(
-        center: Alignment.center,
-        radius: 1.05,
-        colors: [
-          Colors.transparent,
-          Colors.transparent,
-          Color.lerp(const Color(0x02FF3D00), const Color(0x04FF1744), pulse)!,
-          Color.lerp(const Color(0x05FF1744), const Color(0x08FF3D00), pulse)!,
-        ],
-        stops: const [0.0, 0.72, 0.90, 1.0],
-      ).createShader(rect);
+      ..shader = _bgShaders.putIfAbsent(radialKey, () {
+        return RadialGradient(
+          center: Alignment.center,
+          radius: 1.05,
+          colors: [
+            Colors.transparent,
+            Colors.transparent,
+            Color.lerp(const Color(0x02FF3D00), const Color(0x04FF1744), effPulse)!,
+            Color.lerp(const Color(0x05FF1744), const Color(0x08FF3D00), effPulse)!,
+          ],
+          stops: const [0.0, 0.72, 0.90, 1.0],
+        ).createShader(rect);
+      });
     canvas.drawRect(rect, _fill);
 
     // 2. Whisper-soft narrow top & bottom edge rim
     final edgeH = h * 0.045;
-    _fill.shader = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [
-        Color.lerp(const Color(0x0AFF1744), const Color(0x14FF3D00), pulse)!,
-        Colors.transparent,
-      ],
-      stops: const [0.0, 1.0],
-    ).createShader(Rect.fromLTWH(0, 0, w, edgeH));
+    final edgeHKey = edgeH.round();
+    final topKey = Object.hash('fever_top', pulseBucket, wKey, edgeHKey);
+    _fill.shader = _bgShaders.putIfAbsent(topKey, () {
+      return LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color.lerp(const Color(0x0AFF1744), const Color(0x14FF3D00), effPulse)!,
+          Colors.transparent,
+        ],
+        stops: const [0.0, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, w, edgeH));
+    });
     canvas.drawRect(Rect.fromLTWH(0, 0, w, edgeH), _fill);
 
-    _fill.shader = LinearGradient(
-      begin: Alignment.bottomCenter,
-      end: Alignment.topCenter,
-      colors: [
-        Color.lerp(const Color(0x0AFF1744), const Color(0x14FF3D00), pulse)!,
-        Colors.transparent,
-      ],
-      stops: const [0.0, 1.0],
-    ).createShader(Rect.fromLTWH(0, h - edgeH, w, edgeH));
+    final botKey = Object.hash('fever_bot', pulseBucket, wKey, edgeHKey);
+    _fill.shader = _bgShaders.putIfAbsent(botKey, () {
+      return LinearGradient(
+        begin: Alignment.bottomCenter,
+        end: Alignment.topCenter,
+        colors: [
+          Color.lerp(const Color(0x0AFF1744), const Color(0x14FF3D00), effPulse)!,
+          Colors.transparent,
+        ],
+        stops: const [0.0, 1.0],
+      ).createShader(Rect.fromLTWH(0, h - edgeH, w, edgeH));
+    });
     canvas.drawRect(Rect.fromLTWH(0, h - edgeH, w, edgeH), _fill);
 
     _fill.shader = null;
@@ -6453,34 +6556,41 @@ class _GameWorldPainter extends CustomPainter {
 
     for (final f in c.particles.floatingTexts) {
       final alpha = (f.life / f.maxLife).clamp(0.0, 1.0);
-      _tp.text = TextSpan(
-        text: f.text,
-        style: TextStyle(
-          fontFamily: 'Rajdhani',
-          fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
-          color: _ca(f.color, alpha),
-          fontSize: f.isLarge ? 22.0 : 13.0,
-          fontWeight: FontWeight.w900,
-          shadows: const [
-            Shadow(color: Colors.black87, offset: Offset(1, 1.5)),
-          ],
-        ),
-      );
-      _tp.layout();
-      final textLeft = f.x - _tp.width / 2;
+      final alphaBucket = (alpha * 12).round().clamp(1, 12);
+      if (f.layoutWidth == null || f.lastAlphaBucket != alphaBucket) {
+        f.lastAlphaBucket = alphaBucket;
+        final effAlpha = alphaBucket / 12.0;
+        _tp.text = TextSpan(
+          text: f.text,
+          style: TextStyle(
+            fontFamily: 'Rajdhani',
+            fontFamilyFallback: const ['Segoe UI Emoji', 'Segoe UI Symbol'],
+            color: _ca(f.color, effAlpha),
+            fontSize: f.isLarge ? 22.0 : 13.0,
+            fontWeight: FontWeight.w900,
+            shadows: const [
+              Shadow(color: Colors.black87, offset: Offset(1, 1.5)),
+            ],
+          ),
+        );
+        _tp.layout();
+        f.layoutWidth = _tp.width;
+        f.layoutHeight = _tp.height;
+      }
+      final textLeft = f.x - f.layoutWidth! / 2;
       final textY = f.y;
       _tp.paint(canvas, Offset(textLeft, textY));
 
       // Draw companion pixel art icons on left & right flanks (replacing emoji with pure retro pixelart)
       if (f.iconType == FloatingIconType.flame) {
-        final iconY = textY + _tp.height / 2;
-        final iconDist = _tp.width / 2 + 13.0;
+        final iconY = textY + f.layoutHeight! / 2;
+        final iconDist = f.layoutWidth! / 2 + 13.0;
         final scale = f.isLarge ? 1.0 : 0.75;
         _drawPixelFlame(canvas, f.x - iconDist, iconY, alpha, scale, time);
         _drawPixelFlame(canvas, f.x + iconDist, iconY, alpha, scale, time);
       } else if (f.iconType == FloatingIconType.bolt) {
-        final iconY = textY + _tp.height / 2;
-        final iconDist = _tp.width / 2 + 12.0;
+        final iconY = textY + f.layoutHeight! / 2;
+        final iconDist = f.layoutWidth! / 2 + 12.0;
         final scale = f.isLarge ? 1.0 : 0.75;
         _drawPixelBolt(canvas, f.x - iconDist, iconY, alpha, scale);
         _drawPixelBolt(canvas, f.x + iconDist, iconY, alpha, scale);
@@ -6494,21 +6604,7 @@ class _GameWorldPainter extends CustomPainter {
     if (alpha <= 0.01) return;
     final flicker = (sin(time * 26.0) > 0.0) ? 1 : 0;
     final ps = (2.0 * scale).roundToDouble().clamp(1.0, 4.0);
-
-    // 8x10 pixel flame matrix (stepped crisp pixel art)
-    // 0 = none, 1 = crimson edge, 2 = orange flame body, 3 = bright white/gold hot core
-    final matrix = [
-      [0, 0, 0, flicker == 0 ? 1 : 0, flicker == 1 ? 1 : 0, 0, 0, 0],
-      [0, 0, 1, 1, 1, 0, 0, 0],
-      [0, 1, 2, 2, 2, 1, 0, 0],
-      [0, 1, 2, 3, 2, 1, 0, 1],
-      [1, 2, 3, 3, 3, 2, 1, 1],
-      [1, 2, 3, 3, 3, 2, 2, 1],
-      [1, 2, 2, 3, 3, 2, 2, 1],
-      [0, 1, 2, 2, 2, 2, 1, 0],
-      [0, 0, 1, 2, 2, 1, 0, 0],
-      [0, 0, 0, 1, 1, 0, 0, 0],
-    ];
+    final matrix = flicker == 0 ? _flameMatrix0 : _flameMatrix1;
 
     final totalW = 8 * ps;
     final totalH = 10 * ps;
