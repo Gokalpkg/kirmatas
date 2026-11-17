@@ -51,24 +51,26 @@ jobs:
 
           if [ -n "$P12_BASE64" ]; then
             python3 -c "
-import base64, os, sys
-p12_raw = os.environ.get('P12_BASE64', '').strip()
-if not p12_raw:
-    sys.exit(0)
-cert_path = os.environ['RUNNER_TEMP'] + '/cert.p12'
-raw_latin = p12_raw.encode('latin1')
-if len(raw_latin) > 2 and raw_latin[0] == 0x30 and raw_latin[1] == 0x82:
-    with open(cert_path, 'wb') as f:
-        f.write(raw_latin)
-    print('P12 recognized directly as raw binary')
-else:
-    if 'base64,' in p12_raw:
-        p12_raw = p12_raw.split('base64,')[1]
-    decoded = base64.b64decode(p12_raw, validate=False)
-    with open(cert_path, 'wb') as f:
-        f.write(decoded)
-    print(f'P12 successfully decoded from base64 ({len(decoded)} bytes)')
-"
+            import textwrap
+            exec(textwrap.dedent('''
+                import base64, os, sys
+                p12_raw = os.environ.get('P12_BASE64', '').strip()
+                if p12_raw:
+                    cert_path = os.environ['RUNNER_TEMP'] + '/cert.p12'
+                    raw_latin = p12_raw.encode('latin1')
+                    if len(raw_latin) > 2 and raw_latin[0] == 0x30 and raw_latin[1] == 0x82:
+                        with open(cert_path, 'wb') as f:
+                            f.write(raw_latin)
+                        print('P12 recognized directly as raw binary')
+                    else:
+                        if 'base64,' in p12_raw:
+                            p12_raw = p12_raw.split('base64,')[1]
+                        decoded = base64.b64decode(p12_raw, validate=False)
+                        with open(cert_path, 'wb') as f:
+                            f.write(decoded)
+                        print(f'P12 successfully decoded from base64 ({len(decoded)} bytes)')
+            '''))
+            "
             CLEAN_PW=$(echo "$P12_PASSWORD" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//')
             security import $RUNNER_TEMP/cert.p12 -k $KEYCHAIN_PATH -P "$CLEAN_PW" -A -t agg -f pkcs12 || \
             security import $RUNNER_TEMP/cert.p12 -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -A -t agg -f pkcs12 || \
